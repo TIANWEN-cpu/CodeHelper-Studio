@@ -94,8 +94,7 @@ function createWindow(): void {
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false
+      nodeIntegration: false
     }
   })
 
@@ -142,7 +141,13 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   setupApplicationMenu()
-  ipcMain.handle('open-external', (_event, url: string) => shell.openExternal(url))
+  ipcMain.handle('open-external', (_event, url: string) => {
+    if (typeof url !== 'string' || !url.trim()) throw new Error('参数无效: url')
+    url = url.trim().slice(0, 2000)
+    const parsed = new URL(url)
+    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('仅支持 http/https 链接')
+    return shell.openExternal(url)
+  })
   registerRunnerIPC()
   registerDatabaseIPC()
   registerAIIPC()

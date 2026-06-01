@@ -1,8 +1,27 @@
 import Database from 'better-sqlite3'
-import { spawn, spawnSync } from 'child_process'
+import { spawn, spawnSync, execFileSync } from 'child_process'
 import { mkdirSync, writeFileSync } from 'fs'
 import { app } from 'electron'
 import { join } from 'path'
+
+const MAX_OUTPUT_SIZE = 1024 * 1024 // 1MB
+const MAX_CONCURRENT = 5
+let activeProcesses = 0
+
+const resolvedPaths = new Map<string, string>()
+
+function resolveCommand(cmd: string): string {
+  const cached = resolvedPaths.get(cmd)
+  if (cached !== undefined) return cached
+  try {
+    const resolved = execFileSync('where', [cmd], { timeout: 5000, encoding: 'utf-8' }).trim().split(/\r?\n/)[0]
+    resolvedPaths.set(cmd, resolved)
+    return resolved
+  } catch {
+    resolvedPaths.set(cmd, cmd)
+    return cmd
+  }
+}
 
 export type CodeRunStage = 'compile' | 'run' | 'sql'
 
@@ -50,7 +69,7 @@ async function runCFamily(code: string, stdin: string | undefined, compiler: 'gc
   const outFile = join(tempDir, 'main.exe')
   writeFileSync(srcFile, code)
 
-  const compile = spawnSync(compiler, [srcFile, '-o', outFile], { timeout: 10000, shell: true })
+  const compile = spawnSync(resolveCommand(compiler), [srcFile, '-o', outFile], { timeout: 10000 })
   if (compile.status !== 0) {
     return {
       stdout: '',
@@ -70,7 +89,7 @@ async function runCSharp(code: string, stdin?: string) {
   const outFile = join(tempDir, 'Main.exe')
   writeFileSync(srcFile, code)
 
-  const compile = spawnSync('csc', ['/out:' + outFile, srcFile], { timeout: 10000, shell: true })
+  const compile = spawnSync(resolveCommand('csc'), ['/out:' + outFile, srcFile], { timeout: 10000 })
   if (compile.status !== 0) {
     return {
       stdout: '',
@@ -179,16 +198,34 @@ function runProcess(
   stdin?: string,
   timeout = 10000,
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  if (activeProcesses >= MAX_CONCURRENT) {
+    return Promise.resolve({
+      stdout: '',
+      stderr: '并发执行数量已达上限，请稍后重试',
+      exitCode: 1,
+    })
+  }
+
+  activeProcesses++
   return new Promise((resolve) => {
-    const proc = spawn(cmd, args, { timeout, shell: true })
+    let outputExceeded = false
+    const proc = spawn(resolveCommand(cmd), args, { timeout })
     let stdout = ''
     let stderr = ''
 
     proc.stdout.on('data', (chunk: Buffer) => {
       stdout += chunk.toString()
+      if (stdout.length > MAX_OUTPUT_SIZE && !outputExceeded) {
+        outputExceeded = true
+        proc.kill()
+      }
     })
     proc.stderr.on('data', (chunk: Buffer) => {
       stderr += chunk.toString()
+      if (stderr.length > MAX_OUTPUT_SIZE && !outputExceeded) {
+        outputExceeded = true
+        proc.kill()
+      }
     })
 
     if (stdin) {
@@ -197,9 +234,15 @@ function runProcess(
     }
 
     proc.on('close', (code) => {
-      resolve({ stdout, stderr, exitCode: code ?? 1 })
+      activeProcesses--
+      if (outputExceeded) {
+        resolve({ stdout: '', stderr: '输出超过1MB限制，进程已终止', exitCode: 1 })
+      } else {
+        resolve({ stdout, stderr, exitCode: code ?? 1 })
+      }
     })
     proc.on('error', (error) => {
+      activeProcesses--
       resolve({ stdout, stderr: error.message, exitCode: 1 })
     })
   })

@@ -34,70 +34,115 @@ interface MemoryInput {
 }
 
 export function registerChatIPC() {
-  const db = getDB()
-
-  const presetCount = (db.prepare('SELECT COUNT(*) as c FROM prompt_presets WHERE is_builtin = 1').get() as { c: number }).c
+  const presetCount = (getDB().prepare('SELECT COUNT(*) as c FROM prompt_presets WHERE is_builtin = 1').get() as { c: number }).c
   if (presetCount === 0) {
-    const stmt = db.prepare('INSERT INTO prompt_presets (name, prompt, is_builtin) VALUES (?,?,1)')
+    const stmt = getDB().prepare('INSERT INTO prompt_presets (name, prompt, is_builtin) VALUES (?,?,1)')
     for (const preset of BUILTIN_PRESETS) {
       stmt.run(preset.name, preset.prompt)
     }
   }
 
   ipcMain.handle('chat-sessions-list', () => {
-    return db.prepare('SELECT * FROM chat_sessions ORDER BY updated_at DESC').all()
+    return getDB().prepare('SELECT * FROM chat_sessions ORDER BY updated_at DESC').all()
   })
 
   ipcMain.handle('chat-session-create', (_e, args: { id: string; title?: string; system_prompt?: string }) => {
-    db.prepare('INSERT INTO chat_sessions (id, title, system_prompt) VALUES (?,?,?)').run(
+    if (!args || typeof args !== 'object') throw new Error('参数无效')
+    if (typeof args.id !== 'string' || !args.id.trim()) throw new Error('参数无效: id')
+    args.id = args.id.trim().slice(0, 200)
+    if (args.title !== undefined) {
+      if (typeof args.title !== 'string') throw new Error('参数无效: title')
+      args.title = args.title.trim().slice(0, 500)
+    }
+    if (args.system_prompt !== undefined) {
+      if (typeof args.system_prompt !== 'string') throw new Error('参数无效: system_prompt')
+      args.system_prompt = args.system_prompt.slice(0, 10000)
+    }
+    getDB().prepare('INSERT INTO chat_sessions (id, title, system_prompt) VALUES (?,?,?)').run(
       args.id, args.title || '新对话', args.system_prompt || '',
     )
-    return db.prepare('SELECT * FROM chat_sessions WHERE id = ?').get(args.id)
+    return getDB().prepare('SELECT * FROM chat_sessions WHERE id = ?').get(args.id)
   })
 
   ipcMain.handle('chat-session-update', (_e, id: string, updates: { title?: string; system_prompt?: string }) => {
+    if (typeof id !== 'string' || !id.trim()) throw new Error('参数无效: id')
+    if (!updates || typeof updates !== 'object') throw new Error('参数无效: updates')
+    id = id.trim().slice(0, 200)
     if (updates.title !== undefined) {
-      db.prepare('UPDATE chat_sessions SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(updates.title, id)
+      if (typeof updates.title !== 'string') throw new Error('参数无效: title')
+      updates.title = updates.title.trim().slice(0, 500)
     }
     if (updates.system_prompt !== undefined) {
-      db.prepare('UPDATE chat_sessions SET system_prompt = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(updates.system_prompt, id)
+      if (typeof updates.system_prompt !== 'string') throw new Error('参数无效: system_prompt')
+      updates.system_prompt = updates.system_prompt.slice(0, 10000)
+    }
+    if (updates.title !== undefined) {
+      getDB().prepare('UPDATE chat_sessions SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(updates.title, id)
+    }
+    if (updates.system_prompt !== undefined) {
+      getDB().prepare('UPDATE chat_sessions SET system_prompt = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(updates.system_prompt, id)
     }
   })
 
   ipcMain.handle('chat-session-delete', (_e, id: string) => {
-    db.prepare('DELETE FROM chat_history WHERE session_id = ?').run(id)
-    db.prepare('DELETE FROM chat_sessions WHERE id = ?').run(id)
+    if (typeof id !== 'string' || !id.trim()) throw new Error('参数无效: id')
+    id = id.trim().slice(0, 200)
+    getDB().prepare('DELETE FROM chat_history WHERE session_id = ?').run(id)
+    getDB().prepare('DELETE FROM chat_sessions WHERE id = ?').run(id)
   })
 
   ipcMain.handle('chat-messages-load', (_e, sessionId: string) => {
-    return db.prepare('SELECT * FROM chat_history WHERE session_id = ? ORDER BY created_at ASC, id ASC').all(sessionId)
+    if (typeof sessionId !== 'string' || !sessionId.trim()) throw new Error('参数无效: sessionId')
+    sessionId = sessionId.trim().slice(0, 200)
+    return getDB().prepare('SELECT * FROM chat_history WHERE session_id = ? ORDER BY created_at ASC, id ASC').all(sessionId)
   })
 
   ipcMain.handle('chat-message-save', (_e, msg: { session_id: string; role: string; content: string; model?: string }) => {
-    db.prepare('INSERT INTO chat_history (session_id, role, content, model) VALUES (?,?,?,?)').run(
+    if (!msg || typeof msg !== 'object') throw new Error('参数无效')
+    if (typeof msg.session_id !== 'string' || !msg.session_id.trim()) throw new Error('参数无效: session_id')
+    if (typeof msg.role !== 'string' || !['user', 'assistant', 'system'].includes(msg.role)) throw new Error('参数无效: role')
+    if (typeof msg.content !== 'string') throw new Error('参数无效: content')
+    msg.session_id = msg.session_id.trim().slice(0, 200)
+    msg.content = msg.content.slice(0, 100000)
+    if (msg.model !== undefined) {
+      if (typeof msg.model !== 'string') throw new Error('参数无效: model')
+      msg.model = msg.model.trim().slice(0, 200)
+    }
+    getDB().prepare('INSERT INTO chat_history (session_id, role, content, model) VALUES (?,?,?,?)').run(
       msg.session_id, msg.role, msg.content, msg.model || null,
     )
-    db.prepare('UPDATE chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(msg.session_id)
+    getDB().prepare('UPDATE chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(msg.session_id)
   })
 
   ipcMain.handle('chat-presets-list', () => {
-    return db.prepare('SELECT * FROM prompt_presets ORDER BY is_builtin DESC, id ASC').all()
+    return getDB().prepare('SELECT * FROM prompt_presets ORDER BY is_builtin DESC, id ASC').all()
   })
 
   ipcMain.handle('chat-preset-save', (_e, preset: { id?: number; name: string; prompt: string }) => {
+    if (!preset || typeof preset !== 'object') throw new Error('参数无效')
+    if (typeof preset.name !== 'string' || !preset.name.trim()) throw new Error('参数无效: name')
+    if (typeof preset.prompt !== 'string') throw new Error('参数无效: prompt')
+    preset.name = preset.name.trim().slice(0, 200)
+    preset.prompt = preset.prompt.slice(0, 10000)
+    if (preset.id !== undefined && (typeof preset.id !== 'number' || !Number.isFinite(preset.id) || preset.id < 1)) throw new Error('参数无效: id')
     if (preset.id) {
-      db.prepare('UPDATE prompt_presets SET name = ?, prompt = ? WHERE id = ? AND is_builtin = 0').run(preset.name, preset.prompt, preset.id)
+      getDB().prepare('UPDATE prompt_presets SET name = ?, prompt = ? WHERE id = ? AND is_builtin = 0').run(preset.name, preset.prompt, preset.id)
       return
     }
-    db.prepare('INSERT INTO prompt_presets (name, prompt) VALUES (?,?)').run(preset.name, preset.prompt)
+    getDB().prepare('INSERT INTO prompt_presets (name, prompt) VALUES (?,?)').run(preset.name, preset.prompt)
   })
 
   ipcMain.handle('chat-preset-delete', (_e, id: number) => {
-    db.prepare('DELETE FROM prompt_presets WHERE id = ? AND is_builtin = 0').run(id)
+    if (typeof id !== 'number' || !Number.isFinite(id) || id < 1) throw new Error('参数无效: id')
+    getDB().prepare('DELETE FROM prompt_presets WHERE id = ? AND is_builtin = 0').run(id)
   })
 
   ipcMain.handle('chat-memories-list', (_e, search?: string) => {
-    const rows = db.prepare('SELECT * FROM memories ORDER BY pinned DESC, updated_at DESC, id DESC').all() as MemoryRow[]
+    if (search !== undefined && search !== null) {
+      if (typeof search !== 'string') throw new Error('参数无效: search')
+      search = search.slice(0, 500)
+    }
+    const rows = getDB().prepare('SELECT * FROM memories ORDER BY pinned DESC, updated_at DESC, id DESC').all() as MemoryRow[]
     if (!search?.trim()) {
       return rows
     }
@@ -108,8 +153,16 @@ export function registerChatIPC() {
   })
 
   ipcMain.handle('chat-memory-save', (_e, memory: MemoryInput) => {
+    if (!memory || typeof memory !== 'object') throw new Error('参数无效')
+    if (typeof memory.content !== 'string' || !memory.content.trim()) throw new Error('参数无效: content')
+    memory.content = memory.content.trim().slice(0, 1000)
+    if (memory.id !== undefined && (typeof memory.id !== 'number' || !Number.isFinite(memory.id) || memory.id < 1)) throw new Error('参数无效: id')
+    if (memory.category !== undefined) { if (typeof memory.category !== 'string') throw new Error('参数无效: category'); memory.category = memory.category.trim().slice(0, 100) }
+    if (memory.source !== undefined) { if (typeof memory.source !== 'string') throw new Error('参数无效: source'); memory.source = memory.source.trim().slice(0, 100) }
+    if (memory.source_ref !== undefined) { if (typeof memory.source_ref !== 'string') throw new Error('参数无效: source_ref'); memory.source_ref = memory.source_ref.trim().slice(0, 500) }
+    if (memory.confidence !== undefined && (typeof memory.confidence !== 'number' || !Number.isFinite(memory.confidence))) throw new Error('参数无效: confidence')
     if (memory.id) {
-      db.prepare(
+      getDB().prepare(
         `UPDATE memories
          SET content = ?, category = ?, pinned = ?, enabled = ?, confidence = ?, updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
@@ -121,12 +174,12 @@ export function registerChatIPC() {
         memory.confidence ?? 1,
         memory.id,
       )
-      return db.prepare('SELECT * FROM memories WHERE id = ?').get(memory.id)
+      return getDB().prepare('SELECT * FROM memories WHERE id = ?').get(memory.id)
     }
 
-    const existing = db.prepare('SELECT * FROM memories WHERE lower(content) = lower(?) LIMIT 1').get(memory.content) as MemoryRow | undefined
+    const existing = getDB().prepare('SELECT * FROM memories WHERE lower(content) = lower(?) LIMIT 1').get(memory.content) as MemoryRow | undefined
     if (existing) {
-      db.prepare(
+      getDB().prepare(
         `UPDATE memories
          SET category = ?, pinned = ?, enabled = ?, confidence = ?, source = ?, source_ref = ?, updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
@@ -139,10 +192,10 @@ export function registerChatIPC() {
         memory.source_ref ?? existing.source_ref,
         existing.id,
       )
-      return db.prepare('SELECT * FROM memories WHERE id = ?').get(existing.id)
+      return getDB().prepare('SELECT * FROM memories WHERE id = ?').get(existing.id)
     }
 
-    const result = db.prepare(
+    const result = getDB().prepare(
       'INSERT INTO memories (content, category, source, source_ref, pinned, enabled, confidence) VALUES (?,?,?,?,?,?,?)',
     ).run(
       memory.content,
@@ -153,14 +206,22 @@ export function registerChatIPC() {
       memory.enabled === false ? 0 : 1,
       memory.confidence ?? 1,
     )
-    return db.prepare('SELECT * FROM memories WHERE id = ?').get(result.lastInsertRowid)
+    return getDB().prepare('SELECT * FROM memories WHERE id = ?').get(result.lastInsertRowid)
   })
 
   ipcMain.handle('chat-memory-delete', (_e, id: number) => {
-    db.prepare('DELETE FROM memories WHERE id = ?').run(id)
+    if (typeof id !== 'number' || !Number.isFinite(id) || id < 1) throw new Error('参数无效: id')
+    getDB().prepare('DELETE FROM memories WHERE id = ?').run(id)
   })
 
   ipcMain.handle('chat-memory-capture', (_e, args: { content: string; session_id?: string }) => {
+    if (!args || typeof args !== 'object') throw new Error('参数无效')
+    if (typeof args.content !== 'string' || !args.content.trim()) throw new Error('参数无效: content')
+    args.content = args.content.trim().slice(0, 10000)
+    if (args.session_id !== undefined) {
+      if (typeof args.session_id !== 'string') throw new Error('参数无效: session_id')
+      args.session_id = args.session_id.trim().slice(0, 200)
+    }
     return captureMemoriesFromMessage(args.content, args.session_id)
   })
 }

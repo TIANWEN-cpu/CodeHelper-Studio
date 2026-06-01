@@ -1,4 +1,5 @@
 import { Layout } from './components/Layout'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { useEffect } from 'react'
 import { useAppStore } from './stores/appStore'
 
@@ -9,7 +10,11 @@ function App() {
     void loadTheme()
   }, [loadTheme])
 
-  return <Layout />
+  return (
+    <ErrorBoundary>
+      <Layout />
+    </ErrorBoundary>
+  )
 }
 
 export default App

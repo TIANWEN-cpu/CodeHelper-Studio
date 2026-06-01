@@ -162,7 +162,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       apiMessages.push({ role: 'system', content: session.system_prompt })
     }
     for (const message of get().messages) {
-      if (message.content) {
+      if (message.content && message.id !== assistantMsg.id) {
         apiMessages.push({ role: message.role, content: message.content })
       }
     }
