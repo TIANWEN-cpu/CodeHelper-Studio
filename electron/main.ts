@@ -94,8 +94,22 @@ function createWindow(): void {
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      webSecurity: true,
+      navigateOnDragDrop: false
     }
+  })
+
+  // Content-Security-Policy: prevent XSS via inline script execution
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data https:; connect-src 'self' https:; font-src 'self' data:;"
+        ]
+      }
+    })
   })
 
   mainWindow.on('ready-to-show', () => {
@@ -128,7 +142,16 @@ function createWindow(): void {
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    try {
+      const parsed = new URL(details.url)
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        shell.openExternal(details.url)
+      } else {
+        console.warn(`[security] Blocked navigation to disallowed protocol: ${parsed.protocol} (${details.url})`)
+      }
+    } catch {
+      console.warn(`[security] Blocked navigation to invalid URL: ${details.url}`)
+    }
     return { action: 'deny' }
   })
 

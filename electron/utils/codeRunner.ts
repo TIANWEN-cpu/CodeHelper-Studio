@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import { spawn, spawnSync, execFileSync } from 'child_process'
 import { mkdirSync, writeFileSync } from 'fs'
 import { app } from 'electron'
+import { randomUUID } from 'crypto'
 import { join } from 'path'
 
 const MAX_OUTPUT_SIZE = 1024 * 1024 // 1MB
@@ -56,7 +57,7 @@ export async function runCodeSnippet(code: string, language: string, stdin?: str
 }
 
 async function runPython(code: string, stdin?: string) {
-  const file = join(getTempDir(), 'main.py')
+  const file = join(getTempDir(), `main_${randomUUID()}.py`)
   writeFileSync(file, code)
   const result = await runProcess('python', [file], stdin)
   return { ...result, stage: 'run' as const }
@@ -64,9 +65,10 @@ async function runPython(code: string, stdin?: string) {
 
 async function runCFamily(code: string, stdin: string | undefined, compiler: 'gcc' | 'g++') {
   const tempDir = getTempDir()
+  const uid = randomUUID()
   const ext = compiler === 'gcc' ? 'c' : 'cpp'
-  const srcFile = join(tempDir, `main.${ext}`)
-  const outFile = join(tempDir, 'main.exe')
+  const srcFile = join(tempDir, `main_${uid}.${ext}`)
+  const outFile = join(tempDir, `main_${uid}.exe`)
   writeFileSync(srcFile, code)
 
   const compile = spawnSync(resolveCommand(compiler), [srcFile, '-o', outFile], { timeout: 10000 })
@@ -85,8 +87,9 @@ async function runCFamily(code: string, stdin: string | undefined, compiler: 'gc
 
 async function runCSharp(code: string, stdin?: string) {
   const tempDir = getTempDir()
-  const srcFile = join(tempDir, 'Main.cs')
-  const outFile = join(tempDir, 'Main.exe')
+  const uid = randomUUID()
+  const srcFile = join(tempDir, `Main_${uid}.cs`)
+  const outFile = join(tempDir, `Main_${uid}.exe`)
   writeFileSync(srcFile, code)
 
   const compile = spawnSync(resolveCommand('csc'), ['/out:' + outFile, srcFile], { timeout: 10000 })
@@ -209,9 +212,16 @@ function runProcess(
   activeProcesses++
   return new Promise((resolve) => {
     let outputExceeded = false
-    const proc = spawn(resolveCommand(cmd), args, { timeout })
+    let decremented = false
+    let killed = false
+    const proc = spawn(resolveCommand(cmd), args)
     let stdout = ''
     let stderr = ''
+
+    const timer = setTimeout(() => {
+      killed = true
+      proc.kill()
+    }, timeout)
 
     proc.stdout.on('data', (chunk: Buffer) => {
       stdout += chunk.toString()
@@ -234,15 +244,25 @@ function runProcess(
     }
 
     proc.on('close', (code) => {
-      activeProcesses--
+      clearTimeout(timer)
+      if (!decremented) {
+        decremented = true
+        activeProcesses--
+      }
       if (outputExceeded) {
         resolve({ stdout: '', stderr: '输出超过1MB限制，进程已终止', exitCode: 1 })
+      } else if (killed) {
+        resolve({ stdout, stderr: `执行超时（${timeout}ms），进程已终止`, exitCode: 1 })
       } else {
         resolve({ stdout, stderr, exitCode: code ?? 1 })
       }
     })
     proc.on('error', (error) => {
-      activeProcesses--
+      clearTimeout(timer)
+      if (!decremented) {
+        decremented = true
+        activeProcesses--
+      }
       resolve({ stdout, stderr: error.message, exitCode: 1 })
     })
   })

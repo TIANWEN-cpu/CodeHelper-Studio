@@ -108,6 +108,29 @@ export function MessageBubble({ msg, isStreaming }: Props) {
               td({ children }) {
                 return <td className="border border-[var(--theme-border)] px-2 py-1">{children}</td>
               },
+              a({ href, children }) {
+                let allowed = false
+                try {
+                  const url = new URL(href ?? '')
+                  allowed = url.protocol === 'http:' || url.protocol === 'https:'
+                } catch {
+                  // relative URLs throw in new URL(); allow them
+                  allowed = true
+                }
+                if (!allowed) {
+                  return <span>{children}</span>
+                }
+                return (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[var(--theme-accent)] underline"
+                  >
+                    {children}
+                  </a>
+                )
+              },
             }}
           >
             {msg.content}

@@ -8,7 +8,12 @@ function encryptApiKey(apiKey: string): string {
 
 function decryptApiKey(value: string): string {
   if (value.startsWith('enc:')) {
-    return safeStorage.decryptString(Buffer.from(value.slice(4), 'base64')).toString()
+    try {
+      return safeStorage.decryptString(Buffer.from(value.slice(4), 'base64')).toString()
+    } catch (err) {
+      console.warn('decryptApiKey failed, data may be corrupted:', err)
+      return ''
+    }
   }
   return value
 }

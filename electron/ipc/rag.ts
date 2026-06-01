@@ -30,6 +30,12 @@ export function registerRAGIPC() {
       const ext = extname(filePath).toLowerCase()
       let content = ''
 
+      const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+      const stat = require('fs').statSync(filePath)
+      if (stat.size > MAX_FILE_SIZE) {
+        throw new Error(`文件 "${filename}" 超过大小限制（最大 10MB）`)
+      }
+
       if (ext === '.txt' || ext === '.md') {
         content = readFileSync(filePath, 'utf-8')
       } else if (ext === '.pdf') {
