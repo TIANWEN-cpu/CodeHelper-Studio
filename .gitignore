@@ -34,3 +34,9 @@ npm-debug.log*
 
 # Electron
 release/
+
+.claude/
+.claude.json
+**/.claude.json
+上下文/
+*.transcript

@@ -8,7 +8,7 @@
 **项目路径**: D:\codehelper  
 **交付形式**: Windows .exe 安装包（electron-builder 打包）  
 **界面语言**: 中文  
-**Git 用户**: SuLi (<redacted>)  
+**Git 用户**: <redacted>  
 
 ## 核心功能模块
 
