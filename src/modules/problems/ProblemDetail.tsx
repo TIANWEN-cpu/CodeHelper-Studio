@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import Editor from '@monaco-editor/react'
 import { Play, Send, CheckCircle2, XCircle, ChevronsRight, Bot, Link2, Clock3 } from 'lucide-react'
 import { useProblemStore } from '../../stores/problemStore'
-import { useAppStore } from '../../stores/appStore'
-import { monacoThemeByAppTheme, registerMonacoThemes } from '../../theme/monacoThemes'
+import { registerMonacoThemes, useMonacoTheme } from '../../utils/monacoConfig'
+import { typedInvoke } from '../../api/ipc'
+import { toErrorMessage } from '../../utils/errors'
 import {
   parseJsonArray,
   trackLabel,
@@ -34,7 +35,7 @@ export function ProblemDetail() {
     aiPanelOpen,
     setAIPanelOpen,
   } = useProblemStore()
-  const theme = useAppStore((state) => state.theme)
+  const monacoTheme = useMonacoTheme()
   const [code, setCode] = useState('')
   const [runOutput, setRunOutput] = useState<{ stdout: string; stderr: string } | null>(null)
   const [running, setRunning] = useState(false)
@@ -126,11 +127,13 @@ export function ProblemDetail() {
     setRunOutput(null)
 
     try {
-      const result = (await window.api.invoke('run-code', {
+      const result = await typedInvoke('run-code', {
         code,
         language: selectedLanguage,
-      })) as { stdout: string; stderr: string }
+      })
       setRunOutput(result)
+    } catch (error: unknown) {
+      setRunOutput({ stdout: '', stderr: toErrorMessage(error) })
     } finally {
       setRunning(false)
     }
@@ -256,7 +259,7 @@ export function ProblemDetail() {
                   href={activeProblem.official_url}
                   onClick={(event) => {
                     event.preventDefault()
-                    void window.api.invoke('open-external', activeProblem.official_url)
+                    void typedInvoke('open-external', activeProblem.official_url as string)
                   }}
                   className="inline-flex items-center gap-1.5 text-[var(--theme-accent)] hover:underline"
                 >
@@ -307,7 +310,7 @@ export function ProblemDetail() {
             <Editor
               key={`${activeProblem.id}-${selectedLanguage}`}
               beforeMount={registerMonacoThemes}
-              theme={monacoThemeByAppTheme[theme]}
+              theme={monacoTheme}
               language={selectedLanguage === 'cpp' ? 'cpp' : selectedLanguage}
               value={code}
               onChange={(value) => setCode(value ?? '')}

@@ -1,27 +1,6 @@
 import { ipcMain, safeStorage } from 'electron'
 import { getDB } from '../db/index'
-
-interface AIConfigRow {
-  id: number
-  name: string
-  api_key: string
-  base_url: string
-  model: string
-  is_default: number
-  task_type: string | null
-  created_at: string
-}
-
-interface AIConfig {
-  id: number
-  name: string
-  api_key: string
-  base_url: string
-  model: string
-  is_default: number
-  task_type: string | null
-  created_at: string
-}
+import type { AIConfigRow, AIConfigDecrypted } from '../types/db'
 
 function encryptApiKey(apiKey: string): string {
   if (!safeStorage.isEncryptionAvailable()) return apiKey
@@ -40,7 +19,7 @@ function decryptApiKey(value: string): string {
   return value
 }
 
-function decryptConfigRow(row: AIConfigRow | undefined | null): AIConfig | null {
+function decryptConfigRow(row: AIConfigRow | undefined | null): AIConfigDecrypted | null {
   if (!row) return null
   return { ...row, api_key: decryptApiKey(row.api_key) }
 }

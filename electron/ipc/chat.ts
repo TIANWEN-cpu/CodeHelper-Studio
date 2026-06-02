@@ -1,24 +1,10 @@
 import { ipcMain } from 'electron'
 import { getDB } from '../db/index'
-import {
-  BUILTIN_PRESETS,
-  extractMemoryCandidates,
-  buildSearchTerms,
-} from '../utils/chatHelpers'
+import { BUILTIN_PRESETS, extractMemoryCandidates, buildSearchTerms } from '../utils/chatHelpers'
+import type { MemoryRow } from '../types/db'
 
-export interface MemoryRow {
-  id: number
-  content: string
-  category: string
-  source: string
-  source_ref: string | null
-  pinned: number
-  enabled: number
-  confidence: number
-  created_at: string
-  updated_at: string
-  last_used_at: string | null
-}
+// Re-export for ai.ts which imports getRelevantMemories
+export type { MemoryRow }
 
 interface MemoryInput {
   id?: number

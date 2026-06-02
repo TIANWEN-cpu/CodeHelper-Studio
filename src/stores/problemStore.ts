@@ -1,66 +1,27 @@
 import { create } from 'zustand'
+import type { Problem, Submission, ProblemFilters } from '../types/problem'
+import { DEFAULT_LANGUAGE } from '../constants'
+import { toErrorMessage } from '../utils/errors'
+import { typedInvoke } from '../api/ipc'
 
-export interface Problem {
-  id: number
-  title: string
-  description: string
-  difficulty: string
-  source?: string
-  tracks?: string
-  platform?: string
-  mode?: string
-  exam_style?: string
-  year?: number | null
-  official_url?: string | null
-  estimated_time?: number | null
-  tags: string
-  languages: string
-  examples: string
-  test_cases: string
-  starter_code: string
-  solved: number
-}
-
-export interface SubmitResult {
-  status: string
-  passed: number
-  total: number
-  results: { input: string; expected: string; actual: string; passed: boolean }[]
-  duration: number
-}
+// Re-export types so existing consumers are not broken
+export type { Problem, Submission as SubmitResult }
+export type { ProblemFilters }
 
 interface ProblemState {
   problems: Problem[]
   activeProblemId: number | null
   activeProblem: Problem | null
-  submitResult: SubmitResult | null
+  submitResult: Submission | null
   submitting: boolean
   selectedLanguage: string
-  filters: {
-    difficulty?: string
-    tag?: string
-    search?: string
-    language?: string
-    source?: string
-    track?: string
-    platform?: string
-    mode?: string
-  }
+  filters: ProblemFilters
   listCollapsed: boolean
   aiPanelOpen: boolean
   aiPanelWidth: number
   loadProblems: () => Promise<void>
   setActiveProblem: (id: number) => Promise<void>
-  setFilters: (filters: {
-    difficulty?: string
-    tag?: string
-    search?: string
-    language?: string
-    source?: string
-    track?: string
-    platform?: string
-    mode?: string
-  }) => void
+  setFilters: (filters: ProblemFilters) => void
   setSelectedLanguage: (lang: string) => void
   setListCollapsed: (v: boolean) => void
   setAIPanelOpen: (v: boolean) => void
@@ -75,20 +36,20 @@ export const useProblemStore = create<ProblemState>((set, get) => ({
   activeProblem: null,
   submitResult: null,
   submitting: false,
-  selectedLanguage: 'python',
+  selectedLanguage: DEFAULT_LANGUAGE,
   filters: {},
   listCollapsed: false,
   aiPanelOpen: false,
   aiPanelWidth: 420,
 
   loadProblems: async () => {
-    const problems = (await window.api.invoke('problems-list', get().filters)) as Problem[]
+    const problems = await typedInvoke('problems-list', get().filters)
     set({ problems })
   },
 
   setActiveProblem: async (id: number) => {
-    const problem = (await window.api.invoke('problems-get', id)) as Problem
-    set({ activeProblemId: id, activeProblem: problem, submitResult: null })
+    const problem = await typedInvoke('problems-get', id)
+    set({ activeProblemId: id, activeProblem: problem ?? null, submitResult: null })
   },
 
   setFilters: (filters) => {
@@ -106,13 +67,24 @@ export const useProblemStore = create<ProblemState>((set, get) => ({
     if (!activeProblemId) return
     set({ submitting: true, submitResult: null })
     try {
-      const result = (await window.api.invoke('problems-submit', {
+      const result = await typedInvoke('problems-submit', {
         problemId: activeProblemId,
         code,
         language,
-      })) as SubmitResult
+      })
       set({ submitResult: result })
       get().loadProblems()
+    } catch (error: unknown) {
+      set({
+        submitResult: {
+          status: 'error',
+          passed: 0,
+          total: 0,
+          results: [],
+          duration: 0,
+        },
+      })
+      console.error('[ProblemStore.submit]', toErrorMessage(error))
     } finally {
       set({ submitting: false })
     }

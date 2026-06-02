@@ -1,29 +1,24 @@
+import { useAppStore } from '../../stores/appStore'
+import type { SearchResult, Document } from '../../types/knowledge'
 import { useEffect, useState } from 'react'
 import { Upload, Trash2, Search, FileText } from 'lucide-react'
-
-interface Doc {
-  id: number
-  filename: string
-  file_type: string
-  chunk_count: number
-  created_at: string
-}
-
-interface SearchResult {
-  content: string
-  filename: string
-  score: number
-}
+import { typedInvoke } from '../../api/ipc'
+import { toErrorMessage } from '../../utils/errors'
 
 export function KnowledgeView() {
-  const [docs, setDocs] = useState<Doc[]>([])
+  const [docs, setDocs] = useState<Document[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const loadDocs = async () => {
-    const data = (await window.api.invoke('knowledge-list')) as Doc[]
-    setDocs(data)
+    try {
+      const data = await typedInvoke('knowledge-list')
+      setDocs(data)
+    } catch (err) {
+      setError(toErrorMessage(err))
+    }
   }
 
   useEffect(() => {
@@ -32,11 +27,14 @@ export function KnowledgeView() {
 
   const handleUpload = async () => {
     setUploading(true)
+    setError(null)
     try {
-      const result = await window.api.invoke('knowledge-upload')
+      const result = await typedInvoke('knowledge-upload')
       if (result) {
         await loadDocs()
       }
+    } catch (err) {
+      setError(toErrorMessage(err))
     } finally {
       setUploading(false)
     }
@@ -46,13 +44,22 @@ export function KnowledgeView() {
     if (!searchQuery.trim()) {
       return
     }
-    const results = (await window.api.invoke('knowledge-search', searchQuery)) as SearchResult[]
-    setSearchResults(results)
+    setError(null)
+    try {
+      const results = await typedInvoke('knowledge-search', searchQuery)
+      setSearchResults(results)
+    } catch (err) {
+      setError(toErrorMessage(err))
+    }
   }
 
   const handleDelete = async (id: number) => {
-    await window.api.invoke('knowledge-delete', id)
-    await loadDocs()
+    try {
+      await typedInvoke('knowledge-delete', id)
+      await loadDocs()
+    } catch (err) {
+      setError(toErrorMessage(err))
+    }
   }
 
   return (
@@ -73,6 +80,12 @@ export function KnowledgeView() {
           {uploading ? '上传中...' : '上传文件'}
         </button>
       </div>
+
+      {error && (
+        <div className="mb-4 rounded-2xl bg-[var(--theme-danger-soft)] px-4 py-3 text-sm text-[var(--theme-danger)]">
+          {error}
+        </div>
+      )}
 
       <div className="max-w-5xl space-y-6">
         <div className="ui-card p-4">

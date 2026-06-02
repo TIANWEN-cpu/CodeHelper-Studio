@@ -1,20 +1,15 @@
 import { create } from 'zustand'
+import type { ChatConfig } from '../types/chat'
+import { typedInvoke } from '../api/ipc'
 
-export interface AIConfig {
-  id?: number
-  name: string
-  api_key: string
-  base_url: string
-  model: string
-  is_default: number
-  task_type: string | null
-}
+// Re-export type so existing consumers are not broken
+export type { ChatConfig as AIConfig }
 
 interface SettingsState {
-  aiConfigs: AIConfig[]
+  aiConfigs: ChatConfig[]
   loading: boolean
   loadConfigs: () => Promise<void>
-  saveConfig: (config: AIConfig) => Promise<void>
+  saveConfig: (config: ChatConfig) => Promise<void>
   deleteConfig: (id: number) => Promise<void>
 }
 
@@ -23,15 +18,15 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   loading: false,
   loadConfigs: async () => {
     set({ loading: true })
-    const configs = (await window.api.invoke('db-get-ai-configs')) as AIConfig[]
+    const configs = await typedInvoke('db-get-ai-configs')
     set({ aiConfigs: configs, loading: false })
   },
   saveConfig: async (config) => {
-    await window.api.invoke('db-save-ai-config', config)
+    await typedInvoke('db-save-ai-config', config)
     await get().loadConfigs()
   },
   deleteConfig: async (id) => {
-    await window.api.invoke('db-delete-ai-config', id)
+    await typedInvoke('db-delete-ai-config', id)
     await get().loadConfigs()
   },
 }))

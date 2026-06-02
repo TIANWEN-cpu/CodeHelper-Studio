@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { Send, Bot, User, X, Lightbulb, Code2, Bug } from 'lucide-react'
 import { useProblemStore } from '../../stores/problemStore'
+import { typedInvoke, typedOn } from '../../api/ipc'
+import { toErrorMessage } from '../../utils/errors'
 
 interface Msg {
   id: string
@@ -31,8 +33,7 @@ export function AISidebar() {
   const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const unsubChunk = window.api.on('ai-chat-chunk', (payload: unknown) => {
-      const data = payload as { requestId: string; chunk: string }
+    const unsubChunk = typedOn('ai-chat-chunk', (data) => {
       if (data.requestId !== requestIdRef.current) {
         return
       }
@@ -47,8 +48,7 @@ export function AISidebar() {
       })
     })
 
-    const unsubDone = window.api.on('ai-chat-done', (payload: unknown) => {
-      const data = payload as { requestId: string }
+    const unsubDone = typedOn('ai-chat-done', (data) => {
       if (data.requestId !== requestIdRef.current) {
         return
       }
@@ -124,7 +124,7 @@ export function AISidebar() {
     ]
 
     try {
-      await window.api.invoke('ai-chat', {
+      await typedInvoke('ai-chat', {
         messages: apiMessages,
         requestId,
         includeMemories: false,
@@ -134,7 +134,7 @@ export function AISidebar() {
         const next = [...prev]
         const last = next[next.length - 1]
         if (last) {
-          next[next.length - 1] = { ...last, content: String(error) }
+          next[next.length - 1] = { ...last, content: toErrorMessage(error) }
         }
         return next
       })

@@ -1,7 +1,9 @@
 import { create } from 'zustand'
+import { DEFAULT_THEME, THEMES, THEME_SETTING_KEY } from '../constants'
+import { typedInvoke } from '../api/ipc'
 
 export type ModuleId = 'problems' | 'editor' | 'ai-chat' | 'mistakes' | 'knowledge' | 'settings'
-export type ThemeId = 'mocha' | 'fjord' | 'ember'
+export type ThemeId = (typeof THEMES)[number]
 
 interface AppState {
   activeModule: ModuleId
@@ -11,24 +13,23 @@ interface AppState {
   loadTheme: () => Promise<void>
 }
 
-const THEME_SETTING_KEY = 'ui-theme'
-
 function applyTheme(theme: ThemeId) {
   document.documentElement.dataset.theme = theme
 }
 
 export const useAppStore = create<AppState>((set) => ({
   activeModule: 'problems',
-  theme: 'mocha',
+  theme: DEFAULT_THEME,
   setActiveModule: (id) => set({ activeModule: id }),
   setTheme: async (theme) => {
     applyTheme(theme)
     set({ theme })
-    await window.api.invoke('db-set-setting', THEME_SETTING_KEY, theme)
+    await typedInvoke('db-set-setting', THEME_SETTING_KEY, theme)
   },
   loadTheme: async () => {
-    const saved = (await window.api.invoke('db-get-setting', THEME_SETTING_KEY)) as ThemeId | null
-    const theme = saved && ['mocha', 'fjord', 'ember'].includes(saved) ? saved : 'mocha'
+    const saved = await typedInvoke('db-get-setting', THEME_SETTING_KEY)
+    const theme: ThemeId =
+      saved && (THEMES as readonly string[]).includes(saved) ? (saved as ThemeId) : DEFAULT_THEME
     applyTheme(theme)
     set({ theme })
   },

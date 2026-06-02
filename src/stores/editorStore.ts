@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { IPC, DEFAULT_LANGUAGE } from '../constants'
 
 export interface EditorTab {
   id: string
@@ -21,7 +22,7 @@ export const useEditorStore = create<EditorState>((set) => ({
     {
       id: 'welcome',
       filename: 'welcome.py',
-      language: 'python',
+      language: DEFAULT_LANGUAGE,
       content:
         '# 欢迎使用 CodeHelper!\n# 在这里编写你的代码\n\ndef hello():\n    print("Hello, CodeHelper!")\n\nhello()\n',
     },

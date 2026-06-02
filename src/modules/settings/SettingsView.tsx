@@ -13,6 +13,7 @@ import { useSettingsStore, type AIConfig } from '../../stores/settingsStore'
 import { useChatStore, type MemoryItem } from '../../stores/chatStore'
 import { useAppStore, type ThemeId } from '../../stores/appStore'
 import { themeOptions } from '../../theme/themes'
+import { typedInvoke } from '../../api/ipc'
 
 const emptyConfig: AIConfig = {
   name: '',
@@ -105,10 +106,10 @@ export function SettingsView() {
     setFetchError('')
 
     try {
-      const models = (await window.api.invoke('ai-fetch-models', {
+      const models = await typedInvoke('ai-fetch-models', {
         api_key: editing.api_key,
         base_url: editing.base_url,
-      })) as string[]
+      })
       setModelList(models)
 
       if (models.length > 0 && !editing.model) {
@@ -177,13 +178,13 @@ export function SettingsView() {
     if (!editingPreset || !editingPreset.name || !editingPreset.prompt) {
       return
     }
-    await window.api.invoke('chat-preset-save', editingPreset)
+    await typedInvoke('chat-preset-save', editingPreset)
     setEditingPreset(null)
     await loadPresets()
   }
 
   const handleDeletePreset = async (id: number) => {
-    await window.api.invoke('chat-preset-delete', id)
+    await typedInvoke('chat-preset-delete', id)
     await loadPresets()
   }
 

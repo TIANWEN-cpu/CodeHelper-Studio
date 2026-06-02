@@ -1,30 +1,32 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Send, Bot, Settings, Brain } from 'lucide-react'
 import { useChatStore } from '../../stores/chatStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useAppStore } from '../../stores/appStore'
+import { useAIStream } from '../../hooks/useAIStream'
 import { SessionList } from './SessionList'
 import { MessageBubble } from './MessageBubble'
 
 export function ChatView() {
-  const {
-    messages,
-    streaming,
-    error,
-    activeSessionId,
-    sendMessage,
-    appendChunk,
-    finishStream,
-    loadSessions,
-    loadPresets,
-    loadMemories,
-    memories,
-  } = useChatStore()
-  const { aiConfigs, loadConfigs } = useSettingsStore()
-  const { setActiveModule } = useAppStore()
+  const messages = useChatStore((s) => s.messages)
+  const streaming = useChatStore((s) => s.streaming)
+  const error = useChatStore((s) => s.error)
+  const activeSessionId = useChatStore((s) => s.activeSessionId)
+  const sendMessage = useChatStore((s) => s.sendMessage)
+  const loadSessions = useChatStore((s) => s.loadSessions)
+  const loadPresets = useChatStore((s) => s.loadPresets)
+  const loadMemories = useChatStore((s) => s.loadMemories)
+  const memories = useChatStore((s) => s.memories)
+
+  const aiConfigs = useSettingsStore((s) => s.aiConfigs)
+  const loadConfigs = useSettingsStore((s) => s.loadConfigs)
+
+  const setActiveModule = useAppStore((s) => s.setActiveModule)
+
+  const { scrollRef: messagesEndRef } = useAIStream()
+
   const [input, setInput] = useState('')
   const [selectedConfigId, setSelectedConfigId] = useState<number | null>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     void loadConfigs()
@@ -41,24 +43,6 @@ export function ChatView() {
       }
     }
   }, [aiConfigs, selectedConfigId])
-
-  useEffect(() => {
-    const unsubChunk = window.api.on('ai-chat-chunk', (payload: unknown) => {
-      appendChunk(payload as { requestId: string; chunk: string })
-    })
-    const unsubDone = window.api.on('ai-chat-done', (payload: unknown) => {
-      void finishStream(payload as { requestId: string; content: string })
-    })
-
-    return () => {
-      unsubChunk()
-      unsubDone()
-    }
-  }, [])
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
 
   const handleSend = () => {
     const text = input.trim()
@@ -138,7 +122,7 @@ export function ChatView() {
           {activeSessionId && messages.length === 0 && (
             <EmptyState
               title="这一轮对话还没有消息"
-              description="试试输入“记住我更喜欢先看思路再看代码”，以后新会话也会带上这条记忆。"
+              description={'试试输入"记住我更喜欢先看思路再看代码"，以后新会话也会带上这条记忆。'}
             />
           )}
 

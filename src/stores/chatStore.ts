@@ -1,55 +1,24 @@
 import { create } from 'zustand'
+import type {
+  Message,
+  Session,
+  PromptPreset,
+  MemoryItem,
+  StreamChunkPayload,
+  StreamDonePayload,
+} from '../types/chat'
+import { SESSION_TITLE_MAX_LENGTH } from '../constants'
+import { toErrorMessage } from '../utils/errors'
+import { typedInvoke } from '../api/ipc'
 
-export interface ChatMessage {
-  id: string
-  role: 'user' | 'assistant' | 'system'
-  content: string
-  timestamp: number
-}
-
-export interface ChatSession {
-  id: string
-  title: string
-  system_prompt: string
-  created_at: string
-  updated_at: string
-}
-
-export interface PromptPreset {
-  id: number
-  name: string
-  prompt: string
-  is_builtin: number
-}
-
-export interface MemoryItem {
-  id: number
-  content: string
-  category: string
-  source: string
-  source_ref: string | null
-  pinned: number
-  enabled: number
-  confidence: number
-  created_at: string
-  updated_at: string
-  last_used_at: string | null
-}
-
-interface StreamChunkPayload {
-  requestId: string
-  chunk: string
-}
-
-interface StreamDonePayload {
-  requestId: string
-  content: string
-}
+// Re-export types so existing consumers are not broken
+export type { Message as ChatMessage, Session as ChatSession, PromptPreset, MemoryItem }
+export type { StreamChunkPayload, StreamDonePayload }
 
 interface ChatState {
-  sessions: ChatSession[]
+  sessions: Session[]
   activeSessionId: string | null
-  messages: ChatMessage[]
+  messages: Message[]
   streaming: boolean
   currentRequestId: string | null
   error: string | null
@@ -80,13 +49,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
   memories: [],
 
   loadSessions: async () => {
-    const sessions = (await window.api.invoke('chat-sessions-list')) as ChatSession[]
+    const sessions = await typedInvoke('chat-sessions-list')
     set({ sessions })
   },
 
   createSession: async (systemPrompt?: string, title?: string) => {
     const id = `session-${Date.now()}`
-    await window.api.invoke('chat-session-create', {
+    await typedInvoke('chat-session-create', {
       id,
       title: title || '新对话',
       system_prompt: systemPrompt || '',
@@ -97,13 +66,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   switchSession: async (id: string) => {
-    const rows = (await window.api.invoke('chat-messages-load', id)) as Array<{
-      id: number
-      role: ChatMessage['role']
-      content: string
-      created_at: string
-    }>
-    const messages: ChatMessage[] = rows.map((row) => ({
+    const rows = await typedInvoke('chat-messages-load', id)
+    const messages: Message[] = rows.map((row) => ({
       id: `msg-${row.id}`,
       role: row.role,
       content: row.content,
@@ -113,7 +77,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   deleteSession: async (id: string) => {
-    await window.api.invoke('chat-session-delete', id)
+    await typedInvoke('chat-session-delete', id)
     const { activeSessionId } = get()
     await get().loadSessions()
     if (activeSessionId === id) {
@@ -127,7 +91,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   renameSession: async (id: string, title: string) => {
-    await window.api.invoke('chat-session-update', id, { title })
+    await typedInvoke('chat-session-update', id, { title })
     await get().loadSessions()
   },
 
@@ -138,13 +102,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     const requestId = buildRequestId()
-    const userMsg: ChatMessage = {
+    const userMsg: Message = {
       id: `msg-${Date.now()}`,
       role: 'user',
       content,
       timestamp: Date.now(),
     }
-    const assistantMsg: ChatMessage = {
+    const assistantMsg: Message = {
       id: `msg-${Date.now() + 1}`,
       role: 'assistant',
       content: '',
@@ -158,16 +122,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
       error: null,
     }))
 
-    await window.api.invoke('chat-message-save', {
+    await typedInvoke('chat-message-save', {
       session_id: activeSessionId,
       role: 'user',
       content,
     })
-    await window.api.invoke('chat-memory-capture', { content, session_id: activeSessionId })
+    await typedInvoke('chat-memory-capture', { content, session_id: activeSessionId })
 
     const session = get().sessions.find((item) => item.id === activeSessionId)
     if (session && session.title === '新对话') {
-      const title = content.slice(0, 30) + (content.length > 30 ? '...' : '')
+      const title =
+        content.slice(0, SESSION_TITLE_MAX_LENGTH) +
+        (content.length > SESSION_TITLE_MAX_LENGTH ? '...' : '')
       await get().renameSession(activeSessionId, title)
     }
 
@@ -182,20 +148,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     try {
-      await window.api.invoke('ai-chat', {
+      await typedInvoke('ai-chat', {
         messages: apiMessages,
         configId,
         requestId,
         includeMemories: true,
       })
     } catch (error: unknown) {
+      const errMsg = toErrorMessage(error)
       set((state) => ({
-        error: String(error),
+        error: errMsg,
         streaming: false,
         currentRequestId: null,
         messages: state.messages.map((message, index) =>
           index === state.messages.length - 1 && message.role === 'assistant'
-            ? { ...message, content: String(error) }
+            ? { ...message, content: errMsg }
             : message,
         ),
       }))
@@ -227,7 +194,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const assistantContent = payload.content || (last?.role === 'assistant' ? last.content : '')
 
     if (assistantContent && activeSessionId) {
-      await window.api.invoke('chat-message-save', {
+      await typedInvoke('chat-message-save', {
         session_id: activeSessionId,
         role: 'assistant',
         content: assistantContent,
@@ -240,22 +207,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   loadPresets: async () => {
-    const presets = (await window.api.invoke('chat-presets-list')) as PromptPreset[]
+    const presets = await typedInvoke('chat-presets-list')
     set({ presets })
   },
 
   loadMemories: async (search?: string) => {
-    const memories = (await window.api.invoke('chat-memories-list', search)) as MemoryItem[]
+    const memories = await typedInvoke('chat-memories-list', search)
     set({ memories })
   },
 
   saveMemory: async (memory) => {
-    await window.api.invoke('chat-memory-save', memory)
+    await typedInvoke('chat-memory-save', memory)
     await get().loadMemories()
   },
 
   deleteMemory: async (id) => {
-    await window.api.invoke('chat-memory-delete', id)
+    await typedInvoke('chat-memory-delete', id)
     await get().loadMemories()
   },
 }))

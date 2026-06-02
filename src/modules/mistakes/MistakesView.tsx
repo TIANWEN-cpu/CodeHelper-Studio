@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { AlertTriangle, Bot, RefreshCw, Trash2 } from 'lucide-react'
 import { useAppStore } from '../../stores/appStore'
 import { useProblemStore } from '../../stores/problemStore'
+import { typedInvoke } from '../../api/ipc'
+import { toErrorMessage } from '../../utils/errors'
 
 interface Mistake {
   id: number
@@ -30,8 +32,8 @@ export function MistakesView() {
   const { setActiveProblem } = useProblemStore()
 
   const loadMistakes = async () => {
-    const data = (await window.api.invoke('mistakes-list')) as Mistake[]
-    setMistakes(data)
+    const data = await typedInvoke('mistakes-list')
+    setMistakes(data as Mistake[])
   }
 
   useEffect(() => {
@@ -61,26 +63,26 @@ ${mistake.correct_code}
     : ''
 }请用中文回答，简洁明了。`
 
-      const result = (await window.api.invoke('ai-chat', {
+      const result = await typedInvoke('ai-chat', {
         messages: [{ role: 'user', content: prompt }],
         requestId: `mistake-${mistake.id}-${Date.now()}`,
         includeMemories: false,
-      })) as { content?: string }
+      })
 
       if (result.content?.trim()) {
-        await window.api.invoke('mistakes-update-analysis', mistake.id, result.content)
+        await typedInvoke('mistakes-update-analysis', mistake.id, result.content)
       }
 
       await loadMistakes()
     } catch (error) {
-      console.error(error)
+      console.error(toErrorMessage(error))
     } finally {
       setAnalyzing(null)
     }
   }
 
   const handleDelete = async (id: number) => {
-    await window.api.invoke('mistakes-delete', id)
+    await typedInvoke('mistakes-delete', id)
     await loadMistakes()
   }
 

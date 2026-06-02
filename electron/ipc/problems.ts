@@ -16,6 +16,7 @@ import {
   mergeErrorTypes,
   normalizeProblemSeed,
 } from '../utils/problemMeta'
+import type { ProblemRow, MistakeRow } from '../types/db'
 
 export function registerProblemsIPC() {
   setTimeout(() => {
@@ -305,36 +306,6 @@ function syncProblems() {
       console.error(`Failed to sync problems from ${file}:`, err)
     }
   }
-}
-
-interface ProblemRow {
-  id: number
-  title: string
-  description: string
-  difficulty: string
-  tags: string
-  languages: string
-  examples: string
-  test_cases: string
-  starter_code: string
-  source: string
-  tracks: string
-  platform: string
-  mode: string
-  exam_style: string
-  year: number | null
-  official_url: string | null
-  estimated_time: number | null
-}
-
-interface MistakeRow {
-  id: number
-  problem_id: number
-  last_wrong_code: string
-  error_types: string
-  error_count: number
-  correct_code: string | null
-  updated_at: string
 }
 
 function resolveProblemDirectory() {

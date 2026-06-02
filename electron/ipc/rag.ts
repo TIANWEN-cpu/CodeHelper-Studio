@@ -3,14 +3,7 @@ import { getDB } from '../db/index'
 import { readFileSync, statSync } from 'fs'
 import { basename, extname } from 'path'
 import { splitIntoChunks, escapeRegExp } from '../utils/textUtils'
-
-interface KnowledgeChunkRow {
-  id: number
-  doc_id: number
-  content: string
-  chunk_index: number
-  filename: string
-}
+import type { KnowledgeChunkRow } from '../types/db'
 
 export function registerRAGIPC() {
   ipcMain.handle('knowledge-upload', async () => {

@@ -73,13 +73,13 @@ npm run dev
 
 除 Node.js 外，代码运行器功能需要以下编译器/运行时：
 
-| 语言 | 依赖 | 安装说明 |
-|------|------|----------|
-| Python | `python` (>= 3.8) | [python.org](https://www.python.org/downloads/) 或系统包管理器 |
-| C / C++ | `gcc` / `g++` | Windows: MinGW-w64; macOS: `xcode-select --install`; Linux: `build-essential` |
-| Java | `javac` / `java` (>= 11) | [Adoptium](https://adoptium.net/) |
-| C# | `dotnet` (>= 6) | [dotnet.microsoft.com](https://dotnet.microsoft.com/download) |
-| JavaScript | `node` | 已随 Node.js 安装 |
+| 语言       | 依赖                     | 安装说明                                                                      |
+| ---------- | ------------------------ | ----------------------------------------------------------------------------- |
+| Python     | `python` (>= 3.8)        | [python.org](https://www.python.org/downloads/) 或系统包管理器                |
+| C / C++    | `gcc` / `g++`            | Windows: MinGW-w64; macOS: `xcode-select --install`; Linux: `build-essential` |
+| Java       | `javac` / `java` (>= 11) | [Adoptium](https://adoptium.net/)                                             |
+| C#         | `dotnet` (>= 6)          | [dotnet.microsoft.com](https://dotnet.microsoft.com/download)                 |
+| JavaScript | `node`                   | 已随 Node.js 安装                                                             |
 
 > 未安装对应编译器的语言仍可正常使用其他功能，仅代码运行器会提示找不到命令。
 
@@ -95,24 +95,24 @@ npm run build:win
 
 打包产物位置：
 
-| 文件 | 说明 |
-|------|------|
-| `dist-release/CodeHelper Setup 1.0.0.exe` | NSIS 安装包 |
-| `dist-release/win-unpacked/CodeHelper.exe` | 免安装版 |
+| 文件                                       | 说明        |
+| ------------------------------------------ | ----------- |
+| `dist-release/CodeHelper Setup 1.0.0.exe`  | NSIS 安装包 |
+| `dist-release/win-unpacked/CodeHelper.exe` | 免安装版    |
 
 ## 技术栈
 
-| 类别 | 技术 |
-|------|------|
-| 桌面框架 | Electron 41 |
-| 前端框架 | React 19 + TypeScript 6 |
-| 构建工具 | Vite 8 + electron-vite |
-| 状态管理 | Zustand 5 |
-| 代码编辑器 | Monaco Editor 0.55 |
-| 样式方案 | TailwindCSS 4 |
-| 数据库 | better-sqlite3 (SQLite) |
-| 图标库 | Lucide React |
-| 文档渲染 | react-markdown + remark-gfm |
+| 类别       | 技术                        |
+| ---------- | --------------------------- |
+| 桌面框架   | Electron 41                 |
+| 前端框架   | React 19 + TypeScript 6     |
+| 构建工具   | Vite 8 + electron-vite      |
+| 状态管理   | Zustand 5                   |
+| 代码编辑器 | Monaco Editor 0.55          |
+| 样式方案   | TailwindCSS 4               |
+| 数据库     | better-sqlite3 (SQLite)     |
+| 图标库     | Lucide React                |
+| 文档渲染   | react-markdown + remark-gfm |
 
 ## 项目结构
 
@@ -184,18 +184,18 @@ codehelper/
 
 SQLite 数据库共 10 张表：
 
-| 表名 | 用途 |
-|------|------|
-| `problems` | 题目信息 |
-| `submissions` | 代码提交记录 |
-| `mistakes` | 错题记录 |
-| `ai_configs` | AI 模型配置 |
-| `chat_sessions` | 聊天会话 |
-| `chat_history` | 聊天消息历史 |
-| `prompt_presets` | 预设提示词 |
-| `knowledge_docs` | 知识库文档 |
+| 表名               | 用途         |
+| ------------------ | ------------ |
+| `problems`         | 题目信息     |
+| `submissions`      | 代码提交记录 |
+| `mistakes`         | 错题记录     |
+| `ai_configs`       | AI 模型配置  |
+| `chat_sessions`    | 聊天会话     |
+| `chat_history`     | 聊天消息历史 |
+| `prompt_presets`   | 预设提示词   |
+| `knowledge_docs`   | 知识库文档   |
 | `knowledge_chunks` | 文档分块向量 |
-| `settings` | 用户设置 |
+| `settings`         | 用户设置     |
 
 ## 安全特性
 
@@ -213,17 +213,17 @@ CodeHelper 在安全性方面采取了多项加固措施：
 
 默认采用 **Catppuccin Mocha** 主题：
 
-| 用途 | 颜色值 |
-|------|--------|
-| 主背景 | `#1e1e2e` |
-| 侧边栏 | `#181825` |
-| 强调色 | `#cba6f7` (紫色) |
-| 正文 | `#cdd6f4` |
-| 次要文字 | `#6c7086` |
-| 成功 | `#a6e3a1` |
-| 警告 | `#f9e2af` |
-| 错误 | `#f38ba8` |
-| 信息 | `#89b4fa` |
+| 用途     | 颜色值           |
+| -------- | ---------------- |
+| 主背景   | `#1e1e2e`        |
+| 侧边栏   | `#181825`        |
+| 强调色   | `#cba6f7` (紫色) |
+| 正文     | `#cdd6f4`        |
+| 次要文字 | `#6c7086`        |
+| 成功     | `#a6e3a1`        |
+| 警告     | `#f9e2af`        |
+| 错误     | `#f38ba8`        |
+| 信息     | `#89b4fa`        |
 
 ## 测试
 
@@ -242,12 +242,12 @@ npm run test:ui
 
 测试文件位于 `tests/` 目录：
 
-| 测试文件 | 覆盖模块 |
-|----------|----------|
-| `labels.test.ts` | 标签映射函数 (`src/utils/labels.ts`) |
-| `sqlUtils.test.ts` | SQL 分割与判断 (`electron/utils/sqlUtils.ts`) |
-| `problemMeta.test.ts` | 题目元数据推断 (`electron/utils/problemMeta.ts`) |
-| `textUtils.test.ts` | RAG 文本分块与正则转义 (`electron/utils/textUtils.ts`) |
+| 测试文件              | 覆盖模块                                               |
+| --------------------- | ------------------------------------------------------ |
+| `labels.test.ts`      | 标签映射函数 (`src/utils/labels.ts`)                   |
+| `sqlUtils.test.ts`    | SQL 分割与判断 (`electron/utils/sqlUtils.ts`)          |
+| `problemMeta.test.ts` | 题目元数据推断 (`electron/utils/problemMeta.ts`)       |
+| `textUtils.test.ts`   | RAG 文本分块与正则转义 (`electron/utils/textUtils.ts`) |
 
 ## 代码规范
 
@@ -272,34 +272,14 @@ npm run typecheck
 
 ## 贡献指南
 
-欢迎提交 Issue 和 Pull Request。参与贡献前请阅读以下规范：
+欢迎提交 Issue 和 Pull Request！详细的贡献指南请参阅 [CONTRIBUTING.md](CONTRIBUTING.md)，其中包含：
 
-### 分支策略
-
-- `main` -- 稳定发布分支
-- `dev` -- 开发集成分支
-- 功能分支命名: `feat/xxx`、`fix/xxx`、`docs/xxx`
-
-### Commit 规范
-
-采用 [Conventional Commits](https://www.conventionalcommits.org/) 格式：
-
-```
-<type>(<scope>): <description>
-
-feat(problems): 新增数学建模题库导入
-fix(rag): 修复文档分块越界问题
-docs(readme): 补充开发环境说明
-```
-
-常用 type: `feat`、`fix`、`docs`、`style`、`refactor`、`test`、`chore`
-
-### Pull Request 流程
-
-1. Fork 仓库并创建功能分支
-2. 确保 `npm run typecheck`、`npm run lint`、`npm run test` 全部通过
-3. 提交 PR 并填写变更说明
-4. 等待 Code Review 通过后合并
+- 开发环境搭建与快速开始
+- 项目架构概览（三进程模型、数据流）
+- 调试技巧（Main 进程、Renderer DevTools、IPC 日志）
+- 新增功能的步骤指南
+- 分支与 Commit 规范
+- 常见问题 FAQ
 
 ## 许可证
 

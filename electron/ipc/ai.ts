@@ -1,19 +1,7 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { getDB } from '../db/index'
 import { getRelevantMemories, markMemoriesUsed } from './chat'
-
-interface AIConfig {
-  id: number
-  name: string
-  api_key: string
-  base_url: string
-  model: string
-}
-
-interface ChatMessage {
-  role: 'user' | 'assistant' | 'system'
-  content: string
-}
+import type { AIConfigForChat, ChatMessage } from '../types/db'
 
 export function registerAIIPC() {
   let currentAbortController: AbortController | null = null
@@ -55,18 +43,20 @@ export function registerAIIPC() {
       currentAbortController = new AbortController()
       try {
         const db = getDB()
-        let config: AIConfig | undefined
+        let config: AIConfigForChat | undefined
 
         if (args.configId) {
           config = db.prepare('SELECT * FROM ai_configs WHERE id = ?').get(args.configId) as
-            | AIConfig
+            | AIConfigForChat
             | undefined
         } else {
           config = db.prepare('SELECT * FROM ai_configs WHERE is_default = 1').get() as
-            | AIConfig
+            | AIConfigForChat
             | undefined
           if (!config) {
-            config = db.prepare('SELECT * FROM ai_configs LIMIT 1').get() as AIConfig | undefined
+            config = db.prepare('SELECT * FROM ai_configs LIMIT 1').get() as
+              | AIConfigForChat
+              | undefined
           }
         }
 
