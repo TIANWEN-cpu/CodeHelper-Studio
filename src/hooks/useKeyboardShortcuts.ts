@@ -85,6 +85,21 @@ export function useKeyboardShortcuts(): void {
           window.dispatchEvent(new CustomEvent('codehelper:global-search'))
         },
       },
+      {
+        key: 'F1',
+        description: '打开帮助中心',
+        action: () => {
+          window.dispatchEvent(new CustomEvent('codehelper:help-center'))
+        },
+      },
+      {
+        key: '?',
+        shift: true,
+        description: '上下文帮助',
+        action: () => {
+          window.dispatchEvent(new CustomEvent('codehelper:contextual-help'))
+        },
+      },
     ]
 
     const handler = (event: KeyboardEvent) => {
