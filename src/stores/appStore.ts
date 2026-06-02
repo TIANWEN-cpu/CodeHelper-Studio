@@ -14,6 +14,7 @@ export type ModuleId =
   | 'stats'
   | 'search'
   | 'analytics'
+  | 'help'
 export type ThemeId = (typeof THEMES)[number]
 
 interface AppState {

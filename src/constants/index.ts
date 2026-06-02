@@ -112,4 +112,5 @@ export const MODULE_LABELS: Record<string, string> = {
   stats: '统计面板',
   search: '全局搜索',
   analytics: '分析面板',
+  help: '帮助中心',
 }

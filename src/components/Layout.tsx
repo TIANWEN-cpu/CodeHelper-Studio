@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useState, useEffect, useCallback } from 'react'
 import { Sidebar } from './Sidebar'
 import { StatusBar } from './StatusBar'
 import { CommandPalette } from './CommandPalette'
@@ -41,6 +41,14 @@ const AnalyticsView = lazy(() =>
 const GlobalSearch = lazy(() =>
   import('../modules/search/GlobalSearch').then((m) => ({ default: m.GlobalSearch })),
 )
+const HelpCenter = lazy(() =>
+  import('../modules/help/HelpCenter').then((m) => ({ default: m.HelpCenter })),
+)
+const WhatsNewOverlay = lazy(() =>
+  import('../modules/help/WhatsNew').then((m) => ({ default: m.WhatsNewOverlay })),
+)
+const shouldShowWhatsNew = () =>
+  import('../modules/help/WhatsNew').then((m) => m.shouldShowWhatsNew())
 
 /** Minimal loading fallback for lazy-loaded views */
 function ViewLoading() {
@@ -56,6 +64,32 @@ export function Layout() {
 
   // Register global keyboard shortcuts
   useKeyboardShortcuts()
+
+  // Help overlay state
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false)
+
+  // Check for version update on mount
+  useEffect(() => {
+    void shouldShowWhatsNew().then((show) => {
+      if (show) setWhatsNewOpen(true)
+    })
+  }, [])
+
+  // Listen for help center / contextual help events
+  useEffect(() => {
+    const openHelp = () => setHelpOpen(true)
+    const openContextualHelp = () => setHelpOpen(true)
+    window.addEventListener('codehelper:help-center', openHelp)
+    window.addEventListener('codehelper:contextual-help', openContextualHelp)
+    return () => {
+      window.removeEventListener('codehelper:help-center', openHelp)
+      window.removeEventListener('codehelper:contextual-help', openContextualHelp)
+    }
+  }, [])
+
+  const closeHelp = useCallback(() => setHelpOpen(false), [])
+  const closeWhatsNew = useCallback(() => setWhatsNewOpen(false), [])
 
   const renderModule = () => {
     switch (activeModule) {
@@ -131,6 +165,14 @@ export function Layout() {
             </Suspense>
           </ErrorBoundary>
         )
+      case 'help':
+        return (
+          <ErrorBoundary section context="HelpCenter">
+            <Suspense fallback={<ViewLoading />}>
+              <HelpCenter overlay={false} />
+            </Suspense>
+          </ErrorBoundary>
+        )
     }
   }
 
@@ -160,6 +202,18 @@ export function Layout() {
       <Suspense fallback={null}>
         <GlobalSearch />
       </Suspense>
+      {/* Help center overlay (F1) */}
+      {helpOpen && (
+        <Suspense fallback={null}>
+          <HelpCenter overlay onClose={closeHelp} />
+        </Suspense>
+      )}
+      {/* WhatsNew overlay — auto-shows on version update */}
+      {whatsNewOpen && (
+        <Suspense fallback={null}>
+          <WhatsNewOverlay onClose={closeWhatsNew} />
+        </Suspense>
+      )}
     </div>
   )
 }

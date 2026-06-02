@@ -207,6 +207,15 @@ export function CommandPalette() {
         keywords: ['search', '搜索', '查找'],
         action: () => setActiveModule('search'),
       },
+      {
+        id: 'nav-help',
+        label: '切换到：帮助中心',
+        description: '查看帮助文档和快捷键参考',
+        category: 'navigation',
+        shortcut: 'F1',
+        keywords: ['help', '帮助', '快捷键', 'FAQ'],
+        action: () => setActiveModule('help'),
+      },
 
       // AI
       {
@@ -307,6 +316,15 @@ export function CommandPalette() {
         category: 'view',
         keywords: ['focus', '聚焦', '题目列表'],
         action: () => window.dispatchEvent(new CustomEvent('codehelper:focus-problems')),
+      },
+      {
+        id: 'show-help',
+        label: '打开帮助中心',
+        description: '查看帮助文档、FAQ 和快捷键参考',
+        category: 'view',
+        shortcut: 'F1',
+        keywords: ['help', '帮助', '快捷键', 'FAQ'],
+        action: () => window.dispatchEvent(new CustomEvent('codehelper:help-center')),
       },
 
       // Tools
