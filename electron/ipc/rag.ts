@@ -2,6 +2,7 @@ import { ipcMain, dialog } from 'electron'
 import { getDB } from '../db/index'
 import { readFileSync } from 'fs'
 import { basename, extname } from 'path'
+import { splitIntoChunks, escapeRegExp } from '../utils/textUtils'
 
 interface KnowledgeChunkRow {
   id: number
@@ -113,23 +114,3 @@ export function registerRAGIPC() {
   })
 }
 
-function splitIntoChunks(text: string, maxLen: number): string[] {
-  const chunks: string[] = []
-  const paragraphs = text.split(/\n\n+/)
-  let current = ''
-
-  for (const para of paragraphs) {
-    if ((current + '\n\n' + para).length > maxLen && current) {
-      chunks.push(current.trim())
-      current = para
-    } else {
-      current = current ? current + '\n\n' + para : para
-    }
-  }
-  if (current.trim()) chunks.push(current.trim())
-  return chunks.length ? chunks : ['']
-}
-
-function escapeRegExp(input: string) {
-  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}

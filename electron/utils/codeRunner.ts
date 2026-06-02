@@ -4,6 +4,7 @@ import { mkdirSync, writeFileSync } from 'fs'
 import { app } from 'electron'
 import { randomUUID } from 'crypto'
 import { join } from 'path'
+import { splitSqlStatements, isQueryStatement, formatRows } from './sqlUtils'
 
 const MAX_OUTPUT_SIZE = 1024 * 1024 // 1MB
 const MAX_CONCURRENT = 5
@@ -142,57 +143,6 @@ async function runSql(code: string): Promise<CodeRunResult> {
   } finally {
     db.close()
   }
-}
-
-function splitSqlStatements(sql: string) {
-  const statements: string[] = []
-  let current = ''
-  let quote: "'" | '"' | null = null
-
-  for (let i = 0; i < sql.length; i += 1) {
-    const char = sql[i]
-    const next = sql[i + 1]
-
-    if (!quote && char === '-' && next === '-') {
-      while (i < sql.length && sql[i] !== '\n') {
-        i += 1
-      }
-      current += '\n'
-      continue
-    }
-
-    if (char === '\'' || char === '"') {
-      if (quote === char) {
-        quote = null
-      } else if (!quote) {
-        quote = char
-      }
-    }
-
-    if (char === ';' && !quote) {
-      const statement = current.trim()
-      if (statement) statements.push(statement)
-      current = ''
-      continue
-    }
-
-    current += char
-  }
-
-  const last = current.trim()
-  if (last) statements.push(last)
-  return statements
-}
-
-function isQueryStatement(statement: string) {
-  return /^(select|with|pragma|explain)\b/i.test(statement.trim())
-}
-
-function formatRows(rows: Record<string, unknown>[]) {
-  if (rows.length === 0) {
-    return '查询成功，结果为空'
-  }
-  return JSON.stringify(rows, null, 2)
 }
 
 function runProcess(

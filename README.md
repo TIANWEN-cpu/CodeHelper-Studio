@@ -54,6 +54,20 @@ npm install
 npm run dev
 ```
 
+### 开发环境配置
+
+除 Node.js 外，代码运行器功能需要以下编译器/运行时：
+
+| 语言 | 依赖 | 安装说明 |
+|------|------|----------|
+| Python | `python` (>= 3.8) | [python.org](https://www.python.org/downloads/) 或系统包管理器 |
+| C / C++ | `gcc` / `g++` | Windows: MinGW-w64; macOS: `xcode-select --install`; Linux: `build-essential` |
+| Java | `javac` / `java` (>= 11) | [Adoptium](https://adoptium.net/) |
+| C# | `dotnet` (>= 6) | [dotnet.microsoft.com](https://dotnet.microsoft.com/download) |
+| JavaScript | `node` | 已随 Node.js 安装 |
+
+> 未安装对应编译器的语言仍可正常使用其他功能，仅代码运行器会提示找不到命令。
+
 ### 构建打包
 
 ```bash
@@ -100,6 +114,11 @@ codehelper/
 │   │   ├── mistakes.ts          # 错题本管理
 │   │   ├── rag.ts               # 知识库 RAG 引擎
 │   │   └── chat.ts              # 聊天会话 + 预设提示词
+│   ├── utils/                   # 纯函数工具模块
+│   │   ├── codeRunner.ts        # 代码运行器（进程管理）
+│   │   ├── sqlUtils.ts          # SQL 分割与判断
+│   │   ├── textUtils.ts         # RAG 文本分块与正则转义
+│   │   └── problemMeta.ts       # 题目元数据推断
 │   └── db/
 │       ├── index.ts             # 数据库连接
 │       └── schema.sql           # 建表语句（10 张表）
@@ -118,12 +137,19 @@ codehelper/
 │   │   ├── mistakes/            # 错题本
 │   │   ├── knowledge/           # 知识库
 │   │   └── settings/            # 设置面板
-│   └── stores/                  # Zustand 状态管理
-│       ├── appStore.ts          # 全局状态
-│       ├── editorStore.ts       # 编辑器状态
-│       ├── problemStore.ts      # 刷题状态
-│       ├── chatStore.ts         # 聊天状态
-│       └── settingsStore.ts     # 设置状态
+│   ├── stores/                  # Zustand 状态管理
+│   │   ├── appStore.ts          # 全局状态
+│   │   ├── editorStore.ts       # 编辑器状态
+│   │   ├── problemStore.ts      # 刷题状态
+│   │   ├── chatStore.ts         # 聊天状态
+│   │   └── settingsStore.ts     # 设置状态
+│   └── utils/
+│       └── labels.ts            # 标签映射纯函数
+├── tests/                       # 单元测试
+│   ├── labels.test.ts           # 标签函数测试
+│   ├── sqlUtils.test.ts         # SQL 工具测试
+│   ├── problemMeta.test.ts      # 题目元数据测试
+│   └── textUtils.test.ts        # 文本工具测试
 ├── resources/
 │   ├── problems/                # 题库数据文件
 │   │   ├── basic.json           # 基础题 48 道
@@ -132,6 +158,9 @@ codehelper/
 │   └── icons/                   # 应用图标
 ├── electron-builder.yml         # 打包配置
 ├── electron.vite.config.ts      # Vite 构建配置
+├── vitest.config.ts             # Vitest 测试配置
+├── eslint.config.mjs            # ESLint flat config
+├── .prettierrc.json             # Prettier 格式配置
 ├── package.json
 └── tsconfig.json
 ```
@@ -180,6 +209,82 @@ CodeHelper 在安全性方面采取了多项加固措施：
 | 警告 | `#f9e2af` |
 | 错误 | `#f38ba8` |
 | 信息 | `#89b4fa` |
+
+## 测试
+
+项目使用 [Vitest](https://vitest.dev/) 进行单元测试，覆盖核心纯函数模块。
+
+```bash
+# 运行所有测试（单次）
+npm run test
+
+# 监听模式（开发时自动重跑）
+npm run test:watch
+
+# 可视化测试界面
+npm run test:ui
+```
+
+测试文件位于 `tests/` 目录：
+
+| 测试文件 | 覆盖模块 |
+|----------|----------|
+| `labels.test.ts` | 标签映射函数 (`src/utils/labels.ts`) |
+| `sqlUtils.test.ts` | SQL 分割与判断 (`electron/utils/sqlUtils.ts`) |
+| `problemMeta.test.ts` | 题目元数据推断 (`electron/utils/problemMeta.ts`) |
+| `textUtils.test.ts` | RAG 文本分块与正则转义 (`electron/utils/textUtils.ts`) |
+
+## 代码规范
+
+项目使用 ESLint + Prettier 进行代码质量与格式管理。
+
+```bash
+# 检查代码规范
+npm run lint
+
+# 自动修复规范问题
+npm run lint:fix
+
+# 格式化代码
+npm run format
+
+# 检查格式（CI 用）
+npm run format:check
+
+# 类型检查
+npm run typecheck
+```
+
+## 贡献指南
+
+欢迎提交 Issue 和 Pull Request。参与贡献前请阅读以下规范：
+
+### 分支策略
+
+- `main` -- 稳定发布分支
+- `dev` -- 开发集成分支
+- 功能分支命名: `feat/xxx`、`fix/xxx`、`docs/xxx`
+
+### Commit 规范
+
+采用 [Conventional Commits](https://www.conventionalcommits.org/) 格式：
+
+```
+<type>(<scope>): <description>
+
+feat(problems): 新增数学建模题库导入
+fix(rag): 修复文档分块越界问题
+docs(readme): 补充开发环境说明
+```
+
+常用 type: `feat`、`fix`、`docs`、`style`、`refactor`、`test`、`chore`
+
+### Pull Request 流程
+
+1. Fork 仓库并创建功能分支
+2. 确保 `npm run typecheck`、`npm run lint`、`npm run test` 全部通过
+3. 提交 PR 并填写变更说明
+4. 等待 Code Review 通过后合并
 
 ## 许可证
 
