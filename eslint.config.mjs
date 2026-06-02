@@ -27,6 +27,6 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ['out/', 'dist-release/', 'node_modules/', '*.sql', 'scripts/**/*.js'],
+    ignores: ['out/', 'dist-release/', 'node_modules/', '*.sql', 'scripts/**/*.js', 'resources/'],
   },
 )
