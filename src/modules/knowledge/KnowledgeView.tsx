@@ -127,7 +127,11 @@ export function KnowledgeView() {
                     </div>
                   </div>
                   <button
-                    onClick={() => void handleDelete(doc.id)}
+                    onClick={() => {
+                      if (window.confirm(`确定要删除文档「${doc.filename}」？`)) {
+                        void handleDelete(doc.id)
+                      }
+                    }}
                     className="ui-btn-ghost flex h-9 w-9 items-center justify-center hover:text-[var(--theme-danger)]"
                   >
                     <Trash2 size={14} />

@@ -1,5 +1,7 @@
 import { useAppStore } from '../stores/appStore'
 
+declare const __APP_VERSION__: string
+
 const moduleLabels: Record<string, string> = {
   problems: '刷题系统',
   editor: '代码编辑器',
@@ -18,7 +20,7 @@ export function StatusBar() {
       <span>{moduleLabels[activeModule]}</span>
       <div className="ml-auto flex gap-4">
         <span>UTF-8</span>
-        <span>v1.0.0</span>
+        <span>v{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0'}</span>
       </div>
     </div>
   )

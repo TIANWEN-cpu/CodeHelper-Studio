@@ -292,7 +292,7 @@ export function SettingsView() {
                     <button onClick={() => setEditing({ ...config })} className="ui-btn-ghost flex h-9 w-9 items-center justify-center hover:text-[var(--theme-text-primary)]">
                       <Pencil size={14} />
                     </button>
-                    <button onClick={() => config.id && void deleteConfig(config.id)} className="ui-btn-ghost flex h-9 w-9 items-center justify-center hover:text-[var(--theme-danger)]">
+                    <button onClick={() => config.id && window.confirm('确定要删除该 AI 配置？') && void deleteConfig(config.id)} className="ui-btn-ghost flex h-9 w-9 items-center justify-center hover:text-[var(--theme-danger)]">
                       <Trash2 size={14} />
                     </button>
                   </div>

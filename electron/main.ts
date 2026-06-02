@@ -1,5 +1,6 @@
 import { app, BrowserWindow, shell, Menu, ipcMain } from 'electron'
 import { join } from 'path'
+import { readFileSync } from 'fs'
 import { registerRunnerIPC } from './ipc/runner'
 import { registerDatabaseIPC } from './ipc/database'
 import { registerAIIPC } from './ipc/ai'
@@ -7,6 +8,9 @@ import { registerProblemsIPC } from './ipc/problems'
 import { registerMistakesIPC } from './ipc/mistakes'
 import { registerRAGIPC } from './ipc/rag'
 import { registerChatIPC } from './ipc/chat'
+
+const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-8')) as { repository?: { url?: string } }
+const REPO_URL = pkg.repository?.url?.replace(/\.git$/, '') ?? 'https://github.com/TIANWEN-cpu/CodeHelper'
 
 function setupApplicationMenu() {
   const template: Electron.MenuItemConstructorOptions[] = [
@@ -57,7 +61,7 @@ function setupApplicationMenu() {
         {
           label: '关于 CodeHelper',
           click: () => {
-            void shell.openExternal('https://github.com')
+            void shell.openExternal(REPO_URL)
           },
         },
       ],

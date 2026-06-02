@@ -126,7 +126,11 @@ ${mistake.correct_code}
                   <RefreshCw size={15} />
                 </button>
                 <button
-                  onClick={() => void handleDelete(mistake.id)}
+                  onClick={() => {
+                    if (window.confirm('确定要删除该错题记录？')) {
+                      void handleDelete(mistake.id)
+                    }
+                  }}
                   title="删除"
                   className="ui-btn-ghost flex h-9 w-9 items-center justify-center hover:text-[var(--theme-danger)]"
                 >

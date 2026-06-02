@@ -120,7 +120,14 @@ body,
 }
 
 /* Smooth transitions */
-* {
+.ui-btn-ghost,
+.ui-btn-accent,
+.ui-btn-primary,
+.ui-chip,
+.ui-chip-active,
+.ui-chip-warning,
+.ui-card,
+.ui-panel {
   transition-property: background-color, border-color, color, opacity, box-shadow, transform;
   transition-duration: 180ms;
   transition-timing-function: ease;

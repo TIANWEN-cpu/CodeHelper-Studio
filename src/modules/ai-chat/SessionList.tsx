@@ -125,7 +125,9 @@ export function SessionList() {
                     <button
                       onClick={(event) => {
                         event.stopPropagation()
-                        void deleteSession(session.id)
+                        if (window.confirm('确定要删除该对话？')) {
+                          void deleteSession(session.id)
+                        }
                       }}
                       className="rounded p-1 text-[var(--theme-danger)] hover:bg-[var(--theme-danger-soft)]"
                     >

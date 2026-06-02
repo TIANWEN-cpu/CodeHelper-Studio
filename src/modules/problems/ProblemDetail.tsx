@@ -4,6 +4,7 @@ import { Play, Send, CheckCircle2, XCircle, ChevronsRight, Bot, Link2, Clock3 } 
 import { useProblemStore } from '../../stores/problemStore'
 import { useAppStore } from '../../stores/appStore'
 import { monacoThemeByAppTheme, registerMonacoThemes } from '../../theme/monacoThemes'
+import { parseJsonArray, trackLabel, platformLabel, modeLabel, examStyleLabel } from '../../utils/labels'
 
 const LANGUAGES = [
   { value: 'python', label: 'Python' },
@@ -325,67 +326,3 @@ export function ProblemDetail() {
   )
 }
 
-function parseJsonArray(raw?: string) {
-  try {
-    return JSON.parse(raw ?? '[]') as string[]
-  } catch {
-    return []
-  }
-}
-
-function trackLabel(track: string) {
-  const labels: Record<string, string> = {
-    'postgrad-retest': '考研复试',
-    'summer-camp': '保研夏令营',
-    'algo-job': '算法校招',
-    'ic-job': '硬件 / IC',
-    'math-modeling': '数学建模',
-  }
-  return labels[track] ?? track
-}
-
-function platformLabel(platform: string) {
-  const labels: Record<string, string> = {
-    pat: 'PAT',
-    pta: 'PTA',
-    csp: 'CSP',
-    leetcode: 'LeetCode',
-    nowcoder: '牛客',
-    kattis: 'Kattis',
-    'cf-gym': 'Gym',
-    uoj: 'UOJ',
-    hackerrank: 'HackerRank',
-    codesignal: 'CodeSignal',
-    cumcm: '国赛',
-    pgmcm: '研赛',
-    'mcm-icm': 'MCM/ICM',
-    mathorcup: 'MathorCup',
-    kaggle: 'Kaggle',
-    mathworks: 'MathWorks',
-    hdlbits: 'HDLBits',
-    'eda-playground': 'EDA Playground',
-    internal: '内置',
-  }
-  return labels[platform] ?? platform
-}
-
-function modeLabel(mode: string) {
-  const labels: Record<string, string> = {
-    oj: 'OJ',
-    simulation: '仿真题',
-    'data-task': '数据题',
-    'case-study': '案例题',
-    'report-task': '报告题',
-  }
-  return labels[mode] ?? mode
-}
-
-function examStyleLabel(style: string) {
-  const labels: Record<string, string> = {
-    acm: 'ACM',
-    oa: 'OA',
-    modeling: '建模',
-    hdl: 'HDL',
-  }
-  return labels[style] ?? style
-}

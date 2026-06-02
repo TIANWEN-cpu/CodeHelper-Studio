@@ -1,6 +1,28 @@
 import { ipcMain, safeStorage } from 'electron'
 import { getDB } from '../db/index'
 
+interface AIConfigRow {
+  id: number
+  name: string
+  api_key: string
+  base_url: string
+  model: string
+  is_default: number
+  task_type: string | null
+  created_at: string
+}
+
+interface AIConfig {
+  id: number
+  name: string
+  api_key: string
+  base_url: string
+  model: string
+  is_default: number
+  task_type: string | null
+  created_at: string
+}
+
 function encryptApiKey(apiKey: string): string {
   if (!safeStorage.isEncryptionAvailable()) return apiKey
   return 'enc:' + safeStorage.encryptString(apiKey).toString('base64')
@@ -18,11 +40,9 @@ function decryptApiKey(value: string): string {
   return value
 }
 
-function decryptConfigRow(row: any): any {
-  if (row && row.api_key) {
-    return { ...row, api_key: decryptApiKey(row.api_key) }
-  }
-  return row
+function decryptConfigRow(row: AIConfigRow | undefined | null): AIConfig | null {
+  if (!row) return null
+  return { ...row, api_key: decryptApiKey(row.api_key) }
 }
 
 export function registerDatabaseIPC() {
@@ -44,7 +64,7 @@ export function registerDatabaseIPC() {
 
   // AI Configs
   ipcMain.handle('db-get-ai-configs', () => {
-    const rows = getDB().prepare('SELECT * FROM ai_configs ORDER BY is_default DESC, id ASC').all() as any[]
+    const rows = getDB().prepare('SELECT * FROM ai_configs ORDER BY is_default DESC, id ASC').all() as AIConfigRow[]
     return rows.map(decryptConfigRow)
   })
 
@@ -85,9 +105,9 @@ export function registerDatabaseIPC() {
   })
 
   ipcMain.handle('db-get-default-ai-config', () => {
-    const row = getDB().prepare('SELECT * FROM ai_configs WHERE is_default = 1').get() ??
-           getDB().prepare('SELECT * FROM ai_configs LIMIT 1').get() ?? null
-    return decryptConfigRow(row)
+    const row = getDB().prepare('SELECT * FROM ai_configs WHERE is_default = 1').get() as AIConfigRow | undefined ??
+           getDB().prepare('SELECT * FROM ai_configs LIMIT 1').get() as AIConfigRow | undefined ?? undefined
+    return decryptConfigRow(row ?? null)
   })
 
   // Fetch available models from API

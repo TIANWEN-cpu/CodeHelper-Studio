@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle2, Circle, ChevronsLeft, Search } from 'lucide-react'
 import { useProblemStore } from '../../stores/problemStore'
+import { parseJsonArray, sourceLabel, platformLabel, modeLabel, trackLabel } from '../../utils/labels'
 
 const diffColors: Record<string, string> = {
   easy: 'text-[var(--theme-success)]',
@@ -284,80 +285,3 @@ function FilterRow({
   )
 }
 
-function parseJsonArray(raw?: string) {
-  try {
-    return JSON.parse(raw ?? '[]') as string[]
-  } catch {
-    return []
-  }
-}
-
-function sourceLabel(source: string) {
-  const labels: Record<string, string> = {
-    builtin: '基础题库',
-    leetcode: 'LeetCode',
-    'math-modeling': '原有建模题库',
-    'exam-retest-pat': '复试 PAT',
-    'exam-retest-pta': '复试 PTA',
-    'exam-retest-csp': '复试 CSP',
-    'summer-kattis': '夏令营 Kattis',
-    'summer-cf-gym': '夏令营 Gym',
-    'summer-uoj': '夏令营 UOJ',
-    'algo-job-nowcoder': '校招牛客',
-    'algo-job-oa': 'OA 模拟',
-    'ic-job-hdlbits': 'IC HDLBits',
-    'ic-job-nowcoder-verilog': 'IC Verilog',
-    'ic-job-simulation': 'IC 仿真',
-    'modeling-official': '建模真题',
-    'modeling-kaggle': 'Kaggle 建模',
-    'modeling-mathworks': 'MathWorks 建模',
-  }
-  return labels[source] ?? source
-}
-
-function platformLabel(platform: string) {
-  const labels: Record<string, string> = {
-    pat: 'PAT',
-    pta: 'PTA',
-    csp: 'CSP',
-    leetcode: 'LeetCode',
-    nowcoder: '牛客',
-    kattis: 'Kattis',
-    'cf-gym': 'Gym',
-    uoj: 'UOJ',
-    hackerrank: 'HackerRank',
-    codesignal: 'CodeSignal',
-    cumcm: '国赛',
-    pgmcm: '研赛',
-    'mcm-icm': 'MCM/ICM',
-    mathorcup: 'MathorCup',
-    kaggle: 'Kaggle',
-    mathworks: 'MathWorks',
-    hdlbits: 'HDLBits',
-    'eda-playground': 'EDA Playground',
-    internal: '内置',
-  }
-  return labels[platform] ?? platform
-}
-
-function modeLabel(mode: string) {
-  const labels: Record<string, string> = {
-    oj: 'OJ',
-    simulation: '仿真题',
-    'data-task': '数据题',
-    'case-study': '案例题',
-    'report-task': '报告题',
-  }
-  return labels[mode] ?? mode
-}
-
-function trackLabel(track: string) {
-  const labels: Record<string, string> = {
-    'postgrad-retest': '考研复试',
-    'summer-camp': '保研夏令营',
-    'algo-job': '算法校招',
-    'ic-job': '硬件 / IC',
-    'math-modeling': '数学建模',
-  }
-  return labels[track] ?? track
-}

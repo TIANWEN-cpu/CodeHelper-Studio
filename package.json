@@ -1,7 +1,7 @@
 {
   "name": "codehelper",
   "version": "1.0.0",
-  "description": "",
+  "description": "AI 驱动的桌面编程助手 — 集成代码编辑器、AI 对话、题库系统、知识库检索与错题追踪",
   "main": "./out/main/index.mjs",
   "scripts": {
     "dev": "electron-vite dev",
@@ -11,15 +11,25 @@
     "postinstall": "electron-builder install-app-deps",
     "typecheck": "tsc -b"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "electron",
+    "react",
+    "code-editor",
+    "ai-assistant",
+    "programming-practice",
+    "leetcode"
+  ],
+  "author": "TIANWEN-cpu",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TIANWEN-cpu/CodeHelper.git"
+  },
   "type": "commonjs",
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",
     "@monaco-editor/react": "^4.7.0",
     "better-sqlite3": "^12.8.0",
-    "electron-vite": "^5.0.0",
     "lucide-react": "^1.7.0",
     "monaco-editor": "^0.55.1",
     "pdf-parse": "^2.4.5",
@@ -39,6 +49,7 @@
     "@vitejs/plugin-react": "^6.0.1",
     "electron": "^41.1.1",
     "electron-builder": "^26.8.1",
+    "electron-vite": "^5.0.0",
     "tailwindcss": "^4.2.2",
     "typescript": "^6.0.2",
     "vite": "^8.0.5"
