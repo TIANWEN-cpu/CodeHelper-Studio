@@ -8,6 +8,8 @@
   <a href="https://github.com/TIANWEN-cpu/CodeHelper/actions/workflows/ci.yml"><img src="https://github.com/TIANWEN-cpu/CodeHelper/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/TIANWEN-cpu/CodeHelper/releases"><img src="https://img.shields.io/github/v/release/TIANWEN-cpu/CodeHelper" alt="Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/TIANWEN-cpu/CodeHelper" alt="License"></a>
+  <a href="tests/"><img src="https://img.shields.io/badge/tests-1476-passing-brightgreen" alt="Tests"></a>
+  <a href="tests/"><img src="https://img.shields.io/badge/coverage-80%25-brightgreen" alt="Coverage"></a>
   <a href="https://github.com/TIANWEN-cpu/CodeHelper/stargazers"><img src="https://img.shields.io/github/stars/TIANWEN-cpu/CodeHelper?style=social" alt="Stars"></a>
 </p>
 
