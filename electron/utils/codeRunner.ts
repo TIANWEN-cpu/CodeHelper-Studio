@@ -263,7 +263,11 @@ function runProcess(
         } else {
           // POSIX: kill the entire process group
           try {
-            process.kill(-proc.pid, 'SIGKILL')
+            if (proc.pid !== undefined) {
+              process.kill(-proc.pid, 'SIGKILL')
+            } else {
+              proc.kill('SIGKILL')
+            }
           } catch {
             proc.kill('SIGKILL')
           }

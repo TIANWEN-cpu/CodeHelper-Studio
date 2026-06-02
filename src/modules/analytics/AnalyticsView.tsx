@@ -553,7 +553,7 @@ export function AnalyticsView() {
               </div>
             </div>
           </div>
-          {chartData.some((d) => d.value > 0) ? (
+          {chartData.some((d) => d.count > 0) ? (
             <BarChartView data={chartData} />
           ) : (
             <div className="py-8 text-center text-sm text-[var(--theme-text-muted)]">

@@ -135,7 +135,7 @@ export function getSummary(days = 30): AnalyticsSummary {
   return {
     totalEvents: totalRow.cnt,
     byType,
-    dailyCounts: dailyRows,
+    dailyCounts: dailyRows.map((r) => ({ date: r.date, count: r.cnt })),
   }
 }
 
@@ -213,7 +213,7 @@ export function getWeeklyReport(weekOffset = 0): WeeklyReportData {
     weekEnd: endStr,
     totalEvents: totalRow.cnt,
     byType,
-    dailyBreakdown: dailyRows,
+    dailyBreakdown: dailyRows.map((r) => ({ date: r.date, count: r.cnt })),
     problemsSolved: byType['problem_solved'] ?? 0,
     aiChatsSent: byType['ai_chat_sent'] ?? 0,
     codeRuns: byType['code_run'] ?? 0,
