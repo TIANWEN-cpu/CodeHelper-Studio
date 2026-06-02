@@ -79,7 +79,7 @@ const {
 } = await import('../src/utils/snippets')
 const { parseJsonArray, sourceLabel, platformLabel, modeLabel, trackLabel, examStyleLabel } =
   await import('../src/utils/labels')
-const { toErrorMessage, safeAsync, safeSync, parseJsonSafe, categorizeError, getUserMessage } =
+const { toErrorMessage, safeAsync, safeSync, parseJsonSafe, getUserMessage } =
   await import('../src/utils/errors')
 const { splitSqlStatements, isQueryStatement, formatRows } =
   await import('../electron/utils/sqlUtils')
@@ -479,7 +479,6 @@ describe('2. Boundary tests', () => {
       const bigObj = { items: Array.from({ length: 10000 }, (_, i) => ({ id: i, val: `v${i}` })) }
       const json = JSON.stringify(bigObj)
       expect(parseJsonSafe(json, null)).toBeTruthy()
-      const parsed = parseJsonSafe(bigObj, null) as unknown as { items: unknown[] }
       // When given an object directly (not a string), parseJsonSafe returns it as-is
       // Actually parseJsonSafe expects a string, so let's test with the string
       const parsed2 = parseJsonSafe(json, null) as unknown as { items: unknown[] }
