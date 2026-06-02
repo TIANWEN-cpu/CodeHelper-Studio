@@ -41,8 +41,36 @@ describe('splitSqlStatements', () => {
 
   it('处理转义引号（连续两个单引号）', () => {
     const sql = "SELECT 'it''s a test'; SELECT 1;"
-    // The parser tracks quote state: first ' opens, second ' closes, third ' opens, fourth ' closes
     expect(splitSqlStatements(sql).length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('多条语句混合注释', () => {
+    const sql = 'SELECT 1; -- comment\nSELECT 2; SELECT 3;'
+    expect(splitSqlStatements(sql)).toEqual(['SELECT 1', 'SELECT 2', 'SELECT 3'])
+  })
+
+  it('单条语句无分号', () => {
+    expect(splitSqlStatements('SELECT 1')).toEqual(['SELECT 1'])
+  })
+
+  it('CREATE TABLE + INSERT + SELECT 序列', () => {
+    const sql =
+      'CREATE TABLE t(id INT);\nINSERT INTO t VALUES (1);\nSELECT * FROM t;'
+    expect(splitSqlStatements(sql)).toEqual([
+      'CREATE TABLE t(id INT)',
+      'INSERT INTO t VALUES (1)',
+      'SELECT * FROM t',
+    ])
+  })
+
+  it('连续分号产生空语句被跳过', () => {
+    const sql = 'SELECT 1;;SELECT 2;'
+    expect(splitSqlStatements(sql)).toEqual(['SELECT 1', 'SELECT 2'])
+  })
+
+  it('包含换行的多行语句保持完整', () => {
+    const sql = 'SELECT\n  id,\n  name\nFROM users;'
+    expect(splitSqlStatements(sql)).toEqual(['SELECT\n  id,\n  name\nFROM users'])
   })
 })
 
@@ -79,6 +107,30 @@ describe('isQueryStatement', () => {
   it('忽略前导空白', () => {
     expect(isQueryStatement('  SELECT 1')).toBe(true)
   })
+
+  it('UPDATE 语句返回 false', () => {
+    expect(isQueryStatement('UPDATE users SET name = "a"')).toBe(false)
+  })
+
+  it('DELETE 语句返回 false', () => {
+    expect(isQueryStatement('DELETE FROM users WHERE id = 1')).toBe(false)
+  })
+
+  it('DROP TABLE 返回 false', () => {
+    expect(isQueryStatement('DROP TABLE users')).toBe(false)
+  })
+
+  it('ALTER TABLE 返回 false', () => {
+    expect(isQueryStatement('ALTER TABLE users ADD COLUMN age INT')).toBe(false)
+  })
+
+  it('空字符串返回 false', () => {
+    expect(isQueryStatement('')).toBe(false)
+  })
+
+  it('WITH ... INSERT 返回 true（CTE 语法）', () => {
+    expect(isQueryStatement('WITH cte AS (SELECT 1) INSERT INTO t SELECT * FROM cte')).toBe(true)
+  })
 })
 
 describe('formatRows', () => {
@@ -100,5 +152,30 @@ describe('formatRows', () => {
     ]
     const result = JSON.parse(formatRows(rows))
     expect(result).toHaveLength(2)
+  })
+
+  it('null 值正确序列化', () => {
+    const rows = [{ value: null }]
+    const result = JSON.parse(formatRows(rows))
+    expect(result[0].value).toBeNull()
+  })
+
+  it('特殊字符正确序列化', () => {
+    const rows = [{ text: 'hello "world"' }]
+    const result = JSON.parse(formatRows(rows))
+    expect(result[0].text).toBe('hello "world"')
+  })
+
+  it('Unicode 字符正确序列化', () => {
+    const rows = [{ name: '张三' }]
+    const result = formatRows(rows)
+    expect(result).toContain('张三')
+  })
+
+  it('包含数字和浮点数', () => {
+    const rows = [{ int_val: 42, float_val: 3.14 }]
+    const result = JSON.parse(formatRows(rows))
+    expect(result[0].int_val).toBe(42)
+    expect(result[0].float_val).toBeCloseTo(3.14)
   })
 })

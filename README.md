@@ -5,6 +5,12 @@
 <h1 align="center">CodeHelper</h1>
 
 <p align="center">
+  <a href="https://github.com/TIANWEN-cpu/CodeHelper/actions/workflows/ci.yml"><img src="https://github.com/TIANWEN-cpu/CodeHelper/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/TIANWEN-cpu/CodeHelper/releases"><img src="https://img.shields.io/github/v/release/TIANWEN-cpu/CodeHelper" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/TIANWEN-cpu/CodeHelper" alt="License"></a>
+</p>
+
+<p align="center">
   <strong>AI 驱动的桌面编程助手</strong>
 </p>
 
@@ -30,7 +36,16 @@
 
 ## 截图预览
 
-> 欢迎补充截图至 `docs/` 目录
+<!-- 将截图放入 docs/ 目录，然后取消注释以下行 -->
+<!-- 示例：
+<p align="center">
+  <img src="docs/screenshot-editor.png" alt="代码编辑器" width="600">
+  <img src="docs/screenshot-ai-chat.png" alt="AI 对话" width="600">
+  <img src="docs/screenshot-problems.png" alt="题库系统" width="600">
+</p>
+-->
+
+> 将截图保存至 `docs/` 目录并更新上方引用即可展示
 
 ## 安装与运行
 

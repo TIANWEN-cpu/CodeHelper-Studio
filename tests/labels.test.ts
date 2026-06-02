@@ -28,6 +28,18 @@ describe('parseJsonArray', () => {
   it('空 JSON 数组返回空数组', () => {
     expect(parseJsonArray('[]')).toEqual([])
   })
+
+  it('JSON 对象原样返回（parseJsonArray 不做类型校验）', () => {
+    expect(parseJsonArray('{"key":"value"}')).toEqual({ key: 'value' })
+  })
+
+  it('数字数组正确解析', () => {
+    expect(parseJsonArray('[1,2,3]')).toEqual([1, 2, 3])
+  })
+
+  it('嵌套数组正确解析', () => {
+    expect(parseJsonArray('[["a","b"],["c"]]')).toEqual([['a', 'b'], ['c']])
+  })
 })
 
 describe('sourceLabel', () => {
@@ -39,6 +51,10 @@ describe('sourceLabel', () => {
 
   it('未知来源原样返回', () => {
     expect(sourceLabel('unknown-source')).toBe('unknown-source')
+  })
+
+  it('空字符串原样返回', () => {
+    expect(sourceLabel('')).toBe('')
   })
 })
 
@@ -52,6 +68,10 @@ describe('platformLabel', () => {
   it('未知平台原样返回', () => {
     expect(platformLabel('my-platform')).toBe('my-platform')
   })
+
+  it('csp 平台返回正确标签', () => {
+    expect(platformLabel('csp')).toBe('CSP')
+  })
 })
 
 describe('modeLabel', () => {
@@ -64,6 +84,14 @@ describe('modeLabel', () => {
   it('未知模式原样返回', () => {
     expect(modeLabel('custom-mode')).toBe('custom-mode')
   })
+
+  it('case-study 模式返回正确标签', () => {
+    expect(modeLabel('case-study')).toBe('案例题')
+  })
+
+  it('report-task 模式返回正确标签', () => {
+    expect(modeLabel('report-task')).toBe('报告题')
+  })
 })
 
 describe('trackLabel', () => {
@@ -75,6 +103,14 @@ describe('trackLabel', () => {
 
   it('未知方向原样返回', () => {
     expect(trackLabel('new-track')).toBe('new-track')
+  })
+
+  it('ic-job 方向返回正确标签', () => {
+    expect(trackLabel('ic-job')).toBe('硬件 / IC')
+  })
+
+  it('math-modeling 方向返回正确标签', () => {
+    expect(trackLabel('math-modeling')).toBe('数学建模')
   })
 })
 
