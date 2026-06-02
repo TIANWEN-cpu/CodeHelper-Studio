@@ -89,14 +89,15 @@ export function ProblemDetail() {
           <div className="ui-toolbar border-b px-2 py-2">
             <button
               onClick={() => setListCollapsed(false)}
-              className="ui-btn-ghost flex h-9 w-9 items-center justify-center"
+              aria-label="展开题目列表"
+              className="ui-btn-ghost flex h-9 w-9 items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
             >
-              <ChevronsRight size={16} />
+              <ChevronsRight size={16} aria-hidden="true" />
             </button>
           </div>
         )}
         <div className="flex flex-1 items-center justify-center px-6">
-          <div className="ui-card w-full max-w-2xl px-8 py-10 text-center">
+          <div className="ui-card w-full max-w-2xl px-8 py-10 text-center" role="status">
             <p className="text-lg font-semibold text-[var(--theme-text-primary)]">
               选择一道题目开始练习
             </p>

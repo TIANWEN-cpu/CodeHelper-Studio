@@ -15,6 +15,7 @@
 ### Task 1: Initialize electron-vite project
 
 **Files:**
+
 - Create: `D:\codehelper\package.json`
 - Create: `D:\codehelper\electron.vite.config.ts`
 - Create: `D:\codehelper\electron\main.ts`
@@ -43,11 +44,13 @@ npm install -D @types/better-sqlite3
 - [ ] **Step 3: Configure TailwindCSS**
 
 Replace `src/assets/main.css` with:
+
 ```css
-@import "tailwindcss";
+@import 'tailwindcss';
 ```
 
 Add TailwindCSS plugin to `electron.vite.config.ts` renderer vite config:
+
 ```ts
 import tailwindcss from '@tailwindcss/vite'
 // in renderer config plugins array:
@@ -59,6 +62,7 @@ tailwindcss()
 ```bash
 npm run dev
 ```
+
 Expected: Electron window opens with React content.
 
 - [ ] **Step 5: Commit**
@@ -70,6 +74,7 @@ git init && git add -A && git commit -m "feat: initialize electron-vite project 
 ### Task 2: Build shell layout (VSCode-style sidebar + main area)
 
 **Files:**
+
 - Create: `src/components/Sidebar.tsx`
 - Create: `src/components/Layout.tsx`
 - Create: `src/stores/appStore.ts`
@@ -99,9 +104,7 @@ export const useAppStore = create<AppState>((set) => ({
 ```tsx
 // src/components/Sidebar.tsx
 import { useAppStore, type ModuleId } from '../stores/appStore'
-import {
-  Code2, BookOpen, Bot, XCircle, Library, Settings
-} from 'lucide-react'
+import { Code2, BookOpen, Bot, XCircle, Library, Settings } from 'lucide-react'
 
 const navItems: { id: ModuleId; icon: typeof Code2; label: string }[] = [
   { id: 'problems', icon: BookOpen, label: '刷题' },
@@ -181,6 +184,7 @@ export default App
 ```bash
 npm run dev
 ```
+
 Expected: Dark window with left icon sidebar, clicking icons switches module title.
 
 - [ ] **Step 5: Commit**
@@ -196,6 +200,7 @@ git add -A && git commit -m "feat: add VSCode-style sidebar layout with module n
 ### Task 3: Integrate Monaco Editor with multi-tab support
 
 **Files:**
+
 - Create: `src/modules/editor/MonacoEditor.tsx`
 - Create: `src/modules/editor/EditorTabs.tsx`
 - Create: `src/modules/editor/EditorView.tsx`
@@ -231,19 +236,26 @@ interface EditorState {
 
 export const useEditorStore = create<EditorState>((set, get) => ({
   tabs: [
-    { id: 'welcome', filename: 'welcome.py', language: 'python', content: '# 欢迎使用 CodeHelper!\nprint("Hello, World!")\n' }
+    {
+      id: 'welcome',
+      filename: 'welcome.py',
+      language: 'python',
+      content: '# 欢迎使用 CodeHelper!\nprint("Hello, World!")\n',
+    },
   ],
   activeTabId: 'welcome',
   addTab: (tab) => set((s) => ({ tabs: [...s.tabs, tab], activeTabId: tab.id })),
-  closeTab: (id) => set((s) => {
-    const tabs = s.tabs.filter((t) => t.id !== id)
-    const activeTabId = s.activeTabId === id ? (tabs[0]?.id ?? null) : s.activeTabId
-    return { tabs, activeTabId }
-  }),
+  closeTab: (id) =>
+    set((s) => {
+      const tabs = s.tabs.filter((t) => t.id !== id)
+      const activeTabId = s.activeTabId === id ? (tabs[0]?.id ?? null) : s.activeTabId
+      return { tabs, activeTabId }
+    }),
   setActiveTab: (id) => set({ activeTabId: id }),
-  updateContent: (id, content) => set((s) => ({
-    tabs: s.tabs.map((t) => (t.id === id ? { ...t, content } : t)),
-  })),
+  updateContent: (id, content) =>
+    set((s) => ({
+      tabs: s.tabs.map((t) => (t.id === id ? { ...t, content } : t)),
+    })),
 }))
 ```
 
@@ -259,7 +271,9 @@ export function MonacoEditor() {
   const activeTab = tabs.find((t) => t.id === activeTabId)
 
   if (!activeTab) {
-    return <div className="flex-1 flex items-center justify-center text-[#6c7086]">无打开的文件</div>
+    return (
+      <div className="flex-1 flex items-center justify-center text-[#6c7086]">无打开的文件</div>
+    )
   }
 
   return (
@@ -304,7 +318,10 @@ export function EditorTabs() {
         >
           <span>{tab.filename}</span>
           <button
-            onClick={(e) => { e.stopPropagation(); closeTab(tab.id) }}
+            onClick={(e) => {
+              e.stopPropagation()
+              closeTab(tab.id)
+            }}
             className="hover:bg-[#313244] rounded p-0.5"
           >
             <X size={12} />
@@ -342,6 +359,7 @@ Update `Layout.tsx` to render `<EditorView />` when `activeModule === 'editor'`.
 ```bash
 npm run dev
 ```
+
 Expected: Click editor icon → see tabs + Monaco editor with syntax highlighting.
 
 ```bash
@@ -351,6 +369,7 @@ git add -A && git commit -m "feat: integrate Monaco Editor with multi-tab suppor
 ### Task 4: Code execution via IPC
 
 **Files:**
+
 - Create: `electron/ipc/runner.ts`
 - Modify: `electron/main.ts` — register IPC handlers
 - Modify: `electron/preload.ts` — expose API
@@ -372,52 +391,60 @@ const tempDir = join(app.getPath('temp'), 'codehelper')
 export function registerRunnerIPC() {
   mkdirSync(tempDir, { recursive: true })
 
-  ipcMain.handle('run-code', async (_event, args: { code: string; language: string; stdin?: string }) => {
-    const { code, language, stdin } = args
+  ipcMain.handle(
+    'run-code',
+    async (_event, args: { code: string; language: string; stdin?: string }) => {
+      const { code, language, stdin } = args
 
-    let cmd: string
-    let cmdArgs: string[]
-    let tempFile: string | null = null
+      let cmd: string
+      let cmdArgs: string[]
+      let tempFile: string | null = null
 
-    switch (language) {
-      case 'python': {
-        tempFile = join(tempDir, 'main.py')
-        writeFileSync(tempFile, code)
-        cmd = 'python'
-        cmdArgs = [tempFile]
-        break
+      switch (language) {
+        case 'python': {
+          tempFile = join(tempDir, 'main.py')
+          writeFileSync(tempFile, code)
+          cmd = 'python'
+          cmdArgs = [tempFile]
+          break
+        }
+        case 'c': {
+          tempFile = join(tempDir, 'main.c')
+          const outFile = join(tempDir, 'main.exe')
+          writeFileSync(tempFile, code)
+          // compile first
+          const compileResult = await runProcess('gcc', [tempFile, '-o', outFile], undefined, 10000)
+          if (compileResult.exitCode !== 0) return { ...compileResult, stage: 'compile' }
+          cmd = outFile
+          cmdArgs = []
+          break
+        }
+        case 'cpp': {
+          tempFile = join(tempDir, 'main.cpp')
+          const outFile = join(tempDir, 'main.exe')
+          writeFileSync(tempFile, code)
+          const compileResult = await runProcess('g++', [tempFile, '-o', outFile], undefined, 10000)
+          if (compileResult.exitCode !== 0) return { ...compileResult, stage: 'compile' }
+          cmd = outFile
+          cmdArgs = []
+          break
+        }
+        default:
+          return { stdout: '', stderr: `不支持的语言: ${language}`, exitCode: 1 }
       }
-      case 'c': {
-        tempFile = join(tempDir, 'main.c')
-        const outFile = join(tempDir, 'main.exe')
-        writeFileSync(tempFile, code)
-        // compile first
-        const compileResult = await runProcess('gcc', [tempFile, '-o', outFile], undefined, 10000)
-        if (compileResult.exitCode !== 0) return { ...compileResult, stage: 'compile' }
-        cmd = outFile
-        cmdArgs = []
-        break
-      }
-      case 'cpp': {
-        tempFile = join(tempDir, 'main.cpp')
-        const outFile = join(tempDir, 'main.exe')
-        writeFileSync(tempFile, code)
-        const compileResult = await runProcess('g++', [tempFile, '-o', outFile], undefined, 10000)
-        if (compileResult.exitCode !== 0) return { ...compileResult, stage: 'compile' }
-        cmd = outFile
-        cmdArgs = []
-        break
-      }
-      default:
-        return { stdout: '', stderr: `不支持的语言: ${language}`, exitCode: 1 }
-    }
 
-    const result = await runProcess(cmd, cmdArgs, stdin, 10000)
-    return { ...result, stage: 'run' }
-  })
+      const result = await runProcess(cmd, cmdArgs, stdin, 10000)
+      return { ...result, stage: 'run' }
+    },
+  )
 }
 
-function runProcess(cmd: string, args: string[], stdin?: string, timeout = 10000): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+function runProcess(
+  cmd: string,
+  args: string[],
+  stdin?: string,
+  timeout = 10000,
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolve) => {
     const proc = spawn(cmd, args, { timeout, shell: true })
     let stdout = ''
@@ -470,8 +497,12 @@ export function Console({ output, running }: ConsoleProps) {
       <div className="px-3 py-1 text-xs text-[#6c7086] border-b border-[#313244]">控制台</div>
       <div className="flex-1 p-3 overflow-auto font-mono text-sm">
         {running && <span className="text-[#f9e2af]">运行中...</span>}
-        {output?.stdout && <pre className="text-[#a6e3a1] whitespace-pre-wrap">{output.stdout}</pre>}
-        {output?.stderr && <pre className="text-[#f38ba8] whitespace-pre-wrap">{output.stderr}</pre>}
+        {output?.stdout && (
+          <pre className="text-[#a6e3a1] whitespace-pre-wrap">{output.stdout}</pre>
+        )}
+        {output?.stderr && (
+          <pre className="text-[#f38ba8] whitespace-pre-wrap">{output.stderr}</pre>
+        )}
       </div>
     </div>
   )
@@ -485,6 +516,7 @@ Update `EditorView.tsx` to add a Run button and Console panel, calling `window.a
 ```bash
 npm run dev
 ```
+
 Expected: Type Python code → click Run → see output in console.
 
 ```bash
@@ -498,6 +530,7 @@ git add -A && git commit -m "feat: add code execution via IPC with console outpu
 ### Task 5: Set up SQLite database and settings storage
 
 **Files:**
+
 - Create: `electron/db/index.ts`
 - Create: `electron/db/schema.sql`
 - Create: `electron/ipc/database.ts`
@@ -556,11 +589,28 @@ export function registerDatabaseIPC() {
   ipcMain.handle('db-save-ai-config', (_e, config) => {
     const db = getDB()
     if (config.id) {
-      db.prepare('UPDATE ai_configs SET name=?, api_key=?, base_url=?, model=?, is_default=?, task_type=? WHERE id=?')
-        .run(config.name, config.api_key, config.base_url, config.model, config.is_default ? 1 : 0, config.task_type, config.id)
+      db.prepare(
+        'UPDATE ai_configs SET name=?, api_key=?, base_url=?, model=?, is_default=?, task_type=? WHERE id=?',
+      ).run(
+        config.name,
+        config.api_key,
+        config.base_url,
+        config.model,
+        config.is_default ? 1 : 0,
+        config.task_type,
+        config.id,
+      )
     } else {
-      db.prepare('INSERT INTO ai_configs (name, api_key, base_url, model, is_default, task_type) VALUES (?,?,?,?,?,?)')
-        .run(config.name, config.api_key, config.base_url, config.model, config.is_default ? 1 : 0, config.task_type)
+      db.prepare(
+        'INSERT INTO ai_configs (name, api_key, base_url, model, is_default, task_type) VALUES (?,?,?,?,?,?)',
+      ).run(
+        config.name,
+        config.api_key,
+        config.base_url,
+        config.model,
+        config.is_default ? 1 : 0,
+        config.task_type,
+      )
     }
   })
 
@@ -581,6 +631,7 @@ git add -A && git commit -m "feat: add SQLite database with settings and AI conf
 ### Task 6: Build AI settings page
 
 **Files:**
+
 - Create: `src/modules/settings/SettingsView.tsx`
 - Create: `src/modules/settings/AIConfigForm.tsx`
 - Create: `src/stores/settingsStore.ts`
@@ -603,6 +654,7 @@ Lists all AI configs as cards, plus "添加配置" button opening the form. Wire
 ```bash
 npm run dev
 ```
+
 Expected: Settings page → add API config → saved to SQLite → persists across restart.
 
 ```bash
@@ -612,6 +664,7 @@ git add -A && git commit -m "feat: add AI model settings page with CRUD"
 ### Task 7: Build AI chat interface with streaming
 
 **Files:**
+
 - Create: `electron/ipc/ai.ts`
 - Create: `src/modules/ai-chat/ChatView.tsx`
 - Create: `src/modules/ai-chat/ChatMessage.tsx`
@@ -632,8 +685,8 @@ export function registerAIIPC() {
   ipcMain.handle('ai-chat', async (event, args: { messages: any[]; configId?: number }) => {
     const db = getDB()
     const config = args.configId
-      ? db.prepare('SELECT * FROM ai_configs WHERE id = ?').get(args.configId) as any
-      : db.prepare('SELECT * FROM ai_configs WHERE is_default = 1').get() as any
+      ? (db.prepare('SELECT * FROM ai_configs WHERE id = ?').get(args.configId) as any)
+      : (db.prepare('SELECT * FROM ai_configs WHERE is_default = 1').get() as any)
 
     if (!config) throw new Error('未配置AI模型，请先在设置中添加')
 
@@ -641,7 +694,7 @@ export function registerAIIPC() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.api_key}`,
+        Authorization: `Bearer ${config.api_key}`,
       },
       body: JSON.stringify({
         model: config.model,
@@ -699,6 +752,7 @@ Textarea with send button, Shift+Enter for newline, Enter to send. Disabled duri
 ```bash
 npm run dev
 ```
+
 Expected: Configure API key in settings → switch to AI chat → send message → see streaming response.
 
 ```bash
@@ -712,6 +766,7 @@ git add -A && git commit -m "feat: add AI chat with streaming responses"
 ### Task 8: Create problem database operations and seed data
 
 **Files:**
+
 - Create: `electron/ipc/problems.ts`
 - Create: `resources/problems/basic.json` — 10+ starter problems
 - Modify: `electron/main.ts`
@@ -738,6 +793,7 @@ git add -A && git commit -m "feat: add problem database with seed data"
 ### Task 9: Build problem list and detail view
 
 **Files:**
+
 - Create: `src/modules/problems/ProblemList.tsx`
 - Create: `src/modules/problems/ProblemDetail.tsx`
 - Create: `src/modules/problems/ProblemsView.tsx`
@@ -765,6 +821,7 @@ Resizable split: narrow left panel (problem list) + wide right panel (detail). W
 ```bash
 npm run dev
 ```
+
 Expected: See problem list → click problem → see description + editor → write code → run → see results.
 
 ```bash
@@ -774,6 +831,7 @@ git add -A && git commit -m "feat: add problem list and solving interface"
 ### Task 10: Implement judge system
 
 **Files:**
+
 - Modify: `electron/ipc/problems.ts` — add judge logic
 - Modify: `src/modules/problems/ProblemDetail.tsx` — add submit flow
 - Modify: `src/stores/problemStore.ts` — add submission handling
@@ -799,6 +857,7 @@ git add -A && git commit -m "feat: implement judge system with test case validat
 ### Task 11: Build mistake book module
 
 **Files:**
+
 - Create: `electron/ipc/mistakes.ts`
 - Create: `src/modules/mistakes/MistakesView.tsx`
 - Create: `src/modules/mistakes/MistakeCard.tsx`
@@ -828,6 +887,7 @@ git add -A && git commit -m "feat: add mistake book with AI error analysis"
 ### Task 12: Build knowledge base with RAG
 
 **Files:**
+
 - Create: `electron/ipc/rag.ts`
 - Create: `src/modules/knowledge/KnowledgeView.tsx`
 - Create: `src/modules/knowledge/DocUpload.tsx`
@@ -869,6 +929,7 @@ Add a toggle in ChatView: "基于知识库回答". When enabled, user messages f
 ```bash
 npm run dev
 ```
+
 Expected: Upload a PDF → search for content → get relevant results → AI can answer based on uploaded docs.
 
 ```bash
@@ -882,6 +943,7 @@ git add -A && git commit -m "feat: add knowledge base with RAG retrieval"
 ### Task 13: Configure electron-builder and package
 
 **Files:**
+
 - Create: `electron-builder.yml`
 - Modify: `package.json` — add build scripts
 - Create: `resources/icons/icon.ico`
@@ -903,8 +965,8 @@ nsis:
   installerLanguages:
     - zh_CN
 files:
-  - "!docs/**"
-  - "!resources/problems/**"
+  - '!docs/**'
+  - '!resources/problems/**'
 extraResources:
   - from: resources/problems
     to: problems
@@ -927,6 +989,7 @@ Create a simple icon (or use a placeholder) at `resources/icons/icon.ico`.
 ```bash
 npm run build:win
 ```
+
 Expected: `dist-release/` contains CodeHelper Setup.exe. Install and run — all features work.
 
 - [ ] **Step 5: Commit**

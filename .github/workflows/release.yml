@@ -215,7 +215,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
-          name: "CodeHelper ${{ needs.prepare.outputs.tag }}"
+          name: 'CodeHelper ${{ needs.prepare.outputs.tag }}'
           body_path: release_notes.md
           draft: ${{ github.event.inputs.draft || false }}
           prerelease: ${{ contains(needs.prepare.outputs.version, '-') }}

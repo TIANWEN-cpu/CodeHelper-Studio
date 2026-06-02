@@ -12,7 +12,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-      time: "04:00"
+      time: '04:00'
       timezone: Asia/Shanghai
     open-pull-requests-limit: 10
     reviewers:
@@ -21,7 +21,7 @@ updates:
       - dependencies
       - automated
     commit-message:
-      prefix: "chore(deps)"
+      prefix: 'chore(deps)'
       include: scope
 
     # Group minor/patch updates to reduce PR noise
@@ -29,10 +29,10 @@ updates:
       # Electron ecosystem
       electron:
         patterns:
-          - "electron"
-          - "electron-builder"
-          - "electron-vite"
-          - "@electron/*"
+          - 'electron'
+          - 'electron-builder'
+          - 'electron-vite'
+          - '@electron/*'
         update-types:
           - minor
           - patch
@@ -40,12 +40,12 @@ updates:
       # React ecosystem
       react:
         patterns:
-          - "react"
-          - "react-dom"
-          - "@types/react"
-          - "@types/react-dom"
-          - "react-markdown"
-          - "react-syntax-highlighter"
+          - 'react'
+          - 'react-dom'
+          - '@types/react'
+          - '@types/react-dom'
+          - 'react-markdown'
+          - 'react-syntax-highlighter'
         update-types:
           - minor
           - patch
@@ -53,12 +53,12 @@ updates:
       # TypeScript & build tools
       build-tools:
         patterns:
-          - "typescript"
-          - "typescript-eslint"
-          - "vite"
-          - "@vitejs/*"
-          - "vitest"
-          - "@vitest/*"
+          - 'typescript'
+          - 'typescript-eslint'
+          - 'vite'
+          - '@vitejs/*'
+          - 'vitest'
+          - '@vitest/*'
         update-types:
           - minor
           - patch
@@ -66,11 +66,11 @@ updates:
       # Lint & format
       lint:
         patterns:
-          - "eslint"
-          - "eslint-plugin-*"
-          - "prettier"
-          - "husky"
-          - "lint-staged"
+          - 'eslint'
+          - 'eslint-plugin-*'
+          - 'prettier'
+          - 'husky'
+          - 'lint-staged'
         update-types:
           - minor
           - patch
@@ -78,8 +78,8 @@ updates:
       # Tailwind
       tailwind:
         patterns:
-          - "tailwindcss"
-          - "@tailwindcss/*"
+          - 'tailwindcss'
+          - '@tailwindcss/*'
         update-types:
           - minor
           - patch
@@ -103,7 +103,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-      time: "04:00"
+      time: '04:00'
       timezone: Asia/Shanghai
     open-pull-requests-limit: 5
     reviewers:
@@ -113,11 +113,11 @@ updates:
       - ci
       - automated
     commit-message:
-      prefix: "ci(deps)"
+      prefix: 'ci(deps)'
     groups:
       actions:
         patterns:
-          - "*"
+          - '*'
         update-types:
           - minor
           - patch

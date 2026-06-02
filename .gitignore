@@ -42,3 +42,5 @@ dist-release/*.yaml
 **/.claude.json
 上下文/
 *.transcript
+coverage/
+*.tmp

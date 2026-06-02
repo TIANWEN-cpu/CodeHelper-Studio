@@ -3,11 +3,11 @@ productName: CodeHelper
 copyright: Copyright (c) 2026 TIANWEN-cpu
 
 # App metadata
-description: "AI 驱动的桌面编程助手 — 集成代码编辑器、AI 对话、题库系统、知识库检索与错题追踪"
-homepage: "https://github.com/TIANWEN-cpu/CodeHelper"
+description: 'AI 驱动的桌面编程助手 — 集成代码编辑器、AI 对话、题库系统、知识库检索与错题追踪'
+homepage: 'https://github.com/TIANWEN-cpu/CodeHelper'
 author:
   name: TIANWEN-cpu
-  email: "noreply@github.com"
+  email: 'noreply@github.com'
 
 directories:
   output: dist-release
@@ -88,13 +88,13 @@ linux:
         - x64
   icon: resources/icons/icon.png
   category: Development
-  synopsis: "AI-powered desktop programming assistant"
-  description: "AI 驱动的桌面编程助手 — 集成代码编辑器、AI 对话、题库系统、知识库检索与错题追踪"
+  synopsis: 'AI-powered desktop programming assistant'
+  description: 'AI 驱动的桌面编程助手 — 集成代码编辑器、AI 对话、题库系统、知识库检索与错题追踪'
 
 # File inclusion/exclusion
 files:
-  - "out/**"
-  - "!node_modules/**/*.{md,ts,map}"
+  - 'out/**'
+  - '!node_modules/**/*.{md,ts,map}'
   - node_modules/better-sqlite3/**
 
 extraResources:

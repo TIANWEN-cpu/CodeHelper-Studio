@@ -79,7 +79,9 @@ function main() {
   const args = process.argv.slice(2)
 
   if (args.length === 0) {
-    console.error('Usage: node version-bump.js <patch|minor|major|prepatch|preminor|premajor|prerelease|X.Y.Z>')
+    console.error(
+      'Usage: node version-bump.js <patch|minor|major|prepatch|preminor|premajor|prerelease|X.Y.Z>',
+    )
     process.exit(1)
   }
 
@@ -125,10 +127,7 @@ function main() {
 
   // Output for CI consumption
   if (process.env.GITHUB_OUTPUT) {
-    fs.appendFileSync(
-      process.env.GITHUB_OUTPUT,
-      `version=${newVersion}\ntag=v${newVersion}\n`,
-    )
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${newVersion}\ntag=v${newVersion}\n`)
   }
 }
 
