@@ -9,7 +9,7 @@
  */
 
 import { typedInvoke } from '../api/ipc'
-import type { RAGContext, RecentProblem, LearningEntry } from '../types/knowledge'
+import type { RAGContext } from '../types/knowledge'
 import { toErrorMessage } from '../utils/errors'
 
 // ---------------------------------------------------------------------------

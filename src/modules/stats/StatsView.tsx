@@ -131,7 +131,7 @@ function saveStatsTrackingData(data: StatsTrackingData): void {
 /**
  * Compute streak from a sorted array of active dates (ascending).
  */
-function computeStreak(dailyCounts: Array<{ date: string; count: number }>): {
+function _computeStreak(dailyCounts: Array<{ date: string; count: number }>): {
   streak: number
   longestStreak: number
 } {
@@ -338,7 +338,7 @@ export function StatsView() {
     () =>
       (['easy', 'medium', 'hard'] as const).map((diff) => {
         const count = stats.byDifficulty[diff]
-        const total = problems.filter(
+        const _total = problems.filter(
           (p) =>
             p.difficulty?.toLowerCase() === diff ||
             p.difficulty?.toLowerCase() === DIFFICULTY_LABELS[diff],

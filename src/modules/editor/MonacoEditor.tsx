@@ -22,7 +22,7 @@ interface AISelectionEvent {
 }
 
 // Dispatch a custom event for AI code intelligence actions
-function dispatchAIAction(action: AIAction, code: string, language: string): void {
+function _dispatchAIAction(action: AIAction, code: string, language: string): void {
   window.dispatchEvent(
     new CustomEvent<AISelectionEvent>('codehelper:ai-code-action', {
       detail: { action, code, language },

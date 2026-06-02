@@ -6,7 +6,7 @@
  * Also copies knowledge markdown files into the knowledge base.
  */
 
-import { ipcMain, app } from 'electron'
+import { ipcMain } from 'electron'
 import { getDB } from '../db/index'
 import { existsSync, readFileSync, readdirSync } from 'fs'
 import { join } from 'path'

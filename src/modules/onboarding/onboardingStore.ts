@@ -73,7 +73,7 @@ async function writeSetting(key: string, value: string): Promise<void> {
 // Store
 // ---------------------------------------------------------------------------
 
-export const useOnboardingStore = create<OnboardingState>((set, get) => ({
+export const useOnboardingStore = create<OnboardingState>((set, _get) => ({
   wizardCompleted: false,
   tourCompleted: false,
   checklist: {

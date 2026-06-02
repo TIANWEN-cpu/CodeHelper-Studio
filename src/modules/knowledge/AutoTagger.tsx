@@ -5,7 +5,7 @@
  * using AI, and enables tag-based navigation to filter documents.
  */
 
-import { memo, useCallback, useEffect, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { Tag as TagIcon, Sparkles, X, Loader2, FileText, ChevronRight } from 'lucide-react'
 import { useKnowledgeStore } from '../../stores/knowledgeStore'
 import type { Tag, TagSuggestion, Document } from '../../types/knowledge'
@@ -24,7 +24,7 @@ const TAG_COLORS = [
   'bg-[var(--theme-warning-soft)] text-[var(--theme-warning)]',
 ]
 
-function getTagColor(index: number): string {
+function _getTagColor(index: number): string {
   return TAG_COLORS[index % TAG_COLORS.length]
 }
 
@@ -213,7 +213,7 @@ export function AutoTagger() {
 
   const toast = useToast()
   const [selectedDocId, setSelectedDocId] = useState<number | null>(null)
-  const [appliedSuggestions, setAppliedSuggestions] = useState<Set<string>>(new Set())
+  const [_appliedSuggestions, setAppliedSuggestions] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     void loadTags()
@@ -274,7 +274,7 @@ export function AutoTagger() {
           <p className="text-sm text-[var(--theme-text-muted)]">暂无标签</p>
         ) : (
           <div className="flex flex-wrap gap-2" role="group" aria-label="标签筛选">
-            {tags.map((tag, i) => (
+            {tags.map((tag, _i) => (
               <TagBadge
                 key={tag.id}
                 tag={tag}

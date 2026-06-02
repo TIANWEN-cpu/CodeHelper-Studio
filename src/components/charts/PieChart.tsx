@@ -54,7 +54,7 @@ export function PieChart({
     const innerR = outerR * innerRadius
 
     let cumulative = 0
-    return data.map((d, i) => {
+    return data.map((d, _i) => {
       const startAngle = (cumulative / total) * Math.PI * 2 - Math.PI / 2
       cumulative += d.value
       const endAngle = (cumulative / total) * Math.PI * 2 - Math.PI / 2

@@ -190,7 +190,7 @@ export function SetupChecklist() {
     void checkApiConfig()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleMark = useCallback(
+  const _handleMark = useCallback(
     async (key: ChecklistKey) => {
       if (checklist[key]) return
       setAnimatingKey(key)

@@ -24,7 +24,7 @@ const MAX_MEMORY_BYTES = 256 * 1024 * 1024 // 256 MB
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024 // 50 MB
 
 const IS_WIN = process.platform === 'win32'
-const IS_MAC = process.platform === 'darwin'
+const _IS_MAC = process.platform === 'darwin'
 const EXE_EXT = IS_WIN ? '.exe' : ''
 
 const resolvedPaths = new Map<string, string>()

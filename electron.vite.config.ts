@@ -20,6 +20,7 @@ function resolveVisualizerPlugin() {
   )
 }
 
+// @ts-expect-error -- electron-vite defineConfig overloads don't match async functions in strict mode
 export default defineConfig(async () => {
   const visualizerPlugins = await resolveVisualizerPlugin()
 

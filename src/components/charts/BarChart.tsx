@@ -39,7 +39,7 @@ export function BarChart({
   defaultColor = 'var(--theme-accent)',
   showValues = true,
   showGrid = true,
-  horizontal = false,
+  _horizontal = false,
   ariaLabel = '柱状图',
 }: BarChartProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
