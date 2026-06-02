@@ -258,10 +258,17 @@ describe('codeRunner', () => {
       const result = await runCodeSnippet('print("hi")', 'python')
       expect(result.stage).toBe('run')
       expect(result.stdout).toBe('fallback output\n')
-      // spawn is called via /bin/sh -c with ulimit wrappers on Linux
+      // spawn is called via /bin/sh -c with ulimit wrappers on Linux,
+      // or directly with the command name on Windows
       const spawnCall = vi.mocked(spawn).mock.calls[0]
-      // On Windows with execFileSync throwing, resolveCommand falls back to the raw command name
-      expect(spawnCall[0]).toBe('python')
+      if (process.platform === 'win32') {
+        // On Windows with execFileSync throwing, resolveCommand falls back to the raw command name
+        expect(spawnCall[0]).toBe('python')
+      } else {
+        // On Linux/macOS, buildSandboxArgs wraps in /bin/sh -c with ulimit
+        expect(spawnCall[0]).toBe('/bin/sh')
+        expect(spawnCall[1]).toEqual(expect.arrayContaining(['-c']))
+      }
     })
   })
 
