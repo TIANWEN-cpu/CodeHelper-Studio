@@ -34,15 +34,21 @@ vi.mock('child_process', () => ({
 }))
 
 vi.mock('better-sqlite3', () => ({
-  default: vi.fn().mockImplementation(() => ({
-    exec: vi.fn().mockImplementation(() => {
-      if (mockState.execError) throw new Error(mockState.execError)
-    }),
-    prepare: vi.fn().mockReturnValue({
-      all: vi.fn().mockImplementation(() => mockState.queryResults),
-    }),
-    close: vi.fn(),
-  })),
+  default: function MockDatabase() {
+    return {
+      exec: function mockExec() {
+        if (mockState.execError) throw new Error(mockState.execError)
+      },
+      prepare: function mockPrepare() {
+        return {
+          all: function mockAll() {
+            return mockState.queryResults
+          },
+        }
+      },
+      close: function mockClose() {},
+    }
+  },
 }))
 
 // ─────────────────────────────────────────────
