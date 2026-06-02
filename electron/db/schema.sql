@@ -119,6 +119,13 @@ CREATE TABLE IF NOT EXISTS memories (
   last_used_at DATETIME
 );
 
+CREATE TABLE IF NOT EXISTS analytics_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_type TEXT NOT NULL,
+  event_data TEXT DEFAULT '{}',
+  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Performance indexes for frequently queried columns
 CREATE INDEX IF NOT EXISTS idx_problems_source ON problems(source);
 CREATE INDEX IF NOT EXISTS idx_problems_platform ON problems(platform);
@@ -133,3 +140,5 @@ CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated ON chat_sessions(updated_at
 CREATE INDEX IF NOT EXISTS idx_memories_enabled_pinned ON memories(enabled, pinned DESC, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(category);
 CREATE INDEX IF NOT EXISTS idx_memories_content_lower ON memories(lower(content));
+CREATE INDEX IF NOT EXISTS idx_analytics_events_type ON analytics_events(event_type, timestamp);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_timestamp ON analytics_events(timestamp);

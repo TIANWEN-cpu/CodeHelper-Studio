@@ -34,6 +34,14 @@ vi.stubGlobal('document', {
 const { useAppStore } = await import('../src/stores/appStore')
 const { useEditorStore } = await import('../src/stores/editorStore')
 const { useChatStore } = await import('../src/stores/chatStore')
+
+const emptyRAGContext = {
+  recentProblems: [],
+  learningHistory: [],
+  knowledgeChunks: [],
+  userProfile: { preferredLanguage: '', difficultyLevel: '', strongTopics: [], weakTopics: [] },
+}
+
 const { useSettingsStore } = await import('../src/stores/settingsStore')
 
 beforeEach(() => {
@@ -314,6 +322,7 @@ describe('State consistency: chatStore', () => {
       })
       mockInvoke.mockResolvedValueOnce(undefined) // chat-message-save
       mockInvoke.mockResolvedValueOnce([]) // chat-memory-capture
+      mockInvoke.mockResolvedValueOnce(emptyRAGContext) // knowledge-rag-context (RAG enrichment)
       mockInvoke.mockRejectedValueOnce(new Error('network timeout')) // ai-chat
 
       await useChatStore.getState().sendMessage('test')

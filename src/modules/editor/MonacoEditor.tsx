@@ -12,6 +12,24 @@ import {
 } from '../../utils/monacoConfig'
 import { LoadingSpinner } from '../../components/LoadingSpinner'
 
+// AI Code Intelligence action types
+export type AIAction = 'explain' | 'review' | 'findBugs' | 'optimize'
+
+interface AISelectionEvent {
+  action: AIAction
+  code: string
+  language: string
+}
+
+// Dispatch a custom event for AI code intelligence actions
+function dispatchAIAction(action: AIAction, code: string, language: string): void {
+  window.dispatchEvent(
+    new CustomEvent<AISelectionEvent>('codehelper:ai-code-action', {
+      detail: { action, code, language },
+    }),
+  )
+}
+
 // Memoized Monaco Editor to prevent unnecessary re-renders
 // The editor is expensive to re-initialize
 export const MonacoEditor = memo(function MonacoEditor() {
@@ -21,6 +39,7 @@ export const MonacoEditor = memo(function MonacoEditor() {
   const activeTab = useActiveTab()
   const theme = useMonacoTheme()
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
+  const editorDisposables = useRef<Array<{ dispose: () => void }>>([])
   const [minimapEnabled, setMinimapEnabled] = useState(getMinimapEnabled)
 
   // Listen for minimap toggle events
@@ -49,8 +68,32 @@ export const MonacoEditor = memo(function MonacoEditor() {
     [activeTab, updateContent],
   )
 
+  // Clean up Monaco disposables on unmount
+  useEffect(() => {
+    return () => {
+      for (const d of editorDisposables.current) {
+        try {
+          d.dispose()
+        } catch {
+          /* ignore */
+        }
+      }
+      editorDisposables.current = []
+    }
+  }, [])
+
   const handleEditorMount: OnMount = useCallback(
     (editor) => {
+      // Dispose any previous subscriptions (e.g. tab switch re-mount)
+      for (const d of editorDisposables.current) {
+        try {
+          d.dispose()
+        } catch {
+          /* ignore */
+        }
+      }
+      editorDisposables.current = []
+
       editorRef.current = editor
 
       // Restore cursor position
@@ -64,8 +107,8 @@ export const MonacoEditor = memo(function MonacoEditor() {
         editor.setScrollPosition({ scrollTop: activeTab.scrollTop })
       }
 
-      // Track cursor position changes
-      editor.onDidChangeCursorPosition((e) => {
+      // Track cursor position changes — store disposable for cleanup
+      const cursorDisposable = editor.onDidChangeCursorPosition((e) => {
         if (activeTab) {
           updateCursorPosition(activeTab.id, e.position.lineNumber, e.position.column)
         }
@@ -73,7 +116,7 @@ export const MonacoEditor = memo(function MonacoEditor() {
 
       // Track scroll position changes (debounced via requestAnimationFrame)
       let scrollTimer: ReturnType<typeof requestAnimationFrame>
-      editor.onDidScrollChange(() => {
+      const scrollDisposable = editor.onDidScrollChange(() => {
         cancelAnimationFrame(scrollTimer)
         scrollTimer = requestAnimationFrame(() => {
           if (activeTab) {
@@ -82,6 +125,9 @@ export const MonacoEditor = memo(function MonacoEditor() {
           }
         })
       })
+
+      // Store disposables for cleanup on unmount or re-mount
+      editorDisposables.current.push(cursorDisposable, scrollDisposable)
     },
     [activeTab, updateCursorPosition, updateScrollTop],
   )

@@ -37,7 +37,15 @@ const SessionItem = memo(function SessionItem({
   return (
     <div
       onClick={() => void onSwitch(session.id)}
-      className={`group mb-2 rounded-2xl border px-3 py-3 transition-colors ${
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          void onSwitch(session.id)
+        }
+      }}
+      className={`group mb-2 rounded-2xl border px-3 py-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] ${
         isActive
           ? 'border-[var(--theme-accent)] bg-[var(--theme-accent-soft)]'
           : 'border-transparent bg-transparent hover:border-[var(--theme-border)] hover:bg-[var(--theme-bg-hover)]/40'

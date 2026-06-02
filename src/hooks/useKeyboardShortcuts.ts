@@ -1,9 +1,12 @@
 /**
- * useKeyboardShortcuts — global keyboard shortcut handler.
+ * useKeyboardShortcuts -- global keyboard shortcut handler.
  *
  * Registers listeners on mount and cleans up on unmount.
  * Shortcuts only fire when no input/textarea is focused (to avoid
  * interfering with normal text editing).
+ *
+ * Cross-platform: uses `event.ctrlKey || event.metaKey` so that
+ * Ctrl works on Windows/Linux and Cmd works on macOS.
  */
 
 import { useEffect } from 'react'
@@ -12,6 +15,7 @@ import { useChatStore } from '../stores/chatStore'
 
 interface Shortcut {
   key: string
+  /** Primary modifier -- maps to Ctrl on Windows/Linux, Cmd on macOS. */
   ctrl?: boolean
   shift?: boolean
   alt?: boolean

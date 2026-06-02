@@ -11,10 +11,14 @@ import { SESSION_TITLE_MAX_LENGTH } from '../constants'
 import { toErrorMessage } from '../utils/errors'
 import { typedInvoke, invalidateCache } from '../api/ipc'
 import { eventBus } from '../utils/eventBus'
+import { ragContextService } from '../services/ragContextService'
 
 // Re-export types so existing consumers are not broken
 export type { Message as ChatMessage, Session as ChatSession, PromptPreset, MemoryItem }
 export type { StreamChunkPayload, StreamDonePayload }
+
+/** Max messages kept in memory per session to prevent unbounded growth. */
+const MAX_MESSAGES_IN_MEMORY = 500
 
 interface ChatState {
   sessions: Session[]
@@ -75,12 +79,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
   switchSession: async (id: string) => {
     try {
       const rows = await typedInvoke('chat-messages-load', id)
-      const messages: Message[] = rows.map((row) => ({
+      let messages: Message[] = rows.map((row) => ({
         id: `msg-${row.id}`,
         role: row.role,
         content: row.content,
         timestamp: new Date(row.created_at).getTime(),
       }))
+      // Trim to prevent unbounded memory growth — keep most recent messages
+      if (messages.length > MAX_MESSAGES_IN_MEMORY) {
+        messages = messages.slice(-MAX_MESSAGES_IN_MEMORY)
+      }
       set({ activeSessionId: id, messages, error: null, streaming: false, currentRequestId: null })
       eventBus.emit('session:switched', id)
     } catch (error) {
@@ -173,8 +181,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     try {
+      // Enrich messages with RAG context (recent problems, learning history, knowledge base)
+      const enrichedMessages = await ragContextService.enrichMessages(apiMessages, {
+        query: content,
+        maxProblems: 3,
+        maxHistory: 3,
+      })
+
       await typedInvoke('ai-chat', {
-        messages: apiMessages,
+        messages: enrichedMessages,
         configId,
         requestId,
         includeMemories: true,
@@ -205,7 +220,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (last?.role === 'assistant') {
         messages[messages.length - 1] = { ...last, content: last.content + payload.chunk }
       }
-      return { messages }
+      // Trim oldest messages if over limit during streaming
+      const trimmed =
+        messages.length > MAX_MESSAGES_IN_MEMORY
+          ? messages.slice(-MAX_MESSAGES_IN_MEMORY)
+          : messages
+      return { messages: trimmed }
     })
   },
 

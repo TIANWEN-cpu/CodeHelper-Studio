@@ -37,6 +37,9 @@ export const IPC = {
   /** Code execution. */
   RUN_CODE: 'run-code',
 
+  /** Platform information. */
+  PLATFORM_INFO: 'platform-info',
+
   /** Problem module. */
   PROBLEMS_LIST: 'problems-list',
   PROBLEMS_GET: 'problems-get',
@@ -47,6 +50,14 @@ export const IPC = {
   KNOWLEDGE_UPLOAD: 'knowledge-upload',
   KNOWLEDGE_SEARCH: 'knowledge-search',
   KNOWLEDGE_DELETE: 'knowledge-delete',
+  KNOWLEDGE_SEMANTIC_SEARCH: 'knowledge-semantic-search',
+  KNOWLEDGE_SUMMARIZE: 'knowledge-summarize',
+  KNOWLEDGE_CONCEPT_GRAPH: 'knowledge-concept-graph',
+  KNOWLEDGE_CONCEPT_DETAIL: 'knowledge-concept-detail',
+  KNOWLEDGE_AUTO_TAG: 'knowledge-auto-tag',
+  KNOWLEDGE_TAGS: 'knowledge-tags',
+  KNOWLEDGE_TAG_DOCUMENTS: 'knowledge-tag-documents',
+  KNOWLEDGE_RAG_CONTEXT: 'knowledge-rag-context',
 
   /** Mistake module. */
   MISTAKES_LIST: 'mistakes-list',
@@ -74,8 +85,9 @@ export const DEFAULT_THEME = 'mocha' as const
 /** Default font size for Monaco editor. */
 export const DEFAULT_EDITOR_FONT_SIZE = 14
 
-/** Monaco editor font family. */
-export const EDITOR_FONT_FAMILY = "'Cascadia Code', 'Fira Code', Consolas, monospace"
+/** Monaco editor font family — includes cross-platform fallbacks. */
+export const EDITOR_FONT_FAMILY =
+  "'Cascadia Code', 'Fira Code', Menlo, Monaco, 'DejaVu Sans Mono', Consolas, monospace"
 
 /** Default tab size in spaces. */
 export const EDITOR_TAB_SIZE = 4
@@ -99,4 +111,5 @@ export const MODULE_LABELS: Record<string, string> = {
   settings: '设置',
   stats: '统计面板',
   search: '全局搜索',
+  analytics: '分析面板',
 }

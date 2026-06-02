@@ -21,7 +21,22 @@ export type {
   ChatConfig,
 } from './chat'
 
-export type { Document, Chunk, SearchResult } from './knowledge'
+export type {
+  Document,
+  Chunk,
+  SearchResult,
+  SemanticSearchResult,
+  SearchSummary,
+  ConceptNode,
+  ConceptEdge,
+  ConceptGraph,
+  ConceptDetail,
+  Tag,
+  TagSuggestion,
+  RecentProblem,
+  LearningEntry,
+  RAGContext,
+} from './knowledge'
 
 export type {
   IpcChannelMap,

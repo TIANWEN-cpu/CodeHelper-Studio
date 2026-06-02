@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Required for JIT compilation (V8/JavaScript engine) -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <!-- Required for loading native Node modules (e.g. better-sqlite3) -->
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <!-- Allow loading dynamic libraries from the app bundle -->
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+  <!-- Network access for AI API calls -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+</dict>
+</plist>

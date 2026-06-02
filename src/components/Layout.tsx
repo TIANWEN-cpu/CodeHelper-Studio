@@ -33,6 +33,9 @@ const StatsView = lazy(() =>
 const GlobalSearchView = lazy(() =>
   import('../modules/search/GlobalSearchView').then((m) => ({ default: m.GlobalSearchView })),
 )
+const AnalyticsView = lazy(() =>
+  import('../modules/analytics/AnalyticsView').then((m) => ({ default: m.AnalyticsView })),
+)
 
 // Lazy load non-essential overlay components
 const GlobalSearch = lazy(() =>
@@ -117,6 +120,14 @@ export function Layout() {
           <ErrorBoundary section context="GlobalSearchView">
             <Suspense fallback={<ViewLoading />}>
               <GlobalSearchView />
+            </Suspense>
+          </ErrorBoundary>
+        )
+      case 'analytics':
+        return (
+          <ErrorBoundary section context="AnalyticsView">
+            <Suspense fallback={<ViewLoading />}>
+              <AnalyticsView />
             </Suspense>
           </ErrorBoundary>
         )

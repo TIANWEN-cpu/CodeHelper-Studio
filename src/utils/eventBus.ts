@@ -56,6 +56,8 @@ export interface AppEvents {
   // Knowledge events
   'knowledge:uploaded': void
   'knowledge:deleted': number
+  'knowledge:tagged': { docId: number; tags: string[] }
+  'knowledge:concept-selected': string
 
   // Settings events
   'settings:config-saved': number
@@ -74,6 +76,7 @@ type Listener<T> = (data: T) => void
 
 class EventBus<Events> {
   private listeners = new Map<keyof Events, Set<Listener<unknown>>>()
+  private static readonly MAX_LISTENERS_PER_EVENT = 50
 
   /**
    * Subscribe to an event. Returns an unsubscribe function.
@@ -83,6 +86,11 @@ class EventBus<Events> {
     if (!set) {
       set = new Set()
       this.listeners.set(event, set)
+    }
+    if (set.size >= EventBus.MAX_LISTENERS_PER_EVENT) {
+      console.warn(
+        `[EventBus] Max listeners (${EventBus.MAX_LISTENERS_PER_EVENT}) reached for "${String(event)}". Possible memory leak.`,
+      )
     }
     set.add(listener as Listener<unknown>)
 

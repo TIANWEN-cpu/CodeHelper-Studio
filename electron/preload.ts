@@ -36,6 +36,13 @@ const allowedInvokeChannels = new Set([
   'chat-memory-save',
   'chat-memory-delete',
   'chat-memory-capture',
+  'platform-info',
+  // Export/Import
+  'export-data',
+  'export-data-to-path',
+  'import-data',
+  'import-data-from-path',
+  'export-get-counts',
 ])
 
 const allowedEventChannels = new Set(['ai-chat-chunk', 'ai-chat-done'])

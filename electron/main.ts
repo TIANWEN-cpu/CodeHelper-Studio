@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, Menu } from 'electron'
+import { app, BrowserWindow, shell, Menu, dialog } from 'electron'
 import { join } from 'path'
 import { readFileSync } from 'fs'
 import { registerRunnerIPC } from './ipc/runner'
@@ -8,8 +8,12 @@ import { registerProblemsIPC } from './ipc/problems'
 import { registerMistakesIPC } from './ipc/mistakes'
 import { registerRAGIPC } from './ipc/rag'
 import { registerChatIPC } from './ipc/chat'
+import { registerAnalyticsIPC } from './ipc/analytics'
+import { registerDemoDataIPC } from './ipc/demoData'
+import { registerExportIPC } from './ipc/export'
 import { logIpcStatsSummary, getIpcStats } from './utils/perfMonitor'
 import { registerIpcHandler, rateLimitMiddleware } from './utils/middleware'
+import { arch, release } from 'os'
 
 // ---------------------------------------------------------------------------
 // Global error handlers — prevent silent crashes in the main process
@@ -28,6 +32,41 @@ const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-
 }
 const REPO_URL =
   pkg.repository?.url?.replace(/\.git$/, '') ?? 'https://github.com/TIANWEN-cpu/CodeHelper'
+
+/** Get a human-readable platform name. */
+function getPlatformDisplayName(): string {
+  switch (process.platform) {
+    case 'win32':
+      return 'Windows'
+    case 'darwin':
+      return 'macOS'
+    case 'linux':
+      return 'Linux'
+    default:
+      return process.platform
+  }
+}
+
+/** Build platform info object for IPC and about dialog. */
+function getPlatformInfo(): {
+  platform: string
+  arch: string
+  osVersion: string
+  electronVersion: string
+  appVersion: string
+  chromeVersion: string
+  nodeVersion: string
+} {
+  return {
+    platform: getPlatformDisplayName(),
+    arch: arch(),
+    osVersion: release(),
+    electronVersion: process.versions.electron ?? '',
+    appVersion: app.getVersion(),
+    chromeVersion: process.versions.chrome ?? '',
+    nodeVersion: process.versions.node ?? '',
+  }
+}
 
 function setupApplicationMenu(): void {
   const template: Electron.MenuItemConstructorOptions[] = [
@@ -78,6 +117,28 @@ function setupApplicationMenu(): void {
         {
           label: '关于 CodeHelper',
           click: () => {
+            const info = getPlatformInfo()
+            dialog.showMessageBox({
+              type: 'info',
+              title: '关于 CodeHelper',
+              message: 'CodeHelper',
+              detail: [
+                `版本: ${info.appVersion}`,
+                `平台: ${info.platform} (${info.arch})`,
+                `系统版本: ${info.osVersion}`,
+                `Electron: ${info.electronVersion}`,
+                `Chrome: ${info.chromeVersion}`,
+                `Node.js: ${info.nodeVersion}`,
+                '',
+                'AI 驱动的桌面编程助手',
+                REPO_URL,
+              ].join('\n'),
+            })
+          },
+        },
+        {
+          label: 'GitHub 主页',
+          click: () => {
             void shell.openExternal(REPO_URL)
           },
         },
@@ -102,6 +163,32 @@ function setupApplicationMenu(): void {
 
   const menu = Menu.buildFromTemplate(template)
   Menu.setApplicationMenu(menu)
+}
+
+function createWindowContextMenu(
+  mainWindow: BrowserWindow,
+  params: Electron.ContextMenuParams,
+): void {
+  const menuItems: Electron.MenuItemConstructorOptions[] = []
+
+  if (params.selectionText) {
+    menuItems.push({ label: '复制', role: 'copy' })
+  }
+  if (params.isEditable) {
+    menuItems.push({ label: '粘贴', role: 'paste' })
+    menuItems.push({ label: '剪切', role: 'cut' })
+  }
+  if (params.selectionText || params.isEditable) {
+    menuItems.push({ label: '全选', role: 'selectAll' })
+  }
+  if (!params.selectionText && !params.isEditable) {
+    menuItems.push({ label: '全选', role: 'selectAll' })
+    menuItems.push({ label: '复制', role: 'copy' })
+  }
+
+  if (menuItems.length > 0) {
+    Menu.buildFromTemplate(menuItems).popup({ window: mainWindow })
+  }
 }
 
 function createWindow(): void {
@@ -137,29 +224,8 @@ function createWindow(): void {
     mainWindow.show()
   })
 
-  // Right-click context menu
   mainWindow.webContents.on('context-menu', (_event, params) => {
-    const menuItems: Electron.MenuItemConstructorOptions[] = []
-
-    if (params.isEditable || params.selectionText) {
-      if (params.selectionText) {
-        menuItems.push({ label: '复制', role: 'copy' })
-      }
-      if (params.isEditable) {
-        menuItems.push({ label: '粘贴', role: 'paste' })
-        menuItems.push({ label: '剪切', role: 'cut' })
-      }
-      if (params.selectionText) {
-        menuItems.push({ label: '全选', role: 'selectAll' })
-      }
-    } else {
-      menuItems.push({ label: '全选', role: 'selectAll' })
-      menuItems.push({ label: '复制', role: 'copy' })
-    }
-
-    if (menuItems.length > 0) {
-      Menu.buildFromTemplate(menuItems).popup({ window: mainWindow })
-    }
+    createWindowContextMenu(mainWindow, params)
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -207,12 +273,18 @@ app.whenReady().then(() => {
   registerRunnerIPC()
   registerAIIPC()
 
+  // Platform information endpoint for renderer
+  registerIpcHandler('platform-info', () => getPlatformInfo())
+
   // Defer non-critical IPC registrations until after the window is created
   // This reduces the time to first paint
   setImmediate(() => {
     registerMistakesIPC()
     registerChatIPC()
     registerRAGIPC()
+    registerAnalyticsIPC()
+    registerDemoDataIPC()
+    registerExportIPC()
   })
 
   // Periodic performance stats logging (every 5 minutes)
@@ -221,6 +293,21 @@ app.whenReady().then(() => {
       logIpcStatsSummary()
     },
     5 * 60 * 1000,
+  )
+
+  // Periodic memory usage monitoring (every 2 minutes)
+  setInterval(
+    () => {
+      const mem = process.memoryUsage()
+      const heapMB = (mem.heapUsed / 1024 / 1024).toFixed(1)
+      const rssMB = (mem.rss / 1024 / 1024).toFixed(1)
+      console.log(`[memory] Heap: ${heapMB} MB, RSS: ${rssMB} MB`)
+      // Alert on high memory usage (>512 MB heap)
+      if (mem.heapUsed > 512 * 1024 * 1024) {
+        console.warn(`[memory] HIGH MEMORY USAGE ALERT: Heap at ${heapMB} MB`)
+      }
+    },
+    2 * 60 * 1000,
   )
 
   // IPC stats endpoint for renderer diagnostics (with middleware)

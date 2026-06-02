@@ -1,18 +1,21 @@
 /**
- * StatsView — Statistics Dashboard module.
+ * StatsView -- Statistics Dashboard module.
  *
- * Displays:
- * - Problems solved by difficulty
- * - Language usage breakdown (pie chart via CSS)
- * - Daily/weekly coding time
- * - Streak tracking
- * - Progress over time (line chart via SVG)
+ * Data sources:
+ * - Problems: via `problems-list` IPC (real-time)
+ * - Activity tracking: via localStorage-backed tracking data
+ *
+ * Uses reusable SVG chart components from src/components/charts/.
  */
 
 import { useState, useEffect, useMemo } from 'react'
-import { BarChart3, Flame, Target, Clock, TrendingUp, Code } from 'lucide-react'
+import { Flame, Target, Clock, TrendingUp, Code, BarChart3 } from 'lucide-react'
 import { typedInvoke } from '../../api/ipc'
 import type { Problem } from '../../types/problem'
+import { LineChart } from '../../components/charts/LineChart'
+import { PieChart } from '../../components/charts/PieChart'
+import { BarChart } from '../../components/charts/BarChart'
+import { HeatMap } from '../../components/charts/HeatMap'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -34,9 +37,19 @@ interface StatsData {
   recentSolved: { date: string; count: number }[]
 }
 
+interface StatsTrackingData {
+  dailyMinutes: Record<string, number>
+  solvedByDate: Record<string, number>
+  streak: number
+  longestStreak: number
+  lastActiveDate: string
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+const STORAGE_KEY = 'codehelper-stats-tracking'
 
 const DIFFICULTY_COLORS = {
   easy: 'var(--theme-success)',
@@ -61,31 +74,6 @@ const LANGUAGE_COLORS = [
   '#84cc16',
 ]
 
-/**
- * Persist stats tracking data to localStorage.
- */
-const STATS_KEY = 'codehelper-stats'
-
-function loadStatsTrackingData(): {
-  streak: number
-  longestStreak: number
-  lastActiveDate: string
-  dailyMinutes: Record<string, number>
-  solvedByDate: Record<string, number>
-} {
-  try {
-    const raw = localStorage.getItem(STATS_KEY)
-    if (raw) return JSON.parse(raw) as ReturnType<typeof loadStatsTrackingData>
-  } catch {
-    // ignore
-  }
-  return { streak: 0, longestStreak: 0, lastActiveDate: '', dailyMinutes: {}, solvedByDate: {} }
-}
-
-function saveStatsTrackingData(data: ReturnType<typeof loadStatsTrackingData>) {
-  localStorage.setItem(STATS_KEY, JSON.stringify(data))
-}
-
 function getToday(): string {
   return new Date().toISOString().slice(0, 10)
 }
@@ -96,132 +84,96 @@ function getDateString(daysAgo: number): string {
   return d.toISOString().slice(0, 10)
 }
 
+function emptyTrackingData(): StatsTrackingData {
+  return {
+    dailyMinutes: {},
+    solvedByDate: {},
+    streak: 0,
+    longestStreak: 0,
+    lastActiveDate: '',
+  }
+}
+
+/** Trim tracking data older than 90 days to prevent localStorage bloat. */
+const TRACKING_RETENTION_DAYS = 90
+
+function trimTrackingData(data: StatsTrackingData): StatsTrackingData {
+  const cutoff = getDateString(TRACKING_RETENTION_DAYS)
+  const trimmedMinutes: Record<string, number> = {}
+  const trimmedSolved: Record<string, number> = {}
+  for (const [date, val] of Object.entries(data.dailyMinutes)) {
+    if (date >= cutoff) trimmedMinutes[date] = val
+  }
+  for (const [date, val] of Object.entries(data.solvedByDate)) {
+    if (date >= cutoff) trimmedSolved[date] = val
+  }
+  return { ...data, dailyMinutes: trimmedMinutes, solvedByDate: trimmedSolved }
+}
+
+function loadStatsTrackingData(): StatsTrackingData {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) return { ...emptyTrackingData(), ...JSON.parse(raw) }
+  } catch {
+    // corrupted data -- reset
+  }
+  return emptyTrackingData()
+}
+
+function saveStatsTrackingData(data: StatsTrackingData): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+  } catch {
+    // quota exceeded -- silently ignore
+  }
+}
+
+/**
+ * Compute streak from a sorted array of active dates (ascending).
+ */
+function computeStreak(dailyCounts: Array<{ date: string; count: number }>): {
+  streak: number
+  longestStreak: number
+} {
+  if (dailyCounts.length === 0) return { streak: 0, longestStreak: 0 }
+
+  const today = getToday()
+  const yesterday = getDateString(1)
+  const activeDates = new Set(dailyCounts.filter((d) => d.count > 0).map((d) => d.date))
+
+  // Current streak: count backwards from today/yesterday
+  let streak = 0
+  let checkDate = activeDates.has(today) ? today : yesterday
+  while (activeDates.has(checkDate)) {
+    streak++
+    const d = new Date(checkDate)
+    d.setDate(d.getDate() - 1)
+    checkDate = d.toISOString().slice(0, 10)
+  }
+
+  // Longest streak: scan all active dates
+  const sorted = [...activeDates].sort()
+  let longest = 0
+  let current = 1
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = new Date(sorted[i - 1])
+    const curr = new Date(sorted[i])
+    const diffDays = (curr.getTime() - prev.getTime()) / 86400000
+    if (diffDays === 1) {
+      current++
+    } else {
+      longest = Math.max(longest, current)
+      current = 1
+    }
+  }
+  longest = Math.max(longest, current)
+
+  return { streak, longestStreak: Math.max(longest, streak) }
+}
+
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
-
-/** CSS-only donut chart */
-function DonutChart({ data }: { data: Array<{ label: string; value: number; color: string }> }) {
-  const total = data.reduce((sum, d) => sum + d.value, 0)
-  if (total === 0) return <div className="text-xs text-[var(--theme-text-muted)]">暂无数据</div>
-
-  let cumulative = 0
-  const gradients = data.map((d) => {
-    const start = (cumulative / total) * 360
-    cumulative += d.value
-    const end = (cumulative / total) * 360
-    return `${d.color} ${start}deg ${end}deg`
-  })
-
-  return (
-    <div className="flex items-center gap-6">
-      <div
-        className="h-28 w-28 shrink-0 rounded-full"
-        style={{
-          background: `conic-gradient(${gradients.join(', ')})`,
-        }}
-      >
-        <div className="m-auto flex h-20 w-20 translate-y-1 items-center justify-center rounded-full bg-[var(--theme-bg-card)] text-center">
-          <div>
-            <div className="text-lg font-bold text-[var(--theme-text-primary)]">{total}</div>
-            <div className="text-[10px] text-[var(--theme-text-muted)]">总计</div>
-          </div>
-        </div>
-      </div>
-      <div className="space-y-2">
-        {data.map((d) => (
-          <div key={d.label} className="flex items-center gap-2 text-sm">
-            <div className="h-3 w-3 rounded-sm" style={{ backgroundColor: d.color }} />
-            <span className="text-[var(--theme-text-secondary)]">{d.label}</span>
-            <span className="ml-auto font-medium text-[var(--theme-text-primary)]">{d.value}</span>
-            <span className="text-[10px] text-[var(--theme-text-muted)]">
-              {((d.value / total) * 100).toFixed(0)}%
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-/** SVG line chart for progress over time */
-function LineChart({
-  data,
-  height = 120,
-}: {
-  data: Array<{ label: string; value: number }>
-  height?: number
-}) {
-  const max = Math.max(...data.map((d) => d.value), 1)
-  const width = 400
-  const padding = { top: 10, right: 10, bottom: 30, left: 10 }
-  const chartW = width - padding.left - padding.right
-  const chartH = height - padding.top - padding.bottom
-
-  const points = data.map((d, i) => ({
-    x: padding.left + (i / Math.max(data.length - 1, 1)) * chartW,
-    y: padding.top + chartH - (d.value / max) * chartH,
-  }))
-
-  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
-  const areaD = `${pathD} L ${points[points.length - 1].x} ${padding.top + chartH} L ${points[0].x} ${padding.top + chartH} Z`
-
-  return (
-    <svg
-      viewBox={`0 0 ${width} ${height}`}
-      className="w-full"
-      role="img"
-      aria-label="编码时间趋势图"
-    >
-      {/* Grid lines */}
-      {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
-        <line
-          key={pct}
-          x1={padding.left}
-          x2={width - padding.right}
-          y1={padding.top + chartH * (1 - pct)}
-          y2={padding.top + chartH * (1 - pct)}
-          stroke="var(--theme-border)"
-          strokeDasharray="4 4"
-          strokeWidth={0.5}
-        />
-      ))}
-      {/* Area fill */}
-      <path d={areaD} fill="var(--theme-accent)" opacity={0.1} />
-      {/* Line */}
-      <path
-        d={pathD}
-        fill="none"
-        stroke="var(--theme-accent)"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Points */}
-      {points.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r={3} fill="var(--theme-accent)" />
-      ))}
-      {/* X-axis labels (show every nth) */}
-      {data
-        .filter((_, i) => i % Math.ceil(data.length / 7) === 0 || i === data.length - 1)
-        .map((d) => {
-          const idx = data.indexOf(d)
-          return (
-            <text
-              key={idx}
-              x={padding.left + (idx / Math.max(data.length - 1, 1)) * chartW}
-              y={height - 5}
-              textAnchor="middle"
-              fontSize={9}
-              fill="var(--theme-text-muted)"
-            >
-              {d.label.slice(5)}
-            </text>
-          )
-        })}
-    </svg>
-  )
-}
 
 /** Stat card */
 function StatCard({
@@ -256,7 +208,7 @@ function StatCard({
 export function StatsView() {
   const [problems, setProblems] = useState<Problem[]>([])
   const [loading, setLoading] = useState(true)
-  const trackingData = loadStatsTrackingData()
+  const [trackingData, setTrackingData] = useState<StatsTrackingData>(loadStatsTrackingData)
 
   useEffect(() => {
     let cancelled = false
@@ -299,7 +251,7 @@ export function StatsView() {
       }
     }
 
-    // Generate coding time data (from tracking or placeholder)
+    // Generate coding time data (from tracking)
     const codingTime: CodingSession[] = []
     for (let i = 29; i >= 0; i--) {
       const date = getDateString(i)
@@ -349,11 +301,18 @@ export function StatsView() {
       }
 
       saveStatsTrackingData(data)
+      setTrackingData(data)
     }, 60000) // every minute
+
+    // Trim old tracking data on mount to prevent localStorage bloat
+    const trimmed = trimTrackingData(loadStatsTrackingData())
+    saveStatsTrackingData(trimmed)
+    setTrackingData(trimmed)
 
     return () => clearInterval(interval)
   }, [])
 
+  // Chart data derivations
   const languageChartData = useMemo(
     () =>
       Object.entries(stats.byLanguage)
@@ -370,6 +329,33 @@ export function StatsView() {
     () =>
       stats.codingTime.map((ct) => ({
         label: ct.date,
+        value: ct.minutes,
+      })),
+    [stats.codingTime],
+  )
+
+  const difficultyChartData = useMemo(
+    () =>
+      (['easy', 'medium', 'hard'] as const).map((diff) => {
+        const count = stats.byDifficulty[diff]
+        const total = problems.filter(
+          (p) =>
+            p.difficulty?.toLowerCase() === diff ||
+            p.difficulty?.toLowerCase() === DIFFICULTY_LABELS[diff],
+        ).length
+        return {
+          label: DIFFICULTY_LABELS[diff],
+          value: count,
+          color: DIFFICULTY_COLORS[diff],
+        }
+      }),
+    [stats.byDifficulty, problems],
+  )
+
+  const heatmapData = useMemo(
+    () =>
+      stats.codingTime.map((ct) => ({
+        date: ct.date,
         value: ct.minutes,
       })),
     [stats.codingTime],
@@ -417,51 +403,37 @@ export function StatsView() {
           />
         </div>
 
-        {/* Difficulty breakdown */}
+        {/* Difficulty distribution - Bar Chart */}
         <div className="ui-card p-6">
-          <h2 className="mb-4 text-base font-semibold text-[var(--theme-text-primary)]">
-            题目完成情况
+          <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-[var(--theme-text-primary)]">
+            <BarChart3 size={18} />
+            难度分布
           </h2>
-          <div className="grid grid-cols-3 gap-4">
-            {(['easy', 'medium', 'hard'] as const).map((diff) => {
-              const count = stats.byDifficulty[diff]
-              const total = problems.filter(
-                (p) =>
-                  p.difficulty?.toLowerCase() === diff ||
-                  p.difficulty?.toLowerCase() === DIFFICULTY_LABELS[diff],
-              ).length
-              const pct = total > 0 ? (count / total) * 100 : 0
-              return (
-                <div key={diff} className="text-center">
-                  <div className="text-2xl font-bold" style={{ color: DIFFICULTY_COLORS[diff] }}>
-                    {count}
-                  </div>
-                  <div className="mt-1 text-xs text-[var(--theme-text-muted)]">
-                    {DIFFICULTY_LABELS[diff]}
-                  </div>
-                  <div className="mx-auto mt-2 h-2 w-full max-w-[120px] overflow-hidden rounded-full bg-[var(--theme-bg-hover)]">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{ width: `${pct}%`, backgroundColor: DIFFICULTY_COLORS[diff] }}
-                    />
-                  </div>
-                  <div className="mt-1 text-[10px] text-[var(--theme-text-muted)]">
-                    {pct.toFixed(0)}%
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          {difficultyChartData.some((d) => d.value > 0) ? (
+            <BarChart data={difficultyChartData} height={200} ariaLabel="题目难度分布柱状图" />
+          ) : (
+            <div className="py-8 text-center text-sm text-[var(--theme-text-muted)]">
+              解题后将显示难度分布
+            </div>
+          )}
         </div>
 
-        {/* Language usage */}
+        {/* Language usage - Pie Chart */}
         <div className="ui-card p-6">
           <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-[var(--theme-text-primary)]">
             <Code size={18} />
             语言使用分布
           </h2>
           {languageChartData.length > 0 ? (
-            <DonutChart data={languageChartData} />
+            <PieChart
+              data={languageChartData}
+              size={180}
+              innerRadius={0.5}
+              showPercent
+              centerLabel={String(stats.totalSolved)}
+              centerSub="总计"
+              ariaLabel="语言使用分布饼图"
+            />
           ) : (
             <div className="py-8 text-center text-sm text-[var(--theme-text-muted)]">
               解题后将显示语言使用统计
@@ -469,14 +441,19 @@ export function StatsView() {
           )}
         </div>
 
-        {/* Progress over time */}
+        {/* Progress over time - Line Chart */}
         <div className="ui-card p-6">
           <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-[var(--theme-text-primary)]">
             <TrendingUp size={18} />
             编码时间趋势 (近30天)
           </h2>
           {progressData.some((d) => d.value > 0) ? (
-            <LineChart data={progressData} />
+            <LineChart
+              data={progressData}
+              height={180}
+              yLabel="分钟"
+              ariaLabel="编码时间趋势折线图"
+            />
           ) : (
             <div className="py-8 text-center text-sm text-[var(--theme-text-muted)]">
               开始编码后将显示时间趋势
@@ -484,61 +461,19 @@ export function StatsView() {
           )}
         </div>
 
-        {/* Daily streak grid */}
+        {/* Activity heatmap */}
         <div className="ui-card p-6">
           <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-[var(--theme-text-primary)]">
             <Flame size={18} />
-            活跃日历 (近30天)
+            活跃热力图 (近30天)
           </h2>
-          <div className="flex flex-wrap gap-1.5" role="grid" aria-label="活跃日历">
-            {stats.codingTime.map((ct) => {
-              const level =
-                ct.minutes === 0
-                  ? 0
-                  : ct.minutes < 15
-                    ? 1
-                    : ct.minutes < 30
-                      ? 2
-                      : ct.minutes < 60
-                        ? 3
-                        : 4
-              const colors = [
-                'var(--theme-bg-hover)',
-                'color-mix(in srgb, var(--theme-accent) 25%, var(--theme-bg-hover))',
-                'color-mix(in srgb, var(--theme-accent) 50%, var(--theme-bg-hover))',
-                'color-mix(in srgb, var(--theme-accent) 75%, var(--theme-bg-hover))',
-                'var(--theme-accent)',
-              ]
-              return (
-                <div
-                  key={ct.date}
-                  title={`${ct.date}: ${ct.minutes} 分钟`}
-                  className="h-5 w-5 rounded-sm transition-transform hover:scale-125"
-                  style={{ backgroundColor: colors[level] }}
-                />
-              )
-            })}
-          </div>
-          <div className="mt-3 flex items-center gap-2 text-[10px] text-[var(--theme-text-muted)]">
-            <span>少</span>
-            {[0, 1, 2, 3, 4].map((level) => {
-              const colors = [
-                'var(--theme-bg-hover)',
-                'color-mix(in srgb, var(--theme-accent) 25%, var(--theme-bg-hover))',
-                'color-mix(in srgb, var(--theme-accent) 50%, var(--theme-bg-hover))',
-                'color-mix(in srgb, var(--theme-accent) 75%, var(--theme-bg-hover))',
-                'var(--theme-accent)',
-              ]
-              return (
-                <div
-                  key={level}
-                  className="h-3 w-3 rounded-sm"
-                  style={{ backgroundColor: colors[level] }}
-                />
-              )
-            })}
-            <span>多</span>
-          </div>
+          <HeatMap
+            data={heatmapData}
+            weeks={5}
+            cellSize={16}
+            cellGap={4}
+            ariaLabel="编码活跃热力图"
+          />
         </div>
       </div>
     </div>

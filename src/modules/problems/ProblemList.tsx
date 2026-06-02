@@ -32,7 +32,15 @@ const ProblemListItem = memo(function ProblemListItem({
   return (
     <div
       onClick={() => onSelect(problem.id)}
-      className={`mb-2 cursor-pointer rounded-2xl border px-3 py-3 transition-colors ${
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelect(problem.id)
+        }
+      }}
+      className={`mb-2 cursor-pointer rounded-2xl border px-3 py-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] ${
         isActive
           ? 'border-[var(--theme-accent)] bg-[var(--theme-accent-soft)]'
           : 'border-transparent hover:border-[var(--theme-border)] hover:bg-[var(--theme-bg-hover)]/40'
@@ -40,9 +48,17 @@ const ProblemListItem = memo(function ProblemListItem({
     >
       <div className="flex items-start gap-3">
         {problem.solved > 0 ? (
-          <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-[var(--theme-success)]" />
+          <CheckCircle2
+            size={15}
+            className="mt-0.5 shrink-0 text-[var(--theme-success)]"
+            aria-hidden="true"
+          />
         ) : (
-          <Circle size={15} className="mt-0.5 shrink-0 text-[var(--theme-border-strong)]" />
+          <Circle
+            size={15}
+            className="mt-0.5 shrink-0 text-[var(--theme-border-strong)]"
+            aria-hidden="true"
+          />
         )}
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium text-[var(--theme-text-primary)]">
@@ -288,6 +304,25 @@ export function ProblemList() {
     [setFilters],
   )
 
+  // Difficulty distribution for header badges
+  const diffDistribution = useMemo(() => {
+    const dist = { easy: 0, medium: 0, hard: 0, easySolved: 0, mediumSolved: 0, hardSolved: 0 }
+    for (const p of problems) {
+      const diff = p.difficulty?.toLowerCase()
+      if (diff === 'easy' || diff === '简单') {
+        dist.easy++
+        if (p.solved) dist.easySolved++
+      } else if (diff === 'medium' || diff === '中等') {
+        dist.medium++
+        if (p.solved) dist.mediumSolved++
+      } else if (diff === 'hard' || diff === '困难') {
+        dist.hard++
+        if (p.solved) dist.hardSolved++
+      }
+    }
+    return dist
+  }, [problems])
+
   return (
     <div className="ui-toolbar flex w-80 shrink-0 flex-col border-r">
       <div className="flex items-center justify-between border-b px-4 py-3 glass-line">
@@ -298,6 +333,29 @@ export function ProblemList() {
           <p className="mt-1 text-xs text-[var(--theme-text-muted)]">
             {filtered.length} / {problems.length} 道题
           </p>
+          {/* Difficulty distribution badges */}
+          {problems.length > 0 && (
+            <div className="mt-1.5 flex gap-2">
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-[var(--theme-success-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--theme-success)]"
+                title="简单"
+              >
+                {diffDistribution.easySolved}/{diffDistribution.easy}
+              </span>
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-[var(--theme-warning-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--theme-warning)]"
+                title="中等"
+              >
+                {diffDistribution.mediumSolved}/{diffDistribution.medium}
+              </span>
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-[var(--theme-danger-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--theme-danger)]"
+                title="困难"
+              >
+                {diffDistribution.hardSolved}/{diffDistribution.hard}
+              </span>
+            </div>
+          )}
         </div>
         <button
           onClick={handleCollapse}

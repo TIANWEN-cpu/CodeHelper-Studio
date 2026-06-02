@@ -28,3 +28,5 @@ export { type ISettingsService, settingsService, setSettingsService } from './se
 export { type IAIService, aiService, setAIService } from './aiService'
 
 export { type IEditorService, editorService, setEditorService } from './editorService'
+
+export { ragContextService } from './ragContextService'

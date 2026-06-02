@@ -22,7 +22,18 @@ import type {
   StreamDonePayload,
   ChatConfig,
 } from './chat'
-import type { Document, SearchResult } from './knowledge'
+import type {
+  Document,
+  SearchResult,
+  SemanticSearchResult,
+  SearchSummary,
+  ConceptGraph,
+  ConceptDetail,
+  Tag,
+  TagSuggestion,
+  RAGContext,
+} from './knowledge'
+import type { AnalyticsEvent, AnalyticsSummary, WeeklyReportData } from './analytics'
 
 /**
  * Mistake with joined problem fields (title, difficulty, tags).
@@ -201,6 +212,19 @@ export interface RunCodePayload {
 }
 
 /**
+ * Platform information returned by the 'platform-info' IPC channel.
+ */
+export interface PlatformInfo {
+  platform: string
+  arch: string
+  osVersion: string
+  electronVersion: string
+  appVersion: string
+  chromeVersion: string
+  nodeVersion: string
+}
+
+/**
  * Code run result (from codeRunner).
  */
 export interface RunCodeResult {
@@ -235,6 +259,14 @@ export interface IpcChannelMap {
   'knowledge-list': { args: []; result: Document[] }
   'knowledge-delete': { args: [number]; result: void }
   'knowledge-search': { args: [string]; result: SearchResult[] }
+  'knowledge-semantic-search': { args: [string]; result: SemanticSearchResult[] }
+  'knowledge-summarize': { args: [string]; result: SearchSummary }
+  'knowledge-concept-graph': { args: []; result: ConceptGraph }
+  'knowledge-concept-detail': { args: [string]; result: ConceptDetail }
+  'knowledge-auto-tag': { args: [number]; result: TagSuggestion[] }
+  'knowledge-tags': { args: []; result: Tag[] }
+  'knowledge-tag-documents': { args: [string]; result: Document[] }
+  'knowledge-rag-context': { args: [string?]; result: RAGContext }
 
   // Chat
   'chat-sessions-list': { args: []; result: Session[] }
@@ -268,6 +300,67 @@ export interface IpcChannelMap {
 
   // External
   'open-external': { args: [string]; result: void }
+
+  // Platform
+  'platform-info': { args: []; result: PlatformInfo }
+
+  // Analytics
+  'analytics-track': {
+    args: [string, Record<string, unknown>?]
+    result: void
+  }
+  'analytics-get-events': {
+    args: [{ eventType?: string; since?: string; until?: string }?]
+    result: AnalyticsEvent[]
+  }
+  'analytics-get-summary': { args: [number?]; result: AnalyticsSummary }
+  'analytics-get-weekly-report': { args: [number?]; result: WeeklyReportData }
+  'analytics-clear': { args: []; result: void }
+
+  // Demo data
+  'demo-load-data': {
+    args: []
+    result: {
+      problems: number
+      knowledge: number
+      sessions: number
+      messages: number
+      memories: number
+      presets: number
+    }
+  }
+
+  // Export/Import
+  'export-data': {
+    args: [string[]]
+    result: { success: boolean; filePath?: string; error?: string }
+  }
+  'export-data-to-path': {
+    args: [string[], string]
+    result: { success: boolean; filePath?: string; error?: string }
+  }
+  'import-data': {
+    args: [{ conflictResolution: string; selectedData: string[] }?]
+    result: {
+      success: boolean
+      imported: Record<string, number>
+      skipped: Record<string, number>
+      errors: string[]
+    }
+  }
+  'import-data-from-path': {
+    args: [string, { conflictResolution: string; selectedData: string[] }?]
+    result: {
+      success: boolean
+      imported: Record<string, number>
+      skipped: Record<string, number>
+      errors: string[]
+    }
+  }
+  'export-get-counts': {
+    args: []
+    result: Record<string, number>
+  }
 }
 
 /**

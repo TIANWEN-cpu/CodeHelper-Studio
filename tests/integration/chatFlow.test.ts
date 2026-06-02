@@ -71,6 +71,13 @@ const HISTORY_B = [
 ]
 
 // ---- Helpers ---------------------------------------------------------------
+const emptyRAGContext = {
+  recentProblems: [],
+  learningHistory: [],
+  knowledgeChunks: [],
+  userProfile: { preferredLanguage: '', difficultyLevel: '', strongTopics: [], weakTopics: [] },
+}
+
 function resetStore() {
   useChatStore.setState({
     sessions: [],
@@ -104,12 +111,13 @@ describe('Integration: chat flow', () => {
 
       // Step 2: Send message
       // Capture the requestId that the store generates
-      mockInvoke.mockResolvedValueOnce(undefined) // chat-message-save (user)
-      mockInvoke.mockResolvedValueOnce([]) // chat-memory-capture
-      // renameSession (title was '新对�?)
-      mockInvoke.mockResolvedValueOnce(undefined) // chat-session-update
-      mockInvoke.mockResolvedValueOnce([MOCK_SESSION_A]) // loadSessions
-      mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' }) // ai-chat
+      // Use mockImplementation to handle sendMessage IPC calls regardless of order
+      const ragCtx = emptyRAGContext
+      mockInvoke.mockImplementation(async (channel: string) => {
+        if (channel === 'knowledge-rag-context') return ragCtx
+        if (channel === 'ai-chat') return { success: true, requestId: 'r1', content: '' }
+        return undefined // chat-message-save, chat-memory-capture, chat-session-update, loadSessions
+      })
 
       await useChatStore.getState().sendMessage('Hello, what is Python?')
 
@@ -281,6 +289,7 @@ describe('Integration: chat flow', () => {
 
       mockInvoke.mockResolvedValueOnce(undefined) // chat-message-save
       mockInvoke.mockResolvedValueOnce([]) // chat-memory-capture
+      mockInvoke.mockResolvedValueOnce(emptyRAGContext) // knowledge-rag-context (RAG enrichment)
       mockInvoke.mockRejectedValueOnce(new Error('API key invalid')) // ai-chat
 
       await useChatStore.getState().sendMessage('Test')
@@ -310,6 +319,7 @@ describe('Integration: chat flow', () => {
       mockInvoke.mockResolvedValueOnce([]) // chat-memory-capture
       mockInvoke.mockResolvedValueOnce(undefined) // renameSession
       mockInvoke.mockResolvedValueOnce([]) // loadSessions
+      mockInvoke.mockResolvedValueOnce(emptyRAGContext) // knowledge-rag-context (RAG enrichment)
       mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' }) // ai-chat
 
       await useChatStore.getState().sendMessage('Hello!')
@@ -329,6 +339,7 @@ describe('Integration: chat flow', () => {
 
       mockInvoke.mockResolvedValueOnce(undefined) // chat-message-save
       mockInvoke.mockResolvedValueOnce([]) // chat-memory-capture
+      mockInvoke.mockResolvedValueOnce(emptyRAGContext) // knowledge-rag-context (RAG enrichment)
       mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' }) // ai-chat
 
       await useChatStore.getState().sendMessage('Explain mergesort')

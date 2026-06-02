@@ -11,6 +11,7 @@ import {
   PanelLeft,
   BarChart3,
   Search,
+  Activity,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -34,6 +35,7 @@ export const SIDEBAR_NAV_ITEMS: NavItem[] = [
   { id: 'mistakes', icon: XCircle, label: '错题本' },
   { id: 'knowledge', icon: Library, label: '知识库' },
   { id: 'stats', icon: BarChart3, label: '统计' },
+  { id: 'analytics', icon: Activity, label: '分析' },
   { id: 'search', icon: Search, label: '搜索' },
   { id: 'settings', icon: Settings, label: '设置', bottom: true },
 ]

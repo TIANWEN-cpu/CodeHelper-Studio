@@ -453,14 +453,18 @@ export function CommandPalette() {
   const groupedResults = useMemo(() => {
     const recentIds = loadRecentCommands()
 
+    // Filter by category
+    const categoryFiltered =
+      activeCategory === 'all' ? commands : commands.filter((c) => c.category === activeCategory)
+
     if (!query) {
       // Show recent commands first, then all commands grouped by category
       const recentCmds = recentIds
-        .map((id) => commands.find((c) => c.id === id))
+        .map((id) => categoryFiltered.find((c) => c.id === id))
         .filter(Boolean) as Command[]
 
       const groups = new Map<CommandCategory, Command[]>()
-      for (const cmd of commands) {
+      for (const cmd of categoryFiltered) {
         if (!recentCmds.find((r) => r.id === cmd.id)) {
           const list = groups.get(cmd.category) ?? []
           list.push(cmd)
@@ -472,7 +476,7 @@ export function CommandPalette() {
     }
 
     // Fuzzy search
-    const scored = commands
+    const scored = categoryFiltered
       .map((cmd) => ({ cmd, score: matchesQuery(cmd, query) }))
       .filter((item) => item.score !== null)
       .sort((a, b) => (a.score as number) - (b.score as number))
@@ -481,7 +485,7 @@ export function CommandPalette() {
       recent: [],
       groups: new Map<CommandCategory, Command[]>([['navigation', scored.map((s) => s.cmd)]]),
     }
-  }, [query, commands])
+  }, [query, commands, activeCategory])
 
   // Flat list for keyboard navigation
   const flatList = useMemo(() => {
@@ -501,6 +505,7 @@ export function CommandPalette() {
       setOpen(true)
       setQuery('')
       setSelectedIndex(0)
+      setActiveCategory('all')
     }
     window.addEventListener('codehelper:command-palette', handler)
     return () => window.removeEventListener('codehelper:command-palette', handler)
@@ -516,7 +521,7 @@ export function CommandPalette() {
   // Reset selected index when filtered list changes
   useEffect(() => {
     setSelectedIndex(0)
-  }, [query])
+  }, [query, activeCategory])
 
   const executeCommand = useCallback((cmd: Command) => {
     setOpen(false)
@@ -536,9 +541,18 @@ export function CommandPalette() {
         setSelectedIndex((prev) => Math.max(prev - 1, 0))
       } else if (e.key === 'Enter' && flatList[selectedIndex]) {
         executeCommand(flatList[selectedIndex])
+      } else if (e.key === 'Tab') {
+        // Cycle through categories with Tab
+        e.preventDefault()
+        const cats: Array<CommandCategory | 'all'> = [
+          'all',
+          ...(Object.keys(CATEGORY_META) as CommandCategory[]),
+        ]
+        const idx = cats.indexOf(activeCategory)
+        setActiveCategory(cats[(idx + 1) % cats.length])
       }
     },
-    [flatList, selectedIndex, executeCommand],
+    [flatList, selectedIndex, executeCommand, activeCategory],
   )
 
   if (!open) return null
@@ -556,21 +570,30 @@ export function CommandPalette() {
         aria-selected={currentFlatIndex === selectedIndex}
         onClick={() => executeCommand(cmd)}
         onMouseEnter={() => setSelectedIndex(currentFlatIndex)}
-        className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition-colors ${
+        className={`flex w-full flex-col px-4 py-2.5 text-left text-sm transition-colors ${
           currentFlatIndex === selectedIndex
             ? 'bg-[var(--theme-accent-soft)] text-[var(--theme-text-primary)]'
             : 'text-[var(--theme-text-secondary)] hover:bg-[var(--theme-bg-hover)]'
         }`}
       >
-        <span>{cmd.label}</span>
-        {cmd.shortcut && (
-          <kbd className="rounded border border-[var(--theme-border)] bg-[var(--theme-bg-hover)] px-1.5 py-0.5 text-[10px] text-[var(--theme-text-muted)]">
-            {cmd.shortcut}
-          </kbd>
+        <div className="flex items-center justify-between">
+          <span>{cmd.label}</span>
+          {cmd.shortcut && (
+            <kbd className="rounded border border-[var(--theme-border)] bg-[var(--theme-bg-hover)] px-1.5 py-0.5 text-[10px] text-[var(--theme-text-muted)]">
+              {cmd.shortcut}
+            </kbd>
+          )}
+        </div>
+        {cmd.description && (
+          <span className="mt-0.5 truncate text-[11px] text-[var(--theme-text-muted)]">
+            {cmd.description}
+          </span>
         )}
       </button>
     )
   }
+
+  const categoryKeys = Object.keys(CATEGORY_META) as CommandCategory[]
 
   return (
     <div
@@ -618,6 +641,39 @@ export function CommandPalette() {
           >
             <X size={14} aria-hidden="true" />
           </button>
+        </div>
+
+        {/* Category filter tabs */}
+        <div className="flex gap-1 border-b border-[var(--theme-border)] px-3 py-1.5 overflow-x-auto">
+          <button
+            onClick={() => setActiveCategory('all')}
+            className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] whitespace-nowrap ${
+              activeCategory === 'all'
+                ? 'bg-[var(--theme-accent-soft)] text-[var(--theme-accent)]'
+                : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)]'
+            }`}
+          >
+            <Filter size={10} aria-hidden="true" />
+            全部
+          </button>
+          {categoryKeys.map((cat) => {
+            const meta = CATEGORY_META[cat]
+            const Icon = meta.icon
+            return (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] whitespace-nowrap ${
+                  activeCategory === cat
+                    ? 'bg-[var(--theme-accent-soft)] text-[var(--theme-accent)]'
+                    : 'text-[var(--theme-text-muted)] hover:text-[var(--theme-text-primary)]'
+                }`}
+              >
+                <Icon size={10} aria-hidden="true" />
+                {meta.label}
+              </button>
+            )
+          })}
         </div>
 
         {/* Results */}
@@ -671,16 +727,22 @@ export function CommandPalette() {
         </div>
 
         {/* Footer hint */}
-        <div className="flex items-center gap-4 border-t border-[var(--theme-border)] px-4 py-2 text-[10px] text-[var(--theme-text-muted)]">
-          <span>
-            <kbd className="font-mono">↑↓</kbd> 导航
-          </span>
-          <span>
-            <kbd className="font-mono">Enter</kbd> 执行
-          </span>
-          <span>
-            <kbd className="font-mono">Esc</kbd> 关闭
-          </span>
+        <div className="flex items-center justify-between border-t border-[var(--theme-border)] px-4 py-2 text-[10px] text-[var(--theme-text-muted)]">
+          <div className="flex items-center gap-4">
+            <span>
+              <kbd className="font-mono">↑↓</kbd> 导航
+            </span>
+            <span>
+              <kbd className="font-mono">Enter</kbd> 执行
+            </span>
+            <span>
+              <kbd className="font-mono">Tab</kbd> 切换分类
+            </span>
+            <span>
+              <kbd className="font-mono">Esc</kbd> 关闭
+            </span>
+          </div>
+          <span>{flatList.length} 个命令</span>
         </div>
       </div>
     </div>

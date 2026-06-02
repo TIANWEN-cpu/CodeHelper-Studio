@@ -7,6 +7,7 @@
  * Performance features:
  * - In-memory cache for frequently read data (settings, configs)
  * - Request deduplication to avoid duplicate concurrent IPC calls
+ * - Hard cap on cache entries to prevent unbounded memory growth
  */
 
 import type { IpcChannelMap, IpcEventMap } from '../types/ipc'
@@ -21,6 +22,7 @@ interface CacheEntry {
 }
 
 const CACHE_TTL_MS = 30_000 // 30 seconds for read-only data
+const CACHE_MAX_ENTRIES = 200 // Hard cap to prevent unbounded memory growth
 const ipcCache = new Map<string, CacheEntry>()
 
 /** Channels that are safe to cache (read-only, idempotent). */
@@ -32,6 +34,7 @@ const CACHEABLE_CHANNELS = new Set<string>([
   'mistakes-list',
   'chat-sessions-list',
   'chat-presets-list',
+  'platform-info',
 ])
 
 function cacheKey<K extends keyof IpcChannelMap>(
@@ -39,6 +42,29 @@ function cacheKey<K extends keyof IpcChannelMap>(
   args: IpcChannelMap[K]['args'],
 ): string {
   return `${channel}:${JSON.stringify(args)}`
+}
+
+/**
+ * Evict expired entries and enforce the hard size cap.
+ * Removes oldest (first-inserted) entries when over limit.
+ */
+function evictCache(): void {
+  const now = Date.now()
+  // Remove expired entries first
+  for (const [key, entry] of ipcCache) {
+    if (entry.expiresAt <= now) {
+      ipcCache.delete(key)
+    }
+  }
+  // If still over cap, remove oldest entries (Map preserves insertion order)
+  while (ipcCache.size > CACHE_MAX_ENTRIES) {
+    const oldest = ipcCache.keys().next()
+    if (!oldest.done) {
+      ipcCache.delete(oldest.value)
+    } else {
+      break
+    }
+  }
 }
 
 /** Invalidate all cache entries for a channel (call after writes). */
@@ -83,6 +109,11 @@ export async function typedInvoke<K extends keyof IpcChannelMap>(
     if (cached && cached.expiresAt > Date.now()) {
       return cached.data as IpcChannelMap[K]['result']
     }
+  }
+
+  // Evict stale/overflow entries periodically (when 80% full)
+  if (ipcCache.size > CACHE_MAX_ENTRIES * 0.8) {
+    evictCache()
   }
 
   // Deduplicate concurrent requests for the same key

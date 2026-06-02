@@ -311,7 +311,21 @@ export function ProblemDetail() {
           </div>
         </div>
 
-        <div className="resize-handle" onMouseDown={handleDrag} />
+        <div
+          className="resize-handle"
+          onMouseDown={handleDrag}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="调整题目描述和代码编辑器的宽度比例"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+              e.preventDefault()
+              const delta = e.key === 'ArrowLeft' ? -0.02 : 0.02
+              setSplitRatio((r) => Math.max(0.24, Math.min(0.62, r + delta)))
+            }
+          }}
+        />
 
         <div className="flex min-w-0 flex-col" style={{ width: `${(1 - splitRatio) * 100}%` }}>
           <div className="flex-1 min-h-0">

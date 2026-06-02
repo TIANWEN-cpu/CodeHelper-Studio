@@ -6,6 +6,8 @@
  */
 
 const SLOW_OP_THRESHOLD_MS = 1000
+/** Maximum number of tracked channels to prevent unbounded growth. */
+const MAX_TRACKED_CHANNELS = 100
 
 interface IpcStats {
   callCount: number
@@ -48,6 +50,11 @@ export function trackPerformance<TArgs extends unknown[], TResult>(
 function recordIpcCall(channel: string, duration: number): void {
   let stats = ipcStatsMap.get(channel)
   if (!stats) {
+    // Evict oldest entries if we hit the cap
+    if (ipcStatsMap.size >= MAX_TRACKED_CHANNELS) {
+      const oldest = ipcStatsMap.keys().next()
+      if (!oldest.done) ipcStatsMap.delete(oldest.value)
+    }
     stats = { callCount: 0, totalDuration: 0, slowCalls: 0, lastCalledAt: 0 }
     ipcStatsMap.set(channel, stats)
   }

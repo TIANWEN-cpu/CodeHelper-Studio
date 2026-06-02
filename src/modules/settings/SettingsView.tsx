@@ -8,6 +8,8 @@ import {
   MessageSquare,
   Brain,
   Sparkles,
+  Database,
+  CheckCircle,
 } from 'lucide-react'
 import { useSettingsStore, type AIConfig } from '../../stores/settingsStore'
 import { useChatStore, type MemoryItem } from '../../stores/chatStore'
@@ -15,6 +17,7 @@ import { useAppStore, type ThemeId } from '../../stores/appStore'
 import { themeOptions } from '../../theme/themes'
 import { typedInvoke } from '../../api/ipc'
 import { useToast } from '../../components/Toast'
+import { ExportImport } from './ExportImport'
 
 const emptyConfig: AIConfig = {
   name: '',
@@ -33,7 +36,7 @@ const memoryCategories = [
   { value: 'fact', label: '事实' },
 ]
 
-type SettingsTab = 'ai' | 'presets' | 'memories'
+type SettingsTab = 'ai' | 'presets' | 'memories' | 'export'
 
 export function SettingsView() {
   const aiConfigs = useSettingsStore((s) => s.aiConfigs)
@@ -67,6 +70,8 @@ export function SettingsView() {
   >(null)
   const [memorySearch, setMemorySearch] = useState('')
   const [tab, setTab] = useState<SettingsTab>('ai')
+  const [demoLoading, setDemoLoading] = useState(false)
+  const [demoResult, setDemoResult] = useState<string | null>(null)
 
   useEffect(() => {
     void loadConfigs().catch((err) => console.error('[SettingsView.loadConfigs]', err))
@@ -238,6 +243,29 @@ export function SettingsView() {
     await loadMemories(search)
   }
 
+  const handleLoadDemo = async () => {
+    setDemoLoading(true)
+    setDemoResult(null)
+    try {
+      const result = await typedInvoke('demo-load-data')
+      const parts: string[] = []
+      if (result.problems > 0) parts.push(`${result.problems} 道题目`)
+      if (result.knowledge > 0) parts.push(`${result.knowledge} 篇知识文档`)
+      if (result.sessions > 0) parts.push(`${result.sessions} 个对话`)
+      if (result.memories > 0) parts.push(`${result.memories} 条记忆`)
+      if (result.presets > 0) parts.push(`${result.presets} 个预设`)
+      const msg =
+        parts.length > 0 ? `已加载：${parts.join('、')}` : '所有演示数据已存在，无需重复加载。'
+      setDemoResult(msg)
+      toast('success', '演示数据加载完成')
+    } catch (err) {
+      setDemoResult(`加载失败：${String(err)}`)
+      toast('error', `加载演示数据失败：${String(err)}`)
+    } finally {
+      setDemoLoading(false)
+    }
+  }
+
   const toggleMemoryField = async (memory: MemoryItem, field: 'pinned' | 'enabled') => {
     try {
       await saveMemory({
@@ -287,6 +315,7 @@ export function SettingsView() {
           onClick={() => setTab('presets')}
         />
         <TabButton active={tab === 'memories'} label="记忆库" onClick={() => setTab('memories')} />
+        <TabButton active={tab === 'export'} label="导出/导入" onClick={() => setTab('export')} />
       </div>
 
       <div className="max-w-6xl">
@@ -358,7 +387,8 @@ export function SettingsView() {
                   <div className="flex gap-1">
                     <button
                       onClick={() => setEditing({ ...config })}
-                      className="ui-btn-ghost flex h-9 w-9 items-center justify-center hover:text-[var(--theme-text-primary)]"
+                      className="ui-btn-ghost flex h-9 w-9 items-center justify-center hover:text-[var(--theme-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
+                      aria-label="编辑配置"
                     >
                       <Pencil size={14} />
                     </button>
@@ -536,7 +566,8 @@ export function SettingsView() {
                               prompt: preset.prompt,
                             })
                           }
-                          className="ui-btn-ghost flex h-9 w-9 items-center justify-center hover:text-[var(--theme-text-primary)]"
+                          className="ui-btn-ghost flex h-9 w-9 items-center justify-center hover:text-[var(--theme-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
+                          aria-label="编辑配置"
                         >
                           <Pencil size={14} />
                         </button>
@@ -784,6 +815,40 @@ export function SettingsView() {
             )}
           </div>
         )}
+        {tab === 'export' && <ExportImport />}
+      </div>
+
+      <div className="mt-8 max-w-6xl">
+        <div className="ui-card p-5">
+          <div className="flex items-center gap-2">
+            <Database size={16} className="text-[var(--theme-accent)]" />
+            <h2 className="ui-section-title text-lg">演示数据</h2>
+          </div>
+          <p className="mt-2 text-sm leading-7 text-[var(--theme-text-muted)]">
+            一键加载 20 道精选算法题（含多语言参考解法）、5 篇知识文档、4 段 AI
+            对话示例和预设提示词，快速体验全部功能。 已有的数据不会被覆盖。
+          </p>
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              onClick={() => void handleLoadDemo()}
+              disabled={demoLoading}
+              className="ui-btn-accent flex items-center gap-2 px-4 py-2 text-sm"
+            >
+              {demoLoading ? (
+                <RefreshCw size={14} className="animate-spin" />
+              ) : (
+                <Database size={14} />
+              )}
+              {demoLoading ? '加载中...' : '加载演示数据'}
+            </button>
+            {demoResult && (
+              <div className="flex items-center gap-2 text-sm text-[var(--theme-success)]">
+                <CheckCircle size={14} />
+                {demoResult}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
