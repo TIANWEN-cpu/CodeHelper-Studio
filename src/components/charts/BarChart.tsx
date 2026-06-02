@@ -19,6 +19,8 @@ export interface BarChartProps {
   showGrid?: boolean
   /** Whether bars should be horizontal instead of vertical. */
   horizontal?: boolean
+  /** @deprecated Use horizontal instead */
+  _horizontal?: boolean
   /** Custom aria label for the chart. */
   ariaLabel?: string
 }

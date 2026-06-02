@@ -5,7 +5,7 @@
  * using AI, and enables tag-based navigation to filter documents.
  */
 
-import { memo, useEffect, useState } from 'react'
+import { memo, useEffect, useState, useCallback } from 'react'
 import { Tag as TagIcon, Sparkles, X, Loader2, FileText, ChevronRight } from 'lucide-react'
 import { useKnowledgeStore } from '../../stores/knowledgeStore'
 import type { Tag, TagSuggestion, Document } from '../../types/knowledge'
