@@ -6,7 +6,7 @@
  *  - EventBus: MAX_LISTENERS warning, once semantics, void events, type safety edge cases
  *  - Memory monitor: interval precision, high-heap warning exact format
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderMarkdown } from '../src/utils/markdown'
 
 // ---------------------------------------------------------------------------

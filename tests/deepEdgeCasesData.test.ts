@@ -6,7 +6,7 @@
  *  - snippets: add/remove/update race conditions, prefix edge cases, expand edge cases
  *  - Store boundaries: max data, null states, rapid mutations
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import {
   parseJsonArray,
   sourceLabel,
