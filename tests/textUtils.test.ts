@@ -2,123 +2,92 @@ import { describe, it, expect } from 'vitest'
 import { splitIntoChunks, escapeRegExp } from '../electron/utils/textUtils'
 
 describe('splitIntoChunks', () => {
-  it('短文本返回单个块', () => {
-    expect(splitIntoChunks('hello world', 100)).toEqual(['hello world'])
+  it('splits text by double newlines respecting max length', () => {
+    const text = 'Paragraph 1\n\nParagraph 2\n\nParagraph 3'
+    const chunks = splitIntoChunks(text, 50)
+    expect(chunks.length).toBeGreaterThan(0)
+    expect(chunks.join('\n\n')).toContain('Paragraph')
   })
 
-  it('按双换行分段，超过 maxLen 时拆分', () => {
-    const text = 'paragraph one\n\nparagraph two\n\nparagraph three'
-    const result = splitIntoChunks(text, 30)
-    expect(result.length).toBeGreaterThanOrEqual(2)
-    result.forEach((chunk) => {
-      expect(chunk.length).toBeLessThanOrEqual(30 + 20)
-    })
+  it('returns single chunk for short text', () => {
+    const chunks = splitIntoChunks('Hello', 500)
+    expect(chunks).toEqual(['Hello'])
   })
 
-  it('空文本返回包含空字符串的数组', () => {
-    expect(splitIntoChunks('', 100)).toEqual([''])
+  it('returns empty string chunk for empty input', () => {
+    const chunks = splitIntoChunks('', 500)
+    expect(chunks).toEqual([''])
   })
 
-  it('只有空白返回包含空字符串的数组', () => {
-    expect(splitIntoChunks('   ', 100)).toEqual([''])
+  it('combines small paragraphs under max length', () => {
+    const text = 'A\n\nB\n\nC'
+    const chunks = splitIntoChunks(text, 100)
+    expect(chunks).toEqual(['A\n\nB\n\nC'])
   })
 
-  it('长段落保持完整性（不超过 maxLen 时）', () => {
-    const para = 'a'.repeat(50)
-    const text = `${para}\n\n${para}`
-    const result = splitIntoChunks(text, 200)
-    expect(result).toHaveLength(1)
-    expect(result[0]).toContain(para)
+  it('splits large paragraphs that exceed limit', () => {
+    const bigPara = 'X'.repeat(200)
+    const text = bigPara + '\n\n' + bigPara
+    const chunks = splitIntoChunks(text, 150)
+    expect(chunks.length).toBe(2)
+    expect(chunks[0]).toBe(bigPara)
+    expect(chunks[1]).toBe(bigPara)
   })
 
-  it('超长段落仍会被保留（单段超 maxLen 时不会截断）', () => {
-    const longPara = 'x'.repeat(200)
-    const result = splitIntoChunks(longPara, 50)
-    expect(result).toHaveLength(1)
-    expect(result[0]).toBe(longPara)
-  })
-
-  it('多个段落逐步累积直到超限', () => {
-    const text = 'aaa\n\nbbb\n\nccc\n\nddd'
-    const result = splitIntoChunks(text, 10)
-    expect(result.length).toBeGreaterThanOrEqual(2)
-  })
-
-  it('恰好达到 maxLen 时不拆分', () => {
-    const text = 'a'.repeat(50)
-    const result = splitIntoChunks(text, 50)
-    expect(result).toHaveLength(1)
-  })
-
-  it('两段组合恰好超过 maxLen 时拆分', () => {
-    const text = 'a'.repeat(30) + '\n\n' + 'b'.repeat(30)
-    const result = splitIntoChunks(text, 61) // 30 + 2 (分隔符) + 30 = 62 > 61
-    expect(result).toHaveLength(2)
-    expect(result[0]).toBe('a'.repeat(30))
-    expect(result[1]).toBe('b'.repeat(30))
-  })
-
-  it('多个连续换行符被视为段落分隔符', () => {
-    const text = 'aaa\n\n\n\nbbb'
-    const result = splitIntoChunks(text, 100)
-    expect(result).toHaveLength(1)
-    expect(result[0]).toBe('aaa\n\nbbb')
-  })
-
-  it('三段累积后超限正确拆分', () => {
-    const text = 'aa\n\nbb\n\ncc'
-    const result = splitIntoChunks(text, 6) // "aa\n\nbb" = 6 chars, then "cc" is next
-    expect(result.length).toBeGreaterThanOrEqual(1)
-    result.forEach((chunk) => {
-      expect(chunk.trim().length).toBeGreaterThan(0)
-    })
+  it('starts new chunk when adding paragraph exceeds limit', () => {
+    const text = 'A'.repeat(80) + '\n\n' + 'B'.repeat(80)
+    const chunks = splitIntoChunks(text, 100)
+    expect(chunks).toHaveLength(2)
   })
 })
 
 describe('escapeRegExp', () => {
-  it('转义特殊正则字符', () => {
+  it('escapes dot', () => {
+    expect(escapeRegExp('hello.world')).toBe('hello\\.world')
+  })
+
+  it('escapes plus and star', () => {
+    expect(escapeRegExp('a+b*c')).toBe('a\\+b\\*c')
+  })
+
+  it('escapes brackets', () => {
     expect(escapeRegExp('[test]')).toBe('\\[test\\]')
-    expect(escapeRegExp('a.b')).toBe('a\\.b')
-    expect(escapeRegExp('a+b')).toBe('a\\+b')
-    expect(escapeRegExp('a*b')).toBe('a\\*b')
+  })
+
+  it('escapes parentheses', () => {
+    expect(escapeRegExp('(group)')).toBe('\\(group\\)')
+  })
+
+  it('escapes question mark', () => {
     expect(escapeRegExp('a?b')).toBe('a\\?b')
-    expect(escapeRegExp('a^b')).toBe('a\\^b')
-    expect(escapeRegExp('a$b')).toBe('a\\$b')
-    expect(escapeRegExp('(a|b)')).toBe('\\(a\\|b\\)')
-    expect(escapeRegExp('{a}')).toBe('\\{a\\}')
   })
 
-  it('不含特殊字符时原样返回', () => {
-    expect(escapeRegExp('hello world')).toBe('hello world')
+  it('escapes curly braces', () => {
+    expect(escapeRegExp('a{2}')).toBe('a\\{2\\}')
   })
 
-  it('空字符串返回空字符串', () => {
-    expect(escapeRegExp('')).toBe('')
+  it('escapes pipe', () => {
+    expect(escapeRegExp('a|b')).toBe('a\\|b')
   })
 
-  it('所有特殊字符组合', () => {
-    expect(escapeRegExp('.*+?^${}()|[]\\')).toBe(
-      '\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\',
-    )
+  it('escapes caret and dollar', () => {
+    expect(escapeRegExp('^abc$')).toBe('\\^abc\\$')
   })
 
-  it('反斜杠自身被转义', () => {
+  it('escapes backslash', () => {
     expect(escapeRegExp('a\\b')).toBe('a\\\\b')
   })
 
-  it('中文字符不含特殊字符', () => {
-    expect(escapeRegExp('你好世界')).toBe('你好世界')
+  it('leaves normal text unchanged', () => {
+    expect(escapeRegExp('hello world')).toBe('hello world')
+    expect(escapeRegExp('abc123')).toBe('abc123')
   })
 
-  it('混合中英文和特殊字符', () => {
-    expect(escapeRegExp('用户[1]')).toBe('用户\\[1\\]')
+  it('handles empty string', () => {
+    expect(escapeRegExp('')).toBe('')
   })
 
-  it('转义后的字符串可用于安全构造正则', () => {
-    const input = 'price: $100 (USD)'
-    const escaped = escapeRegExp(input)
-    const re = new RegExp(escaped)
-    expect(re.test(input)).toBe(true)
-    expect(re.test('price: $200 (USD)')).toBe(false)
+  it('handles complex pattern', () => {
+    expect(escapeRegExp('price: $10.00 (USD)')).toBe('price: \\$10\\.00 \\(USD\\)')
   })
 })

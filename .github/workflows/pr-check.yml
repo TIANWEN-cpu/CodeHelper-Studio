@@ -1,0 +1,204 @@
+name: PR Check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pr-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------
+  # 1. PR title validation (Conventional Commits)
+  # ---------------------------------------------------------------
+  pr-title:
+    name: PR Title Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR title
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          requireScope: false
+          subjectPattern: ^.{1,72}$
+          subjectPatternError: |
+            PR title "{subject}" does not match the expected pattern.
+            Title must be 1-72 characters long.
+
+  # ---------------------------------------------------------------
+  # 2. Commit message validation
+  # ---------------------------------------------------------------
+  commit-messages:
+    name: Commit Message Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit messages
+        uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: .commitlintrc.json
+          failOnWarnings: false
+
+  # ---------------------------------------------------------------
+  # 3. PR size labeler (change size check)
+  # ---------------------------------------------------------------
+  size-label:
+    name: Change Size Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Label PR by size
+        uses: codelytv/pr-size-labeler@v1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          xs_max_size: 10
+          s_max_size: 100
+          m_max_size: 500
+          l_max_size: 1000
+          fail_if_xl: false
+          message_if_xl: |
+            This PR is very large (>1000 lines changed).
+            Please consider splitting it into smaller PRs for easier review.
+          files_to_ignore: |
+            *.lock
+            package-lock.json
+            **/__snapshots__/**
+            **/*.snap
+
+  # ---------------------------------------------------------------
+  # 4. Auto-assign reviewers
+  # ---------------------------------------------------------------
+  auto-assign:
+    name: Auto-assign Reviewers
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened'
+    steps:
+      - name: Assign reviewers
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const author = pr.user.login;
+
+            // Team members who can review (exclude the author)
+            const team = ['TIANWEN-cpu'];
+            const reviewers = team.filter(u => u !== author);
+
+            if (reviewers.length > 0) {
+              await github.rest.pulls.requestReviewers({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                reviewers: reviewers
+              });
+            }
+
+  # ---------------------------------------------------------------
+  # 5. Changed files summary
+  # ---------------------------------------------------------------
+  changes-summary:
+    name: Changes Summary
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened' || github.event.action == 'synchronize'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changes summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              per_page: 100
+            });
+
+            const categories = {
+              source: { label: 'Source Code', files: [], additions: 0, deletions: 0 },
+              test: { label: 'Tests', files: [], additions: 0, deletions: 0 },
+              config: { label: 'Config / CI', files: [], additions: 0, deletions: 0 },
+              docs: { label: 'Docs', files: [], additions: 0, deletions: 0 },
+              other: { label: 'Other', files: [], additions: 0, deletions: 0 }
+            };
+
+            for (const f of files) {
+              let cat = 'other';
+              if (f.filename.match(/\.(ts|tsx|js|jsx|mjs|css|html)$/) && !f.filename.includes('test')) {
+                cat = 'source';
+              } else if (f.filename.includes('test') || f.filename.includes('__tests__')) {
+                cat = 'test';
+              } else if (f.filename.match(/\.(yml|yaml|json|toml|rc)$/) || f.filename.includes('.github/')) {
+                cat = 'config';
+              } else if (f.filename.match(/\.(md|mdx|txt)$/)) {
+                cat = 'docs';
+              }
+              categories[cat].files.push(f.filename);
+              categories[cat].additions += f.additions;
+              categories[cat].deletions += f.deletions;
+            }
+
+            let summary = '## Changes Summary\n\n';
+            summary += '| Category | Files | +Lines | -Lines |\n';
+            summary += '|----------|-------|--------|--------|\n';
+
+            for (const [, cat] of Object.entries(categories)) {
+              if (cat.files.length > 0) {
+                summary += `| ${cat.label} | ${cat.files.length} | +${cat.additions} | -${cat.deletions} |\n`;
+              }
+            }
+
+            const totalFiles = files.length;
+            const totalAdd = files.reduce((s, f) => s + f.additions, 0);
+            const totalDel = files.reduce((s, f) => s + f.deletions, 0);
+            summary += `\n**Total**: ${totalFiles} files changed, +${totalAdd} / -${totalDel}\n`;
+
+            // Post as PR comment (update existing comment if present)
+            const marker = '<!-- changes-summary -->';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+            const existing = comments.find(c => c.body.includes(marker));
+
+            const body = marker + '\n' + summary;
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body
+              });
+            }

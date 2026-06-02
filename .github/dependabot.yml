@@ -1,0 +1,123 @@
+# Dependabot configuration for CodeHelper
+# Docs: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+
+version: 2
+
+updates:
+  # ---------------------------------------------------------------
+  # npm dependencies (main project)
+  # ---------------------------------------------------------------
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:00"
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 10
+    reviewers:
+      - TIANWEN-cpu
+    labels:
+      - dependencies
+      - automated
+    commit-message:
+      prefix: "chore(deps)"
+      include: scope
+
+    # Group minor/patch updates to reduce PR noise
+    groups:
+      # Electron ecosystem
+      electron:
+        patterns:
+          - "electron"
+          - "electron-builder"
+          - "electron-vite"
+          - "@electron/*"
+        update-types:
+          - minor
+          - patch
+
+      # React ecosystem
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+          - "react-markdown"
+          - "react-syntax-highlighter"
+        update-types:
+          - minor
+          - patch
+
+      # TypeScript & build tools
+      build-tools:
+        patterns:
+          - "typescript"
+          - "typescript-eslint"
+          - "vite"
+          - "@vitejs/*"
+          - "vitest"
+          - "@vitest/*"
+        update-types:
+          - minor
+          - patch
+
+      # Lint & format
+      lint:
+        patterns:
+          - "eslint"
+          - "eslint-plugin-*"
+          - "prettier"
+          - "husky"
+          - "lint-staged"
+        update-types:
+          - minor
+          - patch
+
+      # Tailwind
+      tailwind:
+        patterns:
+          - "tailwindcss"
+          - "@tailwindcss/*"
+        update-types:
+          - minor
+          - patch
+
+      # All other minor/patch updates
+      minor-patch:
+        update-types:
+          - minor
+          - patch
+
+    # Auto-merge for minor and patch updates
+    # (requires branch protection rules with status checks)
+    # Uncomment once CI is stable:
+    # open-pull-requests-limit: 15
+
+  # ---------------------------------------------------------------
+  # GitHub Actions
+  # ---------------------------------------------------------------
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:00"
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 5
+    reviewers:
+      - TIANWEN-cpu
+    labels:
+      - dependencies
+      - ci
+      - automated
+    commit-message:
+      prefix: "ci(deps)"
+    groups:
+      actions:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch

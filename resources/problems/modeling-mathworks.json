@@ -3,14 +3,8 @@
     "title": "MathWorks 实现训练 001：城市配送优化",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "easy",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -36,9 +30,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -50,14 +42,8 @@
     "title": "MathWorks 实现训练 002：景区客流预测",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "easy",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -83,9 +69,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -97,14 +81,8 @@
     "title": "MathWorks 实现训练 003：指标评价体系",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "easy",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -130,9 +108,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -144,14 +120,8 @@
     "title": "MathWorks 实现训练 004：疫情传播建模",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "easy",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -177,9 +147,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -191,14 +159,8 @@
     "title": "MathWorks 实现训练 005：灰色预测分析",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "easy",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -224,9 +186,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -238,14 +198,8 @@
     "title": "MathWorks 实现训练 006：能源负荷调度",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "easy",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -271,9 +225,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -285,14 +237,8 @@
     "title": "MathWorks 实现训练 007：公交排班优化",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "easy",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -318,9 +264,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -332,14 +276,8 @@
     "title": "MathWorks 实现训练 008：仓储选址规划",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "easy",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -365,9 +303,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -379,14 +315,8 @@
     "title": "MathWorks 实现训练 009：用户分群画像",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "easy",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -412,9 +342,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -426,14 +354,8 @@
     "title": "MathWorks 实现训练 010：异常检测报告",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -459,9 +381,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -473,14 +393,8 @@
     "title": "MathWorks 实现训练 011：网络可靠性评估",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -506,9 +420,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -520,14 +432,8 @@
     "title": "MathWorks 实现训练 012：温度场数值模拟",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -553,9 +459,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -567,14 +471,8 @@
     "title": "MathWorks 实现训练 013：城市配送优化",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -600,9 +498,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -614,14 +510,8 @@
     "title": "MathWorks 实现训练 014：景区客流预测",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -647,9 +537,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -661,14 +549,8 @@
     "title": "MathWorks 实现训练 015：指标评价体系",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -694,9 +576,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -708,14 +588,8 @@
     "title": "MathWorks 实现训练 016：疫情传播建模",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -741,9 +615,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -755,14 +627,8 @@
     "title": "MathWorks 实现训练 017：灰色预测分析",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -788,9 +654,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -802,14 +666,8 @@
     "title": "MathWorks 实现训练 018：能源负荷调度",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -835,9 +693,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -849,14 +705,8 @@
     "title": "MathWorks 实现训练 019：公交排班优化",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -882,9 +732,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -896,14 +744,8 @@
     "title": "MathWorks 实现训练 020：仓储选址规划",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -929,9 +771,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -943,14 +783,8 @@
     "title": "MathWorks 实现训练 021：用户分群画像",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -976,9 +810,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -990,14 +822,8 @@
     "title": "MathWorks 实现训练 022：异常检测报告",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -1023,9 +849,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -1037,14 +861,8 @@
     "title": "MathWorks 实现训练 023：网络可靠性评估",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -1070,9 +888,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -1084,14 +900,8 @@
     "title": "MathWorks 实现训练 024：温度场数值模拟",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -1117,9 +927,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -1131,14 +939,8 @@
     "title": "MathWorks 实现训练 025：城市配送优化",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -1164,9 +966,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -1178,14 +978,8 @@
     "title": "MathWorks 实现训练 026：景区客流预测",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -1211,9 +1005,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -1225,14 +1017,8 @@
     "title": "MathWorks 实现训练 027：指标评价体系",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -1258,9 +1044,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -1272,14 +1056,8 @@
     "title": "MathWorks 实现训练 028：疫情传播建模",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -1305,9 +1083,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -1319,14 +1095,8 @@
     "title": "MathWorks 实现训练 029：灰色预测分析",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -1352,9 +1122,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -1366,14 +1134,8 @@
     "title": "MathWorks 实现训练 030：能源负荷调度",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -1399,9 +1161,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -1413,14 +1173,8 @@
     "title": "MathWorks 实现训练 031：公交排班优化",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -1446,9 +1200,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -1460,14 +1212,8 @@
     "title": "MathWorks 实现训练 032：仓储选址规划",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -1493,9 +1239,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -1507,14 +1251,8 @@
     "title": "MathWorks 实现训练 033：用户分群画像",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -1540,9 +1278,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -1554,14 +1290,8 @@
     "title": "MathWorks 实现训练 034：异常检测报告",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -1587,9 +1317,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -1601,14 +1329,8 @@
     "title": "MathWorks 实现训练 035：网络可靠性评估",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -1634,9 +1356,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -1648,14 +1368,8 @@
     "title": "MathWorks 实现训练 036：温度场数值模拟",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -1681,9 +1395,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -1695,14 +1407,8 @@
     "title": "MathWorks 实现训练 037：城市配送优化",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -1728,9 +1434,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -1742,14 +1446,8 @@
     "title": "MathWorks 实现训练 038：景区客流预测",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -1775,9 +1473,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -1789,14 +1485,8 @@
     "title": "MathWorks 实现训练 039：指标评价体系",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "medium",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -1822,9 +1512,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -1836,14 +1524,8 @@
     "title": "MathWorks 实现训练 040：疫情传播建模",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "hard",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -1869,9 +1551,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -1883,14 +1563,8 @@
     "title": "MathWorks 实现训练 041：灰色预测分析",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "hard",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -1916,9 +1590,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -1930,14 +1602,8 @@
     "title": "MathWorks 实现训练 042：能源负荷调度",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "hard",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -1963,9 +1629,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -1977,14 +1641,8 @@
     "title": "MathWorks 实现训练 043：公交排班优化",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "hard",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -2010,9 +1668,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -2024,14 +1680,8 @@
     "title": "MathWorks 实现训练 044：仓储选址规划",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "hard",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -2057,9 +1707,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -2071,14 +1719,8 @@
     "title": "MathWorks 实现训练 045：用户分群画像",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "hard",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -2104,9 +1746,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -2118,14 +1758,8 @@
     "title": "MathWorks 实现训练 046：异常检测报告",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "hard",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -2151,9 +1785,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -2165,14 +1797,8 @@
     "title": "MathWorks 实现训练 047：网络可靠性评估",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "hard",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -2198,9 +1824,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -2212,14 +1836,8 @@
     "title": "MathWorks 实现训练 048：温度场数值模拟",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "hard",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -2245,9 +1863,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -2259,14 +1875,8 @@
     "title": "MathWorks 实现训练 049：城市配送优化",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "hard",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -2292,9 +1902,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -2306,14 +1914,8 @@
     "title": "MathWorks 实现训练 050：景区客流预测",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "hard",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -2339,9 +1941,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -2353,14 +1953,8 @@
     "title": "MathWorks 实现训练 051：指标评价体系",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "hard",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -2386,9 +1980,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -2400,14 +1992,8 @@
     "title": "MathWorks 实现训练 052：疫情传播建模",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "hard",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -2433,9 +2019,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -2447,14 +2031,8 @@
     "title": "MathWorks 实现训练 053：灰色预测分析",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "hard",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -2480,9 +2058,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -2494,14 +2070,8 @@
     "title": "MathWorks 实现训练 054：能源负荷调度",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "hard",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -2527,9 +2097,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -2541,14 +2109,8 @@
     "title": "MathWorks 实现训练 055：公交排班优化",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "hard",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -2574,9 +2136,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -2588,14 +2148,8 @@
     "title": "MathWorks 实现训练 056：仓储选址规划",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "hard",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -2621,9 +2175,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -2635,14 +2187,8 @@
     "title": "MathWorks 实现训练 057：用户分群画像",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "hard",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -2668,9 +2214,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -2682,14 +2226,8 @@
     "title": "MathWorks 实现训练 058：异常检测报告",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "hard",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -2715,9 +2253,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -2729,14 +2265,8 @@
     "title": "MathWorks 实现训练 059：网络可靠性评估",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "hard",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -2762,9 +2292,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",
@@ -2776,14 +2304,8 @@
     "title": "MathWorks 实现训练 060：温度场数值模拟",
     "description": "MathWorks 实现训练 训练题。\n\n请围绕给定业务场景完成问题重述、建模假设、变量定义、求解流程和结果分析。\n如涉及数据处理，请给出清洗方案、特征设计与评价指标；如涉及优化，请说明目标函数和约束条件。",
     "difficulty": "hard",
-    "tags": [
-      "数学建模",
-      "数据分析",
-      "建模报告"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数学建模", "数据分析", "建模报告"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "场景资料 / 附件数据",
@@ -2809,9 +2331,7 @@
       "python": "# 建议步骤：\n# 1. 读取或整理数据\n# 2. 明确评价指标 / 目标函数\n# 3. 完成建模、求解与结果解释\n\ndef main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
     },
     "source": "modeling-mathworks",
-    "tracks": [
-      "math-modeling"
-    ],
+    "tracks": ["math-modeling"],
     "platform": "mathworks",
     "mode": "case-study",
     "exam_style": "modeling",

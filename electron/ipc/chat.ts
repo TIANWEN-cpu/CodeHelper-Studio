@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { getDB } from '../db/index'
 import { BUILTIN_PRESETS, extractMemoryCandidates, buildSearchTerms } from '../utils/chatHelpers'
+import { trackPerformance } from '../utils/perfMonitor'
 import type { MemoryRow } from '../types/db'
 
 // Re-export for ai.ts which imports getRelevantMemories
@@ -17,7 +18,7 @@ interface MemoryInput {
   confidence?: number
 }
 
-export function registerChatIPC() {
+export function registerChatIPC(): void {
   const presetCount = (
     getDB().prepare('SELECT COUNT(*) as c FROM prompt_presets WHERE is_builtin = 1').get() as {
       c: number
@@ -71,14 +72,19 @@ export function registerChatIPC() {
         if (typeof updates.system_prompt !== 'string') throw new Error('参数无效: system_prompt')
         updates.system_prompt = updates.system_prompt.slice(0, 10000)
       }
-      if (updates.title !== undefined) {
+      if (updates.title !== undefined && updates.system_prompt !== undefined) {
+        getDB()
+          .prepare(
+            'UPDATE chat_sessions SET title = ?, system_prompt = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+          )
+          .run(updates.title, updates.system_prompt, id)
+      } else if (updates.title !== undefined) {
         getDB()
           .prepare(
             'UPDATE chat_sessions SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
           )
           .run(updates.title, id)
-      }
-      if (updates.system_prompt !== undefined) {
+      } else if (updates.system_prompt !== undefined) {
         getDB()
           .prepare(
             'UPDATE chat_sessions SET system_prompt = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
@@ -95,13 +101,16 @@ export function registerChatIPC() {
     getDB().prepare('DELETE FROM chat_sessions WHERE id = ?').run(id)
   })
 
-  ipcMain.handle('chat-messages-load', (_e, sessionId: string) => {
-    if (typeof sessionId !== 'string' || !sessionId.trim()) throw new Error('参数无效: sessionId')
-    sessionId = sessionId.trim().slice(0, 200)
-    return getDB()
-      .prepare('SELECT * FROM chat_history WHERE session_id = ? ORDER BY created_at ASC, id ASC')
-      .all(sessionId)
-  })
+  ipcMain.handle(
+    'chat-messages-load',
+    trackPerformance('chat-messages-load', (_e, sessionId: string) => {
+      if (typeof sessionId !== 'string' || !sessionId.trim()) throw new Error('参数无效: sessionId')
+      sessionId = sessionId.trim().slice(0, 200)
+      return getDB()
+        .prepare('SELECT * FROM chat_history WHERE session_id = ? ORDER BY created_at ASC, id ASC')
+        .all(sessionId)
+    }),
+  )
 
   ipcMain.handle(
     'chat-message-save',
@@ -161,23 +170,27 @@ export function registerChatIPC() {
     getDB().prepare('DELETE FROM prompt_presets WHERE id = ? AND is_builtin = 0').run(id)
   })
 
-  ipcMain.handle('chat-memories-list', (_e, search?: string) => {
-    if (search !== undefined && search !== null) {
-      if (typeof search !== 'string') throw new Error('参数无效: search')
-      search = search.slice(0, 500)
-    }
-    const rows = getDB()
-      .prepare('SELECT * FROM memories ORDER BY pinned DESC, updated_at DESC, id DESC')
-      .all() as MemoryRow[]
-    if (!search?.trim()) {
-      return rows
-    }
-    const keyword = search.trim().toLowerCase()
-    return rows.filter(
-      (row) =>
-        row.content.toLowerCase().includes(keyword) || row.category.toLowerCase().includes(keyword),
-    )
-  })
+  ipcMain.handle(
+    'chat-memories-list',
+    trackPerformance('chat-memories-list', (_e, search?: string) => {
+      if (search !== undefined && search !== null) {
+        if (typeof search !== 'string') throw new Error('参数无效: search')
+        search = search.slice(0, 500)
+      }
+      const rows = getDB()
+        .prepare('SELECT * FROM memories ORDER BY pinned DESC, updated_at DESC, id DESC')
+        .all() as MemoryRow[]
+      if (!search?.trim()) {
+        return rows
+      }
+      const keyword = search.trim().toLowerCase()
+      return rows.filter(
+        (row) =>
+          row.content.toLowerCase().includes(keyword) ||
+          row.category.toLowerCase().includes(keyword),
+      )
+    }),
+  )
 
   ipcMain.handle('chat-memory-save', (_e, memory: MemoryInput) => {
     if (!memory || typeof memory !== 'object') throw new Error('参数无效')
@@ -280,7 +293,7 @@ export function registerChatIPC() {
   })
 }
 
-export function getRelevantMemories(query: string, limit = 6) {
+export function getRelevantMemories(query: string, limit = 6): MemoryRow[] {
   const db = getDB()
   const rows = db.prepare('SELECT * FROM memories WHERE enabled = 1').all() as MemoryRow[]
   const terms = buildSearchTerms(query)
@@ -321,16 +334,16 @@ export function getRelevantMemories(query: string, limit = 6) {
     .slice(0, Math.min(limit, 3))
 }
 
-export function markMemoriesUsed(ids: number[]) {
+export function markMemoriesUsed(ids: number[]): void {
   if (ids.length === 0) return
   const db = getDB()
-  const stmt = db.prepare('UPDATE memories SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?')
-  for (const id of ids) {
-    stmt.run(id)
-  }
+  const placeholders = ids.map(() => '?').join(',')
+  db.prepare(
+    `UPDATE memories SET last_used_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`,
+  ).run(...ids)
 }
 
-export function captureMemoriesFromMessage(content: string, sessionId?: string) {
+export function captureMemoriesFromMessage(content: string, sessionId?: string): MemoryRow[] {
   const candidates = extractMemoryCandidates(content)
   const saved: MemoryRow[] = []
   const db = getDB()

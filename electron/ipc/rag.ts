@@ -3,9 +3,10 @@ import { getDB } from '../db/index'
 import { readFileSync, statSync } from 'fs'
 import { basename, extname } from 'path'
 import { splitIntoChunks, escapeRegExp } from '../utils/textUtils'
+import { trackPerformance } from '../utils/perfMonitor'
 import type { KnowledgeChunkRow } from '../types/db'
 
-export function registerRAGIPC() {
+export function registerRAGIPC(): void {
   ipcMain.handle('knowledge-upload', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
@@ -23,7 +24,14 @@ export function registerRAGIPC() {
       let content = ''
 
       const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
-      const stat = statSync(filePath)
+      let stat
+      try {
+        stat = statSync(filePath)
+      } catch (error) {
+        throw new Error(
+          `无法读取文件 "${filename}": ${error instanceof Error ? error.message : String(error)}`,
+        )
+      }
       if (stat.size > MAX_FILE_SIZE) {
         throw new Error(`文件 "${filename}" 超过大小限制（最大 10MB）`)
       }
@@ -32,14 +40,15 @@ export function registerRAGIPC() {
         content = readFileSync(filePath, 'utf-8')
       } else if (ext === '.pdf') {
         try {
-          const { PDFParse } = await import('pdf-parse').catch(() => {
-            throw new Error('缺少 pdf-parse 模块，请运行: npm install pdf-parse')
-          })
+          const pdfParseModule = await import('pdf-parse')
+          const pdfParseFn = (pdfParseModule as unknown as Record<string, unknown>).default as
+            | ((data: Buffer) => Promise<{ text: string }>)
+            | undefined
+          const pdfParse =
+            pdfParseFn ?? (pdfParseModule as unknown as (data: Buffer) => Promise<{ text: string }>)
           const buffer = readFileSync(filePath)
-          const parser = new PDFParse({ data: buffer })
-          const textResult = await parser.getText()
+          const textResult = await pdfParse(buffer)
           content = textResult.text
-          await parser.destroy()
         } catch (error) {
           throw new Error(`PDF 解析失败: ${error instanceof Error ? error.message : String(error)}`)
         }
@@ -82,37 +91,40 @@ export function registerRAGIPC() {
     getDB().prepare('DELETE FROM knowledge_docs WHERE id = ?').run(id)
   })
 
-  ipcMain.handle('knowledge-search', (_e, query: string) => {
-    if (typeof query !== 'string' || !query.trim()) throw new Error('参数无效: query')
-    query = query.trim().slice(0, 1000)
-    // Simple keyword search (no embedding for now)
-    const keywords = query
-      .toLowerCase()
-      .split(/\s+/)
-      .filter((k) => k.length > 1)
-    if (keywords.length === 0) return []
+  ipcMain.handle(
+    'knowledge-search',
+    trackPerformance('knowledge-search', (_e, query: string) => {
+      if (typeof query !== 'string' || !query.trim()) throw new Error('参数无效: query')
+      query = query.trim().slice(0, 1000)
+      // Simple keyword search (no embedding for now)
+      const keywords = query
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((k) => k.length > 1)
+      if (keywords.length === 0) return []
 
-    const db = getDB()
-    const conditions = keywords.map(() => 'LOWER(kc.content) LIKE ?').join(' OR ')
-    const params = keywords.map((kw) => `%${kw}%`)
-    const matchingChunks = db
-      .prepare(
-        `SELECT kc.*, kd.filename FROM knowledge_chunks kc JOIN knowledge_docs kd ON kc.doc_id = kd.id WHERE ${conditions}`,
-      )
-      .all(...params) as KnowledgeChunkRow[]
+      const db = getDB()
+      const conditions = keywords.map(() => 'LOWER(kc.content) LIKE ?').join(' OR ')
+      const params = keywords.map((kw) => `%${kw}%`)
+      const matchingChunks = db
+        .prepare(
+          `SELECT kc.*, kd.filename FROM knowledge_chunks kc JOIN knowledge_docs kd ON kc.doc_id = kd.id WHERE ${conditions}`,
+        )
+        .all(...params) as KnowledgeChunkRow[]
 
-    // Score chunks by keyword match frequency
-    const scored = matchingChunks.map((chunk) => {
-      const text = chunk.content.toLowerCase()
-      let score = 0
-      for (const kw of keywords) {
-        const matches = (text.match(new RegExp(escapeRegExp(kw), 'g')) || []).length
-        score += matches
-      }
-      return { ...chunk, score }
-    })
+      // Score chunks by keyword match frequency
+      const scored = matchingChunks.map((chunk) => {
+        const text = chunk.content.toLowerCase()
+        let score = 0
+        for (const kw of keywords) {
+          const matches = (text.match(new RegExp(escapeRegExp(kw), 'g')) || []).length
+          score += matches
+        }
+        return { ...chunk, score }
+      })
 
-    scored.sort((a, b) => b.score - a.score)
-    return scored.slice(0, 5)
-  })
+      scored.sort((a, b) => b.score - a.score)
+      return scored.slice(0, 5)
+    }),
+  )
 }

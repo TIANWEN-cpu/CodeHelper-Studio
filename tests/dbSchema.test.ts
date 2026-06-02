@@ -62,9 +62,7 @@ afterAll(() => {
 
 describe('DB schema: problems 表', () => {
   it('problems 表存在', () => {
-    const tables = queryAll(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='problems'",
-    )
+    const tables = queryAll("SELECT name FROM sqlite_master WHERE type='table' AND name='problems'")
     expect(tables).toHaveLength(1)
   })
 
@@ -173,7 +171,7 @@ describe('DB schema: submissions 表', () => {
   })
 
   it('status 有 CHECK 约束', () => {
-    const prob = queryOne("SELECT id FROM problems WHERE title = ?", ['t1'])
+    const prob = queryOne('SELECT id FROM problems WHERE title = ?', ['t1'])
     expect(() => {
       db.run(
         `INSERT INTO submissions (problem_id, language, code, status)
@@ -184,13 +182,15 @@ describe('DB schema: submissions 表', () => {
   })
 
   it('status 允许所有合法值', () => {
-    const prob = queryOne("SELECT id FROM problems WHERE title = ?", ['t1'])
+    const prob = queryOne('SELECT id FROM problems WHERE title = ?', ['t1'])
     const statuses = ['accepted', 'wrong_answer', 'compile_error', 'runtime_error', 'timeout']
     for (const status of statuses) {
-      db.run(
-        'INSERT INTO submissions (problem_id, language, code, status) VALUES (?,?,?,?)',
-        [prob!.id, 'python', 'code', status],
-      )
+      db.run('INSERT INTO submissions (problem_id, language, code, status) VALUES (?,?,?,?)', [
+        prob!.id,
+        'python',
+        'code',
+        status,
+      ])
     }
     const row = queryOne('SELECT COUNT(*) as c FROM submissions WHERE problem_id = ?', [prob!.id])
     expect(row!.c).toBe(statuses.length)
@@ -209,9 +209,7 @@ describe('DB schema: submissions 表', () => {
 
 describe('DB schema: mistakes 表', () => {
   it('mistakes 表存在', () => {
-    const tables = queryAll(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='mistakes'",
-    )
+    const tables = queryAll("SELECT name FROM sqlite_master WHERE type='table' AND name='mistakes'")
     expect(tables).toHaveLength(1)
   })
 
@@ -232,7 +230,7 @@ describe('DB schema: mistakes 表', () => {
   })
 
   it('problem_id UNIQUE 约束', () => {
-    const prob = queryOne("SELECT id FROM problems WHERE title = ?", ['t1'])
+    const prob = queryOne('SELECT id FROM problems WHERE title = ?', ['t1'])
     // First insert succeeds
     db.run('INSERT INTO mistakes (problem_id, last_wrong_code) VALUES (?, ?)', [
       prob!.id,
@@ -318,9 +316,7 @@ describe('DB schema: chat_sessions 表', () => {
 
 describe('DB schema: memories 表', () => {
   it('memories 表存在', () => {
-    const tables = queryAll(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='memories'",
-    )
+    const tables = queryAll("SELECT name FROM sqlite_master WHERE type='table' AND name='memories'")
     expect(tables).toHaveLength(1)
   })
 
@@ -443,9 +439,7 @@ describe('DB schema: knowledge_chunks 表', () => {
 
 describe('DB schema: settings 表', () => {
   it('settings 表存在', () => {
-    const tables = queryAll(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='settings'",
-    )
+    const tables = queryAll("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'")
     expect(tables).toHaveLength(1)
   })
 
@@ -478,20 +472,18 @@ describe('DB 查询模式: problems', () => {
   })
 
   it('problems-list 按 difficulty 过滤', () => {
-    const result = queryAll(
-      'SELECT p.* FROM problems p WHERE p.difficulty = ? ORDER BY p.id ASC',
-      ['easy'],
-    )
+    const result = queryAll('SELECT p.* FROM problems p WHERE p.difficulty = ? ORDER BY p.id ASC', [
+      'easy',
+    ])
     for (const row of result) {
       expect(row.difficulty).toBe('easy')
     }
   })
 
   it('problems-list 按 tag 模糊匹配', () => {
-    const result = queryAll(
-      'SELECT p.* FROM problems p WHERE p.tags LIKE ? ORDER BY p.id ASC',
-      ['%sort%'],
-    )
+    const result = queryAll('SELECT p.* FROM problems p WHERE p.tags LIKE ? ORDER BY p.id ASC', [
+      '%sort%',
+    ])
     expect(Array.isArray(result)).toBe(true)
   })
 
@@ -541,16 +533,12 @@ describe('DB 查询模式: chat', () => {
   })
 
   it('chat-presets-list 查询可执行', () => {
-    const result = queryAll(
-      'SELECT * FROM prompt_presets ORDER BY is_builtin DESC, id ASC',
-    )
+    const result = queryAll('SELECT * FROM prompt_presets ORDER BY is_builtin DESC, id ASC')
     expect(Array.isArray(result)).toBe(true)
   })
 
   it('memories 查询可执行', () => {
-    const result = queryAll(
-      'SELECT * FROM memories ORDER BY pinned DESC, updated_at DESC, id DESC',
-    )
+    const result = queryAll('SELECT * FROM memories ORDER BY pinned DESC, updated_at DESC, id DESC')
     expect(Array.isArray(result)).toBe(true)
   })
 })

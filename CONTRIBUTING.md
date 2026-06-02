@@ -11,8 +11,10 @@
 - [调试技巧](#调试技巧)
 - [新增功能指南](#新增功能指南)
 - [代码规范](#代码规范)
+- [测试要求](#测试要求)
 - [分支与提交规范](#分支与提交规范)
 - [Pull Request 流程](#pull-request-流程)
+- [Issue 模板](#issue-模板)
 - [常见问题](#常见问题)
 
 ---
@@ -188,9 +190,9 @@ invoke: (channel: string, ...args: unknown[]) => {
 
 SQLite 数据库文件位于：
 
-- Windows: `%APPDATA%/codehelper/database.db`
-- macOS: `~/Library/Application Support/codehelper/database.db`
-- Linux: `~/.config/codehelper/database.db`
+- Windows: `%APPDATA%/codehelper/codehelper.db`
+- macOS: `~/Library/Application Support/codehelper/codehelper.db`
+- Linux: `~/.config/codehelper/codehelper.db`
 
 可以使用 [DB Browser for SQLite](https://sqlitebrowser.org/) 打开查看。
 
@@ -237,6 +239,59 @@ SQLite 数据库文件位于：
 ```bash
 npm run format
 ```
+
+---
+
+## 测试要求
+
+项目使用 [Vitest](https://vitest.dev/) 进行单元测试。所有核心纯函数模块必须有测试覆盖。
+
+### 覆盖率要求
+
+| 指标       | 最低阈值 |
+| ---------- | -------- |
+| Statements | 80%      |
+| Branches   | 70%      |
+| Functions  | 80%      |
+| Lines      | 80%      |
+
+### 测试文件约定
+
+- 测试文件放在 `tests/` 目录下
+- 文件名格式：`<模块名>.test.ts`
+- 测试覆盖范围：`src/utils/`、`src/stores/`、`src/constants/`、`src/api/`、`electron/utils/`、`electron/db/`、`electron/ipc/`
+
+### 编写测试
+
+```typescript
+// tests/example.test.ts
+import { describe, it, expect } from 'vitest'
+import { myFunction } from '../src/utils/example'
+
+describe('myFunction', () => {
+  it('should return expected result for valid input', () => {
+    expect(myFunction('input')).toBe('expected')
+  })
+
+  it('should handle edge case', () => {
+    expect(myFunction('')).toBeNull()
+  })
+})
+```
+
+### 运行测试
+
+```bash
+npm test                    # 运行一次
+npm run test:watch          # 监听模式（开发时推荐）
+npm run test:coverage       # 生成覆盖率报告
+```
+
+### 测试命名规范
+
+- 使用中文描述测试场景：`it('应该在参数为空时返回默认值')`
+- 使用 `describe` 按功能分组
+- 每个 `it` 只测试一个行为
 
 ---
 
@@ -300,6 +355,31 @@ chore(deps): 升级 electron 到 v41
 
 ---
 
+## Issue 模板
+
+项目提供了两种 Issue 模板，提交 Issue 时请选择对应模板：
+
+### Bug 报告（`.github/ISSUE_TEMPLATE/bug_report.md`）
+
+适用于报告程序错误、异常行为或崩溃问题。请提供：
+
+- 清晰的 Bug 描述
+- 详细的复现步骤
+- 期望行为与实际行为对比
+- 环境信息（操作系统、应用版本、Node.js 版本）
+- 错误日志（如有）
+
+### 功能请求（`.github/ISSUE_TEMPLATE/feature_request.md`）
+
+适用于提出新功能建议或改进建议。请提供：
+
+- 功能描述
+- 使用场景说明
+- 期望的交互方式
+- 相关模块归属
+
+---
+
 ## 常见问题
 
 ### Q: `npm install` 报错 `better-sqlite3` 编译失败
@@ -340,3 +420,16 @@ ipcMain.on('*', (event, ...args) => {
 ---
 
 如有其他问题，欢迎在 [GitHub Issues](https://github.com/TIANWEN-cpu/CodeHelper/issues) 中提问。
+
+---
+
+## See Also
+
+- [README.md](README.md) -- 项目概览、功能特性与技术栈
+- [docs/guides/contributing.md](docs/guides/contributing.md) -- docs 目录下的贡献指南（更详细的 PR 流程）
+- [docs/guides/getting-started.md](docs/guides/getting-started.md) -- 快速上手开发环境搭建
+- [docs/guides/testing.md](docs/guides/testing.md) -- 测试策略与编写规范
+- [docs/guides/debugging.md](docs/guides/debugging.md) -- 调试技巧详解
+- [docs/architecture.md](docs/architecture.md) -- 系统架构详解
+- [docs/api.md](docs/api.md) -- IPC 通道与 API 参考
+- [docs/glossary.md](docs/glossary.md) -- 技术术语表

@@ -14,6 +14,7 @@ import { useChatStore, type MemoryItem } from '../../stores/chatStore'
 import { useAppStore, type ThemeId } from '../../stores/appStore'
 import { themeOptions } from '../../theme/themes'
 import { typedInvoke } from '../../api/ipc'
+import { useToast } from '../../components/Toast'
 
 const emptyConfig: AIConfig = {
   name: '',
@@ -35,9 +36,19 @@ const memoryCategories = [
 type SettingsTab = 'ai' | 'presets' | 'memories'
 
 export function SettingsView() {
-  const { aiConfigs, loadConfigs, saveConfig, deleteConfig } = useSettingsStore()
-  const { presets, loadPresets, memories, loadMemories, saveMemory, deleteMemory } = useChatStore()
-  const { theme, setTheme } = useAppStore()
+  const aiConfigs = useSettingsStore((s) => s.aiConfigs)
+  const loadConfigs = useSettingsStore((s) => s.loadConfigs)
+  const saveConfig = useSettingsStore((s) => s.saveConfig)
+  const deleteConfig = useSettingsStore((s) => s.deleteConfig)
+  const presets = useChatStore((s) => s.presets)
+  const loadPresets = useChatStore((s) => s.loadPresets)
+  const memories = useChatStore((s) => s.memories)
+  const loadMemories = useChatStore((s) => s.loadMemories)
+  const saveMemory = useChatStore((s) => s.saveMemory)
+  const deleteMemory = useChatStore((s) => s.deleteMemory)
+  const theme = useAppStore((s) => s.theme)
+  const setTheme = useAppStore((s) => s.setTheme)
+  const toast = useToast()
   const [editing, setEditing] = useState<AIConfig | null>(null)
   const [modelList, setModelList] = useState<string[]>([])
   const [fetchingModels, setFetchingModels] = useState(false)
@@ -58,10 +69,10 @@ export function SettingsView() {
   const [tab, setTab] = useState<SettingsTab>('ai')
 
   useEffect(() => {
-    void loadConfigs()
-    void loadPresets()
-    void loadMemories()
-  }, [])
+    void loadConfigs().catch((err) => console.error('[SettingsView.loadConfigs]', err))
+    void loadPresets().catch((err) => console.error('[SettingsView.loadPresets]', err))
+    void loadMemories().catch((err) => console.error('[SettingsView.loadMemories]', err))
+  }, [loadConfigs, loadPresets, loadMemories])
 
   const handleSmartPaste = () => {
     if (!smartPaste.trim()) {
@@ -167,8 +178,11 @@ export function SettingsView() {
       setEditing(null)
       setModelList([])
       setSaveSuccess(`已保存配置：${normalizedName}`)
+      toast('success', `已保存配置：${normalizedName}`)
     } catch (error: unknown) {
-      setSaveError(`保存失败：${String(error)}`)
+      const msg = `保存失败：${String(error)}`
+      setSaveError(msg)
+      toast('error', msg)
     } finally {
       setSaving(false)
     }
@@ -178,14 +192,24 @@ export function SettingsView() {
     if (!editingPreset || !editingPreset.name || !editingPreset.prompt) {
       return
     }
-    await typedInvoke('chat-preset-save', editingPreset)
-    setEditingPreset(null)
-    await loadPresets()
+    try {
+      await typedInvoke('chat-preset-save', editingPreset)
+      setEditingPreset(null)
+      await loadPresets()
+      toast('success', '预设已保存')
+    } catch (err) {
+      toast('error', `保存预设失败：${String(err)}`)
+    }
   }
 
   const handleDeletePreset = async (id: number) => {
-    await typedInvoke('chat-preset-delete', id)
-    await loadPresets()
+    try {
+      await typedInvoke('chat-preset-delete', id)
+      await loadPresets()
+      toast('success', '预设已删除')
+    } catch (err) {
+      toast('error', `删除预设失败：${String(err)}`)
+    }
   }
 
   const handleSaveMemory = async () => {
@@ -193,15 +217,20 @@ export function SettingsView() {
       return
     }
 
-    await saveMemory({
-      id: editingMemory.id,
-      content: editingMemory.content.trim(),
-      category: editingMemory.category,
-      pinned: editingMemory.pinned ?? 0,
-      enabled: editingMemory.enabled ?? 1,
-      confidence: editingMemory.confidence ?? 1,
-    })
-    setEditingMemory(null)
+    try {
+      await saveMemory({
+        id: editingMemory.id,
+        content: editingMemory.content.trim(),
+        category: editingMemory.category,
+        pinned: editingMemory.pinned ?? 0,
+        enabled: editingMemory.enabled ?? 1,
+        confidence: editingMemory.confidence ?? 1,
+      })
+      setEditingMemory(null)
+      toast('success', '记忆已保存')
+    } catch (err) {
+      toast('error', `保存记忆失败：${String(err)}`)
+    }
   }
 
   const handleMemorySearch = async (search: string) => {
@@ -210,14 +239,18 @@ export function SettingsView() {
   }
 
   const toggleMemoryField = async (memory: MemoryItem, field: 'pinned' | 'enabled') => {
-    await saveMemory({
-      id: memory.id,
-      content: memory.content,
-      category: memory.category,
-      pinned: field === 'pinned' ? (memory.pinned === 1 ? 0 : 1) : memory.pinned,
-      enabled: field === 'enabled' ? (memory.enabled === 1 ? 0 : 1) : memory.enabled,
-      confidence: memory.confidence,
-    })
+    try {
+      await saveMemory({
+        id: memory.id,
+        content: memory.content,
+        category: memory.category,
+        pinned: field === 'pinned' ? (memory.pinned === 1 ? 0 : 1) : memory.pinned,
+        enabled: field === 'enabled' ? (memory.enabled === 1 ? 0 : 1) : memory.enabled,
+        confidence: memory.confidence,
+      })
+    } catch (err) {
+      toast('error', `操作失败：${String(err)}`)
+    }
   }
 
   return (

@@ -36,7 +36,7 @@ export interface CodeRunResult {
   stage: CodeRunStage
 }
 
-function getTempDir() {
+function getTempDir(): string {
   const tempDir = join(app.getPath('temp'), 'codehelper-run')
   mkdirSync(tempDir, { recursive: true })
   return tempDir
@@ -63,14 +63,18 @@ export async function runCodeSnippet(
   }
 }
 
-async function runPython(code: string, stdin?: string) {
+async function runPython(code: string, stdin?: string): Promise<CodeRunResult> {
   const file = join(getTempDir(), `main_${randomUUID()}.py`)
   writeFileSync(file, code)
   const result = await runProcess('python', [file], stdin)
   return { ...result, stage: 'run' as const }
 }
 
-async function runCFamily(code: string, stdin: string | undefined, compiler: 'gcc' | 'g++') {
+async function runCFamily(
+  code: string,
+  stdin: string | undefined,
+  compiler: 'gcc' | 'g++',
+): Promise<CodeRunResult> {
   const tempDir = getTempDir()
   const uid = randomUUID()
   const ext = compiler === 'gcc' ? 'c' : 'cpp'
@@ -92,7 +96,7 @@ async function runCFamily(code: string, stdin: string | undefined, compiler: 'gc
   return { ...result, stage: 'run' as const }
 }
 
-async function runCSharp(code: string, stdin?: string) {
+async function runCSharp(code: string, stdin?: string): Promise<CodeRunResult> {
   const tempDir = getTempDir()
   const uid = randomUUID()
   const srcFile = join(tempDir, `Main_${uid}.cs`)
@@ -183,6 +187,7 @@ function runProcess(
       stdout += chunk.toString()
       if (stdout.length > MAX_OUTPUT_SIZE && !outputExceeded) {
         outputExceeded = true
+        clearTimeout(timer)
         proc.kill()
       }
     })
@@ -190,13 +195,18 @@ function runProcess(
       stderr += chunk.toString()
       if (stderr.length > MAX_OUTPUT_SIZE && !outputExceeded) {
         outputExceeded = true
+        clearTimeout(timer)
         proc.kill()
       }
     })
 
     if (stdin) {
-      proc.stdin.write(stdin)
-      proc.stdin.end()
+      try {
+        proc.stdin.write(stdin)
+        proc.stdin.end()
+      } catch (error) {
+        console.warn('[codeRunner] Failed to write stdin:', error)
+      }
     }
 
     proc.on('close', (code) => {

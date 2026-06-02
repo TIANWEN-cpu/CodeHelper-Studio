@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import type { ChatConfig } from '../types/chat'
-import { typedInvoke } from '../api/ipc'
+import { typedInvoke, invalidateCache } from '../api/ipc'
+import { toErrorMessage } from '../utils/errors'
+import { eventBus } from '../utils/eventBus'
 
 // Re-export type so existing consumers are not broken
 export type { ChatConfig as AIConfig }
@@ -8,6 +10,8 @@ export type { ChatConfig as AIConfig }
 interface SettingsState {
   aiConfigs: ChatConfig[]
   loading: boolean
+  saving: boolean
+  saveError: string | null
   loadConfigs: () => Promise<void>
   saveConfig: (config: ChatConfig) => Promise<void>
   deleteConfig: (id: number) => Promise<void>
@@ -16,17 +20,41 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>((set, get) => ({
   aiConfigs: [],
   loading: false,
+  saving: false,
+  saveError: null,
   loadConfigs: async () => {
     set({ loading: true })
-    const configs = await typedInvoke('db-get-ai-configs')
-    set({ aiConfigs: configs, loading: false })
+    try {
+      const configs = await typedInvoke('db-get-ai-configs')
+      set({ aiConfigs: configs })
+    } catch (error) {
+      console.error('[SettingsStore.loadConfigs]', toErrorMessage(error))
+    } finally {
+      set({ loading: false })
+    }
   },
   saveConfig: async (config) => {
-    await typedInvoke('db-save-ai-config', config)
-    await get().loadConfigs()
+    set({ saving: true, saveError: null })
+    try {
+      const configId = await typedInvoke('db-save-ai-config', config)
+      invalidateCache('db-get-ai-configs')
+      await get().loadConfigs()
+      eventBus.emit('settings:config-saved', Number(configId))
+    } catch (error: unknown) {
+      set({ saveError: toErrorMessage(error) })
+      throw error
+    } finally {
+      set({ saving: false })
+    }
   },
   deleteConfig: async (id) => {
-    await typedInvoke('db-delete-ai-config', id)
-    await get().loadConfigs()
+    try {
+      await typedInvoke('db-delete-ai-config', id)
+      invalidateCache('db-get-ai-configs')
+      await get().loadConfigs()
+      eventBus.emit('settings:config-deleted', id)
+    } catch (error) {
+      console.error('[SettingsStore.deleteConfig]', toErrorMessage(error))
+    }
   },
 }))

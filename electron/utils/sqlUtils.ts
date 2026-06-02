@@ -22,6 +22,12 @@ export function splitSqlStatements(sql: string): string[] {
 
     if (char === "'" || char === '"') {
       if (quote === char) {
+        // Handle escaped quotes: '' or "" inside a quoted string
+        if (next === char) {
+          current += char + next
+          i += 1
+          continue
+        }
         quote = null
       } else if (!quote) {
         quote = char

@@ -76,6 +76,20 @@ export function parseJsonSafe<T>(raw: string, fallback: T): T {
 export type ErrorCategory = 'network' | 'validation' | 'auth' | 'not-found' | 'timeout' | 'unknown'
 
 /**
+ * User-facing error messages for common categories.
+ *
+ * Shared across errorHandler, ErrorToast, and ErrorWithRetry.
+ */
+export const CATEGORY_MESSAGES: Record<ErrorCategory, string> = {
+  network: '网络连接失败，请检查网络后重试',
+  auth: '认证失败，请检查 API Key 配置',
+  timeout: '请求超时，请稍后重试',
+  'not-found': '请求的资源不存在',
+  validation: '输入数据不合法，请检查后重试',
+  unknown: '发生未知错误，请稍后重试',
+}
+
+/**
  * Attempt to categorize an error by inspecting its message.
  */
 export function categorizeError(error: unknown): ErrorCategory {
@@ -96,18 +110,6 @@ export function categorizeError(error: unknown): ErrorCategory {
     return 'validation'
   }
   return 'unknown'
-}
-
-/**
- * User-facing error messages for common categories.
- */
-const CATEGORY_MESSAGES: Record<ErrorCategory, string> = {
-  network: '网络连接失败，请检查网络后重试',
-  auth: '认证失败，请检查 API Key 配置',
-  timeout: '请求超时，请稍后重试',
-  'not-found': '请求的资源不存在',
-  validation: '输入数据不合法，请检查后重试',
-  unknown: '发生未知错误，请稍后重试',
 }
 
 /**

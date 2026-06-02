@@ -433,3 +433,107 @@ code {
   opacity: 0.9;
   pointer-events: none;
 }
+
+/* Toast slide-in animation */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+.animate-toast-in {
+  animation: toast-in 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Sidebar collapse transition */
+.sidebar-transition {
+  transition: width 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Status indicator pulse */
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+.status-pulse {
+  animation: status-pulse 2s ease-in-out infinite;
+}
+
+/* Skip-to-content link and screen-reader utilities */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.focus\:not-sr-only:focus {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 10000;
+  width: auto;
+  height: auto;
+  padding: 0.5rem 1rem;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  border-radius: 0.5rem;
+  background: var(--theme-accent);
+  color: var(--theme-accent-contrast);
+  font-size: 0.875rem;
+  box-shadow: 0 4px 12px var(--theme-glow);
+  outline: 2px solid var(--theme-accent);
+  outline-offset: 2px;
+}
+
+/* Focus-visible ring utility for keyboard navigation */
+*:focus-visible {
+  outline: 2px solid var(--theme-accent);
+  outline-offset: 2px;
+}
+
+/* Remove focus ring for mouse clicks */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* High contrast mode support */
+@media (forced-colors: active) {
+  .ui-btn-accent,
+  .ui-btn-secondary,
+  .ui-btn-success {
+    border: 1px solid ButtonText;
+  }
+  .ui-card {
+    border: 1px solid CanvasText;
+  }
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin,
+  .animate-pulse,
+  .animate-toast-in,
+  .sidebar-transition,
+  .status-pulse,
+  .typing-dot {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+}

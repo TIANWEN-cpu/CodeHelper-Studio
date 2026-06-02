@@ -3,8 +3,8 @@ import { getDB } from '../db/index'
 import { getRelevantMemories, markMemoriesUsed } from './chat'
 import type { AIConfigForChat, ChatMessage } from '../types/db'
 
-export function registerAIIPC() {
-  let currentAbortController: AbortController | null = null
+export function registerAIIPC(): void {
+  const activeRequests = new Map<string, AbortController>()
 
   ipcMain.handle(
     'ai-chat',
@@ -37,10 +37,21 @@ export function registerAIIPC() {
         if (typeof args.requestId !== 'string') throw new Error('参数无效: requestId')
         args.requestId = args.requestId.trim().slice(0, 200)
       }
-      if (currentAbortController) {
-        currentAbortController.abort()
+
+      const requestId = args.requestId ?? `req-${Date.now()}`
+
+      // Cancel any previous request with the same requestId
+      const existingController = activeRequests.get(requestId)
+      if (existingController) {
+        existingController.abort()
       }
-      currentAbortController = new AbortController()
+
+      const controller = new AbortController()
+      activeRequests.set(requestId, controller)
+
+      // Auto-abort after 120s to prevent indefinite hangs
+      const requestTimeout = setTimeout(() => controller.abort(), 120000)
+
       try {
         const db = getDB()
         let config: AIConfigForChat | undefined
@@ -65,28 +76,35 @@ export function registerAIIPC() {
         }
 
         const url = `${config.base_url.replace(/\/$/, '')}/chat/completions`
-
-        const requestId = args.requestId ?? `req-${Date.now()}`
         const win = BrowserWindow.fromWebContents(event.sender)
         const messages = injectMemories(args.messages, args.includeMemories)
 
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${config.api_key}`,
-          },
-          body: JSON.stringify({
-            model: config.model,
-            messages,
-            stream: true,
-          }),
-          signal: currentAbortController.signal,
-        })
+        let response: Response
+        try {
+          response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${config.api_key}`,
+            },
+            body: JSON.stringify({
+              model: config.model,
+              messages,
+              stream: true,
+            }),
+            signal: controller.signal,
+          })
+        } catch (fetchError) {
+          const msg = fetchError instanceof Error ? fetchError.message : String(fetchError)
+          if (msg.includes('abort')) {
+            throw new Error('AI 请求已取消或超时')
+          }
+          throw new Error(`网络连接失败: ${msg}`)
+        }
 
         if (!response.ok) {
-          const text = await response.text()
-          throw new Error(`AI API 错误 (${response.status}): ${text}`)
+          const text = await response.text().catch(() => '')
+          throw new Error(`AI API 错误 (${response.status}): ${text.slice(0, 300)}`)
         }
 
         const reader = response.body?.getReader()
@@ -119,7 +137,8 @@ export function registerAIIPC() {
                 win.webContents.send('ai-chat-chunk', { requestId, chunk: content })
               }
             } catch {
-              // skip malformed JSON
+              // Malformed SSE JSON chunk — log at debug level for diagnostics
+              console.debug('[ai] Skipping malformed SSE chunk:', data.slice(0, 100))
             }
           }
         }
@@ -129,34 +148,40 @@ export function registerAIIPC() {
         }
         return { success: true, requestId, content: fullContent }
       } finally {
-        currentAbortController = null
+        clearTimeout(requestTimeout)
+        activeRequests.delete(requestId)
       }
     },
   )
 }
 
-function injectMemories(messages: ChatMessage[], includeMemories = false) {
+function injectMemories(messages: ChatMessage[], includeMemories = false): ChatMessage[] {
   if (!includeMemories) {
     return messages
   }
 
-  const lastUserMessage =
-    [...messages]
-      .reverse()
-      .find((message) => message.role === 'user')
-      ?.content.trim() ?? ''
-  const memories = getRelevantMemories(lastUserMessage)
+  try {
+    const lastUserMessage =
+      [...messages]
+        .reverse()
+        .find((message) => message.role === 'user')
+        ?.content.trim() ?? ''
+    const memories = getRelevantMemories(lastUserMessage)
 
-  if (memories.length === 0) {
+    if (memories.length === 0) {
+      return messages
+    }
+
+    markMemoriesUsed(memories.map((memory) => memory.id))
+
+    const memoryPrompt = [
+      '以下是用户的跨对话长期记忆，仅在相关时使用，不要生硬复述：',
+      ...memories.map((memory, index) => `${index + 1}. [${memory.category}] ${memory.content}`),
+    ].join('\n')
+
+    return [{ role: 'system', content: memoryPrompt }, ...messages]
+  } catch (error) {
+    console.warn('[ai] Failed to inject memories, proceeding without:', error)
     return messages
   }
-
-  markMemoriesUsed(memories.map((memory) => memory.id))
-
-  const memoryPrompt = [
-    '以下是用户的跨对话长期记忆，仅在相关时使用，不要生硬复述：',
-    ...memories.map((memory, index) => `${index + 1}. [${memory.category}] ${memory.content}`),
-  ].join('\n')
-
-  return [{ role: 'system', content: memoryPrompt }, ...messages]
 }

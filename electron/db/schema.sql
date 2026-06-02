@@ -118,3 +118,18 @@ CREATE TABLE IF NOT EXISTS memories (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   last_used_at DATETIME
 );
+
+-- Performance indexes for frequently queried columns
+CREATE INDEX IF NOT EXISTS idx_problems_source ON problems(source);
+CREATE INDEX IF NOT EXISTS idx_problems_platform ON problems(platform);
+CREATE INDEX IF NOT EXISTS idx_problems_difficulty ON problems(difficulty);
+CREATE INDEX IF NOT EXISTS idx_problems_mode ON problems(mode);
+CREATE INDEX IF NOT EXISTS idx_submissions_problem_status ON submissions(problem_id, status);
+CREATE INDEX IF NOT EXISTS idx_submissions_problem_id ON submissions(problem_id);
+CREATE INDEX IF NOT EXISTS idx_mistakes_problem_id ON mistakes(problem_id);
+CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_doc_id ON knowledge_chunks(doc_id);
+CREATE INDEX IF NOT EXISTS idx_chat_history_session ON chat_history(session_id, created_at, id);
+CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated ON chat_sessions(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_memories_enabled_pinned ON memories(enabled, pinned DESC, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(category);
+CREATE INDEX IF NOT EXISTS idx_memories_content_lower ON memories(lower(content));

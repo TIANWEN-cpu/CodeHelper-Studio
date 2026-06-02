@@ -1,12 +1,95 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CodeHelper</title>
-</head>
-<body>
-  <div id="root"></div>
-  <script type="module" src="./main.tsx"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CodeHelper</title>
+    <style>
+      /* Splash screen shown while React app loads */
+      #splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #1e1e2e;
+        z-index: 9999;
+        transition: opacity 0.3s ease-out;
+      }
+      #splash.fade-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #splash .logo {
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 16px;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      #splash .logo svg {
+        width: 28px;
+        height: 28px;
+        fill: white;
+      }
+      #splash .text {
+        color: #a5b4fc;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-size: 13px;
+        letter-spacing: 0.12em;
+      }
+      #splash .bar {
+        margin-top: 20px;
+        width: 120px;
+        height: 2px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 1px;
+        overflow: hidden;
+      }
+      #splash .bar-fill {
+        width: 40%;
+        height: 100%;
+        background: #6366f1;
+        border-radius: 1px;
+        animation: loading 1.2s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.05);
+        }
+      }
+      @keyframes loading {
+        0% {
+          transform: translateX(-100%);
+        }
+        100% {
+          transform: translateX(350%);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="splash">
+      <div class="logo">
+        <svg viewBox="0 0 24 24">
+          <path
+            d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"
+          />
+        </svg>
+      </div>
+      <div class="text">CodeHelper</div>
+      <div class="bar"><div class="bar-fill"></div></div>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
 </html>

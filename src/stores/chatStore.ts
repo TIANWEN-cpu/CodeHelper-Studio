@@ -9,7 +9,8 @@ import type {
 } from '../types/chat'
 import { SESSION_TITLE_MAX_LENGTH } from '../constants'
 import { toErrorMessage } from '../utils/errors'
-import { typedInvoke } from '../api/ipc'
+import { typedInvoke, invalidateCache } from '../api/ipc'
+import { eventBus } from '../utils/eventBus'
 
 // Re-export types so existing consumers are not broken
 export type { Message as ChatMessage, Session as ChatSession, PromptPreset, MemoryItem }
@@ -49,8 +50,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   memories: [],
 
   loadSessions: async () => {
-    const sessions = await typedInvoke('chat-sessions-list')
-    set({ sessions })
+    try {
+      const sessions = await typedInvoke('chat-sessions-list')
+      set({ sessions })
+    } catch (error) {
+      console.error('[ChatStore.loadSessions]', toErrorMessage(error))
+    }
   },
 
   createSession: async (systemPrompt?: string, title?: string) => {
@@ -60,39 +65,59 @@ export const useChatStore = create<ChatState>((set, get) => ({
       title: title || '新对话',
       system_prompt: systemPrompt || '',
     })
+    invalidateCache('chat-sessions-list')
     await get().loadSessions()
     await get().switchSession(id)
+    eventBus.emit('session:created', id)
     return id
   },
 
   switchSession: async (id: string) => {
-    const rows = await typedInvoke('chat-messages-load', id)
-    const messages: Message[] = rows.map((row) => ({
-      id: `msg-${row.id}`,
-      role: row.role,
-      content: row.content,
-      timestamp: new Date(row.created_at).getTime(),
-    }))
-    set({ activeSessionId: id, messages, error: null, streaming: false, currentRequestId: null })
+    try {
+      const rows = await typedInvoke('chat-messages-load', id)
+      const messages: Message[] = rows.map((row) => ({
+        id: `msg-${row.id}`,
+        role: row.role,
+        content: row.content,
+        timestamp: new Date(row.created_at).getTime(),
+      }))
+      set({ activeSessionId: id, messages, error: null, streaming: false, currentRequestId: null })
+      eventBus.emit('session:switched', id)
+    } catch (error) {
+      const errMsg = toErrorMessage(error)
+      console.error('[ChatStore.switchSession]', errMsg)
+      set({ error: errMsg })
+    }
   },
 
   deleteSession: async (id: string) => {
-    await typedInvoke('chat-session-delete', id)
-    const { activeSessionId } = get()
-    await get().loadSessions()
-    if (activeSessionId === id) {
-      const sessions = get().sessions
-      if (sessions.length > 0) {
-        await get().switchSession(sessions[0].id)
-      } else {
-        set({ activeSessionId: null, messages: [], streaming: false, currentRequestId: null })
+    try {
+      await typedInvoke('chat-session-delete', id)
+      invalidateCache('chat-sessions-list')
+      const { activeSessionId } = get()
+      await get().loadSessions()
+      if (activeSessionId === id) {
+        const sessions = get().sessions
+        if (sessions.length > 0) {
+          await get().switchSession(sessions[0].id)
+        } else {
+          set({ activeSessionId: null, messages: [], streaming: false, currentRequestId: null })
+        }
       }
+      eventBus.emit('session:deleted', id)
+    } catch (error) {
+      console.error('[ChatStore.deleteSession]', toErrorMessage(error))
     }
   },
 
   renameSession: async (id: string, title: string) => {
-    await typedInvoke('chat-session-update', id, { title })
-    await get().loadSessions()
+    try {
+      await typedInvoke('chat-session-update', id, { title })
+      invalidateCache('chat-sessions-list')
+      await get().loadSessions()
+    } catch (error) {
+      console.error('[ChatStore.renameSession]', toErrorMessage(error))
+    }
   },
 
   sendMessage: async (content: string, configId?: number) => {
@@ -193,40 +218,63 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const last = messages[messages.length - 1]
     const assistantContent = payload.content || (last?.role === 'assistant' ? last.content : '')
 
-    if (assistantContent && activeSessionId) {
-      await typedInvoke('chat-message-save', {
-        session_id: activeSessionId,
-        role: 'assistant',
-        content: assistantContent,
-      })
-    }
+    try {
+      if (assistantContent && activeSessionId) {
+        await typedInvoke('chat-message-save', {
+          session_id: activeSessionId,
+          role: 'assistant',
+          content: assistantContent,
+        })
+      }
 
-    set({ streaming: false, currentRequestId: null })
-    await get().loadSessions()
-    await get().loadMemories()
+      set({ streaming: false, currentRequestId: null })
+      await get().loadSessions()
+    } catch (error) {
+      console.error('[ChatStore.finishStream]', toErrorMessage(error))
+      set({ streaming: false, currentRequestId: null })
+    }
   },
 
   loadPresets: async () => {
-    const presets = await typedInvoke('chat-presets-list')
-    set({ presets })
+    try {
+      const presets = await typedInvoke('chat-presets-list')
+      set({ presets })
+    } catch (error) {
+      console.error('[ChatStore.loadPresets]', toErrorMessage(error))
+    }
   },
 
   loadMemories: async (search?: string) => {
-    const memories = await typedInvoke('chat-memories-list', search)
-    set({ memories })
+    try {
+      const memories = await typedInvoke('chat-memories-list', search)
+      set({ memories })
+    } catch (error) {
+      console.error('[ChatStore.loadMemories]', toErrorMessage(error))
+    }
   },
 
   saveMemory: async (memory) => {
-    await typedInvoke('chat-memory-save', memory)
-    await get().loadMemories()
+    try {
+      await typedInvoke('chat-memory-save', memory)
+      invalidateCache('chat-memories-list')
+      await get().loadMemories()
+    } catch (error) {
+      console.error('[ChatStore.saveMemory]', toErrorMessage(error))
+      throw error
+    }
   },
 
   deleteMemory: async (id) => {
-    await typedInvoke('chat-memory-delete', id)
-    await get().loadMemories()
+    try {
+      await typedInvoke('chat-memory-delete', id)
+      invalidateCache('chat-memories-list')
+      await get().loadMemories()
+    } catch (error) {
+      console.error('[ChatStore.deleteMemory]', toErrorMessage(error))
+    }
   },
 }))
 
-function buildRequestId() {
+function buildRequestId(): string {
   return `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }

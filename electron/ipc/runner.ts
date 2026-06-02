@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
 import { runCodeSnippet } from '../utils/codeRunner'
 
-export function registerRunnerIPC() {
+export function registerRunnerIPC(): void {
   ipcMain.handle(
     'run-code',
     async (_event, args: { code: string; language: string; stdin?: string }) => {

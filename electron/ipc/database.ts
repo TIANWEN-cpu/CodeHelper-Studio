@@ -1,5 +1,6 @@
 import { ipcMain, safeStorage } from 'electron'
 import { getDB } from '../db/index'
+import { trackPerformance } from '../utils/perfMonitor'
 import type { AIConfigRow, AIConfigDecrypted } from '../types/db'
 
 function encryptApiKey(apiKey: string): string {
@@ -24,7 +25,7 @@ function decryptConfigRow(row: AIConfigRow | undefined | null): AIConfigDecrypte
   return { ...row, api_key: decryptApiKey(row.api_key) }
 }
 
-export function registerDatabaseIPC() {
+export function registerDatabaseIPC(): void {
   // Settings
   ipcMain.handle('db-get-setting', (_e, key: string) => {
     if (typeof key !== 'string' || !key.trim()) throw new Error('参数无效: key')
@@ -44,12 +45,15 @@ export function registerDatabaseIPC() {
   })
 
   // AI Configs
-  ipcMain.handle('db-get-ai-configs', () => {
-    const rows = getDB()
-      .prepare('SELECT * FROM ai_configs ORDER BY is_default DESC, id ASC')
-      .all() as AIConfigRow[]
-    return rows.map(decryptConfigRow)
-  })
+  ipcMain.handle(
+    'db-get-ai-configs',
+    trackPerformance('db-get-ai-configs', () => {
+      const rows = getDB()
+        .prepare('SELECT * FROM ai_configs ORDER BY is_default DESC, id ASC')
+        .all() as AIConfigRow[]
+      return rows.map(decryptConfigRow)
+    }),
+  )
 
   ipcMain.handle(
     'db-save-ai-config',
@@ -80,37 +84,40 @@ export function registerDatabaseIPC() {
         config.task_type = config.task_type.trim().slice(0, 100)
       const db = getDB()
       const encryptedKey = encryptApiKey(config.api_key)
-      if (config.is_default) {
-        db.prepare('UPDATE ai_configs SET is_default = 0').run()
-      }
-      if (config.id) {
-        db.prepare(
-          'UPDATE ai_configs SET name=?, api_key=?, base_url=?, model=?, is_default=?, task_type=? WHERE id=?',
-        ).run(
-          config.name,
-          encryptedKey,
-          config.base_url,
-          config.model,
-          config.is_default ? 1 : 0,
-          config.task_type ?? null,
-          config.id,
-        )
-        return config.id
-      } else {
-        const result = db
-          .prepare(
-            'INSERT INTO ai_configs (name, api_key, base_url, model, is_default, task_type) VALUES (?,?,?,?,?,?)',
-          )
-          .run(
+      const saveConfigFn = db.transaction(() => {
+        if (config.is_default) {
+          db.prepare('UPDATE ai_configs SET is_default = 0').run()
+        }
+        if (config.id) {
+          db.prepare(
+            'UPDATE ai_configs SET name=?, api_key=?, base_url=?, model=?, is_default=?, task_type=? WHERE id=?',
+          ).run(
             config.name,
             encryptedKey,
             config.base_url,
             config.model,
             config.is_default ? 1 : 0,
             config.task_type ?? null,
+            config.id,
           )
-        return result.lastInsertRowid
-      }
+          return config.id
+        } else {
+          const result = db
+            .prepare(
+              'INSERT INTO ai_configs (name, api_key, base_url, model, is_default, task_type) VALUES (?,?,?,?,?,?)',
+            )
+            .run(
+              config.name,
+              encryptedKey,
+              config.base_url,
+              config.model,
+              config.is_default ? 1 : 0,
+              config.task_type ?? null,
+            )
+          return result.lastInsertRowid
+        }
+      })
+      return saveConfigFn()
     },
   )
 
@@ -139,11 +146,24 @@ export function registerDatabaseIPC() {
     args.api_key = args.api_key.trim().slice(0, 2000)
     args.base_url = args.base_url.trim().slice(0, 2000)
     const url = `${args.base_url.replace(/\/$/, '')}/models`
-    const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${args.api_key}` },
-    })
+
+    let response: Response
+    try {
+      response = await fetch(url, {
+        headers: { Authorization: `Bearer ${args.api_key}` },
+        signal: AbortSignal.timeout(15000),
+      })
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error)
+      if (msg.includes('abort') || msg.includes('timeout')) {
+        throw new Error('获取模型列表超时，请检查网络或 Base URL')
+      }
+      throw new Error(`网络连接失败: ${msg}`)
+    }
+
     if (!response.ok) {
-      throw new Error(`获取模型列表失败 (${response.status})`)
+      const text = await response.text().catch(() => '')
+      throw new Error(`获取模型列表失败 (${response.status}): ${text.slice(0, 200)}`)
     }
     const json = (await response.json()) as { data?: { id: string }[] }
     const models = (json.data || []).map((m) => m.id).sort()

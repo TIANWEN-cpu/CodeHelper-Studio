@@ -24,7 +24,10 @@ const quickPrompts = [
 ]
 
 export function AISidebar() {
-  const { activeProblem, setAIPanelOpen, aiPanelWidth, setAIPanelWidth } = useProblemStore()
+  const activeProblem = useProblemStore((s) => s.activeProblem)
+  const setAIPanelOpen = useProblemStore((s) => s.setAIPanelOpen)
+  const aiPanelWidth = useProblemStore((s) => s.aiPanelWidth)
+  const setAIPanelWidth = useProblemStore((s) => s.setAIPanelWidth)
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
@@ -171,9 +174,10 @@ export function AISidebar() {
         </div>
         <button
           onClick={() => setAIPanelOpen(false)}
-          className="ui-btn-ghost flex h-8 w-8 items-center justify-center"
+          aria-label="关闭 AI 侧边栏"
+          className="ui-btn-ghost flex h-8 w-8 items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
         >
-          <X size={14} />
+          <X size={14} aria-hidden="true" />
         </button>
       </div>
 
@@ -194,7 +198,12 @@ export function AISidebar() {
         </div>
       )}
 
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-3">
+      <div
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-3"
+        role="log"
+        aria-label="AI 对话"
+        aria-live="polite"
+      >
         <div className="flex flex-col gap-3">
           {messages.map((msg) => (
             <div key={msg.id} className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : ''}`}>
@@ -244,14 +253,16 @@ export function AISidebar() {
               }
             }}
             placeholder="继续追问这道题..."
+            aria-label="输入追问消息"
             className="ui-input flex-1 px-3 py-2 text-xs"
           />
           <button
             onClick={() => void sendMsg(input)}
             disabled={!input.trim() || streaming}
-            className="ui-btn-accent px-3"
+            aria-label="发送消息"
+            className="ui-btn-accent px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] focus-visible:ring-offset-2"
           >
-            <Send size={12} />
+            <Send size={12} aria-hidden="true" />
           </button>
         </div>
       </div>

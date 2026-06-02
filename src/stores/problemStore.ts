@@ -2,7 +2,8 @@ import { create } from 'zustand'
 import type { Problem, Submission, ProblemFilters } from '../types/problem'
 import { DEFAULT_LANGUAGE } from '../constants'
 import { toErrorMessage } from '../utils/errors'
-import { typedInvoke } from '../api/ipc'
+import { typedInvoke, invalidateCache } from '../api/ipc'
+import { eventBus } from '../utils/eventBus'
 
 // Re-export types so existing consumers are not broken
 export type { Problem, Submission as SubmitResult }
@@ -19,6 +20,8 @@ interface ProblemState {
   listCollapsed: boolean
   aiPanelOpen: boolean
   aiPanelWidth: number
+  loading: boolean
+  loadError: string | null
   loadProblems: () => Promise<void>
   setActiveProblem: (id: number) => Promise<void>
   setFilters: (filters: ProblemFilters) => void
@@ -41,15 +44,29 @@ export const useProblemStore = create<ProblemState>((set, get) => ({
   listCollapsed: false,
   aiPanelOpen: false,
   aiPanelWidth: 420,
+  loading: false,
+  loadError: null,
 
   loadProblems: async () => {
-    const problems = await typedInvoke('problems-list', get().filters)
-    set({ problems })
+    set({ loading: true, loadError: null })
+    try {
+      const problems = await typedInvoke('problems-list', get().filters)
+      set({ problems })
+    } catch (error: unknown) {
+      set({ loadError: toErrorMessage(error) })
+    } finally {
+      set({ loading: false })
+    }
   },
 
   setActiveProblem: async (id: number) => {
-    const problem = await typedInvoke('problems-get', id)
-    set({ activeProblemId: id, activeProblem: problem ?? null, submitResult: null })
+    try {
+      const problem = await typedInvoke('problems-get', id)
+      set({ activeProblemId: id, activeProblem: problem ?? null, submitResult: null })
+      eventBus.emit('problem:selected', id)
+    } catch (error) {
+      console.error('[ProblemStore.setActiveProblem]', toErrorMessage(error))
+    }
   },
 
   setFilters: (filters) => {
@@ -73,6 +90,8 @@ export const useProblemStore = create<ProblemState>((set, get) => ({
         language,
       })
       set({ submitResult: result })
+      eventBus.emit('problem:submitted', activeProblemId)
+      invalidateCache('problems-list')
       get().loadProblems()
     } catch (error: unknown) {
       set({

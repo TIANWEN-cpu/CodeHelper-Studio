@@ -3,14 +3,8 @@
     "title": "EDA 仿真训练 001：二选一多路复用器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "easy",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -36,9 +30,7 @@
       "verilog": "module top_module_001(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -50,14 +42,8 @@
     "title": "EDA 仿真训练 002：四位优先编码器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "easy",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -83,9 +69,7 @@
       "verilog": "module top_module_002(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -97,14 +81,8 @@
     "title": "EDA 仿真训练 003：模十计数器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "easy",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -130,9 +108,7 @@
       "verilog": "module top_module_003(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -144,14 +120,8 @@
     "title": "EDA 仿真训练 004：移位寄存器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "easy",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -177,9 +147,7 @@
       "verilog": "module top_module_004(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -191,14 +159,8 @@
     "title": "EDA 仿真训练 005：边沿检测器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "easy",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -224,9 +186,7 @@
       "verilog": "module top_module_005(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -238,14 +198,8 @@
     "title": "EDA 仿真训练 006：交通灯状态机",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "easy",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -271,9 +225,7 @@
       "verilog": "module top_module_006(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -285,14 +237,8 @@
     "title": "EDA 仿真训练 007：串口接收握手",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "easy",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -318,9 +264,7 @@
       "verilog": "module top_module_007(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -332,14 +276,8 @@
     "title": "EDA 仿真训练 008：流水线有效位",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "easy",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -365,9 +303,7 @@
       "verilog": "module top_module_008(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -379,14 +315,8 @@
     "title": "EDA 仿真训练 009：异步 FIFO 标志",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "easy",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -412,9 +342,7 @@
       "verilog": "module top_module_009(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -426,14 +354,8 @@
     "title": "EDA 仿真训练 010：按键消抖模块",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "easy",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -459,9 +381,7 @@
       "verilog": "module top_module_010(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -473,14 +393,8 @@
     "title": "EDA 仿真训练 011：可配置分频器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "easy",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -506,9 +420,7 @@
       "verilog": "module top_module_011(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -520,14 +432,8 @@
     "title": "EDA 仿真训练 012：占空比控制器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "easy",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -553,9 +459,7 @@
       "verilog": "module top_module_012(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -567,14 +471,8 @@
     "title": "EDA 仿真训练 013：二选一多路复用器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "easy",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -600,9 +498,7 @@
       "verilog": "module top_module_013(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -614,14 +510,8 @@
     "title": "EDA 仿真训练 014：四位优先编码器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "easy",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -647,9 +537,7 @@
       "verilog": "module top_module_014(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -661,14 +549,8 @@
     "title": "EDA 仿真训练 015：模十计数器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "easy",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -694,9 +576,7 @@
       "verilog": "module top_module_015(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -708,14 +588,8 @@
     "title": "EDA 仿真训练 016：移位寄存器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -741,9 +615,7 @@
       "verilog": "module top_module_016(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -755,14 +627,8 @@
     "title": "EDA 仿真训练 017：边沿检测器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -788,9 +654,7 @@
       "verilog": "module top_module_017(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -802,14 +666,8 @@
     "title": "EDA 仿真训练 018：交通灯状态机",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -835,9 +693,7 @@
       "verilog": "module top_module_018(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -849,14 +705,8 @@
     "title": "EDA 仿真训练 019：串口接收握手",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -882,9 +732,7 @@
       "verilog": "module top_module_019(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -896,14 +744,8 @@
     "title": "EDA 仿真训练 020：流水线有效位",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -929,9 +771,7 @@
       "verilog": "module top_module_020(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -943,14 +783,8 @@
     "title": "EDA 仿真训练 021：异步 FIFO 标志",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -976,9 +810,7 @@
       "verilog": "module top_module_021(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -990,14 +822,8 @@
     "title": "EDA 仿真训练 022：按键消抖模块",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -1023,9 +849,7 @@
       "verilog": "module top_module_022(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -1037,14 +861,8 @@
     "title": "EDA 仿真训练 023：可配置分频器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -1070,9 +888,7 @@
       "verilog": "module top_module_023(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -1084,14 +900,8 @@
     "title": "EDA 仿真训练 024：占空比控制器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -1117,9 +927,7 @@
       "verilog": "module top_module_024(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -1131,14 +939,8 @@
     "title": "EDA 仿真训练 025：二选一多路复用器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -1164,9 +966,7 @@
       "verilog": "module top_module_025(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -1178,14 +978,8 @@
     "title": "EDA 仿真训练 026：四位优先编码器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -1211,9 +1005,7 @@
       "verilog": "module top_module_026(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -1225,14 +1017,8 @@
     "title": "EDA 仿真训练 027：模十计数器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -1258,9 +1044,7 @@
       "verilog": "module top_module_027(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -1272,14 +1056,8 @@
     "title": "EDA 仿真训练 028：移位寄存器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -1305,9 +1083,7 @@
       "verilog": "module top_module_028(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -1319,14 +1095,8 @@
     "title": "EDA 仿真训练 029：边沿检测器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -1352,9 +1122,7 @@
       "verilog": "module top_module_029(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -1366,14 +1134,8 @@
     "title": "EDA 仿真训练 030：交通灯状态机",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -1399,9 +1161,7 @@
       "verilog": "module top_module_030(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -1413,14 +1173,8 @@
     "title": "EDA 仿真训练 031：串口接收握手",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -1446,9 +1200,7 @@
       "verilog": "module top_module_031(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -1460,14 +1212,8 @@
     "title": "EDA 仿真训练 032：流水线有效位",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -1493,9 +1239,7 @@
       "verilog": "module top_module_032(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -1507,14 +1251,8 @@
     "title": "EDA 仿真训练 033：异步 FIFO 标志",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -1540,9 +1278,7 @@
       "verilog": "module top_module_033(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -1554,14 +1290,8 @@
     "title": "EDA 仿真训练 034：按键消抖模块",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -1587,9 +1317,7 @@
       "verilog": "module top_module_034(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -1601,14 +1329,8 @@
     "title": "EDA 仿真训练 035：可配置分频器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -1634,9 +1356,7 @@
       "verilog": "module top_module_035(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -1648,14 +1368,8 @@
     "title": "EDA 仿真训练 036：占空比控制器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -1681,9 +1395,7 @@
       "verilog": "module top_module_036(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -1695,14 +1407,8 @@
     "title": "EDA 仿真训练 037：二选一多路复用器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -1728,9 +1434,7 @@
       "verilog": "module top_module_037(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -1742,14 +1446,8 @@
     "title": "EDA 仿真训练 038：四位优先编码器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -1775,9 +1473,7 @@
       "verilog": "module top_module_038(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -1789,14 +1485,8 @@
     "title": "EDA 仿真训练 039：模十计数器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -1822,9 +1512,7 @@
       "verilog": "module top_module_039(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -1836,14 +1524,8 @@
     "title": "EDA 仿真训练 040：移位寄存器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -1869,9 +1551,7 @@
       "verilog": "module top_module_040(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -1883,14 +1563,8 @@
     "title": "EDA 仿真训练 041：边沿检测器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -1916,9 +1590,7 @@
       "verilog": "module top_module_041(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -1930,14 +1602,8 @@
     "title": "EDA 仿真训练 042：交通灯状态机",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -1963,9 +1629,7 @@
       "verilog": "module top_module_042(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -1977,14 +1641,8 @@
     "title": "EDA 仿真训练 043：串口接收握手",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -2010,9 +1668,7 @@
       "verilog": "module top_module_043(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -2024,14 +1680,8 @@
     "title": "EDA 仿真训练 044：流水线有效位",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -2057,9 +1707,7 @@
       "verilog": "module top_module_044(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -2071,14 +1719,8 @@
     "title": "EDA 仿真训练 045：异步 FIFO 标志",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -2104,9 +1746,7 @@
       "verilog": "module top_module_045(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -2118,14 +1758,8 @@
     "title": "EDA 仿真训练 046：按键消抖模块",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -2151,9 +1785,7 @@
       "verilog": "module top_module_046(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -2165,14 +1797,8 @@
     "title": "EDA 仿真训练 047：可配置分频器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -2198,9 +1824,7 @@
       "verilog": "module top_module_047(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -2212,14 +1836,8 @@
     "title": "EDA 仿真训练 048：占空比控制器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "medium",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -2245,9 +1863,7 @@
       "verilog": "module top_module_048(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -2259,14 +1875,8 @@
     "title": "EDA 仿真训练 049：二选一多路复用器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "hard",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -2292,9 +1902,7 @@
       "verilog": "module top_module_049(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -2306,14 +1914,8 @@
     "title": "EDA 仿真训练 050：四位优先编码器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "hard",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -2339,9 +1941,7 @@
       "verilog": "module top_module_050(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -2353,14 +1953,8 @@
     "title": "EDA 仿真训练 051：模十计数器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "hard",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -2386,9 +1980,7 @@
       "verilog": "module top_module_051(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -2400,14 +1992,8 @@
     "title": "EDA 仿真训练 052：移位寄存器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "hard",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -2433,9 +2019,7 @@
       "verilog": "module top_module_052(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -2447,14 +2031,8 @@
     "title": "EDA 仿真训练 053：边沿检测器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "hard",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -2480,9 +2058,7 @@
       "verilog": "module top_module_053(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -2494,14 +2070,8 @@
     "title": "EDA 仿真训练 054：交通灯状态机",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "hard",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -2527,9 +2097,7 @@
       "verilog": "module top_module_054(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -2541,14 +2109,8 @@
     "title": "EDA 仿真训练 055：串口接收握手",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "hard",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -2574,9 +2136,7 @@
       "verilog": "module top_module_055(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -2588,14 +2148,8 @@
     "title": "EDA 仿真训练 056：流水线有效位",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "hard",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -2621,9 +2175,7 @@
       "verilog": "module top_module_056(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -2635,14 +2187,8 @@
     "title": "EDA 仿真训练 057：异步 FIFO 标志",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "hard",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -2668,9 +2214,7 @@
       "verilog": "module top_module_057(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -2682,14 +2226,8 @@
     "title": "EDA 仿真训练 058：按键消抖模块",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "hard",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -2715,9 +2253,7 @@
       "verilog": "module top_module_058(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -2729,14 +2265,8 @@
     "title": "EDA 仿真训练 059：可配置分频器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "hard",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -2762,9 +2292,7 @@
       "verilog": "module top_module_059(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",
@@ -2776,14 +2304,8 @@
     "title": "EDA 仿真训练 060：占空比控制器",
     "description": "EDA 仿真训练 训练题。\n\n请根据题意完成 Verilog 模块设计，并结合时序关系说明关键状态转移。\n建议写出端口含义、寄存器更新规则和至少一组手工仿真结果。\n如果是验证题，请补充激励设计思路与观察点。",
     "difficulty": "hard",
-    "tags": [
-      "Verilog",
-      "时序逻辑",
-      "数字电路"
-    ],
-    "languages": [
-      "verilog"
-    ],
+    "tags": ["Verilog", "时序逻辑", "数字电路"],
+    "languages": ["verilog"],
     "examples": [
       {
         "input": "clk 上升沿、rst_n=0、din=0",
@@ -2809,9 +2331,7 @@
       "verilog": "module top_module_060(\n    input wire clk,\n    input wire rst_n,\n    input wire din,\n    output reg dout\n);\n    // 在这里补全你的 Verilog 设计\nendmodule\n"
     },
     "source": "ic-job-simulation",
-    "tracks": [
-      "ic-job"
-    ],
+    "tracks": ["ic-job"],
     "platform": "eda-playground",
     "mode": "simulation",
     "exam_style": "hdl",

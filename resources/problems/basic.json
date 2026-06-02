@@ -3,15 +3,8 @@
     "title": "两数之和",
     "description": "给定一个整数数组 `nums` 和一个整数目标值 `target`，请你在该数组中找出和为目标值的那两个整数，并返回它们的数组下标（空格分隔）。\n\n你可以假设每种输入只会对应一个答案，且同样的元素不能被重复利用。",
     "difficulty": "easy",
-    "tags": [
-      "数组",
-      "哈希表"
-    ],
-    "languages": [
-      "python",
-      "c",
-      "cpp"
-    ],
+    "tags": ["数组", "哈希表"],
+    "languages": ["python", "c", "cpp"],
     "examples": [
       {
         "input": "2 7 11 15\n9",
@@ -37,21 +30,15 @@
       "python": "nums = list(map(int, input().split()))\ntarget = int(input())\n\n# 在这里编写你的解法\n",
       "c": "#include <stdio.h>\n\nint main() {\n    int nums[10000], n = 0, target;\n    char c;\n    while (scanf(\"%d%c\", &nums[n], &c) == 2) { n++; if (c == '\\n') break; }\n    scanf(\"%d\", &target);\n\n    // 在这里编写你的解法\n\n    return 0;\n}",
       "cpp": "#include <iostream>\n#include <vector>\n#include <sstream>\nusing namespace std;\n\nint main() {\n    int val;\n    vector<int> nums;\n    string line;\n    getline(cin, line);\n    istringstream iss(line);\n    while (iss >> val) nums.push_back(val);\n    int target;\n    cin >> target;\n\n    // 在这里编写你的解法\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["尝试用哈希表存储已遍历的数字", "对于每个数 num，查找 target - num 是否在哈希表中"]
   },
   {
     "title": "反转字符串",
     "description": "输入一个字符串，输出它的反转结果。",
     "difficulty": "easy",
-    "tags": [
-      "字符串",
-      "双指针"
-    ],
-    "languages": [
-      "python",
-      "c",
-      "cpp"
-    ],
+    "tags": ["字符串", "双指针"],
+    "languages": ["python", "c", "cpp"],
     "examples": [
       {
         "input": "hello",
@@ -76,21 +63,15 @@
       "python": "s = input()\n\n# 在这里编写你的解法\n",
       "c": "#include <stdio.h>\n#include <string.h>\n\nint main() {\n    char s[10000];\n    scanf(\"%s\", s);\n\n    // 在这里编写你的解法\n\n    return 0;\n}",
       "cpp": "#include <iostream>\n#include <string>\nusing namespace std;\n\nint main() {\n    string s;\n    cin >> s;\n\n    // 在这里编写你的解法\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["可以使用双指针从两端向中间交换", "Python 中可以直接用切片 s[::-1]"]
   },
   {
     "title": "斐波那契数列",
     "description": "求斐波那契数列的第 n 项。\n\n定义：F(0) = 0, F(1) = 1, F(n) = F(n-1) + F(n-2)。\n\n输入一个非负整数 n，输出 F(n)。",
     "difficulty": "easy",
-    "tags": [
-      "递归",
-      "动态规划"
-    ],
-    "languages": [
-      "python",
-      "c",
-      "cpp"
-    ],
+    "tags": ["递归", "动态规划"],
+    "languages": ["python", "c", "cpp"],
     "examples": [
       {
         "input": "5",
@@ -127,21 +108,15 @@
       "python": "n = int(input())\n\n# 在这里编写你的解法\n",
       "c": "#include <stdio.h>\n\nint main() {\n    int n;\n    scanf(\"%d\", &n);\n\n    // 在这里编写你的解法\n\n    return 0;\n}",
       "cpp": "#include <iostream>\nusing namespace std;\n\nint main() {\n    int n;\n    cin >> n;\n\n    // 在这里编写你的解法\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["递归会有大量重复计算，考虑用迭代或备忘录", "只需两个变量即可滚动计算"]
   },
   {
     "title": "回文数判断",
     "description": "判断一个整数是否是回文数。回文数是指正序和倒序读都一样的整数。\n\n输出 `True` 或 `False`。",
     "difficulty": "easy",
-    "tags": [
-      "数学",
-      "字符串"
-    ],
-    "languages": [
-      "python",
-      "c",
-      "cpp"
-    ],
+    "tags": ["数学", "字符串"],
+    "languages": ["python", "c", "cpp"],
     "examples": [
       {
         "input": "121",
@@ -178,19 +153,15 @@
       "python": "x = int(input())\n\n# 在这里编写你的解法\n",
       "c": "#include <stdio.h>\n\nint main() {\n    int x;\n    scanf(\"%d\", &x);\n\n    // 在这里编写你的解法\n    // 输出 True 或 False\n\n    return 0;\n}",
       "cpp": "#include <iostream>\nusing namespace std;\n\nint main() {\n    int x;\n    cin >> x;\n\n    // 在这里编写你的解法\n    // 输出 True 或 False\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["负数不是回文数", "可以将数字转为字符串比较，或反转数字的后半部分"]
   },
   {
     "title": "有效的括号",
     "description": "给定一个只包括 `(`，`)`，`{`，`}`，`[`，`]` 的字符串 s，判断字符串是否有效。\n\n有效字符串需满足：\n1. 左括号必须用相同类型的右括号闭合\n2. 左括号必须以正确的顺序闭合\n\n输出 `True` 或 `False`。",
     "difficulty": "easy",
-    "tags": [
-      "栈",
-      "字符串"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["栈", "字符串"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "()",
@@ -225,21 +196,15 @@
     ],
     "starter_code": {
       "python": "s = input()\n\n# 在这里编写你的解法\n"
-    }
+    },
+    "hints": ["使用栈来存储左括号", "遇到右括号时检查栈顶是否匹配"]
   },
   {
     "title": "移动零",
     "description": "给定一个数组 nums，将所有 0 移动到数组的末尾，同时保持非零元素的相对顺序。\n\n输出移动后的数组（空格分隔）。",
     "difficulty": "easy",
-    "tags": [
-      "数组",
-      "双指针"
-    ],
-    "languages": [
-      "python",
-      "c",
-      "cpp"
-    ],
+    "tags": ["数组", "双指针"],
+    "languages": ["python", "c", "cpp"],
     "examples": [
       {
         "input": "0 1 0 3 12",
@@ -264,21 +229,15 @@
       "python": "nums = list(map(int, input().split()))\n\n# 在这里编写你的解法\n",
       "c": "#include <stdio.h>\n\nint main() {\n    int nums[10000], n = 0;\n    int val;\n    while (scanf(\"%d\", &val) == 1) {\n        nums[n++] = val;\n    }\n\n    // 在这里编写你的解法\n\n    for (int i = 0; i < n; i++) {\n        if (i > 0) printf(\" \");\n        printf(\"%d\", nums[i]);\n    }\n    printf(\"\\n\");\n    return 0;\n}",
       "cpp": "#include <iostream>\n#include <vector>\n#include <sstream>\nusing namespace std;\n\nint main() {\n    int val;\n    vector<int> nums;\n    string line;\n    getline(cin, line);\n    istringstream iss(line);\n    while (iss >> val) nums.push_back(val);\n\n    // 在这里编写你的解法\n\n    for (int i = 0; i < nums.size(); i++) {\n        if (i > 0) cout << \" \";\n        cout << nums[i];\n    }\n    cout << endl;\n    return 0;\n}"
-    }
+    },
+    "hints": ["使用双指针，一个指针遍历，另一个指针记录非零位置", "先把非零元素移到前面，再填充零"]
   },
   {
     "title": "加一",
     "description": "给定一个由整数组成的非空数组所表示的非负整数，在该数的基础上加一。\n\n数组中每个元素存储一位数字，最高位在数组头部。\n\n输入一行数字（空格分隔），输出加一后的结果（空格分隔）。",
     "difficulty": "easy",
-    "tags": [
-      "数组",
-      "数学"
-    ],
-    "languages": [
-      "python",
-      "c",
-      "cpp"
-    ],
+    "tags": ["数组", "数学"],
+    "languages": ["python", "c", "cpp"],
     "examples": [
       {
         "input": "1 2 3",
@@ -311,21 +270,15 @@
       "python": "digits = list(map(int, input().split()))\n\n# 在这里编写你的解法\n",
       "c": "#include <stdio.h>\n\nint main() {\n    int digits[10000], n = 0;\n    int val;\n    while (scanf(\"%d\", &val) == 1) {\n        digits[n++] = val;\n    }\n\n    // 在这里编写你的解法\n\n    return 0;\n}",
       "cpp": "#include <iostream>\n#include <vector>\n#include <sstream>\nusing namespace std;\n\nint main() {\n    int val;\n    vector<int> digits;\n    string line;\n    getline(cin, line);\n    istringstream iss(line);\n    while (iss >> val) digits.push_back(val);\n\n    // 在这里编写你的解法\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["从末位开始加一，注意进位", "如果最高位有进位，需要在数组头部插入1"]
   },
   {
     "title": "二分查找",
     "description": "给定一个 n 个元素有序的（升序）整型数组 nums 和一个目标值 target，搜索 nums 中的 target，如果存在返回下标，否则返回 -1。\n\n第一行输入数组（空格分隔），第二行输入目标值。",
     "difficulty": "easy",
-    "tags": [
-      "数组",
-      "二分查找"
-    ],
-    "languages": [
-      "python",
-      "c",
-      "cpp"
-    ],
+    "tags": ["数组", "二分查找"],
+    "languages": ["python", "c", "cpp"],
     "examples": [
       {
         "input": "-1 0 3 5 9 12\n9",
@@ -350,21 +303,15 @@
       "python": "nums = list(map(int, input().split()))\ntarget = int(input())\n\n# 在这里编写你的解法\n",
       "c": "#include <stdio.h>\n\nint main() {\n    int nums[10000], n = 0, target;\n    char c;\n    while (scanf(\"%d%c\", &nums[n], &c) == 2) { n++; if (c == '\\n') break; }\n    scanf(\"%d\", &target);\n\n    // 在这里编写你的解法\n\n    return 0;\n}",
       "cpp": "#include <iostream>\n#include <vector>\n#include <sstream>\nusing namespace std;\n\nint main() {\n    int val;\n    vector<int> nums;\n    string line;\n    getline(cin, line);\n    istringstream iss(line);\n    while (iss >> val) nums.push_back(val);\n    int target;\n    cin >> target;\n\n    // 在这里编写你的解法\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["每次将搜索范围缩小一半", "注意 left <= right 的边界条件"]
   },
   {
     "title": "爬楼梯",
     "description": "假设你正在爬楼梯，需要 n 阶你才能到达楼顶。每次你可以爬 1 或 2 个台阶。有多少种不同的方法可以爬到楼顶？",
     "difficulty": "easy",
-    "tags": [
-      "动态规划",
-      "递归"
-    ],
-    "languages": [
-      "python",
-      "c",
-      "cpp"
-    ],
+    "tags": ["动态规划", "递归"],
+    "languages": ["python", "c", "cpp"],
     "examples": [
       {
         "input": "2",
@@ -397,22 +344,15 @@
       "python": "n = int(input())\n\n# 在这里编写你的解法\n",
       "c": "#include <stdio.h>\n\nint main() {\n    int n;\n    scanf(\"%d\", &n);\n\n    // 在这里编写你的解法\n\n    return 0;\n}",
       "cpp": "#include <iostream>\nusing namespace std;\n\nint main() {\n    int n;\n    cin >> n;\n\n    // 在这里编写你的解法\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["本质是斐波那契数列", "dp[i] = dp[i-1] + dp[i-2]"]
   },
   {
     "title": "合并两个有序数组",
     "description": "给你两个按非递减顺序排列的整数数组 nums1 和 nums2，将它们合并为一个有序数组。\n\n第一行输入 nums1（空格分隔），第二行输入 nums2（空格分隔），输出合并后的数组（空格分隔）。",
     "difficulty": "easy",
-    "tags": [
-      "数组",
-      "排序",
-      "双指针"
-    ],
-    "languages": [
-      "python",
-      "c",
-      "cpp"
-    ],
+    "tags": ["数组", "排序", "双指针"],
+    "languages": ["python", "c", "cpp"],
     "examples": [
       {
         "input": "1 2 3\n2 5 6",
@@ -437,21 +377,15 @@
       "python": "nums1 = list(map(int, input().split()))\nnums2 = list(map(int, input().split()))\n\n# 在这里编写你的解法\n",
       "c": "#include <stdio.h>\n\nint main() {\n    int nums1[10000], nums2[10000], n1 = 0, n2 = 0;\n    char c;\n    while (scanf(\"%d%c\", &nums1[n1], &c) == 2) { n1++; if (c == '\\n') break; }\n    while (scanf(\"%d%c\", &nums2[n2], &c) == 2) { n2++; if (c == '\\n') break; }\n\n    // 在这里编写你的解法\n\n    return 0;\n}",
       "cpp": "#include <iostream>\n#include <vector>\n#include <sstream>\nusing namespace std;\n\nint main() {\n    string line1, line2;\n    getline(cin, line1);\n    getline(cin, line2);\n    vector<int> nums1, nums2;\n    int val;\n    istringstream iss1(line1);\n    while (iss1 >> val) nums1.push_back(val);\n    istringstream iss2(line2);\n    while (iss2 >> val) nums2.push_back(val);\n\n    // 在这里编写你的解法\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["使用双指针分别指向两个数组", "从前往后比较，取较小的放入结果"]
   },
   {
     "title": "只出现一次的数字",
     "description": "给定一个非空整数数组，除了某个元素只出现一次以外，其余每个元素均出现两次。找出那个只出现了一次的元素。",
     "difficulty": "easy",
-    "tags": [
-      "数组",
-      "数学"
-    ],
-    "languages": [
-      "python",
-      "c",
-      "cpp"
-    ],
+    "tags": ["数组", "数学"],
+    "languages": ["python", "c", "cpp"],
     "examples": [
       {
         "input": "2 2 1",
@@ -480,20 +414,15 @@
       "python": "nums = list(map(int, input().split()))\n\n# 在这里编写你的解法\n",
       "c": "#include <stdio.h>\n\nint main() {\n    int nums[10000], n = 0;\n    int val;\n    while (scanf(\"%d\", &val) == 1) {\n        nums[n++] = val;\n    }\n\n    // 在这里编写你的解法\n\n    return 0;\n}",
       "cpp": "#include <iostream>\n#include <vector>\n#include <sstream>\nusing namespace std;\n\nint main() {\n    int val;\n    vector<int> nums;\n    string line;\n    getline(cin, line);\n    istringstream iss(line);\n    while (iss >> val) nums.push_back(val);\n\n    // 在这里编写你的解法\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["利用异或运算：a ^ a = 0, a ^ 0 = a", "所有数异或后，成对的数抵消，剩下单独的"]
   },
   {
     "title": "2的幂",
     "description": "给你一个整数 n，判断该整数是否是 2 的幂次方。\n\n输出 `True` 或 `False`。",
     "difficulty": "easy",
-    "tags": [
-      "数学"
-    ],
-    "languages": [
-      "python",
-      "c",
-      "cpp"
-    ],
+    "tags": ["数学"],
+    "languages": ["python", "c", "cpp"],
     "examples": [
       {
         "input": "1",
@@ -534,21 +463,15 @@
       "python": "n = int(input())\n\n# 在这里编写你的解法\n",
       "c": "#include <stdio.h>\n\nint main() {\n    int n;\n    scanf(\"%d\", &n);\n\n    // 在这里编写你的解法\n    // 输出 True 或 False\n\n    return 0;\n}",
       "cpp": "#include <iostream>\nusing namespace std;\n\nint main() {\n    int n;\n    cin >> n;\n\n    // 在这里编写你的解法\n    // 输出 True 或 False\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["2的幂的二进制只有一个1", "n & (n-1) == 0 且 n > 0"]
   },
   {
     "title": "缺失数字",
     "description": "给定一个包含 `[0, n]` 中 n 个数的数组 nums，找出 `[0, n]` 这个范围内没有出现在数组中的那个数。",
     "difficulty": "easy",
-    "tags": [
-      "数组",
-      "数学"
-    ],
-    "languages": [
-      "python",
-      "c",
-      "cpp"
-    ],
+    "tags": ["数组", "数学"],
+    "languages": ["python", "c", "cpp"],
     "examples": [
       {
         "input": "3 0 1",
@@ -581,21 +504,15 @@
       "python": "nums = list(map(int, input().split()))\n\n# 在这里编写你的解法\n",
       "c": "#include <stdio.h>\n\nint main() {\n    int nums[10000], n = 0;\n    int val;\n    while (scanf(\"%d\", &val) == 1) {\n        nums[n++] = val;\n    }\n\n    // 在这里编写你的解法\n\n    return 0;\n}",
       "cpp": "#include <iostream>\n#include <vector>\n#include <sstream>\nusing namespace std;\n\nint main() {\n    int val;\n    vector<int> nums;\n    string line;\n    getline(cin, line);\n    istringstream iss(line);\n    while (iss >> val) nums.push_back(val);\n\n    // 在这里编写你的解法\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["计算 0 到 n 的和，减去数组中所有数", "也可以用异或运算"]
   },
   {
     "title": "多数元素",
     "description": "给定一个大小为 n 的数组 nums，返回其中的多数元素。多数元素是指在数组中出现次数大于 n/2 的元素。\n\n你可以假设数组是非空的，并且给定的数组总是存在多数元素。",
     "difficulty": "easy",
-    "tags": [
-      "数组",
-      "哈希表"
-    ],
-    "languages": [
-      "python",
-      "c",
-      "cpp"
-    ],
+    "tags": ["数组", "哈希表"],
+    "languages": ["python", "c", "cpp"],
     "examples": [
       {
         "input": "3 2 3",
@@ -624,20 +541,15 @@
       "python": "nums = list(map(int, input().split()))\n\n# 在这里编写你的解法\n",
       "c": "#include <stdio.h>\n\nint main() {\n    int nums[10000], n = 0;\n    int val;\n    while (scanf(\"%d\", &val) == 1) {\n        nums[n++] = val;\n    }\n\n    // 在这里编写你的解法\n\n    return 0;\n}",
       "cpp": "#include <iostream>\n#include <vector>\n#include <sstream>\nusing namespace std;\n\nint main() {\n    int val;\n    vector<int> nums;\n    string line;\n    getline(cin, line);\n    istringstream iss(line);\n    while (iss >> val) nums.push_back(val);\n\n    // 在这里编写你的解法\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["摩尔投票法：维护候选和计数", "遇到相同计数+1，不同计数-1，计数为0换候选"]
   },
   {
     "title": "有效的字母异位词",
     "description": "给定两个字符串 s 和 t，判断 t 是否是 s 的字母异位词（即两个字符串包含相同的字符且每个字符出现次数相同）。\n\n输出 `True` 或 `False`。",
     "difficulty": "easy",
-    "tags": [
-      "字符串",
-      "哈希表",
-      "排序"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["字符串", "哈希表", "排序"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "anagram\nnagaram",
@@ -668,21 +580,15 @@
     ],
     "starter_code": {
       "python": "s = input()\nt = input()\n\n# 在这里编写你的解法\n"
-    }
+    },
+    "hints": ["统计每个字符出现次数是否相同", "可以用数组或字典计数后比较"]
   },
   {
     "title": "最大子数组和",
     "description": "给你一个整数数组 nums，请你找出一个具有最大和的连续子数组（子数组最少包含一个元素），返回其最大和。",
     "difficulty": "medium",
-    "tags": [
-      "数组",
-      "动态规划"
-    ],
-    "languages": [
-      "python",
-      "c",
-      "cpp"
-    ],
+    "tags": ["数组", "动态规划"],
+    "languages": ["python", "c", "cpp"],
     "examples": [
       {
         "input": "-2 1 -3 4 -1 2 1 -5 4",
@@ -712,20 +618,15 @@
       "python": "nums = list(map(int, input().split()))\n\n# 在这里编写你的解法\n",
       "c": "#include <stdio.h>\n\nint main() {\n    int nums[10000], n = 0;\n    int val;\n    while (scanf(\"%d\", &val) == 1) {\n        nums[n++] = val;\n    }\n\n    // 在这里编写你的解法\n\n    return 0;\n}",
       "cpp": "#include <iostream>\n#include <vector>\n#include <sstream>\nusing namespace std;\n\nint main() {\n    int val;\n    vector<int> nums;\n    string line;\n    getline(cin, line);\n    istringstream iss(line);\n    while (iss >> val) nums.push_back(val);\n\n    // 在这里编写你的解法\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["Kadane算法：维护当前子数组和", "如果当前和变为负数，从下一个位置重新开始"]
   },
   {
     "title": "无重复字符的最长子串",
     "description": "给定一个字符串 s，请你找出其中不含有重复字符的最长子串的长度。",
     "difficulty": "medium",
-    "tags": [
-      "字符串",
-      "哈希表",
-      "双指针"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["字符串", "哈希表", "双指针"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "abcabcbb",
@@ -753,21 +654,15 @@
     ],
     "starter_code": {
       "python": "s = input()\n\n# 在这里编写你的解法\n"
-    }
+    },
+    "hints": ["滑动窗口 + 哈希集合", "当发现重复字符时，收缩左边界"]
   },
   {
     "title": "冒泡排序",
     "description": "使用冒泡排序算法对一个整数数组进行升序排序。\n\n输入一行整数（空格分隔），输出排序后的数组（空格分隔）。",
     "difficulty": "medium",
-    "tags": [
-      "数组",
-      "排序"
-    ],
-    "languages": [
-      "python",
-      "c",
-      "cpp"
-    ],
+    "tags": ["数组", "排序"],
+    "languages": ["python", "c", "cpp"],
     "examples": [
       {
         "input": "5 3 8 4 2",
@@ -796,21 +691,15 @@
       "python": "nums = list(map(int, input().split()))\n\n# 在这里使用冒泡排序实现\n",
       "c": "#include <stdio.h>\n\nint main() {\n    int nums[10000], n = 0;\n    int val;\n    while (scanf(\"%d\", &val) == 1) {\n        nums[n++] = val;\n    }\n\n    // 在这里使用冒泡排序实现\n\n    for (int i = 0; i < n; i++) {\n        if (i > 0) printf(\" \");\n        printf(\"%d\", nums[i]);\n    }\n    printf(\"\\n\");\n    return 0;\n}",
       "cpp": "#include <iostream>\n#include <vector>\n#include <sstream>\nusing namespace std;\n\nint main() {\n    int val;\n    vector<int> nums;\n    string line;\n    getline(cin, line);\n    istringstream iss(line);\n    while (iss >> val) nums.push_back(val);\n\n    // 在这里使用冒泡排序实现\n\n    for (int i = 0; i < nums.size(); i++) {\n        if (i > 0) cout << \" \";\n        cout << nums[i];\n    }\n    cout << endl;\n    return 0;\n}"
-    }
+    },
+    "hints": ["每轮将最大的元素冒泡到末尾", "添加 swapped 标志可提前终止"]
   },
   {
     "title": "选择排序",
     "description": "使用选择排序算法对一个整数数组进行升序排序。\n\n输入一行整数（空格分隔），输出排序后的数组（空格分隔）。",
     "difficulty": "medium",
-    "tags": [
-      "数组",
-      "排序"
-    ],
-    "languages": [
-      "python",
-      "c",
-      "cpp"
-    ],
+    "tags": ["数组", "排序"],
+    "languages": ["python", "c", "cpp"],
     "examples": [
       {
         "input": "64 25 12 22 11",
@@ -835,19 +724,15 @@
       "python": "nums = list(map(int, input().split()))\n\n# 在这里使用选择排序实现\n",
       "c": "#include <stdio.h>\n\nint main() {\n    int nums[10000], n = 0;\n    int val;\n    while (scanf(\"%d\", &val) == 1) {\n        nums[n++] = val;\n    }\n\n    // 在这里使用选择排序实现\n\n    for (int i = 0; i < n; i++) {\n        if (i > 0) printf(\" \");\n        printf(\"%d\", nums[i]);\n    }\n    printf(\"\\n\");\n    return 0;\n}",
       "cpp": "#include <iostream>\n#include <vector>\n#include <sstream>\nusing namespace std;\n\nint main() {\n    int val;\n    vector<int> nums;\n    string line;\n    getline(cin, line);\n    istringstream iss(line);\n    while (iss >> val) nums.push_back(val);\n\n    // 在这里使用选择排序实现\n\n    for (int i = 0; i < nums.size(); i++) {\n        if (i > 0) cout << \" \";\n        cout << nums[i];\n    }\n    cout << endl;\n    return 0;\n}"
-    }
+    },
+    "hints": ["每轮找到最小元素放到已排序序列末尾", "外层循环控制轮数，内层循环找最小值"]
   },
   {
     "title": "用栈实现队列",
     "description": "请仅使用两个栈实现先入先出队列。\n\n输入多行操作指令：\n- `push x`：将元素 x 推到队列末尾\n- `pop`：从队列开头移除并输出元素\n- `peek`：输出队列开头的元素\n\n对每个 pop 和 peek 操作输出一行结果。",
     "difficulty": "medium",
-    "tags": [
-      "栈",
-      "队列"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["栈", "队列"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "push 1\npush 2\npeek\npop\npop",
@@ -866,20 +751,15 @@
     ],
     "starter_code": {
       "python": "import sys\n\n# 在这里用两个栈实现队列\nstack1 = []\nstack2 = []\n\nfor line in sys.stdin:\n    line = line.strip()\n    if not line:\n        continue\n    # 在这里处理每条指令\n"
-    }
+    },
+    "hints": ["用两个栈：输入栈和输出栈", "输出栈为空时才将输入栈倒入输出栈"]
   },
   {
     "title": "罗马数字转整数",
     "description": "给定一个罗马数字字符串，将其转换为整数。\n\n罗马数字规则：I=1, V=5, X=10, L=50, C=100, D=500, M=1000。\n小值在大值左边做减法，如 IV=4, IX=9。",
     "difficulty": "medium",
-    "tags": [
-      "字符串",
-      "哈希表",
-      "数学"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["字符串", "哈希表", "数学"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "III",
@@ -914,20 +794,15 @@
     ],
     "starter_code": {
       "python": "s = input()\n\n# 在这里编写你的解法\n"
-    }
+    },
+    "hints": ["用字典存储罗马字符到数字的映射", "如果当前值小于右边的值，则做减法"]
   },
   {
     "title": "两个数组的交集",
     "description": "给定两个整数数组 nums1 和 nums2，返回它们的交集。输出中每个元素是唯一的，结果按升序排列（空格分隔）。如果没有交集输出空行。",
     "difficulty": "medium",
-    "tags": [
-      "数组",
-      "哈希表",
-      "排序"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数组", "哈希表", "排序"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "1 2 2 1\n2 2",
@@ -954,18 +829,15 @@
     ],
     "starter_code": {
       "python": "nums1 = list(map(int, input().split()))\nnums2 = list(map(int, input().split()))\n\n# 在这里编写你的解法\n"
-    }
+    },
+    "hints": ["用集合(set)存储第一个数组的元素", "遍历第二个数组，检查元素是否在集合中"]
   },
   {
     "title": "字符串压缩",
     "description": "实现字符串压缩：使用字符出现次数进行基本的字符串压缩。例如 `aabcccccaaa` 变为 `a2b1c5a3`。\n\n如果压缩后的字符串没有变短，则返回原字符串。",
     "difficulty": "medium",
-    "tags": [
-      "字符串"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["字符串"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "aabcccccaaa",
@@ -996,22 +868,15 @@
     ],
     "starter_code": {
       "python": "s = input()\n\n# 在这里编写你的解法\n"
-    }
+    },
+    "hints": ["遍历字符串，统计连续相同字符的个数", "如果压缩后不比原串短，返回原串"]
   },
   {
     "title": "买卖股票的最佳时机",
     "description": "给定一个数组 prices，它的第 i 个元素是一支给定股票第 i 天的价格。\n\n你只能选择某一天买入并在未来某一天卖出。计算你所能获取的最大利润。如果不能获取利润，返回 0。",
     "difficulty": "medium",
-    "tags": [
-      "数组",
-      "动态规划",
-      "贪心"
-    ],
-    "languages": [
-      "python",
-      "c",
-      "cpp"
-    ],
+    "tags": ["数组", "动态规划", "贪心"],
+    "languages": ["python", "c", "cpp"],
     "examples": [
       {
         "input": "7 1 5 3 6 4",
@@ -1041,19 +906,15 @@
       "python": "prices = list(map(int, input().split()))\n\n# 在这里编写你的解法\n",
       "c": "#include <stdio.h>\n\nint main() {\n    int prices[10000], n = 0;\n    int val;\n    while (scanf(\"%d\", &val) == 1) {\n        prices[n++] = val;\n    }\n\n    // 在这里编写你的解法\n\n    return 0;\n}",
       "cpp": "#include <iostream>\n#include <vector>\n#include <sstream>\nusing namespace std;\n\nint main() {\n    int val;\n    vector<int> prices;\n    string line;\n    getline(cin, line);\n    istringstream iss(line);\n    while (iss >> val) prices.push_back(val);\n\n    // 在这里编写你的解法\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["维护一个最低买入价格", "每天计算当前价格与最低价的差值"]
   },
   {
     "title": "矩阵螺旋遍历",
     "description": "给你一个 m x n 的矩阵 matrix，按照顺时针螺旋顺序返回矩阵中的所有元素。\n\n第一行输入 m 和 n（空格分隔），接下来 m 行每行 n 个整数。\n\n输出螺旋顺序的元素（空格分隔）。",
     "difficulty": "medium",
-    "tags": [
-      "数组",
-      "搜索"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数组", "搜索"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "3 3\n1 2 3\n4 5 6\n7 8 9",
@@ -1076,21 +937,15 @@
     ],
     "starter_code": {
       "python": "m, n = map(int, input().split())\nmatrix = []\nfor _ in range(m):\n    row = list(map(int, input().split()))\n    matrix.append(row)\n\n# 在这里编写你的解法\n"
-    }
+    },
+    "hints": ["维护上下左右四个边界", "按右->下->左->上顺序遍历，每遍历完一个方向收缩边界"]
   },
   {
     "title": "打家劫舍",
     "description": "你是一个专业的小偷，沿着一条街偷窃。每间房内都藏有一定的现金，但相邻的房屋装有相互连通的防盗系统，如果两间相邻的房屋在同一晚上被小偷闯入，系统会自动报警。\n\n给定一个代表每个房屋存放金额的非负整数数组，计算你在不触动警报装置的情况下，一夜之内能够偷窃到的最高金额。",
     "difficulty": "hard",
-    "tags": [
-      "数组",
-      "动态规划"
-    ],
-    "languages": [
-      "python",
-      "c",
-      "cpp"
-    ],
+    "tags": ["数组", "动态规划"],
+    "languages": ["python", "c", "cpp"],
     "examples": [
       {
         "input": "1 2 3 1",
@@ -1120,21 +975,15 @@
       "python": "nums = list(map(int, input().split()))\n\n# 在这里编写你的解法\n",
       "c": "#include <stdio.h>\n\nint main() {\n    int nums[10000], n = 0;\n    int val;\n    while (scanf(\"%d\", &val) == 1) {\n        nums[n++] = val;\n    }\n\n    // 在这里编写你的解法\n\n    return 0;\n}",
       "cpp": "#include <iostream>\n#include <vector>\n#include <sstream>\nusing namespace std;\n\nint main() {\n    int val;\n    vector<int> nums;\n    string line;\n    getline(cin, line);\n    istringstream iss(line);\n    while (iss >> val) nums.push_back(val);\n\n    // 在这里编写你的解法\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["dp[i] = max(dp[i-1], dp[i-2] + nums[i])", "当前位置最大收益 = max(不偷, 偷)"]
   },
   {
     "title": "零钱兑换",
     "description": "给你一个整数数组 coins 表示不同面额的硬币，以及一个整数 amount 表示总金额。\n\n计算凑成总金额所需的最少硬币个数。如果没有任何一种硬币组合能组成总金额，返回 -1。\n\n第一行输入硬币面额（空格分隔），第二行输入总金额。",
     "difficulty": "hard",
-    "tags": [
-      "动态规划",
-      "贪心"
-    ],
-    "languages": [
-      "python",
-      "c",
-      "cpp"
-    ],
+    "tags": ["动态规划", "贪心"],
+    "languages": ["python", "c", "cpp"],
     "examples": [
       {
         "input": "1 2 5\n11",
@@ -1164,22 +1013,15 @@
       "python": "coins = list(map(int, input().split()))\namount = int(input())\n\n# 在这里编写你的解法\n",
       "c": "#include <stdio.h>\n\nint main() {\n    int coins[10000], n = 0, amount;\n    char c;\n    while (scanf(\"%d%c\", &coins[n], &c) == 2) { n++; if (c == '\\n') break; }\n    scanf(\"%d\", &amount);\n\n    // 在这里编写你的解法\n\n    return 0;\n}",
       "cpp": "#include <iostream>\n#include <vector>\n#include <sstream>\nusing namespace std;\n\nint main() {\n    int val;\n    vector<int> coins;\n    string line;\n    getline(cin, line);\n    istringstream iss(line);\n    while (iss >> val) coins.push_back(val);\n    int amount;\n    cin >> amount;\n\n    // 在这里编写你的解法\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["完全背包问题", "dp[i] = min(dp[i], dp[i-coin] + 1) 对所有硬币"]
   },
   {
     "title": "最长递增子序列",
     "description": "给你一个整数数组 nums，找到其中最长严格递增子序列的长度。\n\n子序列是由数组派生而来的序列，删除（或不删除）数组中的元素而不改变其余元素的顺序。",
     "difficulty": "hard",
-    "tags": [
-      "数组",
-      "动态规划",
-      "二分查找"
-    ],
-    "languages": [
-      "python",
-      "c",
-      "cpp"
-    ],
+    "tags": ["数组", "动态规划", "二分查找"],
+    "languages": ["python", "c", "cpp"],
     "examples": [
       {
         "input": "10 9 2 5 3 7 101 18",
@@ -1205,20 +1047,18 @@
       "python": "nums = list(map(int, input().split()))\n\n# 在这里编写你的解法\n",
       "c": "#include <stdio.h>\n\nint main() {\n    int nums[10000], n = 0;\n    int val;\n    while (scanf(\"%d\", &val) == 1) {\n        nums[n++] = val;\n    }\n\n    // 在这里编写你的解法\n\n    return 0;\n}",
       "cpp": "#include <iostream>\n#include <vector>\n#include <sstream>\nusing namespace std;\n\nint main() {\n    int val;\n    vector<int> nums;\n    string line;\n    getline(cin, line);\n    istringstream iss(line);\n    while (iss >> val) nums.push_back(val);\n\n    // 在这里编写你的解法\n\n    return 0;\n}"
-    }
+    },
+    "hints": [
+      "O(n^2)：dp[i] 表示以 i 结尾的最长递增子序列长度",
+      "O(n log n)：维护有序数组，用二分查找更新"
+    ]
   },
   {
     "title": "二叉树的层序遍历",
     "description": "给你一棵二叉树，按层序遍历输出节点值。\n\n输入格式：一行空格分隔的值表示层序构建的二叉树，`null` 表示空节点。\n\n输出格式：每层一行，同层节点空格分隔。",
     "difficulty": "hard",
-    "tags": [
-      "树",
-      "搜索",
-      "队列"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["树", "搜索", "队列"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "3 9 20 null null 15 7",
@@ -1241,20 +1081,15 @@
     ],
     "starter_code": {
       "python": "from collections import deque\n\nvalues = input().split()\n\n# 在这里构建二叉树并进行层序遍历\n"
-    }
+    },
+    "hints": ["使用 BFS（队列）", "每一层结束后记录该层的所有节点值"]
   },
   {
     "title": "全排列",
     "description": "给定一个不含重复数字的数组 nums，返回其所有可能的全排列。\n\n每行输出一个排列（元素空格分隔），按字典序排列。",
     "difficulty": "hard",
-    "tags": [
-      "数组",
-      "递归",
-      "搜索"
-    ],
-    "languages": [
-      "python"
-    ],
+    "tags": ["数组", "递归", "搜索"],
+    "languages": ["python"],
     "examples": [
       {
         "input": "1 2 3",
@@ -1277,19 +1112,15 @@
     ],
     "starter_code": {
       "python": "nums = list(map(int, input().split()))\n\n# 在这里编写你的解法\n"
-    }
+    },
+    "hints": ["回溯法：选择 -> 递归 -> 撤销选择", "用 visited 数组标记已使用的元素"]
   },
   {
     "title": "指针交换两个数",
     "description": "使用指针交换两个整数的值。\n\n输入两个整数（空格分隔），输出交换后的两个整数（空格分隔）。",
     "difficulty": "easy",
-    "tags": [
-      "指针",
-      "基础"
-    ],
-    "languages": [
-      "c"
-    ],
+    "tags": ["指针", "基础"],
+    "languages": ["c"],
     "examples": [
       {
         "input": "3 5",
@@ -1312,19 +1143,15 @@
     ],
     "starter_code": {
       "c": "#include <stdio.h>\n\nvoid swap(int *a, int *b) {\n    // 在这里实现指针交换\n}\n\nint main() {\n    int a, b;\n    scanf(\"%d %d\", &a, &b);\n    swap(&a, &b);\n    printf(\"%d %d\\n\", a, b);\n    return 0;\n}"
-    }
+    },
+    "hints": ["通过指针解引用(*a, *b)交换值", "需要一个临时变量保存中间值"]
   },
   {
     "title": "动态数组求和",
     "description": "使用 malloc 动态分配数组，读入 n 个整数并求和。\n\n第一行输入 n，第二行输入 n 个整数（空格分隔），输出它们的和。",
     "difficulty": "easy",
-    "tags": [
-      "内存分配",
-      "指针"
-    ],
-    "languages": [
-      "c"
-    ],
+    "tags": ["内存分配", "指针"],
+    "languages": ["c"],
     "examples": [
       {
         "input": "3\n1 2 3",
@@ -1347,19 +1174,15 @@
     ],
     "starter_code": {
       "c": "#include <stdio.h>\n#include <stdlib.h>\n\nint main() {\n    int n;\n    scanf(\"%d\", &n);\n\n    // 使用 malloc 分配数组并求和\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["使用 malloc 分配 n 个 int 的空间", "使用后记得 free 释放内存"]
   },
   {
     "title": "字符串手动复制",
     "description": "不使用 strcpy，手动实现字符串复制功能。\n\n输入一个字符串，输出复制后的字符串。",
     "difficulty": "medium",
-    "tags": [
-      "字符串",
-      "指针"
-    ],
-    "languages": [
-      "c"
-    ],
+    "tags": ["字符串", "指针"],
+    "languages": ["c"],
     "examples": [
       {
         "input": "hello",
@@ -1382,19 +1205,15 @@
     ],
     "starter_code": {
       "c": "#include <stdio.h>\n\nvoid my_strcpy(char *dest, const char *src) {\n    // 在这里手动实现字符串复制\n}\n\nint main() {\n    char src[10000], dest[10000];\n    scanf(\"%s\", src);\n    my_strcpy(dest, src);\n    printf(\"%s\\n\", dest);\n    return 0;\n}"
-    }
+    },
+    "hints": ["逐字符复制，直到遇到空字符", "别忘记复制终止符"]
   },
   {
     "title": "结构体排序",
     "description": "定义一个学生结构体（姓名、分数），按分数从高到低排序输出。\n\n第一行输入 n，接下来 n 行每行输入姓名和分数（空格分隔）。\n\n按分数降序输出每个学生的姓名和分数（空格分隔），每行一个。分数相同时保持输入顺序。",
     "difficulty": "medium",
-    "tags": [
-      "结构体",
-      "排序"
-    ],
-    "languages": [
-      "c"
-    ],
+    "tags": ["结构体", "排序"],
+    "languages": ["c"],
     "examples": [
       {
         "input": "3\nAlice 90\nBob 85\nCharlie 95",
@@ -1417,20 +1236,15 @@
     ],
     "starter_code": {
       "c": "#include <stdio.h>\n#include <string.h>\n\ntypedef struct {\n    char name[100];\n    int score;\n} Student;\n\nint main() {\n    int n;\n    scanf(\"%d\", &n);\n    Student students[100];\n    for (int i = 0; i < n; i++) {\n        scanf(\"%s %d\", students[i].name, &students[i].score);\n    }\n\n    // 在这里按分数降序排序并输出\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["使用 qsort 配合自定义比较函数", "比较函数中用强制类型转换转回结构体指针"]
   },
   {
     "title": "向量去重排序",
     "description": "使用 STL 对一个整数数组去重并升序排序。\n\n输入一行整数（空格分隔），输出去重排序后的结果（空格分隔）。",
     "difficulty": "easy",
-    "tags": [
-      "STL",
-      "vector",
-      "排序"
-    ],
-    "languages": [
-      "cpp"
-    ],
+    "tags": ["STL", "vector", "排序"],
+    "languages": ["cpp"],
     "examples": [
       {
         "input": "3 1 2 3 2 1",
@@ -1453,20 +1267,15 @@
     ],
     "starter_code": {
       "cpp": "#include <iostream>\n#include <vector>\n#include <algorithm>\n#include <sstream>\nusing namespace std;\n\nint main() {\n    string line;\n    getline(cin, line);\n    istringstream iss(line);\n    vector<int> nums;\n    int val;\n    while (iss >> val) nums.push_back(val);\n\n    // 使用 STL 去重并排序\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["使用 sort + unique + erase 组合", "unique 只去相邻重复，所以要先排序"]
   },
   {
     "title": "map 单词计数",
     "description": "使用 std::map 统计一段文本中每个单词出现的次数。\n\n输入一行文本（单词以空格分隔），按字典序输出每个单词及其出现次数，格式为 `单词 次数`，每行一个。",
     "difficulty": "medium",
-    "tags": [
-      "STL",
-      "map",
-      "字符串"
-    ],
-    "languages": [
-      "cpp"
-    ],
+    "tags": ["STL", "map", "字符串"],
+    "languages": ["cpp"],
     "examples": [
       {
         "input": "hello world hello",
@@ -1489,20 +1298,15 @@
     ],
     "starter_code": {
       "cpp": "#include <iostream>\n#include <map>\n#include <string>\n#include <sstream>\nusing namespace std;\n\nint main() {\n    string line;\n    getline(cin, line);\n\n    // 使用 map 统计单词出现次数\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["使用 std::map<string, int>", "用 istringstream 按空格分割单词"]
   },
   {
     "title": "类实现分数运算",
     "description": "实现一个分数类，支持加法运算。\n\n输入两行，每行两个整数表示分子和分母（空格分隔）。\n\n输出两个分数相加后的最简分数，格式为 `分子/分母`。如果结果是整数，仍然输出 `x/1` 的格式。",
     "difficulty": "medium",
-    "tags": [
-      "类",
-      "运算符重载",
-      "数学"
-    ],
-    "languages": [
-      "cpp"
-    ],
+    "tags": ["类", "运算符重载", "数学"],
+    "languages": ["cpp"],
     "examples": [
       {
         "input": "1 3\n1 6",
@@ -1529,20 +1333,15 @@
     ],
     "starter_code": {
       "cpp": "#include <iostream>\nusing namespace std;\n\nclass Fraction {\npublic:\n    int numerator, denominator;\n\n    Fraction(int n, int d) : numerator(n), denominator(d) {}\n\n    // 在这里实现加法和化简\n};\n\nint main() {\n    int n1, d1, n2, d2;\n    cin >> n1 >> d1 >> n2 >> d2;\n    Fraction a(n1, d1), b(n2, d2);\n\n    // 计算 a + b 并输出最简分数\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["通分后相加，再求最大公约数化简", "gcd 可用辗转相除法"]
   },
   {
     "title": "栈实现表达式求值",
     "description": "使用 std::stack 实现简单的整数四则运算表达式求值（无括号）。\n\n输入一个表达式字符串，运算符和数字之间用空格分隔，只包含 +、-、*、/ 和非负整数。\n\n输出计算结果（整数除法向零取整）。",
     "difficulty": "hard",
-    "tags": [
-      "STL",
-      "stack",
-      "表达式求值"
-    ],
-    "languages": [
-      "cpp"
-    ],
+    "tags": ["STL", "stack", "表达式求值"],
+    "languages": ["cpp"],
     "examples": [
       {
         "input": "3 + 2 * 2",
@@ -1577,7 +1376,8 @@
     ],
     "starter_code": {
       "cpp": "#include <iostream>\n#include <stack>\n#include <string>\n#include <sstream>\nusing namespace std;\n\nint main() {\n    string line;\n    getline(cin, line);\n\n    // 使用 stack 实现表达式求值\n\n    return 0;\n}"
-    }
+    },
+    "hints": ["两个栈：一个存数字，一个存运算符", "遇到高优先级运算符时先计算"]
   },
   {
     "title": "Hello C#",
@@ -1603,7 +1403,8 @@
     ],
     "starter_code": {
       "csharp": "using System;\nclass Program {\n    static void Main() {\n        string name = Console.ReadLine();\n        // 在这里编写你的解法\n    }\n}"
-    }
+    },
+    "hints": ["使用 Console.ReadLine() 读取输入", "用字符串插值格式化输出"]
   },
   {
     "title": "数组求平均值",
@@ -1629,7 +1430,8 @@
     ],
     "starter_code": {
       "csharp": "using System;\nusing System.Linq;\nclass Program {\n    static void Main() {\n        int n = int.Parse(Console.ReadLine());\n        int[] nums = Console.ReadLine().Split().Select(int.Parse).ToArray();\n        // 在这里编写你的解法\n    }\n}"
-    }
+    },
+    "hints": ["先求总和再除以数量", "使用格式化字符串保留两位小数"]
   },
   {
     "title": "字符串反转(C#)",
@@ -1651,7 +1453,8 @@
     ],
     "starter_code": {
       "csharp": "using System;\nclass Program {\n    static void Main() {\n        string s = Console.ReadLine();\n        // 使用 char[] 和 Array.Reverse 实现反转\n    }\n}"
-    }
+    },
+    "hints": ["将字符串转为 char[] 数组", "使用 Array.Reverse 原地反转"]
   },
   {
     "title": "List排序与去重",
@@ -1673,7 +1476,8 @@
     ],
     "starter_code": {
       "csharp": "using System;\nusing System.Linq;\nclass Program {\n    static void Main() {\n        int[] nums = Console.ReadLine().Split().Select(int.Parse).ToArray();\n        // 使用 HashSet 或 Distinct().OrderBy() 去重并排序\n    }\n}"
-    }
+    },
+    "hints": ["用 Distinct().OrderBy() 链式调用", "或用 HashSet 自动去重后排序"]
   },
   {
     "title": "字典统计字符频率",
@@ -1695,7 +1499,8 @@
     ],
     "starter_code": {
       "csharp": "using System;\nusing System.Collections.Generic;\nusing System.Linq;\nclass Program {\n    static void Main() {\n        string s = Console.ReadLine();\n        // 使用 Dictionary 统计字符频率并按字符排序输出\n    }\n}"
-    }
+    },
+    "hints": ["使用 Dictionary<char, int>", "遍历字符串，每个字符作为键计数"]
   },
   {
     "title": "查询所有员工",
@@ -1717,7 +1522,8 @@
     ],
     "starter_code": {
       "sql": "-- 表结构: employees(id INT, name TEXT, salary INT)\n-- 请编写SQL查询\n"
-    }
+    },
+    "hints": ["SELECT 列名 FROM 表名 ORDER BY 列名 DESC", "DESC 表示降序"]
   },
   {
     "title": "统计部门人数",
@@ -1739,7 +1545,8 @@
     ],
     "starter_code": {
       "sql": "-- 表结构: employees(id INT, name TEXT, department TEXT)\n-- 请编写SQL查询\n"
-    }
+    },
+    "hints": ["使用 GROUP BY 分组", "COUNT(*) 统计每组的行数"]
   },
   {
     "title": "查询高薪员工",
@@ -1761,7 +1568,8 @@
     ],
     "starter_code": {
       "sql": "-- 表结构: employees(id INT, name TEXT, salary INT)\n-- 请编写SQL查询\n"
-    }
+    },
+    "hints": ["使用 WHERE 条件过滤", "WHERE salary > 5000"]
   },
   {
     "title": "连接查询",
@@ -1783,7 +1591,8 @@
     ],
     "starter_code": {
       "sql": "-- 表结构: orders(id INT, customer_id INT, amount INT), customers(id INT, name TEXT)\n-- 请编写SQL查询\n"
-    }
+    },
+    "hints": ["使用 JOIN 连接两张表", "ON 指定连接条件，GROUP BY 分组后用 SUM 求和"]
   },
   {
     "title": "子查询",
@@ -1805,6 +1614,7 @@
     ],
     "starter_code": {
       "sql": "-- 表结构: employees(id INT, name TEXT, salary INT, department TEXT)\n-- 请编写SQL查询\n"
-    }
+    },
+    "hints": ["可以先用子查询找出每个部门的最高薪资", "再用 WHERE salary IN (子查询) 过滤"]
   }
 ]

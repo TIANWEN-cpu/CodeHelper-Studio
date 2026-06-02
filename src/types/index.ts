@@ -42,4 +42,6 @@ export type {
   MemoryCapturePayload,
   RunCodePayload,
   RunCodeResult,
+  MistakeWithProblemRow,
+  MistakeDetailRow,
 } from './ipc'

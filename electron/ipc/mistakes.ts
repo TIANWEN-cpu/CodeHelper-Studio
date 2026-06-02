@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
 import { getDB } from '../db/index'
 
-export function registerMistakesIPC() {
+export function registerMistakesIPC(): void {
   ipcMain.handle('mistakes-list', () => {
     return getDB()
       .prepare(

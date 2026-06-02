@@ -310,3 +310,15 @@
 - 测试从 7/10 提升至 **8/10**（组件测试 + E2E）
 - UX 从 7/10 提升至 **8/10**（a11y + Loading 状态）
 - 架构从 7/10 提升至 **8/10**（Service 层 + 迁移版本管理）
+
+---
+
+## See Also
+
+- [改进计划](improvement-plan.md) -- 2026-06-01 审计的改进计划（含执行进度）
+- [性能预算](performance-budgets.md) -- 关键操作性能目标
+- [依赖审计报告](dependency-audit.md) -- 依赖安全与过期审查
+- [CHANGELOG.md](../CHANGELOG.md) -- 版本变更日志
+- [架构文档](architecture.md) -- 当前系统架构与模块设计
+- [CONTRIBUTING.md](../CONTRIBUTING.md) -- 贡献指南与开发工作流
+- [术语表](glossary.md) -- 技术名词解释

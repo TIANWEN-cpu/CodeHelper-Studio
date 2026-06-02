@@ -1,5 +1,6 @@
 import { Layout } from './components/Layout'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { ToastProvider } from './components/Toast'
 import { useEffect } from 'react'
 import { useAppStore } from './stores/appStore'
 
@@ -12,7 +13,9 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <Layout />
+      <ToastProvider>
+        <Layout />
+      </ToastProvider>
     </ErrorBoundary>
   )
 }

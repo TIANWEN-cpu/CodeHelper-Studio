@@ -3,15 +3,8 @@
     "title": "UOJ 夏令营训练 001：Window Analyzer",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：读取若干名同学的编号、分数和附加指标，按照总分降序、编号升序输出排名结果。\n输入格式：第一行输入整数 n。接下来 n 行，每行包含 id score bonus。\n输出格式：按要求输出排序后的编号，每行一个。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "easy",
-    "tags": [
-      "排序",
-      "模拟",
-      "结构体"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["排序", "模拟", "结构体"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "4\n1001 88 6\n1002 91 2\n1003 88 9\n1004 76 5",
@@ -39,9 +32,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -53,15 +44,8 @@
     "title": "UOJ 夏令营训练 002：Bracket Workshop",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定一组整数，输出去重后按升序排列的结果。\n输入格式：第一行输入 n，第二行输入 n 个整数。\n输出格式：输出去重后的升序序列，元素之间用空格分隔。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "easy",
-    "tags": [
-      "数组",
-      "排序",
-      "去重"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["数组", "排序", "去重"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "8\n4 4 1 9 1 3 3 2",
@@ -88,9 +72,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -102,15 +84,8 @@
     "title": "UOJ 夏令营训练 003：Festival Rotation",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定长度为 n 的数组和 q 个闭区间查询，输出每个区间元素和。\n输入格式：第一行输入 n q。第二行输入 n 个整数。接下来 q 行输入 l r。\n输出格式：每个查询输出一行区间和。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "easy",
-    "tags": [
-      "前缀和",
-      "数组",
-      "查询"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["前缀和", "数组", "查询"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "5 3\n1 2 3 4 5\n1 3\n2 5\n4 4",
@@ -137,9 +112,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -151,15 +124,8 @@
     "title": "UOJ 夏令营训练 004：Binary Target",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定整数数组和窗口长度 k，输出所有长度为 k 的连续子数组中的最大元素和。\n输入格式：第一行输入 n k。第二行输入 n 个整数。\n输出格式：输出一个整数表示答案。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "easy",
-    "tags": [
-      "滑动窗口",
-      "数组",
-      "前缀和"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["滑动窗口", "数组", "前缀和"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "6 3\n1 5 2 3 7 1",
@@ -187,9 +153,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -201,15 +165,8 @@
     "title": "UOJ 夏令营训练 005：Intervals at Dawn",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：输入一个只含小写字母的字符串，输出出现次数最多的字符及其频次。若有多个，输出字典序最小者。\n输入格式：输入一行字符串 s。\n输出格式：输出字符和频次，中间用空格分隔。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "easy",
-    "tags": [
-      "字符串",
-      "哈希",
-      "计数"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["字符串", "哈希", "计数"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "banana",
@@ -236,9 +193,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -250,15 +205,8 @@
     "title": "UOJ 夏令营训练 006：Grid Escape",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定字符串 s 和整数 k，将字符串循环左移 k 位后输出。\n输入格式：第一行输入字符串 s。第二行输入整数 k。\n输出格式：输出左移后的字符串。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "easy",
-    "tags": [
-      "字符串",
-      "模拟",
-      "双指针"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["字符串", "模拟", "双指针"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "abcdef\n2",
@@ -285,9 +233,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -299,15 +245,8 @@
     "title": "UOJ 夏令营训练 007：Graph Delivery",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：输入一个括号串，仅包含 ()[]{}，判断其是否为合法括号序列。\n输入格式：输入一行括号串。\n输出格式：合法输出 YES，否则输出 NO。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "easy",
-    "tags": [
-      "栈",
-      "字符串",
-      "模拟"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["栈", "字符串", "模拟"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "([]{})",
@@ -334,9 +273,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -348,15 +285,8 @@
     "title": "UOJ 夏令营训练 008：Component Survey",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：有 n 个任务依次到达，每个任务包含处理时长。单窗口按顺序处理，输出全部任务完成的时间。\n输入格式：第一行输入 n。第二行输入 n 个正整数表示时长。\n输出格式：输出最后一个任务完成时的总时间。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "easy",
-    "tags": [
-      "队列",
-      "模拟",
-      "前缀和"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["队列", "模拟", "前缀和"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "4\n3 2 5 1",
@@ -383,9 +313,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -397,15 +325,8 @@
     "title": "UOJ 夏令营训练 009：Schedule DAG",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定升序数组和目标值，输出目标值第一次出现的位置，若不存在输出 -1。\n输入格式：第一行输入 n target。第二行输入 n 个升序整数。\n输出格式：输出目标值第一次出现的 0-based 下标。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "easy",
-    "tags": [
-      "二分",
-      "数组",
-      "查找"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["二分", "数组", "查找"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "6 7\n1 3 7 7 9 10",
@@ -432,9 +353,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -446,15 +365,8 @@
     "title": "UOJ 夏令营训练 010：Sequence Growth",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定若干闭区间，合并所有有交集的区间并按左端点升序输出。\n输入格式：第一行输入 n。接下来 n 行输入 l r。\n输出格式：每行输出一个合并后的区间。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "easy",
-    "tags": [
-      "贪心",
-      "排序",
-      "区间"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["贪心", "排序", "区间"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "4\n1 3\n2 6\n8 10\n15 18",
@@ -481,9 +393,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -495,15 +405,8 @@
     "title": "UOJ 夏令营训练 011：String Transform",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：在 n*m 的网格中，0 表示可通行，1 表示障碍，求左上角到右下角的最短步数，无法到达输出 -1。\n输入格式：第一行输入 n m。接下来 n 行输入 m 个 0/1 整数。\n输出格式：输出最短步数。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "easy",
-    "tags": [
-      "BFS",
-      "图论",
-      "最短路"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["BFS", "图论", "最短路"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "3 3\n0 0 0\n1 1 0\n0 0 0",
@@ -530,9 +433,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -544,15 +445,8 @@
     "title": "UOJ 夏令营训练 012：Matrix Clue",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定带权无向图和起点 1，输出点 1 到点 n 的最短距离，不可达输出 -1。\n输入格式：第一行输入 n m。接下来 m 行输入 u v w。\n输出格式：输出点 1 到点 n 的最短距离。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "easy",
-    "tags": [
-      "图论",
-      "最短路",
-      "堆"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["图论", "最短路", "堆"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "4 4\n1 2 2\n2 4 5\n1 3 4\n3 4 1",
@@ -579,9 +473,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -593,15 +485,8 @@
     "title": "UOJ 夏令营训练 013：Cover the Hall",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定 n 个点与 m 条无向边，输出图中连通块数量。\n输入格式：第一行输入 n m。接下来 m 行输入 u v。\n输出格式：输出连通块数量。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "easy",
-    "tags": [
-      "并查集",
-      "图论",
-      "连通块"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["并查集", "图论", "连通块"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "5 2\n1 2\n4 5",
@@ -628,9 +513,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -642,15 +525,8 @@
     "title": "UOJ 夏令营训练 014：Campus Ranking",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定课程依赖关系，判断是否可以完成全部课程。若可以输出 YES，否则输出 NO。\n输入格式：第一行输入 n m。接下来 m 行输入 a b，表示修 a 前必须先修 b。\n输出格式：输出 YES 或 NO。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "easy",
-    "tags": [
-      "拓扑排序",
-      "图论",
-      "队列"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["拓扑排序", "图论", "队列"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "3 2\n2 1\n3 2",
@@ -677,9 +553,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -691,15 +565,8 @@
     "title": "UOJ 夏令营训练 015：Research Queue",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定整数序列，求其最长严格递增子序列长度。\n输入格式：第一行输入 n。第二行输入 n 个整数。\n输出格式：输出一个整数表示 LIS 长度。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "动态规划",
-      "二分",
-      "序列"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["动态规划", "二分", "序列"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "8\n10 9 2 5 3 7 101 18",
@@ -726,9 +593,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -740,14 +605,8 @@
     "title": "UOJ 夏令营训练 016：English Tokens",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：输入两个字符串，输出将第一个字符串编辑成第二个字符串的最小操作次数。\n输入格式：输入两行字符串 a 和 b。\n输出格式：输出编辑距离。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "动态规划",
-      "字符串"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["动态规划", "字符串"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "horse\nros",
@@ -774,9 +633,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -788,15 +645,8 @@
     "title": "UOJ 夏令营训练 017：Window Analyzer",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定每行升序、每列升序的矩阵和目标值，判断目标是否存在。\n输入格式：第一行输入 n m target。接下来 n 行输入矩阵。\n输出格式：存在输出 YES，否则输出 NO。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "矩阵",
-      "查找",
-      "双指针"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["矩阵", "查找", "双指针"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "3 4 5\n1 2 4 8\n2 4 5 9\n6 8 9 10",
@@ -823,9 +673,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -837,15 +685,8 @@
     "title": "UOJ 夏令营训练 018：Bracket Workshop",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定若干区间，求覆盖目标区间 [1, T] 至少需要多少个区间，无法覆盖输出 -1。\n输入格式：第一行输入 n T。接下来 n 行输入 l r。\n输出格式：输出最少使用区间数量。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "贪心",
-      "区间",
-      "排序"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["贪心", "区间", "排序"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "4 10\n1 4\n3 6\n5 10\n7 10",
@@ -872,9 +713,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -886,15 +725,8 @@
     "title": "UOJ 夏令营训练 019：Festival Rotation",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：读取若干名同学的编号、分数和附加指标，按照总分降序、编号升序输出排名结果。\n输入格式：第一行输入整数 n。接下来 n 行，每行包含 id score bonus。\n输出格式：按要求输出排序后的编号，每行一个。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "排序",
-      "模拟",
-      "结构体"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["排序", "模拟", "结构体"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "4\n1001 88 6\n1002 91 2\n1003 88 9\n1004 76 5",
@@ -922,9 +754,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -936,15 +766,8 @@
     "title": "UOJ 夏令营训练 020：Binary Target",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定一组整数，输出去重后按升序排列的结果。\n输入格式：第一行输入 n，第二行输入 n 个整数。\n输出格式：输出去重后的升序序列，元素之间用空格分隔。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "数组",
-      "排序",
-      "去重"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["数组", "排序", "去重"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "8\n4 4 1 9 1 3 3 2",
@@ -971,9 +794,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -985,15 +806,8 @@
     "title": "UOJ 夏令营训练 021：Intervals at Dawn",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定长度为 n 的数组和 q 个闭区间查询，输出每个区间元素和。\n输入格式：第一行输入 n q。第二行输入 n 个整数。接下来 q 行输入 l r。\n输出格式：每个查询输出一行区间和。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "前缀和",
-      "数组",
-      "查询"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["前缀和", "数组", "查询"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "5 3\n1 2 3 4 5\n1 3\n2 5\n4 4",
@@ -1020,9 +834,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -1034,15 +846,8 @@
     "title": "UOJ 夏令营训练 022：Grid Escape",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定整数数组和窗口长度 k，输出所有长度为 k 的连续子数组中的最大元素和。\n输入格式：第一行输入 n k。第二行输入 n 个整数。\n输出格式：输出一个整数表示答案。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "滑动窗口",
-      "数组",
-      "前缀和"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["滑动窗口", "数组", "前缀和"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "6 3\n1 5 2 3 7 1",
@@ -1070,9 +875,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -1084,15 +887,8 @@
     "title": "UOJ 夏令营训练 023：Graph Delivery",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：输入一个只含小写字母的字符串，输出出现次数最多的字符及其频次。若有多个，输出字典序最小者。\n输入格式：输入一行字符串 s。\n输出格式：输出字符和频次，中间用空格分隔。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "字符串",
-      "哈希",
-      "计数"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["字符串", "哈希", "计数"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "banana",
@@ -1119,9 +915,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -1133,15 +927,8 @@
     "title": "UOJ 夏令营训练 024：Component Survey",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定字符串 s 和整数 k，将字符串循环左移 k 位后输出。\n输入格式：第一行输入字符串 s。第二行输入整数 k。\n输出格式：输出左移后的字符串。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "字符串",
-      "模拟",
-      "双指针"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["字符串", "模拟", "双指针"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "abcdef\n2",
@@ -1168,9 +955,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -1182,15 +967,8 @@
     "title": "UOJ 夏令营训练 025：Schedule DAG",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：输入一个括号串，仅包含 ()[]{}，判断其是否为合法括号序列。\n输入格式：输入一行括号串。\n输出格式：合法输出 YES，否则输出 NO。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "栈",
-      "字符串",
-      "模拟"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["栈", "字符串", "模拟"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "([]{})",
@@ -1217,9 +995,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -1231,15 +1007,8 @@
     "title": "UOJ 夏令营训练 026：Sequence Growth",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：有 n 个任务依次到达，每个任务包含处理时长。单窗口按顺序处理，输出全部任务完成的时间。\n输入格式：第一行输入 n。第二行输入 n 个正整数表示时长。\n输出格式：输出最后一个任务完成时的总时间。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "队列",
-      "模拟",
-      "前缀和"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["队列", "模拟", "前缀和"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "4\n3 2 5 1",
@@ -1266,9 +1035,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -1280,15 +1047,8 @@
     "title": "UOJ 夏令营训练 027：String Transform",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定升序数组和目标值，输出目标值第一次出现的位置，若不存在输出 -1。\n输入格式：第一行输入 n target。第二行输入 n 个升序整数。\n输出格式：输出目标值第一次出现的 0-based 下标。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "二分",
-      "数组",
-      "查找"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["二分", "数组", "查找"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "6 7\n1 3 7 7 9 10",
@@ -1315,9 +1075,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -1329,15 +1087,8 @@
     "title": "UOJ 夏令营训练 028：Matrix Clue",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定若干闭区间，合并所有有交集的区间并按左端点升序输出。\n输入格式：第一行输入 n。接下来 n 行输入 l r。\n输出格式：每行输出一个合并后的区间。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "贪心",
-      "排序",
-      "区间"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["贪心", "排序", "区间"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "4\n1 3\n2 6\n8 10\n15 18",
@@ -1364,9 +1115,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -1378,15 +1127,8 @@
     "title": "UOJ 夏令营训练 029：Cover the Hall",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：在 n*m 的网格中，0 表示可通行，1 表示障碍，求左上角到右下角的最短步数，无法到达输出 -1。\n输入格式：第一行输入 n m。接下来 n 行输入 m 个 0/1 整数。\n输出格式：输出最短步数。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "BFS",
-      "图论",
-      "最短路"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["BFS", "图论", "最短路"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "3 3\n0 0 0\n1 1 0\n0 0 0",
@@ -1413,9 +1155,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -1427,15 +1167,8 @@
     "title": "UOJ 夏令营训练 030：Campus Ranking",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定带权无向图和起点 1，输出点 1 到点 n 的最短距离，不可达输出 -1。\n输入格式：第一行输入 n m。接下来 m 行输入 u v w。\n输出格式：输出点 1 到点 n 的最短距离。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "图论",
-      "最短路",
-      "堆"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["图论", "最短路", "堆"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "4 4\n1 2 2\n2 4 5\n1 3 4\n3 4 1",
@@ -1462,9 +1195,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -1476,15 +1207,8 @@
     "title": "UOJ 夏令营训练 031：Research Queue",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定 n 个点与 m 条无向边，输出图中连通块数量。\n输入格式：第一行输入 n m。接下来 m 行输入 u v。\n输出格式：输出连通块数量。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "并查集",
-      "图论",
-      "连通块"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["并查集", "图论", "连通块"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "5 2\n1 2\n4 5",
@@ -1511,9 +1235,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -1525,15 +1247,8 @@
     "title": "UOJ 夏令营训练 032：English Tokens",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定课程依赖关系，判断是否可以完成全部课程。若可以输出 YES，否则输出 NO。\n输入格式：第一行输入 n m。接下来 m 行输入 a b，表示修 a 前必须先修 b。\n输出格式：输出 YES 或 NO。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "拓扑排序",
-      "图论",
-      "队列"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["拓扑排序", "图论", "队列"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "3 2\n2 1\n3 2",
@@ -1560,9 +1275,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -1574,15 +1287,8 @@
     "title": "UOJ 夏令营训练 033：Window Analyzer",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定整数序列，求其最长严格递增子序列长度。\n输入格式：第一行输入 n。第二行输入 n 个整数。\n输出格式：输出一个整数表示 LIS 长度。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "动态规划",
-      "二分",
-      "序列"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["动态规划", "二分", "序列"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "8\n10 9 2 5 3 7 101 18",
@@ -1609,9 +1315,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -1623,14 +1327,8 @@
     "title": "UOJ 夏令营训练 034：Bracket Workshop",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：输入两个字符串，输出将第一个字符串编辑成第二个字符串的最小操作次数。\n输入格式：输入两行字符串 a 和 b。\n输出格式：输出编辑距离。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "动态规划",
-      "字符串"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["动态规划", "字符串"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "horse\nros",
@@ -1657,9 +1355,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -1671,15 +1367,8 @@
     "title": "UOJ 夏令营训练 035：Festival Rotation",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定每行升序、每列升序的矩阵和目标值，判断目标是否存在。\n输入格式：第一行输入 n m target。接下来 n 行输入矩阵。\n输出格式：存在输出 YES，否则输出 NO。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "矩阵",
-      "查找",
-      "双指针"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["矩阵", "查找", "双指针"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "3 4 5\n1 2 4 8\n2 4 5 9\n6 8 9 10",
@@ -1706,9 +1395,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -1720,15 +1407,8 @@
     "title": "UOJ 夏令营训练 036：Binary Target",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定若干区间，求覆盖目标区间 [1, T] 至少需要多少个区间，无法覆盖输出 -1。\n输入格式：第一行输入 n T。接下来 n 行输入 l r。\n输出格式：输出最少使用区间数量。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "贪心",
-      "区间",
-      "排序"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["贪心", "区间", "排序"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "4 10\n1 4\n3 6\n5 10\n7 10",
@@ -1755,9 +1435,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -1769,15 +1447,8 @@
     "title": "UOJ 夏令营训练 037：Intervals at Dawn",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：读取若干名同学的编号、分数和附加指标，按照总分降序、编号升序输出排名结果。\n输入格式：第一行输入整数 n。接下来 n 行，每行包含 id score bonus。\n输出格式：按要求输出排序后的编号，每行一个。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "排序",
-      "模拟",
-      "结构体"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["排序", "模拟", "结构体"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "4\n1001 88 6\n1002 91 2\n1003 88 9\n1004 76 5",
@@ -1805,9 +1476,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -1819,15 +1488,8 @@
     "title": "UOJ 夏令营训练 038：Grid Escape",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定一组整数，输出去重后按升序排列的结果。\n输入格式：第一行输入 n，第二行输入 n 个整数。\n输出格式：输出去重后的升序序列，元素之间用空格分隔。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "数组",
-      "排序",
-      "去重"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["数组", "排序", "去重"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "8\n4 4 1 9 1 3 3 2",
@@ -1854,9 +1516,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -1868,15 +1528,8 @@
     "title": "UOJ 夏令营训练 039：Graph Delivery",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定长度为 n 的数组和 q 个闭区间查询，输出每个区间元素和。\n输入格式：第一行输入 n q。第二行输入 n 个整数。接下来 q 行输入 l r。\n输出格式：每个查询输出一行区间和。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "前缀和",
-      "数组",
-      "查询"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["前缀和", "数组", "查询"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "5 3\n1 2 3 4 5\n1 3\n2 5\n4 4",
@@ -1903,9 +1556,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -1917,15 +1568,8 @@
     "title": "UOJ 夏令营训练 040：Component Survey",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定整数数组和窗口长度 k，输出所有长度为 k 的连续子数组中的最大元素和。\n输入格式：第一行输入 n k。第二行输入 n 个整数。\n输出格式：输出一个整数表示答案。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "滑动窗口",
-      "数组",
-      "前缀和"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["滑动窗口", "数组", "前缀和"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "6 3\n1 5 2 3 7 1",
@@ -1953,9 +1597,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -1967,15 +1609,8 @@
     "title": "UOJ 夏令营训练 041：Schedule DAG",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：输入一个只含小写字母的字符串，输出出现次数最多的字符及其频次。若有多个，输出字典序最小者。\n输入格式：输入一行字符串 s。\n输出格式：输出字符和频次，中间用空格分隔。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "字符串",
-      "哈希",
-      "计数"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["字符串", "哈希", "计数"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "banana",
@@ -2002,9 +1637,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -2016,15 +1649,8 @@
     "title": "UOJ 夏令营训练 042：Sequence Growth",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定字符串 s 和整数 k，将字符串循环左移 k 位后输出。\n输入格式：第一行输入字符串 s。第二行输入整数 k。\n输出格式：输出左移后的字符串。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "字符串",
-      "模拟",
-      "双指针"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["字符串", "模拟", "双指针"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "abcdef\n2",
@@ -2051,9 +1677,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -2065,15 +1689,8 @@
     "title": "UOJ 夏令营训练 043：String Transform",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：输入一个括号串，仅包含 ()[]{}，判断其是否为合法括号序列。\n输入格式：输入一行括号串。\n输出格式：合法输出 YES，否则输出 NO。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "栈",
-      "字符串",
-      "模拟"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["栈", "字符串", "模拟"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "([]{})",
@@ -2100,9 +1717,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -2114,15 +1729,8 @@
     "title": "UOJ 夏令营训练 044：Matrix Clue",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：有 n 个任务依次到达，每个任务包含处理时长。单窗口按顺序处理，输出全部任务完成的时间。\n输入格式：第一行输入 n。第二行输入 n 个正整数表示时长。\n输出格式：输出最后一个任务完成时的总时间。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "队列",
-      "模拟",
-      "前缀和"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["队列", "模拟", "前缀和"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "4\n3 2 5 1",
@@ -2149,9 +1757,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -2163,15 +1769,8 @@
     "title": "UOJ 夏令营训练 045：Cover the Hall",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定升序数组和目标值，输出目标值第一次出现的位置，若不存在输出 -1。\n输入格式：第一行输入 n target。第二行输入 n 个升序整数。\n输出格式：输出目标值第一次出现的 0-based 下标。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "二分",
-      "数组",
-      "查找"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["二分", "数组", "查找"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "6 7\n1 3 7 7 9 10",
@@ -2198,9 +1797,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -2212,15 +1809,8 @@
     "title": "UOJ 夏令营训练 046：Campus Ranking",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定若干闭区间，合并所有有交集的区间并按左端点升序输出。\n输入格式：第一行输入 n。接下来 n 行输入 l r。\n输出格式：每行输出一个合并后的区间。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "贪心",
-      "排序",
-      "区间"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["贪心", "排序", "区间"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "4\n1 3\n2 6\n8 10\n15 18",
@@ -2247,9 +1837,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -2261,15 +1849,8 @@
     "title": "UOJ 夏令营训练 047：Research Queue",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：在 n*m 的网格中，0 表示可通行，1 表示障碍，求左上角到右下角的最短步数，无法到达输出 -1。\n输入格式：第一行输入 n m。接下来 n 行输入 m 个 0/1 整数。\n输出格式：输出最短步数。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "BFS",
-      "图论",
-      "最短路"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["BFS", "图论", "最短路"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "3 3\n0 0 0\n1 1 0\n0 0 0",
@@ -2296,9 +1877,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -2310,15 +1889,8 @@
     "title": "UOJ 夏令营训练 048：English Tokens",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定带权无向图和起点 1，输出点 1 到点 n 的最短距离，不可达输出 -1。\n输入格式：第一行输入 n m。接下来 m 行输入 u v w。\n输出格式：输出点 1 到点 n 的最短距离。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "图论",
-      "最短路",
-      "堆"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["图论", "最短路", "堆"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "4 4\n1 2 2\n2 4 5\n1 3 4\n3 4 1",
@@ -2345,9 +1917,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -2359,15 +1929,8 @@
     "title": "UOJ 夏令营训练 049：Window Analyzer",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定 n 个点与 m 条无向边，输出图中连通块数量。\n输入格式：第一行输入 n m。接下来 m 行输入 u v。\n输出格式：输出连通块数量。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "medium",
-    "tags": [
-      "并查集",
-      "图论",
-      "连通块"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["并查集", "图论", "连通块"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "5 2\n1 2\n4 5",
@@ -2394,9 +1957,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -2408,15 +1969,8 @@
     "title": "UOJ 夏令营训练 050：Bracket Workshop",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定课程依赖关系，判断是否可以完成全部课程。若可以输出 YES，否则输出 NO。\n输入格式：第一行输入 n m。接下来 m 行输入 a b，表示修 a 前必须先修 b。\n输出格式：输出 YES 或 NO。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "hard",
-    "tags": [
-      "拓扑排序",
-      "图论",
-      "队列"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["拓扑排序", "图论", "队列"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "3 2\n2 1\n3 2",
@@ -2443,9 +1997,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -2457,15 +2009,8 @@
     "title": "UOJ 夏令营训练 051：Festival Rotation",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定整数序列，求其最长严格递增子序列长度。\n输入格式：第一行输入 n。第二行输入 n 个整数。\n输出格式：输出一个整数表示 LIS 长度。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "hard",
-    "tags": [
-      "动态规划",
-      "二分",
-      "序列"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["动态规划", "二分", "序列"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "8\n10 9 2 5 3 7 101 18",
@@ -2492,9 +2037,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -2506,14 +2049,8 @@
     "title": "UOJ 夏令营训练 052：Binary Target",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：输入两个字符串，输出将第一个字符串编辑成第二个字符串的最小操作次数。\n输入格式：输入两行字符串 a 和 b。\n输出格式：输出编辑距离。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "hard",
-    "tags": [
-      "动态规划",
-      "字符串"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["动态规划", "字符串"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "horse\nros",
@@ -2540,9 +2077,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -2554,15 +2089,8 @@
     "title": "UOJ 夏令营训练 053：Intervals at Dawn",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定每行升序、每列升序的矩阵和目标值，判断目标是否存在。\n输入格式：第一行输入 n m target。接下来 n 行输入矩阵。\n输出格式：存在输出 YES，否则输出 NO。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "hard",
-    "tags": [
-      "矩阵",
-      "查找",
-      "双指针"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["矩阵", "查找", "双指针"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "3 4 5\n1 2 4 8\n2 4 5 9\n6 8 9 10",
@@ -2589,9 +2117,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -2603,15 +2129,8 @@
     "title": "UOJ 夏令营训练 054：Grid Escape",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定若干区间，求覆盖目标区间 [1, T] 至少需要多少个区间，无法覆盖输出 -1。\n输入格式：第一行输入 n T。接下来 n 行输入 l r。\n输出格式：输出最少使用区间数量。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "hard",
-    "tags": [
-      "贪心",
-      "区间",
-      "排序"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["贪心", "区间", "排序"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "4 10\n1 4\n3 6\n5 10\n7 10",
@@ -2638,9 +2157,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -2652,15 +2169,8 @@
     "title": "UOJ 夏令营训练 055：Graph Delivery",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：读取若干名同学的编号、分数和附加指标，按照总分降序、编号升序输出排名结果。\n输入格式：第一行输入整数 n。接下来 n 行，每行包含 id score bonus。\n输出格式：按要求输出排序后的编号，每行一个。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "hard",
-    "tags": [
-      "排序",
-      "模拟",
-      "结构体"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["排序", "模拟", "结构体"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "4\n1001 88 6\n1002 91 2\n1003 88 9\n1004 76 5",
@@ -2688,9 +2198,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -2702,15 +2210,8 @@
     "title": "UOJ 夏令营训练 056：Component Survey",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定一组整数，输出去重后按升序排列的结果。\n输入格式：第一行输入 n，第二行输入 n 个整数。\n输出格式：输出去重后的升序序列，元素之间用空格分隔。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "hard",
-    "tags": [
-      "数组",
-      "排序",
-      "去重"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["数组", "排序", "去重"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "8\n4 4 1 9 1 3 3 2",
@@ -2737,9 +2238,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -2751,15 +2250,8 @@
     "title": "UOJ 夏令营训练 057：Schedule DAG",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定长度为 n 的数组和 q 个闭区间查询，输出每个区间元素和。\n输入格式：第一行输入 n q。第二行输入 n 个整数。接下来 q 行输入 l r。\n输出格式：每个查询输出一行区间和。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "hard",
-    "tags": [
-      "前缀和",
-      "数组",
-      "查询"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["前缀和", "数组", "查询"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "5 3\n1 2 3 4 5\n1 3\n2 5\n4 4",
@@ -2786,9 +2278,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -2800,15 +2290,8 @@
     "title": "UOJ 夏令营训练 058：Sequence Growth",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定整数数组和窗口长度 k，输出所有长度为 k 的连续子数组中的最大元素和。\n输入格式：第一行输入 n k。第二行输入 n 个整数。\n输出格式：输出一个整数表示答案。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "hard",
-    "tags": [
-      "滑动窗口",
-      "数组",
-      "前缀和"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["滑动窗口", "数组", "前缀和"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "6 3\n1 5 2 3 7 1",
@@ -2836,9 +2319,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -2850,15 +2331,8 @@
     "title": "UOJ 夏令营训练 059：String Transform",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：输入一个只含小写字母的字符串，输出出现次数最多的字符及其频次。若有多个，输出字典序最小者。\n输入格式：输入一行字符串 s。\n输出格式：输出字符和频次，中间用空格分隔。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "hard",
-    "tags": [
-      "字符串",
-      "哈希",
-      "计数"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["字符串", "哈希", "计数"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "banana",
@@ -2885,9 +2359,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -2899,15 +2371,8 @@
     "title": "UOJ 夏令营训练 060：Matrix Clue",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定字符串 s 和整数 k，将字符串循环左移 k 位后输出。\n输入格式：第一行输入字符串 s。第二行输入整数 k。\n输出格式：输出左移后的字符串。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "hard",
-    "tags": [
-      "字符串",
-      "模拟",
-      "双指针"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["字符串", "模拟", "双指针"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "abcdef\n2",
@@ -2934,9 +2399,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -2948,15 +2411,8 @@
     "title": "UOJ 夏令营训练 061：Cover the Hall",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：输入一个括号串，仅包含 ()[]{}，判断其是否为合法括号序列。\n输入格式：输入一行括号串。\n输出格式：合法输出 YES，否则输出 NO。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "hard",
-    "tags": [
-      "栈",
-      "字符串",
-      "模拟"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["栈", "字符串", "模拟"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "([]{})",
@@ -2983,9 +2439,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -2997,15 +2451,8 @@
     "title": "UOJ 夏令营训练 062：Campus Ranking",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：有 n 个任务依次到达，每个任务包含处理时长。单窗口按顺序处理，输出全部任务完成的时间。\n输入格式：第一行输入 n。第二行输入 n 个正整数表示时长。\n输出格式：输出最后一个任务完成时的总时间。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "hard",
-    "tags": [
-      "队列",
-      "模拟",
-      "前缀和"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["队列", "模拟", "前缀和"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "4\n3 2 5 1",
@@ -3032,9 +2479,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -3046,15 +2491,8 @@
     "title": "UOJ 夏令营训练 063：Research Queue",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定升序数组和目标值，输出目标值第一次出现的位置，若不存在输出 -1。\n输入格式：第一行输入 n target。第二行输入 n 个升序整数。\n输出格式：输出目标值第一次出现的 0-based 下标。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "hard",
-    "tags": [
-      "二分",
-      "数组",
-      "查找"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["二分", "数组", "查找"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "6 7\n1 3 7 7 9 10",
@@ -3081,9 +2519,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -3095,15 +2531,8 @@
     "title": "UOJ 夏令营训练 064：English Tokens",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定若干闭区间，合并所有有交集的区间并按左端点升序输出。\n输入格式：第一行输入 n。接下来 n 行输入 l r。\n输出格式：每行输出一个合并后的区间。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "hard",
-    "tags": [
-      "贪心",
-      "排序",
-      "区间"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["贪心", "排序", "区间"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "4\n1 3\n2 6\n8 10\n15 18",
@@ -3130,9 +2559,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -3144,15 +2571,8 @@
     "title": "UOJ 夏令营训练 065：Window Analyzer",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：在 n*m 的网格中，0 表示可通行，1 表示障碍，求左上角到右下角的最短步数，无法到达输出 -1。\n输入格式：第一行输入 n m。接下来 n 行输入 m 个 0/1 整数。\n输出格式：输出最短步数。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "hard",
-    "tags": [
-      "BFS",
-      "图论",
-      "最短路"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["BFS", "图论", "最短路"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "3 3\n0 0 0\n1 1 0\n0 0 0",
@@ -3179,9 +2599,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -3193,15 +2611,8 @@
     "title": "UOJ 夏令营训练 066：Bracket Workshop",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定带权无向图和起点 1，输出点 1 到点 n 的最短距离，不可达输出 -1。\n输入格式：第一行输入 n m。接下来 m 行输入 u v w。\n输出格式：输出点 1 到点 n 的最短距离。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "hard",
-    "tags": [
-      "图论",
-      "最短路",
-      "堆"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["图论", "最短路", "堆"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "4 4\n1 2 2\n2 4 5\n1 3 4\n3 4 1",
@@ -3228,9 +2639,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -3242,15 +2651,8 @@
     "title": "UOJ 夏令营训练 067：Festival Rotation",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定 n 个点与 m 条无向边，输出图中连通块数量。\n输入格式：第一行输入 n m。接下来 m 行输入 u v。\n输出格式：输出连通块数量。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "hard",
-    "tags": [
-      "并查集",
-      "图论",
-      "连通块"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["并查集", "图论", "连通块"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "5 2\n1 2\n4 5",
@@ -3277,9 +2679,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -3291,15 +2691,8 @@
     "title": "UOJ 夏令营训练 068：Binary Target",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定课程依赖关系，判断是否可以完成全部课程。若可以输出 YES，否则输出 NO。\n输入格式：第一行输入 n m。接下来 m 行输入 a b，表示修 a 前必须先修 b。\n输出格式：输出 YES 或 NO。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "hard",
-    "tags": [
-      "拓扑排序",
-      "图论",
-      "队列"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["拓扑排序", "图论", "队列"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "3 2\n2 1\n3 2",
@@ -3326,9 +2719,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -3340,15 +2731,8 @@
     "title": "UOJ 夏令营训练 069：Intervals at Dawn",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：给定整数序列，求其最长严格递增子序列长度。\n输入格式：第一行输入 n。第二行输入 n 个整数。\n输出格式：输出一个整数表示 LIS 长度。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "hard",
-    "tags": [
-      "动态规划",
-      "二分",
-      "序列"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["动态规划", "二分", "序列"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "8\n10 9 2 5 3 7 101 18",
@@ -3375,9 +2759,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",
@@ -3389,14 +2771,8 @@
     "title": "UOJ 夏令营训练 070：Grid Escape",
     "description": "UOJ 夏令营训练 训练题。\n\n任务描述：输入两个字符串，输出将第一个字符串编辑成第二个字符串的最小操作次数。\n输入格式：输入两行字符串 a 和 b。\n输出格式：输出编辑距离。\n要求：请使用标准输入输出完成，注意边界情况和时间复杂度。",
     "difficulty": "hard",
-    "tags": [
-      "动态规划",
-      "字符串"
-    ],
-    "languages": [
-      "python",
-      "cpp"
-    ],
+    "tags": ["动态规划", "字符串"],
+    "languages": ["python", "cpp"],
     "examples": [
       {
         "input": "horse\nros",
@@ -3423,9 +2799,7 @@
       "cpp": "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    // 读取输入并补全你的解法\n    return 0;\n}\n"
     },
     "source": "summer-uoj",
-    "tracks": [
-      "summer-camp"
-    ],
+    "tracks": ["summer-camp"],
     "platform": "uoj",
     "mode": "oj",
     "exam_style": "acm",

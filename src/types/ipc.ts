@@ -12,7 +12,7 @@
  * ```
  */
 
-import type { Problem, Submission, ProblemFilters } from './problem'
+import type { Problem, Submission } from './problem'
 import type {
   Message,
   Session,
@@ -22,7 +22,33 @@ import type {
   StreamDonePayload,
   ChatConfig,
 } from './chat'
-import type { Document, Chunk, SearchResult } from './knowledge'
+import type { Document, SearchResult } from './knowledge'
+
+/**
+ * Mistake with joined problem fields (title, difficulty, tags).
+ * Matches the row shape returned by `mistakes-list`.
+ */
+export interface MistakeWithProblemRow {
+  id: number
+  problem_id: number
+  last_wrong_code: string
+  error_types: string
+  error_count: number
+  correct_code: string | null
+  updated_at: string
+  title: string
+  difficulty: string
+  tags: string
+}
+
+/**
+ * Detailed mistake with additional problem fields (description, starter_code).
+ * Matches the row shape returned by `mistakes-get`.
+ */
+export interface MistakeDetailRow extends MistakeWithProblemRow {
+  description: string
+  starter_code: string
+}
 
 /**
  * Problem filter parameters (matches the filters object accepted by `problems-list`).
@@ -199,8 +225,8 @@ export interface IpcChannelMap {
   'problems-submissions': { args: [number]; result: Submission[] }
 
   // Mistakes
-  'mistakes-list': { args: []; result: unknown[] }
-  'mistakes-get': { args: [number]; result: unknown }
+  'mistakes-list': { args: []; result: MistakeWithProblemRow[] }
+  'mistakes-get': { args: [number]; result: MistakeDetailRow | undefined }
   'mistakes-update-analysis': { args: [number, string]; result: void }
   'mistakes-delete': { args: [number]; result: void }
 

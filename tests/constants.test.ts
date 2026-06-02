@@ -10,7 +10,7 @@ import {
 
 describe('IPC constants', () => {
   it('所有 IPC 通道名称都是字符串', () => {
-    for (const [key, value] of Object.entries(IPC)) {
+    for (const [_key, value] of Object.entries(IPC)) {
       expect(typeof value).toBe('string')
       expect(value.length).toBeGreaterThan(0)
     }

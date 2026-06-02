@@ -109,18 +109,16 @@ export function mergeErrorTypes(rawErrorTypes: string | undefined, status: strin
 }
 
 export function normalizeProblemSeed(problem: ProblemSeed, fallbackSource: string): ProblemSeed {
+  const source = problem.source ?? fallbackSource
   return {
     ...problem,
-    source: problem.source ?? fallbackSource,
-    tracks: problem.tracks ?? inferTracksFromSource(problem.source ?? fallbackSource),
-    platform: problem.platform ?? inferPlatformFromSource(problem.source ?? fallbackSource),
-    mode: problem.mode ?? inferModeFromSource(problem.source ?? fallbackSource),
-    exam_style: problem.exam_style ?? inferExamStyle(problem.source ?? fallbackSource),
+    source,
+    tracks: problem.tracks ?? inferTracksFromSource(source),
+    platform: problem.platform ?? inferPlatformFromSource(source),
+    mode: problem.mode ?? inferModeFromSource(source),
+    exam_style: problem.exam_style ?? inferExamStyle(source),
     estimated_time:
       problem.estimated_time ??
-      inferEstimatedTime(
-        problem.difficulty,
-        problem.mode ?? inferModeFromSource(problem.source ?? fallbackSource),
-      ),
+      inferEstimatedTime(problem.difficulty, problem.mode ?? inferModeFromSource(source)),
   }
 }

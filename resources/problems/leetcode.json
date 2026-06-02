@@ -6,16 +6,29 @@
     "tags": ["数组", "哈希表"],
     "languages": ["python"],
     "examples": [
-      {"input": "4\n2 7 11 15\n9", "output": "0 1"}
+      {
+        "input": "4\n2 7 11 15\n9",
+        "output": "0 1"
+      }
     ],
     "test_cases": [
-      {"input": "4\n2 7 11 15\n9", "expected": "0 1"},
-      {"input": "3\n3 2 4\n6", "expected": "1 2"},
-      {"input": "2\n3 3\n6", "expected": "0 1"}
+      {
+        "input": "4\n2 7 11 15\n9",
+        "expected": "0 1"
+      },
+      {
+        "input": "3\n3 2 4\n6",
+        "expected": "1 2"
+      },
+      {
+        "input": "2\n3 3\n6",
+        "expected": "0 1"
+      }
     ],
     "starter_code": {
       "python": "# 两数之和\n# 第一行输入数组长度n，第二行输入n个整数，第三行输入目标值target\n# 输出两个下标，用空格分隔\nn = int(input())\nnums = list(map(int, input().split()))\ntarget = int(input())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["用哈希表存储已遍历的数字和下标", "对于每个数 num，查找 target - num 是否在哈希表中"]
   },
   {
     "title": "回文数",
@@ -24,17 +37,33 @@
     "tags": ["数学"],
     "languages": ["python"],
     "examples": [
-      {"input": "121", "output": "true"}
+      {
+        "input": "121",
+        "output": "true"
+      }
     ],
     "test_cases": [
-      {"input": "121", "expected": "true"},
-      {"input": "-121", "expected": "false"},
-      {"input": "10", "expected": "false"},
-      {"input": "0", "expected": "true"}
+      {
+        "input": "121",
+        "expected": "true"
+      },
+      {
+        "input": "-121",
+        "expected": "false"
+      },
+      {
+        "input": "10",
+        "expected": "false"
+      },
+      {
+        "input": "0",
+        "expected": "true"
+      }
     ],
     "starter_code": {
       "python": "# 回文数\n# 输入一个整数x，输出true或false\nx = int(input())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["负数不是回文数", "可以将数字转为字符串比较，或反转数字的后半部分"]
   },
   {
     "title": "罗马数字转整数",
@@ -43,18 +72,37 @@
     "tags": ["字符串", "哈希表"],
     "languages": ["python"],
     "examples": [
-      {"input": "III", "output": "3"}
+      {
+        "input": "III",
+        "output": "3"
+      }
     ],
     "test_cases": [
-      {"input": "III", "expected": "3"},
-      {"input": "IV", "expected": "4"},
-      {"input": "IX", "expected": "9"},
-      {"input": "LVIII", "expected": "58"},
-      {"input": "MCMXCIV", "expected": "1994"}
+      {
+        "input": "III",
+        "expected": "3"
+      },
+      {
+        "input": "IV",
+        "expected": "4"
+      },
+      {
+        "input": "IX",
+        "expected": "9"
+      },
+      {
+        "input": "LVIII",
+        "expected": "58"
+      },
+      {
+        "input": "MCMXCIV",
+        "expected": "1994"
+      }
     ],
     "starter_code": {
       "python": "# 罗马数字转整数\n# 输入一个罗马数字字符串，输出对应的整数\ns = input().strip()\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["用字典存储罗马字符到数字的映射", "如果当前值小于右边的值，则做减法"]
   },
   {
     "title": "最长公共前缀",
@@ -63,16 +111,29 @@
     "tags": ["字符串"],
     "languages": ["python"],
     "examples": [
-      {"input": "3\nflower flow flight", "output": "fl"}
+      {
+        "input": "3\nflower flow flight",
+        "output": "fl"
+      }
     ],
     "test_cases": [
-      {"input": "3\nflower flow flight", "expected": "fl"},
-      {"input": "3\ndog racecar car", "expected": ""},
-      {"input": "1\na", "expected": "a"}
+      {
+        "input": "3\nflower flow flight",
+        "expected": "fl"
+      },
+      {
+        "input": "3\ndog racecar car",
+        "expected": ""
+      },
+      {
+        "input": "1\na",
+        "expected": "a"
+      }
     ],
     "starter_code": {
       "python": "# 最长公共前缀\n# 第一行输入字符串个数n，第二行输入n个字符串用空格分隔\n# 输出最长公共前缀，如果没有则输出空行\nn = int(input())\nstrs = input().split()\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["从左到右逐字符比较所有字符串", "当某个字符串结束或字符不匹配时停止"]
   },
   {
     "title": "有效的括号",
@@ -81,18 +142,37 @@
     "tags": ["栈", "字符串"],
     "languages": ["python"],
     "examples": [
-      {"input": "()", "output": "true"}
+      {
+        "input": "()",
+        "output": "true"
+      }
     ],
     "test_cases": [
-      {"input": "()", "expected": "true"},
-      {"input": "()[]{}", "expected": "true"},
-      {"input": "(]", "expected": "false"},
-      {"input": "([)]", "expected": "false"},
-      {"input": "{[]}", "expected": "true"}
+      {
+        "input": "()",
+        "expected": "true"
+      },
+      {
+        "input": "()[]{}",
+        "expected": "true"
+      },
+      {
+        "input": "(]",
+        "expected": "false"
+      },
+      {
+        "input": "([)]",
+        "expected": "false"
+      },
+      {
+        "input": "{[]}",
+        "expected": "true"
+      }
     ],
     "starter_code": {
       "python": "# 有效的括号\n# 输入一个括号字符串，输出true或false\ns = input().strip()\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["使用栈来存储左括号", "遇到右括号时检查栈顶是否匹配"]
   },
   {
     "title": "合并两个有序数组",
@@ -101,16 +181,29 @@
     "tags": ["数组", "排序"],
     "languages": ["python"],
     "examples": [
-      {"input": "3\n1 2 3\n3\n2 5 6", "output": "1 2 2 3 5 6"}
+      {
+        "input": "3\n1 2 3\n3\n2 5 6",
+        "output": "1 2 2 3 5 6"
+      }
     ],
     "test_cases": [
-      {"input": "3\n1 2 3\n3\n2 5 6", "expected": "1 2 2 3 5 6"},
-      {"input": "1\n1\n0", "expected": "1"},
-      {"input": "0\n\n1\n1", "expected": "1"}
+      {
+        "input": "3\n1 2 3\n3\n2 5 6",
+        "expected": "1 2 2 3 5 6"
+      },
+      {
+        "input": "1\n1\n0",
+        "expected": "1"
+      },
+      {
+        "input": "0\n\n1\n1",
+        "expected": "1"
+      }
     ],
     "starter_code": {
       "python": "# 合并两个有序数组\n# 第一行输入m，第二行输入nums1的m个元素，第三行输入n，第四行输入nums2的n个元素\n# 输出合并后的数组，用空格分隔\nm = int(input())\nnums1 = list(map(int, input().split())) if m > 0 else []\nn = int(input())\nnums2 = list(map(int, input().split())) if n > 0 else []\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["使用双指针从前往后比较", "注意处理一个数组先遍历完的情况"]
   },
   {
     "title": "买卖股票的最佳时机",
@@ -119,16 +212,29 @@
     "tags": ["数组", "动态规划"],
     "languages": ["python"],
     "examples": [
-      {"input": "6\n7 1 5 3 6 4", "output": "5"}
+      {
+        "input": "6\n7 1 5 3 6 4",
+        "output": "5"
+      }
     ],
     "test_cases": [
-      {"input": "6\n7 1 5 3 6 4", "expected": "5"},
-      {"input": "5\n7 6 4 3 1", "expected": "0"},
-      {"input": "3\n2 4 1", "expected": "2"}
+      {
+        "input": "6\n7 1 5 3 6 4",
+        "expected": "5"
+      },
+      {
+        "input": "5\n7 6 4 3 1",
+        "expected": "0"
+      },
+      {
+        "input": "3\n2 4 1",
+        "expected": "2"
+      }
     ],
     "starter_code": {
       "python": "# 买卖股票的最佳时机\n# 第一行输入数组长度n，第二行输入n个价格\n# 输出最大利润\nn = int(input())\nprices = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["维护一个最低买入价格", "每天计算当前价格与最低价的差值"]
   },
   {
     "title": "只出现一次的数字",
@@ -137,16 +243,29 @@
     "tags": ["位运算", "数组"],
     "languages": ["python"],
     "examples": [
-      {"input": "3\n2 2 1", "output": "1"}
+      {
+        "input": "3\n2 2 1",
+        "output": "1"
+      }
     ],
     "test_cases": [
-      {"input": "3\n2 2 1", "expected": "1"},
-      {"input": "5\n4 1 2 1 2", "expected": "4"},
-      {"input": "1\n1", "expected": "1"}
+      {
+        "input": "3\n2 2 1",
+        "expected": "1"
+      },
+      {
+        "input": "5\n4 1 2 1 2",
+        "expected": "4"
+      },
+      {
+        "input": "1\n1",
+        "expected": "1"
+      }
     ],
     "starter_code": {
       "python": "# 只出现一次的数字\n# 第一行输入数组长度n，第二行输入n个整数\n# 输出只出现一次的数字\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["利用异或运算：a ^ a = 0, a ^ 0 = a", "所有数异或后，成对的数抵消，剩下单独的"]
   },
   {
     "title": "多数元素",
@@ -155,16 +274,29 @@
     "tags": ["数组", "哈希表"],
     "languages": ["python"],
     "examples": [
-      {"input": "3\n3 2 3", "output": "3"}
+      {
+        "input": "3\n3 2 3",
+        "output": "3"
+      }
     ],
     "test_cases": [
-      {"input": "3\n3 2 3", "expected": "3"},
-      {"input": "7\n2 2 1 1 1 2 2", "expected": "2"},
-      {"input": "1\n1", "expected": "1"}
+      {
+        "input": "3\n3 2 3",
+        "expected": "3"
+      },
+      {
+        "input": "7\n2 2 1 1 1 2 2",
+        "expected": "2"
+      },
+      {
+        "input": "1\n1",
+        "expected": "1"
+      }
     ],
     "starter_code": {
       "python": "# 多数元素\n# 第一行输入数组长度n，第二行输入n个整数\n# 输出多数元素\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["摩尔投票法：维护候选和计数", "遇到相同计数+1，不同计数-1，计数为0换候选"]
   },
   {
     "title": "移动零",
@@ -173,16 +305,29 @@
     "tags": ["数组", "双指针"],
     "languages": ["python"],
     "examples": [
-      {"input": "5\n0 1 0 3 12", "output": "1 3 12 0 0"}
+      {
+        "input": "5\n0 1 0 3 12",
+        "output": "1 3 12 0 0"
+      }
     ],
     "test_cases": [
-      {"input": "5\n0 1 0 3 12", "expected": "1 3 12 0 0"},
-      {"input": "1\n0", "expected": "0"},
-      {"input": "3\n1 2 3", "expected": "1 2 3"}
+      {
+        "input": "5\n0 1 0 3 12",
+        "expected": "1 3 12 0 0"
+      },
+      {
+        "input": "1\n0",
+        "expected": "0"
+      },
+      {
+        "input": "3\n1 2 3",
+        "expected": "1 2 3"
+      }
     ],
     "starter_code": {
       "python": "# 移动零\n# 第一行输入数组长度n，第二行输入n个整数\n# 输出移动零后的数组，用空格分隔\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "反转字符串",
@@ -191,16 +336,29 @@
     "tags": ["字符串", "双指针"],
     "languages": ["python"],
     "examples": [
-      {"input": "hello", "output": "olleh"}
+      {
+        "input": "hello",
+        "output": "olleh"
+      }
     ],
     "test_cases": [
-      {"input": "hello", "expected": "olleh"},
-      {"input": "Hannah", "expected": "hannaH"},
-      {"input": "a", "expected": "a"}
+      {
+        "input": "hello",
+        "expected": "olleh"
+      },
+      {
+        "input": "Hannah",
+        "expected": "hannaH"
+      },
+      {
+        "input": "a",
+        "expected": "a"
+      }
     ],
     "starter_code": {
       "python": "# 反转字符串\n# 输入一个字符串，输出反转后的字符串\ns = input().strip()\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "反转整数",
@@ -209,18 +367,37 @@
     "tags": ["数学"],
     "languages": ["python"],
     "examples": [
-      {"input": "123", "output": "321"}
+      {
+        "input": "123",
+        "output": "321"
+      }
     ],
     "test_cases": [
-      {"input": "123", "expected": "321"},
-      {"input": "-123", "expected": "-321"},
-      {"input": "120", "expected": "21"},
-      {"input": "0", "expected": "0"},
-      {"input": "1534236469", "expected": "0"}
+      {
+        "input": "123",
+        "expected": "321"
+      },
+      {
+        "input": "-123",
+        "expected": "-321"
+      },
+      {
+        "input": "120",
+        "expected": "21"
+      },
+      {
+        "input": "0",
+        "expected": "0"
+      },
+      {
+        "input": "1534236469",
+        "expected": "0"
+      }
     ],
     "starter_code": {
       "python": "# 反转整数\n# 输入一个整数x，输出反转后的整数\nx = int(input())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "爬楼梯",
@@ -229,17 +406,33 @@
     "tags": ["动态规划"],
     "languages": ["python"],
     "examples": [
-      {"input": "2", "output": "2"}
+      {
+        "input": "2",
+        "output": "2"
+      }
     ],
     "test_cases": [
-      {"input": "2", "expected": "2"},
-      {"input": "3", "expected": "3"},
-      {"input": "4", "expected": "5"},
-      {"input": "10", "expected": "89"}
+      {
+        "input": "2",
+        "expected": "2"
+      },
+      {
+        "input": "3",
+        "expected": "3"
+      },
+      {
+        "input": "4",
+        "expected": "5"
+      },
+      {
+        "input": "10",
+        "expected": "89"
+      }
     ],
     "starter_code": {
       "python": "# 爬楼梯\n# 输入台阶数n，输出爬到楼顶的方法数\nn = int(input())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "最大子数组和",
@@ -248,17 +441,33 @@
     "tags": ["数组", "动态规划"],
     "languages": ["python"],
     "examples": [
-      {"input": "9\n-2 1 -3 4 -1 2 1 -5 4", "output": "6"}
+      {
+        "input": "9\n-2 1 -3 4 -1 2 1 -5 4",
+        "output": "6"
+      }
     ],
     "test_cases": [
-      {"input": "9\n-2 1 -3 4 -1 2 1 -5 4", "expected": "6"},
-      {"input": "1\n1", "expected": "1"},
-      {"input": "5\n5 4 -1 7 8", "expected": "23"},
-      {"input": "1\n-1", "expected": "-1"}
+      {
+        "input": "9\n-2 1 -3 4 -1 2 1 -5 4",
+        "expected": "6"
+      },
+      {
+        "input": "1\n1",
+        "expected": "1"
+      },
+      {
+        "input": "5\n5 4 -1 7 8",
+        "expected": "23"
+      },
+      {
+        "input": "1\n-1",
+        "expected": "-1"
+      }
     ],
     "starter_code": {
       "python": "# 最大子数组和\n# 第一行输入数组长度n，第二行输入n个整数\n# 输出最大子数组和\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "加一",
@@ -267,17 +476,33 @@
     "tags": ["数组", "数学"],
     "languages": ["python"],
     "examples": [
-      {"input": "3\n1 2 3", "output": "1 2 4"}
+      {
+        "input": "3\n1 2 3",
+        "output": "1 2 4"
+      }
     ],
     "test_cases": [
-      {"input": "3\n1 2 3", "expected": "1 2 4"},
-      {"input": "3\n4 3 2", "expected": "4 3 3"},
-      {"input": "1\n9", "expected": "1 0"},
-      {"input": "3\n9 9 9", "expected": "1 0 0 0"}
+      {
+        "input": "3\n1 2 3",
+        "expected": "1 2 4"
+      },
+      {
+        "input": "3\n4 3 2",
+        "expected": "4 3 3"
+      },
+      {
+        "input": "1\n9",
+        "expected": "1 0"
+      },
+      {
+        "input": "3\n9 9 9",
+        "expected": "1 0 0 0"
+      }
     ],
     "starter_code": {
       "python": "# 加一\n# 第一行输入数组长度n，第二行输入n个数字\n# 输出加一后的数组，用空格分隔\nn = int(input())\ndigits = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "搜索插入位置",
@@ -286,17 +511,33 @@
     "tags": ["数组", "二分查找"],
     "languages": ["python"],
     "examples": [
-      {"input": "4\n1 3 5 6\n5", "output": "2"}
+      {
+        "input": "4\n1 3 5 6\n5",
+        "output": "2"
+      }
     ],
     "test_cases": [
-      {"input": "4\n1 3 5 6\n5", "expected": "2"},
-      {"input": "4\n1 3 5 6\n2", "expected": "1"},
-      {"input": "4\n1 3 5 6\n7", "expected": "4"},
-      {"input": "4\n1 3 5 6\n0", "expected": "0"}
+      {
+        "input": "4\n1 3 5 6\n5",
+        "expected": "2"
+      },
+      {
+        "input": "4\n1 3 5 6\n2",
+        "expected": "1"
+      },
+      {
+        "input": "4\n1 3 5 6\n7",
+        "expected": "4"
+      },
+      {
+        "input": "4\n1 3 5 6\n0",
+        "expected": "0"
+      }
     ],
     "starter_code": {
       "python": "# 搜索插入位置\n# 第一行输入数组长度n，第二行输入n个有序整数，第三行输入目标值\n# 输出目标值的索引或插入位置\nn = int(input())\nnums = list(map(int, input().split()))\ntarget = int(input())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "二进制求和",
@@ -305,16 +546,29 @@
     "tags": ["字符串", "数学"],
     "languages": ["python"],
     "examples": [
-      {"input": "11\n1", "output": "100"}
+      {
+        "input": "11\n1",
+        "output": "100"
+      }
     ],
     "test_cases": [
-      {"input": "11\n1", "expected": "100"},
-      {"input": "1010\n1011", "expected": "10101"},
-      {"input": "0\n0", "expected": "0"}
+      {
+        "input": "11\n1",
+        "expected": "100"
+      },
+      {
+        "input": "1010\n1011",
+        "expected": "10101"
+      },
+      {
+        "input": "0\n0",
+        "expected": "0"
+      }
     ],
     "starter_code": {
       "python": "# 二进制求和\n# 第一行输入二进制字符串a，第二行输入二进制字符串b\n# 输出它们的二进制和\na = input().strip()\nb = input().strip()\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "x的平方根",
@@ -323,18 +577,37 @@
     "tags": ["数学", "二分查找"],
     "languages": ["python"],
     "examples": [
-      {"input": "4", "output": "2"}
+      {
+        "input": "4",
+        "output": "2"
+      }
     ],
     "test_cases": [
-      {"input": "4", "expected": "2"},
-      {"input": "8", "expected": "2"},
-      {"input": "0", "expected": "0"},
-      {"input": "1", "expected": "1"},
-      {"input": "16", "expected": "4"}
+      {
+        "input": "4",
+        "expected": "2"
+      },
+      {
+        "input": "8",
+        "expected": "2"
+      },
+      {
+        "input": "0",
+        "expected": "0"
+      },
+      {
+        "input": "1",
+        "expected": "1"
+      },
+      {
+        "input": "16",
+        "expected": "4"
+      }
     ],
     "starter_code": {
       "python": "# x的平方根\n# 输入一个非负整数x，输出x的算术平方根的整数部分\nx = int(input())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "删除有序数组中的重复项",
@@ -343,16 +616,29 @@
     "tags": ["数组", "双指针"],
     "languages": ["python"],
     "examples": [
-      {"input": "3\n1 1 2", "output": "2\n1 2"}
+      {
+        "input": "3\n1 1 2",
+        "output": "2\n1 2"
+      }
     ],
     "test_cases": [
-      {"input": "3\n1 1 2", "expected": "2\n1 2"},
-      {"input": "10\n0 0 1 1 1 2 2 3 3 4", "expected": "5\n0 1 2 3 4"},
-      {"input": "1\n1", "expected": "1\n1"}
+      {
+        "input": "3\n1 1 2",
+        "expected": "2\n1 2"
+      },
+      {
+        "input": "10\n0 0 1 1 1 2 2 3 3 4",
+        "expected": "5\n0 1 2 3 4"
+      },
+      {
+        "input": "1\n1",
+        "expected": "1\n1"
+      }
     ],
     "starter_code": {
       "python": "# 删除有序数组中的重复项\n# 第一行输入数组长度n，第二行输入n个有序整数\n# 第一行输出去重后的长度，第二行输出去重后的数组\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "快乐数",
@@ -361,17 +647,33 @@
     "tags": ["哈希表", "数学"],
     "languages": ["python"],
     "examples": [
-      {"input": "19", "output": "true"}
+      {
+        "input": "19",
+        "output": "true"
+      }
     ],
     "test_cases": [
-      {"input": "19", "expected": "true"},
-      {"input": "2", "expected": "false"},
-      {"input": "1", "expected": "true"},
-      {"input": "7", "expected": "true"}
+      {
+        "input": "19",
+        "expected": "true"
+      },
+      {
+        "input": "2",
+        "expected": "false"
+      },
+      {
+        "input": "1",
+        "expected": "true"
+      },
+      {
+        "input": "7",
+        "expected": "true"
+      }
     ],
     "starter_code": {
       "python": "# 快乐数\n# 输入一个正整数n，输出true或false\nn = int(input())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "同构字符串",
@@ -380,17 +682,33 @@
     "tags": ["哈希表", "字符串"],
     "languages": ["python"],
     "examples": [
-      {"input": "egg\nadd", "output": "true"}
+      {
+        "input": "egg\nadd",
+        "output": "true"
+      }
     ],
     "test_cases": [
-      {"input": "egg\nadd", "expected": "true"},
-      {"input": "foo\nbar", "expected": "false"},
-      {"input": "paper\ntitle", "expected": "true"},
-      {"input": "ab\naa", "expected": "false"}
+      {
+        "input": "egg\nadd",
+        "expected": "true"
+      },
+      {
+        "input": "foo\nbar",
+        "expected": "false"
+      },
+      {
+        "input": "paper\ntitle",
+        "expected": "true"
+      },
+      {
+        "input": "ab\naa",
+        "expected": "false"
+      }
     ],
     "starter_code": {
       "python": "# 同构字符串\n# 第一行输入字符串s，第二行输入字符串t\n# 输出true或false\ns = input().strip()\nt = input().strip()\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "存在重复元素",
@@ -399,16 +717,29 @@
     "tags": ["数组", "哈希表"],
     "languages": ["python"],
     "examples": [
-      {"input": "4\n1 2 3 1", "output": "true"}
+      {
+        "input": "4\n1 2 3 1",
+        "output": "true"
+      }
     ],
     "test_cases": [
-      {"input": "4\n1 2 3 1", "expected": "true"},
-      {"input": "4\n1 2 3 4", "expected": "false"},
-      {"input": "10\n1 1 1 3 3 4 3 2 4 2", "expected": "true"}
+      {
+        "input": "4\n1 2 3 1",
+        "expected": "true"
+      },
+      {
+        "input": "4\n1 2 3 4",
+        "expected": "false"
+      },
+      {
+        "input": "10\n1 1 1 3 3 4 3 2 4 2",
+        "expected": "true"
+      }
     ],
     "starter_code": {
       "python": "# 存在重复元素\n# 第一行输入数组长度n，第二行输入n个整数\n# 输出true或false\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "丢失的数字",
@@ -417,17 +748,33 @@
     "tags": ["数组", "数学", "位运算"],
     "languages": ["python"],
     "examples": [
-      {"input": "3\n3 0 1", "output": "2"}
+      {
+        "input": "3\n3 0 1",
+        "output": "2"
+      }
     ],
     "test_cases": [
-      {"input": "3\n3 0 1", "expected": "2"},
-      {"input": "2\n0 1", "expected": "2"},
-      {"input": "9\n9 6 4 2 3 5 7 0 1", "expected": "8"},
-      {"input": "1\n0", "expected": "1"}
+      {
+        "input": "3\n3 0 1",
+        "expected": "2"
+      },
+      {
+        "input": "2\n0 1",
+        "expected": "2"
+      },
+      {
+        "input": "9\n9 6 4 2 3 5 7 0 1",
+        "expected": "8"
+      },
+      {
+        "input": "1\n0",
+        "expected": "1"
+      }
     ],
     "starter_code": {
       "python": "# 丢失的数字\n# 第一行输入数组长度n，第二行输入n个整数\n# 输出丢失的数字\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "2的幂",
@@ -436,18 +783,37 @@
     "tags": ["位运算", "数学"],
     "languages": ["python"],
     "examples": [
-      {"input": "1", "output": "true"}
+      {
+        "input": "1",
+        "output": "true"
+      }
     ],
     "test_cases": [
-      {"input": "1", "expected": "true"},
-      {"input": "16", "expected": "true"},
-      {"input": "3", "expected": "false"},
-      {"input": "0", "expected": "false"},
-      {"input": "1024", "expected": "true"}
+      {
+        "input": "1",
+        "expected": "true"
+      },
+      {
+        "input": "16",
+        "expected": "true"
+      },
+      {
+        "input": "3",
+        "expected": "false"
+      },
+      {
+        "input": "0",
+        "expected": "false"
+      },
+      {
+        "input": "1024",
+        "expected": "true"
+      }
     ],
     "starter_code": {
       "python": "# 2的幂\n# 输入一个整数n，输出true或false\nn = int(input())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "计数质数",
@@ -456,18 +822,37 @@
     "tags": ["数学", "数组"],
     "languages": ["python"],
     "examples": [
-      {"input": "10", "output": "4"}
+      {
+        "input": "10",
+        "output": "4"
+      }
     ],
     "test_cases": [
-      {"input": "10", "expected": "4"},
-      {"input": "0", "expected": "0"},
-      {"input": "1", "expected": "0"},
-      {"input": "2", "expected": "0"},
-      {"input": "20", "expected": "8"}
+      {
+        "input": "10",
+        "expected": "4"
+      },
+      {
+        "input": "0",
+        "expected": "0"
+      },
+      {
+        "input": "1",
+        "expected": "0"
+      },
+      {
+        "input": "2",
+        "expected": "0"
+      },
+      {
+        "input": "20",
+        "expected": "8"
+      }
     ],
     "starter_code": {
       "python": "# 计数质数\n# 输入一个整数n，输出小于n的质数个数\nn = int(input())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "三数之和",
@@ -476,16 +861,29 @@
     "tags": ["数组", "双指针", "排序"],
     "languages": ["python"],
     "examples": [
-      {"input": "6\n-1 0 1 2 -1 -4", "output": "-1 -1 2\n-1 0 1"}
+      {
+        "input": "6\n-1 0 1 2 -1 -4",
+        "output": "-1 -1 2\n-1 0 1"
+      }
     ],
     "test_cases": [
-      {"input": "6\n-1 0 1 2 -1 -4", "expected": "-1 -1 2\n-1 0 1"},
-      {"input": "3\n0 1 1", "expected": ""},
-      {"input": "3\n0 0 0", "expected": "0 0 0"}
+      {
+        "input": "6\n-1 0 1 2 -1 -4",
+        "expected": "-1 -1 2\n-1 0 1"
+      },
+      {
+        "input": "3\n0 1 1",
+        "expected": ""
+      },
+      {
+        "input": "3\n0 0 0",
+        "expected": "0 0 0"
+      }
     ],
     "starter_code": {
       "python": "# 三数之和\n# 第一行输入数组长度n，第二行输入n个整数\n# 每行输出一个三元组，用空格分隔，无结果则输出空行\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "无重复字符的最长子串",
@@ -494,17 +892,33 @@
     "tags": ["字符串", "哈希表", "滑动窗口"],
     "languages": ["python"],
     "examples": [
-      {"input": "abcabcbb", "output": "3"}
+      {
+        "input": "abcabcbb",
+        "output": "3"
+      }
     ],
     "test_cases": [
-      {"input": "abcabcbb", "expected": "3"},
-      {"input": "bbbbb", "expected": "1"},
-      {"input": "pwwkew", "expected": "3"},
-      {"input": "", "expected": "0"}
+      {
+        "input": "abcabcbb",
+        "expected": "3"
+      },
+      {
+        "input": "bbbbb",
+        "expected": "1"
+      },
+      {
+        "input": "pwwkew",
+        "expected": "3"
+      },
+      {
+        "input": "",
+        "expected": "0"
+      }
     ],
     "starter_code": {
       "python": "# 无重复字符的最长子串\n# 输入一个字符串s，输出最长无重复字符子串的长度\ns = input().strip()\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "最长回文子串",
@@ -513,16 +927,29 @@
     "tags": ["字符串", "动态规划"],
     "languages": ["python"],
     "examples": [
-      {"input": "babad", "output": "bab"}
+      {
+        "input": "babad",
+        "output": "bab"
+      }
     ],
     "test_cases": [
-      {"input": "babad", "expected": "bab"},
-      {"input": "cbbd", "expected": "bb"},
-      {"input": "a", "expected": "a"}
+      {
+        "input": "babad",
+        "expected": "bab"
+      },
+      {
+        "input": "cbbd",
+        "expected": "bb"
+      },
+      {
+        "input": "a",
+        "expected": "a"
+      }
     ],
     "starter_code": {
       "python": "# 最长回文子串\n# 输入一个字符串s，输出最长回文子串\ns = input().strip()\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "盛最多水的容器",
@@ -531,16 +958,29 @@
     "tags": ["数组", "双指针", "贪心"],
     "languages": ["python"],
     "examples": [
-      {"input": "9\n1 8 6 2 5 4 8 3 7", "output": "49"}
+      {
+        "input": "9\n1 8 6 2 5 4 8 3 7",
+        "output": "49"
+      }
     ],
     "test_cases": [
-      {"input": "9\n1 8 6 2 5 4 8 3 7", "expected": "49"},
-      {"input": "2\n1 1", "expected": "1"},
-      {"input": "3\n4 3 2", "expected": "4"}
+      {
+        "input": "9\n1 8 6 2 5 4 8 3 7",
+        "expected": "49"
+      },
+      {
+        "input": "2\n1 1",
+        "expected": "1"
+      },
+      {
+        "input": "3\n4 3 2",
+        "expected": "4"
+      }
     ],
     "starter_code": {
       "python": "# 盛最多水的容器\n# 第一行输入数组长度n，第二行输入n个整数表示高度\n# 输出最大水量\nn = int(input())\nheight = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "电话号码的字母组合",
@@ -549,16 +989,29 @@
     "tags": ["字符串", "回溯"],
     "languages": ["python"],
     "examples": [
-      {"input": "23", "output": "ad ae af bd be bf cd ce cf"}
+      {
+        "input": "23",
+        "output": "ad ae af bd be bf cd ce cf"
+      }
     ],
     "test_cases": [
-      {"input": "23", "expected": "ad ae af bd be bf cd ce cf"},
-      {"input": "2", "expected": "a b c"},
-      {"input": "", "expected": ""}
+      {
+        "input": "23",
+        "expected": "ad ae af bd be bf cd ce cf"
+      },
+      {
+        "input": "2",
+        "expected": "a b c"
+      },
+      {
+        "input": "",
+        "expected": ""
+      }
     ],
     "starter_code": {
       "python": "# 电话号码的字母组合\n# 输入一个数字字符串，输出所有字母组合用空格分隔\ndigits = input().strip()\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "括号生成",
@@ -567,16 +1020,29 @@
     "tags": ["字符串", "回溯"],
     "languages": ["python"],
     "examples": [
-      {"input": "3", "output": "((()))\n(()())\n(())()\n()(())\n()()()"}
+      {
+        "input": "3",
+        "output": "((()))\n(()())\n(())()\n()(())\n()()()"
+      }
     ],
     "test_cases": [
-      {"input": "3", "expected": "((()))\n(()())\n(())()\n()(())\n()()()"},
-      {"input": "1", "expected": "()"},
-      {"input": "2", "expected": "(())\n()()"}
+      {
+        "input": "3",
+        "expected": "((()))\n(()())\n(())()\n()(())\n()()()"
+      },
+      {
+        "input": "1",
+        "expected": "()"
+      },
+      {
+        "input": "2",
+        "expected": "(())\n()()"
+      }
     ],
     "starter_code": {
       "python": "# 括号生成\n# 输入括号对数n，每行输出一个有效括号组合\nn = int(input())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "下一个排列",
@@ -585,17 +1051,33 @@
     "tags": ["数组", "双指针"],
     "languages": ["python"],
     "examples": [
-      {"input": "3\n1 2 3", "output": "1 3 2"}
+      {
+        "input": "3\n1 2 3",
+        "output": "1 3 2"
+      }
     ],
     "test_cases": [
-      {"input": "3\n1 2 3", "expected": "1 3 2"},
-      {"input": "3\n3 2 1", "expected": "1 2 3"},
-      {"input": "3\n1 1 5", "expected": "1 5 1"},
-      {"input": "4\n1 3 5 4", "expected": "1 4 3 5"}
+      {
+        "input": "3\n1 2 3",
+        "expected": "1 3 2"
+      },
+      {
+        "input": "3\n3 2 1",
+        "expected": "1 2 3"
+      },
+      {
+        "input": "3\n1 1 5",
+        "expected": "1 5 1"
+      },
+      {
+        "input": "4\n1 3 5 4",
+        "expected": "1 4 3 5"
+      }
     ],
     "starter_code": {
       "python": "# 下一个排列\n# 第一行输入数组长度n，第二行输入n个整数\n# 输出下一个排列，用空格分隔\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "搜索旋转排序数组",
@@ -604,16 +1086,29 @@
     "tags": ["数组", "二分查找"],
     "languages": ["python"],
     "examples": [
-      {"input": "7\n4 5 6 7 0 1 2\n0", "output": "4"}
+      {
+        "input": "7\n4 5 6 7 0 1 2\n0",
+        "output": "4"
+      }
     ],
     "test_cases": [
-      {"input": "7\n4 5 6 7 0 1 2\n0", "expected": "4"},
-      {"input": "7\n4 5 6 7 0 1 2\n3", "expected": "-1"},
-      {"input": "1\n1\n0", "expected": "-1"}
+      {
+        "input": "7\n4 5 6 7 0 1 2\n0",
+        "expected": "4"
+      },
+      {
+        "input": "7\n4 5 6 7 0 1 2\n3",
+        "expected": "-1"
+      },
+      {
+        "input": "1\n1\n0",
+        "expected": "-1"
+      }
     ],
     "starter_code": {
       "python": "# 搜索旋转排序数组\n# 第一行输入数组长度n，第二行输入n个整数，第三行输入目标值\n# 输出目标值的下标，不存在则输出-1\nn = int(input())\nnums = list(map(int, input().split()))\ntarget = int(input())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "在排序数组中查找元素",
@@ -622,16 +1117,29 @@
     "tags": ["数组", "二分查找"],
     "languages": ["python"],
     "examples": [
-      {"input": "6\n5 7 7 8 8 10\n8", "output": "3 4"}
+      {
+        "input": "6\n5 7 7 8 8 10\n8",
+        "output": "3 4"
+      }
     ],
     "test_cases": [
-      {"input": "6\n5 7 7 8 8 10\n8", "expected": "3 4"},
-      {"input": "6\n5 7 7 8 8 10\n6", "expected": "-1 -1"},
-      {"input": "0\n\n0", "expected": "-1 -1"}
+      {
+        "input": "6\n5 7 7 8 8 10\n8",
+        "expected": "3 4"
+      },
+      {
+        "input": "6\n5 7 7 8 8 10\n6",
+        "expected": "-1 -1"
+      },
+      {
+        "input": "0\n\n0",
+        "expected": "-1 -1"
+      }
     ],
     "starter_code": {
       "python": "# 在排序数组中查找元素的第一个和最后一个位置\n# 第一行输入数组长度n，第二行输入n个有序整数，第三行输入目标值\n# 输出开始位置和结束位置，用空格分隔\nn = int(input())\nnums = list(map(int, input().split())) if n > 0 else []\ntarget = int(input())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "组合总和",
@@ -640,16 +1148,29 @@
     "tags": ["数组", "回溯"],
     "languages": ["python"],
     "examples": [
-      {"input": "4\n2 3 6 7\n7", "output": "2 2 3\n7"}
+      {
+        "input": "4\n2 3 6 7\n7",
+        "output": "2 2 3\n7"
+      }
     ],
     "test_cases": [
-      {"input": "4\n2 3 6 7\n7", "expected": "2 2 3\n7"},
-      {"input": "3\n2 3 5\n8", "expected": "2 2 2 2\n2 3 3\n3 5"},
-      {"input": "1\n2\n1", "expected": ""}
+      {
+        "input": "4\n2 3 6 7\n7",
+        "expected": "2 2 3\n7"
+      },
+      {
+        "input": "3\n2 3 5\n8",
+        "expected": "2 2 2 2\n2 3 3\n3 5"
+      },
+      {
+        "input": "1\n2\n1",
+        "expected": ""
+      }
     ],
     "starter_code": {
       "python": "# 组合总和\n# 第一行输入数组长度n，第二行输入n个整数，第三行输入目标值\n# 每行输出一个组合用空格分隔，无结果则输出空行\nn = int(input())\ncandidates = list(map(int, input().split()))\ntarget = int(input())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "全排列",
@@ -658,16 +1179,29 @@
     "tags": ["数组", "回溯"],
     "languages": ["python"],
     "examples": [
-      {"input": "3\n1 2 3", "output": "1 2 3\n1 3 2\n2 1 3\n2 3 1\n3 1 2\n3 2 1"}
+      {
+        "input": "3\n1 2 3",
+        "output": "1 2 3\n1 3 2\n2 1 3\n2 3 1\n3 1 2\n3 2 1"
+      }
     ],
     "test_cases": [
-      {"input": "3\n1 2 3", "expected": "1 2 3\n1 3 2\n2 1 3\n2 3 1\n3 1 2\n3 2 1"},
-      {"input": "1\n1", "expected": "1"},
-      {"input": "2\n0 1", "expected": "0 1\n1 0"}
+      {
+        "input": "3\n1 2 3",
+        "expected": "1 2 3\n1 3 2\n2 1 3\n2 3 1\n3 1 2\n3 2 1"
+      },
+      {
+        "input": "1\n1",
+        "expected": "1"
+      },
+      {
+        "input": "2\n0 1",
+        "expected": "0 1\n1 0"
+      }
     ],
     "starter_code": {
       "python": "# 全排列\n# 第一行输入数组长度n，第二行输入n个不重复整数\n# 每行输出一个排列，用空格分隔\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "旋转图像",
@@ -676,15 +1210,25 @@
     "tags": ["数组", "矩阵"],
     "languages": ["python"],
     "examples": [
-      {"input": "3\n1 2 3\n4 5 6\n7 8 9", "output": "7 4 1\n8 5 2\n9 6 3"}
+      {
+        "input": "3\n1 2 3\n4 5 6\n7 8 9",
+        "output": "7 4 1\n8 5 2\n9 6 3"
+      }
     ],
     "test_cases": [
-      {"input": "3\n1 2 3\n4 5 6\n7 8 9", "expected": "7 4 1\n8 5 2\n9 6 3"},
-      {"input": "2\n1 2\n3 4", "expected": "3 1\n4 2"}
+      {
+        "input": "3\n1 2 3\n4 5 6\n7 8 9",
+        "expected": "7 4 1\n8 5 2\n9 6 3"
+      },
+      {
+        "input": "2\n1 2\n3 4",
+        "expected": "3 1\n4 2"
+      }
     ],
     "starter_code": {
       "python": "# 旋转图像\n# 第一行输入矩阵大小n，接下来n行每行n个整数\n# 输出旋转90度后的矩阵\nn = int(input())\nmatrix = []\nfor _ in range(n):\n    matrix.append(list(map(int, input().split())))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "字母异位词分组",
@@ -693,16 +1237,29 @@
     "tags": ["字符串", "哈希表", "排序"],
     "languages": ["python"],
     "examples": [
-      {"input": "6\neat tea tan ate nat bat", "output": "ate eat tea\nbat\nnat tan"}
+      {
+        "input": "6\neat tea tan ate nat bat",
+        "output": "ate eat tea\nbat\nnat tan"
+      }
     ],
     "test_cases": [
-      {"input": "6\neat tea tan ate nat bat", "expected": "ate eat tea\nbat\nnat tan"},
-      {"input": "1\na", "expected": "a"},
-      {"input": "1\n\"\"", "expected": "\"\""}
+      {
+        "input": "6\neat tea tan ate nat bat",
+        "expected": "ate eat tea\nbat\nnat tan"
+      },
+      {
+        "input": "1\na",
+        "expected": "a"
+      },
+      {
+        "input": "1\n\"\"",
+        "expected": "\"\""
+      }
     ],
     "starter_code": {
       "python": "# 字母异位词分组\n# 第一行输入字符串个数n，第二行输入n个字符串用空格分隔\n# 每行输出一组异位词用空格分隔\nn = int(input())\nstrs = input().split()\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "跳跃游戏",
@@ -711,16 +1268,29 @@
     "tags": ["数组", "贪心", "动态规划"],
     "languages": ["python"],
     "examples": [
-      {"input": "5\n2 3 1 1 4", "output": "true"}
+      {
+        "input": "5\n2 3 1 1 4",
+        "output": "true"
+      }
     ],
     "test_cases": [
-      {"input": "5\n2 3 1 1 4", "expected": "true"},
-      {"input": "5\n3 2 1 0 4", "expected": "false"},
-      {"input": "1\n0", "expected": "true"}
+      {
+        "input": "5\n2 3 1 1 4",
+        "expected": "true"
+      },
+      {
+        "input": "5\n3 2 1 0 4",
+        "expected": "false"
+      },
+      {
+        "input": "1\n0",
+        "expected": "true"
+      }
     ],
     "starter_code": {
       "python": "# 跳跃游戏\n# 第一行输入数组长度n，第二行输入n个非负整数\n# 输出true或false\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "合并区间",
@@ -729,16 +1299,29 @@
     "tags": ["数组", "排序"],
     "languages": ["python"],
     "examples": [
-      {"input": "4\n1 3\n2 6\n8 10\n15 18", "output": "1 6\n8 10\n15 18"}
+      {
+        "input": "4\n1 3\n2 6\n8 10\n15 18",
+        "output": "1 6\n8 10\n15 18"
+      }
     ],
     "test_cases": [
-      {"input": "4\n1 3\n2 6\n8 10\n15 18", "expected": "1 6\n8 10\n15 18"},
-      {"input": "2\n1 4\n4 5", "expected": "1 5"},
-      {"input": "1\n1 1", "expected": "1 1"}
+      {
+        "input": "4\n1 3\n2 6\n8 10\n15 18",
+        "expected": "1 6\n8 10\n15 18"
+      },
+      {
+        "input": "2\n1 4\n4 5",
+        "expected": "1 5"
+      },
+      {
+        "input": "1\n1 1",
+        "expected": "1 1"
+      }
     ],
     "starter_code": {
       "python": "# 合并区间\n# 第一行输入区间个数n，接下来n行每行两个整数表示一个区间\n# 每行输出一个合并后的区间\nn = int(input())\nintervals = []\nfor _ in range(n):\n    intervals.append(list(map(int, input().split())))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "不同路径",
@@ -747,17 +1330,33 @@
     "tags": ["动态规划", "数学"],
     "languages": ["python"],
     "examples": [
-      {"input": "3 7", "output": "28"}
+      {
+        "input": "3 7",
+        "output": "28"
+      }
     ],
     "test_cases": [
-      {"input": "3 7", "expected": "28"},
-      {"input": "3 2", "expected": "3"},
-      {"input": "7 3", "expected": "28"},
-      {"input": "3 3", "expected": "6"}
+      {
+        "input": "3 7",
+        "expected": "28"
+      },
+      {
+        "input": "3 2",
+        "expected": "3"
+      },
+      {
+        "input": "7 3",
+        "expected": "28"
+      },
+      {
+        "input": "3 3",
+        "expected": "6"
+      }
     ],
     "starter_code": {
       "python": "# 不同路径\n# 输入m和n，用空格分隔\n# 输出不同路径数\nm, n = map(int, input().split())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "最小路径和",
@@ -766,15 +1365,25 @@
     "tags": ["数组", "动态规划", "矩阵"],
     "languages": ["python"],
     "examples": [
-      {"input": "3 3\n1 3 1\n1 5 1\n4 2 1", "output": "7"}
+      {
+        "input": "3 3\n1 3 1\n1 5 1\n4 2 1",
+        "output": "7"
+      }
     ],
     "test_cases": [
-      {"input": "3 3\n1 3 1\n1 5 1\n4 2 1", "expected": "7"},
-      {"input": "2 3\n1 2 3\n4 5 6", "expected": "12"}
+      {
+        "input": "3 3\n1 3 1\n1 5 1\n4 2 1",
+        "expected": "7"
+      },
+      {
+        "input": "2 3\n1 2 3\n4 5 6",
+        "expected": "12"
+      }
     ],
     "starter_code": {
       "python": "# 最小路径和\n# 第一行输入m和n，接下来m行每行n个整数\n# 输出最小路径和\nm, n = map(int, input().split())\ngrid = []\nfor _ in range(m):\n    grid.append(list(map(int, input().split())))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "单词搜索",
@@ -783,16 +1392,29 @@
     "tags": ["数组", "回溯", "矩阵"],
     "languages": ["python"],
     "examples": [
-      {"input": "3 4\nABCE\nSFCS\nADEE\nABCCED", "output": "true"}
+      {
+        "input": "3 4\nABCE\nSFCS\nADEE\nABCCED",
+        "output": "true"
+      }
     ],
     "test_cases": [
-      {"input": "3 4\nABCE\nSFCS\nADEE\nABCCED", "expected": "true"},
-      {"input": "3 4\nABCE\nSFCS\nADEE\nSEE", "expected": "true"},
-      {"input": "3 4\nABCE\nSFCS\nADEE\nABCB", "expected": "false"}
+      {
+        "input": "3 4\nABCE\nSFCS\nADEE\nABCCED",
+        "expected": "true"
+      },
+      {
+        "input": "3 4\nABCE\nSFCS\nADEE\nSEE",
+        "expected": "true"
+      },
+      {
+        "input": "3 4\nABCE\nSFCS\nADEE\nABCB",
+        "expected": "false"
+      }
     ],
     "starter_code": {
       "python": "# 单词搜索\n# 第一行输入m和n，接下来m行每行一个字符串，最后一行输入目标单词\n# 输出true或false\nm, n = map(int, input().split())\nboard = []\nfor _ in range(m):\n    board.append(list(input().strip()))\nword = input().strip()\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "子集",
@@ -801,15 +1423,25 @@
     "tags": ["数组", "回溯", "位运算"],
     "languages": ["python"],
     "examples": [
-      {"input": "3\n1 2 3", "output": "\n1\n2\n3\n1 2\n1 3\n2 3\n1 2 3"}
+      {
+        "input": "3\n1 2 3",
+        "output": "\n1\n2\n3\n1 2\n1 3\n2 3\n1 2 3"
+      }
     ],
     "test_cases": [
-      {"input": "3\n1 2 3", "expected": "\n1\n2\n3\n1 2\n1 3\n2 3\n1 2 3"},
-      {"input": "1\n0", "expected": "\n0"}
+      {
+        "input": "3\n1 2 3",
+        "expected": "\n1\n2\n3\n1 2\n1 3\n2 3\n1 2 3"
+      },
+      {
+        "input": "1\n0",
+        "expected": "\n0"
+      }
     ],
     "starter_code": {
       "python": "# 子集\n# 第一行输入数组长度n，第二行输入n个不重复整数\n# 每行输出一个子集用空格分隔，空集输出空行\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "零钱兑换",
@@ -818,16 +1450,29 @@
     "tags": ["数组", "动态规划"],
     "languages": ["python"],
     "examples": [
-      {"input": "3\n1 2 5\n11", "output": "3"}
+      {
+        "input": "3\n1 2 5\n11",
+        "output": "3"
+      }
     ],
     "test_cases": [
-      {"input": "3\n1 2 5\n11", "expected": "3"},
-      {"input": "1\n2\n3", "expected": "-1"},
-      {"input": "1\n1\n0", "expected": "0"}
+      {
+        "input": "3\n1 2 5\n11",
+        "expected": "3"
+      },
+      {
+        "input": "1\n2\n3",
+        "expected": "-1"
+      },
+      {
+        "input": "1\n1\n0",
+        "expected": "0"
+      }
     ],
     "starter_code": {
       "python": "# 零钱兑换\n# 第一行输入硬币种数n，第二行输入n个面额，第三行输入总金额\n# 输出最少硬币个数，无法凑成输出-1\nn = int(input())\ncoins = list(map(int, input().split()))\namount = int(input())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "打家劫舍",
@@ -836,16 +1481,29 @@
     "tags": ["数组", "动态规划"],
     "languages": ["python"],
     "examples": [
-      {"input": "4\n1 2 3 1", "output": "4"}
+      {
+        "input": "4\n1 2 3 1",
+        "output": "4"
+      }
     ],
     "test_cases": [
-      {"input": "4\n1 2 3 1", "expected": "4"},
-      {"input": "5\n2 7 9 3 1", "expected": "12"},
-      {"input": "1\n5", "expected": "5"}
+      {
+        "input": "4\n1 2 3 1",
+        "expected": "4"
+      },
+      {
+        "input": "5\n2 7 9 3 1",
+        "expected": "12"
+      },
+      {
+        "input": "1\n5",
+        "expected": "5"
+      }
     ],
     "starter_code": {
       "python": "# 打家劫舍\n# 第一行输入数组长度n，第二行输入n个非负整数\n# 输出能偷窃到的最高金额\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "岛屿数量",
@@ -854,15 +1512,25 @@
     "tags": ["深度优先搜索", "广度优先搜索", "矩阵"],
     "languages": ["python"],
     "examples": [
-      {"input": "4 5\n11110\n11010\n11000\n00000", "output": "1"}
+      {
+        "input": "4 5\n11110\n11010\n11000\n00000",
+        "output": "1"
+      }
     ],
     "test_cases": [
-      {"input": "4 5\n11110\n11010\n11000\n00000", "expected": "1"},
-      {"input": "4 5\n11000\n11000\n00100\n00011", "expected": "3"}
+      {
+        "input": "4 5\n11110\n11010\n11000\n00000",
+        "expected": "1"
+      },
+      {
+        "input": "4 5\n11000\n11000\n00100\n00011",
+        "expected": "3"
+      }
     ],
     "starter_code": {
       "python": "# 岛屿数量\n# 第一行输入m和n，接下来m行每行一个长度为n的01字符串\n# 输出岛屿数量\nm, n = map(int, input().split())\ngrid = []\nfor _ in range(m):\n    grid.append(list(input().strip()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "课程表",
@@ -871,16 +1539,29 @@
     "tags": ["图", "拓扑排序", "广度优先搜索"],
     "languages": ["python"],
     "examples": [
-      {"input": "2 1\n1 0", "output": "true"}
+      {
+        "input": "2 1\n1 0",
+        "output": "true"
+      }
     ],
     "test_cases": [
-      {"input": "2 1\n1 0", "expected": "true"},
-      {"input": "2 2\n1 0\n0 1", "expected": "false"},
-      {"input": "3 2\n1 0\n2 1", "expected": "true"}
+      {
+        "input": "2 1\n1 0",
+        "expected": "true"
+      },
+      {
+        "input": "2 2\n1 0\n0 1",
+        "expected": "false"
+      },
+      {
+        "input": "3 2\n1 0\n2 1",
+        "expected": "true"
+      }
     ],
     "starter_code": {
       "python": "# 课程表\n# 第一行输入课程数numCourses和先修课对数n\n# 接下来n行每行两个整数表示先修关系\n# 输出true或false\nnumCourses, n = map(int, input().split())\nprerequisites = []\nfor _ in range(n):\n    prerequisites.append(list(map(int, input().split())))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "最长递增子序列",
@@ -889,16 +1570,29 @@
     "tags": ["数组", "动态规划", "二分查找"],
     "languages": ["python"],
     "examples": [
-      {"input": "8\n10 9 2 5 3 7 101 18", "output": "4"}
+      {
+        "input": "8\n10 9 2 5 3 7 101 18",
+        "output": "4"
+      }
     ],
     "test_cases": [
-      {"input": "8\n10 9 2 5 3 7 101 18", "expected": "4"},
-      {"input": "4\n0 1 0 3", "expected": "3"},
-      {"input": "6\n7 7 7 7 7 7", "expected": "1"}
+      {
+        "input": "8\n10 9 2 5 3 7 101 18",
+        "expected": "4"
+      },
+      {
+        "input": "4\n0 1 0 3",
+        "expected": "3"
+      },
+      {
+        "input": "6\n7 7 7 7 7 7",
+        "expected": "1"
+      }
     ],
     "starter_code": {
       "python": "# 最长递增子序列\n# 第一行输入数组长度n，第二行输入n个整数\n# 输出最长严格递增子序列的长度\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "每日温度",
@@ -907,16 +1601,29 @@
     "tags": ["栈", "数组"],
     "languages": ["python"],
     "examples": [
-      {"input": "8\n73 74 75 71 69 72 76 73", "output": "1 1 4 2 1 1 0 0"}
+      {
+        "input": "8\n73 74 75 71 69 72 76 73",
+        "output": "1 1 4 2 1 1 0 0"
+      }
     ],
     "test_cases": [
-      {"input": "8\n73 74 75 71 69 72 76 73", "expected": "1 1 4 2 1 1 0 0"},
-      {"input": "3\n30 40 50", "expected": "1 1 0"},
-      {"input": "3\n30 60 90", "expected": "1 1 0"}
+      {
+        "input": "8\n73 74 75 71 69 72 76 73",
+        "expected": "1 1 4 2 1 1 0 0"
+      },
+      {
+        "input": "3\n30 40 50",
+        "expected": "1 1 0"
+      },
+      {
+        "input": "3\n30 60 90",
+        "expected": "1 1 0"
+      }
     ],
     "starter_code": {
       "python": "# 每日温度\n# 第一行输入数组长度n，第二行输入n个整数表示温度\n# 输出等待天数数组，用空格分隔\nn = int(input())\ntemperatures = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "任务调度器",
@@ -925,16 +1632,29 @@
     "tags": ["数组", "贪心", "哈希表"],
     "languages": ["python"],
     "examples": [
-      {"input": "6\nA A A B B B\n2", "output": "8"}
+      {
+        "input": "6\nA A A B B B\n2",
+        "output": "8"
+      }
     ],
     "test_cases": [
-      {"input": "6\nA A A B B B\n2", "expected": "8"},
-      {"input": "5\nA A A B B\n2", "expected": "7"},
-      {"input": "6\nA A A A A A\n2", "expected": "16"}
+      {
+        "input": "6\nA A A B B B\n2",
+        "expected": "8"
+      },
+      {
+        "input": "5\nA A A B B\n2",
+        "expected": "7"
+      },
+      {
+        "input": "6\nA A A A A A\n2",
+        "expected": "16"
+      }
     ],
     "starter_code": {
       "python": "# 任务调度器\n# 第一行输入任务数n，第二行输入n个任务字母用空格分隔，第三行输入冷却时间\n# 输出完成所有任务所需的最短时间\nn = int(input())\ntasks = input().split()\ncooldown = int(input())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "前K个高频元素",
@@ -943,16 +1663,29 @@
     "tags": ["数组", "哈希表", "堆"],
     "languages": ["python"],
     "examples": [
-      {"input": "6\n1 1 1 2 2 3\n2", "output": "1 2"}
+      {
+        "input": "6\n1 1 1 2 2 3\n2",
+        "output": "1 2"
+      }
     ],
     "test_cases": [
-      {"input": "6\n1 1 1 2 2 3\n2", "expected": "1 2"},
-      {"input": "1\n1\n1", "expected": "1"},
-      {"input": "5\n4 4 4 3 3\n1", "expected": "4"}
+      {
+        "input": "6\n1 1 1 2 2 3\n2",
+        "expected": "1 2"
+      },
+      {
+        "input": "1\n1\n1",
+        "expected": "1"
+      },
+      {
+        "input": "5\n4 4 4 3 3\n1",
+        "expected": "4"
+      }
     ],
     "starter_code": {
       "python": "# 前K个高频元素\n# 第一行输入数组长度n，第二行输入n个整数，第三行输入k\n# 输出前k个高频元素，用空格分隔，按频率从高到低\nn = int(input())\nnums = list(map(int, input().split()))\nk = int(input())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "最长连续序列",
@@ -961,16 +1694,29 @@
     "tags": ["数组", "哈希表"],
     "languages": ["python"],
     "examples": [
-      {"input": "6\n100 4 200 1 3 2", "output": "4"}
+      {
+        "input": "6\n100 4 200 1 3 2",
+        "output": "4"
+      }
     ],
     "test_cases": [
-      {"input": "6\n100 4 200 1 3 2", "expected": "4"},
-      {"input": "10\n0 3 7 2 5 8 4 6 0 1", "expected": "9"},
-      {"input": "0", "expected": "0"}
+      {
+        "input": "6\n100 4 200 1 3 2",
+        "expected": "4"
+      },
+      {
+        "input": "10\n0 3 7 2 5 8 4 6 0 1",
+        "expected": "9"
+      },
+      {
+        "input": "0",
+        "expected": "0"
+      }
     ],
     "starter_code": {
       "python": "# 最长连续序列\n# 第一行输入数组长度n，第二行输入n个整数（n为0时无第二行）\n# 输出最长连续序列的长度\nn = int(input())\nnums = list(map(int, input().split())) if n > 0 else []\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "乘积最大子数组",
@@ -979,16 +1725,29 @@
     "tags": ["数组", "动态规划"],
     "languages": ["python"],
     "examples": [
-      {"input": "4\n2 3 -2 4", "output": "6"}
+      {
+        "input": "4\n2 3 -2 4",
+        "output": "6"
+      }
     ],
     "test_cases": [
-      {"input": "4\n2 3 -2 4", "expected": "6"},
-      {"input": "3\n-2 0 -1", "expected": "0"},
-      {"input": "3\n-2 3 -4", "expected": "24"}
+      {
+        "input": "4\n2 3 -2 4",
+        "expected": "6"
+      },
+      {
+        "input": "3\n-2 0 -1",
+        "expected": "0"
+      },
+      {
+        "input": "3\n-2 3 -4",
+        "expected": "24"
+      }
     ],
     "starter_code": {
       "python": "# 乘积最大子数组\n# 第一行输入数组长度n，第二行输入n个整数\n# 输出最大乘积\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "单词拆分",
@@ -997,16 +1756,29 @@
     "tags": ["字符串", "动态规划", "哈希表"],
     "languages": ["python"],
     "examples": [
-      {"input": "leetcode\n2\nleet code", "output": "true"}
+      {
+        "input": "leetcode\n2\nleet code",
+        "output": "true"
+      }
     ],
     "test_cases": [
-      {"input": "leetcode\n2\nleet code", "expected": "true"},
-      {"input": "applepenapple\n2\napple pen", "expected": "true"},
-      {"input": "catsandog\n5\ncats dog sand and cat", "expected": "false"}
+      {
+        "input": "leetcode\n2\nleet code",
+        "expected": "true"
+      },
+      {
+        "input": "applepenapple\n2\napple pen",
+        "expected": "true"
+      },
+      {
+        "input": "catsandog\n5\ncats dog sand and cat",
+        "expected": "false"
+      }
     ],
     "starter_code": {
       "python": "# 单词拆分\n# 第一行输入字符串s，第二行输入字典大小n，第三行输入n个单词用空格分隔\n# 输出true或false\ns = input().strip()\nn = int(input())\nwordDict = input().split()\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "排序链表(数组模拟)",
@@ -1015,16 +1787,29 @@
     "tags": ["数组", "排序", "归并排序"],
     "languages": ["python"],
     "examples": [
-      {"input": "5\n4 2 1 3 5", "output": "1 2 3 4 5"}
+      {
+        "input": "5\n4 2 1 3 5",
+        "output": "1 2 3 4 5"
+      }
     ],
     "test_cases": [
-      {"input": "5\n4 2 1 3 5", "expected": "1 2 3 4 5"},
-      {"input": "4\n-1 5 3 4", "expected": "-1 3 4 5"},
-      {"input": "1\n0", "expected": "0"}
+      {
+        "input": "5\n4 2 1 3 5",
+        "expected": "1 2 3 4 5"
+      },
+      {
+        "input": "4\n-1 5 3 4",
+        "expected": "-1 3 4 5"
+      },
+      {
+        "input": "1\n0",
+        "expected": "0"
+      }
     ],
     "starter_code": {
       "python": "# 排序链表(数组模拟)\n# 第一行输入数组长度n，第二行输入n个整数\n# 输出排序后的数组，用空格分隔\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "颜色分类",
@@ -1033,16 +1818,29 @@
     "tags": ["数组", "双指针", "排序"],
     "languages": ["python"],
     "examples": [
-      {"input": "6\n2 0 2 1 1 0", "output": "0 0 1 1 2 2"}
+      {
+        "input": "6\n2 0 2 1 1 0",
+        "output": "0 0 1 1 2 2"
+      }
     ],
     "test_cases": [
-      {"input": "6\n2 0 2 1 1 0", "expected": "0 0 1 1 2 2"},
-      {"input": "2\n2 0", "expected": "0 2"},
-      {"input": "3\n1 0 2", "expected": "0 1 2"}
+      {
+        "input": "6\n2 0 2 1 1 0",
+        "expected": "0 0 1 1 2 2"
+      },
+      {
+        "input": "2\n2 0",
+        "expected": "0 2"
+      },
+      {
+        "input": "3\n1 0 2",
+        "expected": "0 1 2"
+      }
     ],
     "starter_code": {
       "python": "# 颜色分类\n# 第一行输入数组长度n，第二行输入n个整数(0,1,2)\n# 输出排序后的数组，用空格分隔\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "寻找峰值",
@@ -1051,16 +1849,29 @@
     "tags": ["数组", "二分查找"],
     "languages": ["python"],
     "examples": [
-      {"input": "4\n1 2 3 1", "output": "2"}
+      {
+        "input": "4\n1 2 3 1",
+        "output": "2"
+      }
     ],
     "test_cases": [
-      {"input": "4\n1 2 3 1", "expected": "2"},
-      {"input": "5\n1 2 1 3 5", "expected": "4"},
-      {"input": "1\n1", "expected": "0"}
+      {
+        "input": "4\n1 2 3 1",
+        "expected": "2"
+      },
+      {
+        "input": "5\n1 2 1 3 5",
+        "expected": "4"
+      },
+      {
+        "input": "1\n1",
+        "expected": "0"
+      }
     ],
     "starter_code": {
       "python": "# 寻找峰值\n# 第一行输入数组长度n，第二行输入n个整数\n# 输出任一峰值的索引\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "旋转数组",
@@ -1069,16 +1880,29 @@
     "tags": ["数组", "数学"],
     "languages": ["python"],
     "examples": [
-      {"input": "7\n1 2 3 4 5 6 7\n3", "output": "5 6 7 1 2 3 4"}
+      {
+        "input": "7\n1 2 3 4 5 6 7\n3",
+        "output": "5 6 7 1 2 3 4"
+      }
     ],
     "test_cases": [
-      {"input": "7\n1 2 3 4 5 6 7\n3", "expected": "5 6 7 1 2 3 4"},
-      {"input": "4\n-1 -100 3 99\n2", "expected": "3 99 -1 -100"},
-      {"input": "3\n1 2 3\n4", "expected": "3 1 2"}
+      {
+        "input": "7\n1 2 3 4 5 6 7\n3",
+        "expected": "5 6 7 1 2 3 4"
+      },
+      {
+        "input": "4\n-1 -100 3 99\n2",
+        "expected": "3 99 -1 -100"
+      },
+      {
+        "input": "3\n1 2 3\n4",
+        "expected": "3 1 2"
+      }
     ],
     "starter_code": {
       "python": "# 旋转数组\n# 第一行输入数组长度n，第二行输入n个整数，第三行输入旋转步数k\n# 输出旋转后的数组，用空格分隔\nn = int(input())\nnums = list(map(int, input().split()))\nk = int(input())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "除自身以外数组的乘积",
@@ -1087,15 +1911,25 @@
     "tags": ["数组", "前缀和"],
     "languages": ["python"],
     "examples": [
-      {"input": "4\n1 2 3 4", "output": "24 12 8 6"}
+      {
+        "input": "4\n1 2 3 4",
+        "output": "24 12 8 6"
+      }
     ],
     "test_cases": [
-      {"input": "4\n1 2 3 4", "expected": "24 12 8 6"},
-      {"input": "5\n-1 1 0 -3 3", "expected": "0 0 9 0 0"}
+      {
+        "input": "4\n1 2 3 4",
+        "expected": "24 12 8 6"
+      },
+      {
+        "input": "5\n-1 1 0 -3 3",
+        "expected": "0 0 9 0 0"
+      }
     ],
     "starter_code": {
       "python": "# 除自身以外数组的乘积\n# 第一行输入数组长度n，第二行输入n个整数\n# 输出结果数组，用空格分隔\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "接雨水",
@@ -1104,16 +1938,29 @@
     "tags": ["数组", "双指针", "栈", "动态规划"],
     "languages": ["python"],
     "examples": [
-      {"input": "12\n0 1 0 2 1 0 1 3 2 1 2 1", "output": "6"}
+      {
+        "input": "12\n0 1 0 2 1 0 1 3 2 1 2 1",
+        "output": "6"
+      }
     ],
     "test_cases": [
-      {"input": "12\n0 1 0 2 1 0 1 3 2 1 2 1", "expected": "6"},
-      {"input": "6\n4 2 0 3 2 5", "expected": "9"},
-      {"input": "3\n1 0 1", "expected": "1"}
+      {
+        "input": "12\n0 1 0 2 1 0 1 3 2 1 2 1",
+        "expected": "6"
+      },
+      {
+        "input": "6\n4 2 0 3 2 5",
+        "expected": "9"
+      },
+      {
+        "input": "3\n1 0 1",
+        "expected": "1"
+      }
     ],
     "starter_code": {
       "python": "# 接雨水\n# 第一行输入数组长度n，第二行输入n个非负整数\n# 输出能接的雨水量\nn = int(input())\nheight = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "N皇后",
@@ -1122,16 +1969,29 @@
     "tags": ["回溯", "数组"],
     "languages": ["python"],
     "examples": [
-      {"input": "4", "output": "2"}
+      {
+        "input": "4",
+        "output": "2"
+      }
     ],
     "test_cases": [
-      {"input": "4", "expected": "2"},
-      {"input": "1", "expected": "1"},
-      {"input": "8", "expected": "92"}
+      {
+        "input": "4",
+        "expected": "2"
+      },
+      {
+        "input": "1",
+        "expected": "1"
+      },
+      {
+        "input": "8",
+        "expected": "92"
+      }
     ],
     "starter_code": {
       "python": "# N皇后\n# 输入棋盘大小n，输出解的数量\nn = int(input())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "最小覆盖子串",
@@ -1140,16 +2000,29 @@
     "tags": ["字符串", "哈希表", "滑动窗口"],
     "languages": ["python"],
     "examples": [
-      {"input": "ADOBECODEBANC\nABC", "output": "BANC"}
+      {
+        "input": "ADOBECODEBANC\nABC",
+        "output": "BANC"
+      }
     ],
     "test_cases": [
-      {"input": "ADOBECODEBANC\nABC", "expected": "BANC"},
-      {"input": "a\na", "expected": "a"},
-      {"input": "a\naa", "expected": ""}
+      {
+        "input": "ADOBECODEBANC\nABC",
+        "expected": "BANC"
+      },
+      {
+        "input": "a\na",
+        "expected": "a"
+      },
+      {
+        "input": "a\naa",
+        "expected": ""
+      }
     ],
     "starter_code": {
       "python": "# 最小覆盖子串\n# 第一行输入字符串s，第二行输入字符串t\n# 输出最小覆盖子串，不存在则输出空行\ns = input().strip()\nt = input().strip()\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "柱状图中最大矩形",
@@ -1158,16 +2031,29 @@
     "tags": ["栈", "数组"],
     "languages": ["python"],
     "examples": [
-      {"input": "6\n2 1 5 6 2 3", "output": "10"}
+      {
+        "input": "6\n2 1 5 6 2 3",
+        "output": "10"
+      }
     ],
     "test_cases": [
-      {"input": "6\n2 1 5 6 2 3", "expected": "10"},
-      {"input": "2\n2 4", "expected": "4"},
-      {"input": "1\n1", "expected": "1"}
+      {
+        "input": "6\n2 1 5 6 2 3",
+        "expected": "10"
+      },
+      {
+        "input": "2\n2 4",
+        "expected": "4"
+      },
+      {
+        "input": "1\n1",
+        "expected": "1"
+      }
     ],
     "starter_code": {
       "python": "# 柱状图中最大矩形\n# 第一行输入数组长度n，第二行输入n个非负整数\n# 输出最大矩形面积\nn = int(input())\nheights = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "最长有效括号",
@@ -1176,17 +2062,33 @@
     "tags": ["字符串", "栈", "动态规划"],
     "languages": ["python"],
     "examples": [
-      {"input": "(()", "output": "2"}
+      {
+        "input": "(()",
+        "output": "2"
+      }
     ],
     "test_cases": [
-      {"input": "(()", "expected": "2"},
-      {"input": ")()())", "expected": "4"},
-      {"input": "", "expected": "0"},
-      {"input": "()(())", "expected": "6"}
+      {
+        "input": "(()",
+        "expected": "2"
+      },
+      {
+        "input": ")()())",
+        "expected": "4"
+      },
+      {
+        "input": "",
+        "expected": "0"
+      },
+      {
+        "input": "()(())",
+        "expected": "6"
+      }
     ],
     "starter_code": {
       "python": "# 最长有效括号\n# 输入一个括号字符串，输出最长有效括号子串的长度\ns = input().strip()\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "编辑距离",
@@ -1195,16 +2097,29 @@
     "tags": ["字符串", "动态规划"],
     "languages": ["python"],
     "examples": [
-      {"input": "horse\nros", "output": "3"}
+      {
+        "input": "horse\nros",
+        "output": "3"
+      }
     ],
     "test_cases": [
-      {"input": "horse\nros", "expected": "3"},
-      {"input": "intention\nexecution", "expected": "5"},
-      {"input": "\na", "expected": "1"}
+      {
+        "input": "horse\nros",
+        "expected": "3"
+      },
+      {
+        "input": "intention\nexecution",
+        "expected": "5"
+      },
+      {
+        "input": "\na",
+        "expected": "1"
+      }
     ],
     "starter_code": {
       "python": "# 编辑距离\n# 第一行输入word1，第二行输入word2\n# 输出最少操作数\nword1 = input().strip()\nword2 = input().strip()\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "滑动窗口最大值",
@@ -1213,16 +2128,29 @@
     "tags": ["数组", "队列", "滑动窗口"],
     "languages": ["python"],
     "examples": [
-      {"input": "8\n1 3 -1 -3 5 3 6 7\n3", "output": "3 3 5 5 6 7"}
+      {
+        "input": "8\n1 3 -1 -3 5 3 6 7\n3",
+        "output": "3 3 5 5 6 7"
+      }
     ],
     "test_cases": [
-      {"input": "8\n1 3 -1 -3 5 3 6 7\n3", "expected": "3 3 5 5 6 7"},
-      {"input": "1\n1\n1", "expected": "1"},
-      {"input": "4\n9 11 8 7\n2", "expected": "11 11 8"}
+      {
+        "input": "8\n1 3 -1 -3 5 3 6 7\n3",
+        "expected": "3 3 5 5 6 7"
+      },
+      {
+        "input": "1\n1\n1",
+        "expected": "1"
+      },
+      {
+        "input": "4\n9 11 8 7\n2",
+        "expected": "11 11 8"
+      }
     ],
     "starter_code": {
       "python": "# 滑动窗口最大值\n# 第一行输入数组长度n，第二行输入n个整数，第三行输入窗口大小k\n# 输出每个窗口的最大值，用空格分隔\nn = int(input())\nnums = list(map(int, input().split()))\nk = int(input())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "正则表达式匹配",
@@ -1231,18 +2159,37 @@
     "tags": ["字符串", "动态规划", "递归"],
     "languages": ["python"],
     "examples": [
-      {"input": "aa\na", "output": "false"}
+      {
+        "input": "aa\na",
+        "output": "false"
+      }
     ],
     "test_cases": [
-      {"input": "aa\na", "expected": "false"},
-      {"input": "aa\na*", "expected": "true"},
-      {"input": "ab\n.*", "expected": "true"},
-      {"input": "aab\nc*a*b", "expected": "true"},
-      {"input": "mississippi\nmis*is*p*.", "expected": "false"}
+      {
+        "input": "aa\na",
+        "expected": "false"
+      },
+      {
+        "input": "aa\na*",
+        "expected": "true"
+      },
+      {
+        "input": "ab\n.*",
+        "expected": "true"
+      },
+      {
+        "input": "aab\nc*a*b",
+        "expected": "true"
+      },
+      {
+        "input": "mississippi\nmis*is*p*.",
+        "expected": "false"
+      }
     ],
     "starter_code": {
       "python": "# 正则表达式匹配\n# 第一行输入字符串s，第二行输入模式p\n# 输出true或false\ns = input().strip()\np = input().strip()\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "合并K个升序链表(数组模拟)",
@@ -1251,16 +2198,29 @@
     "tags": ["数组", "排序", "堆"],
     "languages": ["python"],
     "examples": [
-      {"input": "3\n3\n1 4 5\n3\n1 3 4\n2\n2 6", "output": "1 1 2 3 4 4 5 6"}
+      {
+        "input": "3\n3\n1 4 5\n3\n1 3 4\n2\n2 6",
+        "output": "1 1 2 3 4 4 5 6"
+      }
     ],
     "test_cases": [
-      {"input": "3\n3\n1 4 5\n3\n1 3 4\n2\n2 6", "expected": "1 1 2 3 4 4 5 6"},
-      {"input": "1\n0", "expected": ""},
-      {"input": "2\n1\n1\n1\n2", "expected": "1 2"}
+      {
+        "input": "3\n3\n1 4 5\n3\n1 3 4\n2\n2 6",
+        "expected": "1 1 2 3 4 4 5 6"
+      },
+      {
+        "input": "1\n0",
+        "expected": ""
+      },
+      {
+        "input": "2\n1\n1\n1\n2",
+        "expected": "1 2"
+      }
     ],
     "starter_code": {
       "python": "# 合并K个升序链表(数组模拟)\n# 第一行输入链表个数k，接下来每个链表先输入长度n，再输入n个整数\n# 输出合并后的升序数组，用空格分隔\nk = int(input())\nlists = []\nfor _ in range(k):\n    n = int(input())\n    if n > 0:\n        lists.append(list(map(int, input().split())))\n    else:\n        lists.append([])\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "寻找两个正序数组的中位数",
@@ -1269,16 +2229,29 @@
     "tags": ["数组", "二分查找"],
     "languages": ["python"],
     "examples": [
-      {"input": "2\n1 3\n2\n2 4", "output": "2.5"}
+      {
+        "input": "2\n1 3\n2\n2 4",
+        "output": "2.5"
+      }
     ],
     "test_cases": [
-      {"input": "2\n1 3\n2\n2 4", "expected": "2.5"},
-      {"input": "2\n1 2\n1\n3", "expected": "2.0"},
-      {"input": "1\n1\n1\n2", "expected": "1.5"}
+      {
+        "input": "2\n1 3\n2\n2 4",
+        "expected": "2.5"
+      },
+      {
+        "input": "2\n1 2\n1\n3",
+        "expected": "2.0"
+      },
+      {
+        "input": "1\n1\n1\n2",
+        "expected": "1.5"
+      }
     ],
     "starter_code": {
       "python": "# 寻找两个正序数组的中位数\n# 第一行输入m，第二行输入nums1，第三行输入n，第四行输入nums2\n# 输出中位数（保留一位小数）\nm = int(input())\nnums1 = list(map(int, input().split()))\nn = int(input())\nnums2 = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "通配符匹配",
@@ -1287,17 +2260,33 @@
     "tags": ["字符串", "动态规划", "贪心"],
     "languages": ["python"],
     "examples": [
-      {"input": "aa\na", "output": "false"}
+      {
+        "input": "aa\na",
+        "output": "false"
+      }
     ],
     "test_cases": [
-      {"input": "aa\na", "expected": "false"},
-      {"input": "aa\n*", "expected": "true"},
-      {"input": "cb\n?a", "expected": "false"},
-      {"input": "adceb\n*a*b", "expected": "true"}
+      {
+        "input": "aa\na",
+        "expected": "false"
+      },
+      {
+        "input": "aa\n*",
+        "expected": "true"
+      },
+      {
+        "input": "cb\n?a",
+        "expected": "false"
+      },
+      {
+        "input": "adceb\n*a*b",
+        "expected": "true"
+      }
     ],
     "starter_code": {
       "python": "# 通配符匹配\n# 第一行输入字符串s，第二行输入模式p\n# 输出true或false\ns = input().strip()\np = input().strip()\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "缺失的第一个正数",
@@ -1306,17 +2295,33 @@
     "tags": ["数组", "哈希表"],
     "languages": ["python"],
     "examples": [
-      {"input": "4\n1 2 0 -1", "output": "3"}
+      {
+        "input": "4\n1 2 0 -1",
+        "output": "3"
+      }
     ],
     "test_cases": [
-      {"input": "4\n1 2 0 -1", "expected": "3"},
-      {"input": "3\n3 4 -1", "expected": "1"},
-      {"input": "3\n7 8 9", "expected": "1"},
-      {"input": "4\n1 2 3 4", "expected": "5"}
+      {
+        "input": "4\n1 2 0 -1",
+        "expected": "3"
+      },
+      {
+        "input": "3\n3 4 -1",
+        "expected": "1"
+      },
+      {
+        "input": "3\n7 8 9",
+        "expected": "1"
+      },
+      {
+        "input": "4\n1 2 3 4",
+        "expected": "5"
+      }
     ],
     "starter_code": {
       "python": "# 缺失的第一个正数\n# 第一行输入数组长度n，第二行输入n个整数\n# 输出缺失的最小正整数\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "分发糖果",
@@ -1325,16 +2330,29 @@
     "tags": ["数组", "贪心"],
     "languages": ["python"],
     "examples": [
-      {"input": "3\n1 0 2", "output": "5"}
+      {
+        "input": "3\n1 0 2",
+        "output": "5"
+      }
     ],
     "test_cases": [
-      {"input": "3\n1 0 2", "expected": "5"},
-      {"input": "3\n1 2 2", "expected": "4"},
-      {"input": "5\n1 3 2 2 1", "expected": "7"}
+      {
+        "input": "3\n1 0 2",
+        "expected": "5"
+      },
+      {
+        "input": "3\n1 2 2",
+        "expected": "4"
+      },
+      {
+        "input": "5\n1 3 2 2 1",
+        "expected": "7"
+      }
     ],
     "starter_code": {
       "python": "# 分发糖果\n# 第一行输入孩子数n，第二行输入n个评分\n# 输出最少糖果数目\nn = int(input())\nratings = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "最长连续递增子序列",
@@ -1343,16 +2361,29 @@
     "tags": ["数组"],
     "languages": ["python"],
     "examples": [
-      {"input": "6\n1 3 5 4 7 8", "output": "3"}
+      {
+        "input": "6\n1 3 5 4 7 8",
+        "output": "3"
+      }
     ],
     "test_cases": [
-      {"input": "6\n1 3 5 4 7 8", "expected": "3"},
-      {"input": "5\n2 2 2 2 2", "expected": "1"},
-      {"input": "7\n1 2 3 4 5 6 7", "expected": "7"}
+      {
+        "input": "6\n1 3 5 4 7 8",
+        "expected": "3"
+      },
+      {
+        "input": "5\n2 2 2 2 2",
+        "expected": "1"
+      },
+      {
+        "input": "7\n1 2 3 4 5 6 7",
+        "expected": "7"
+      }
     ],
     "starter_code": {
       "python": "# 最长连续递增子序列\n# 第一行输入数组长度n，第二行输入n个整数\n# 输出最长连续递增子序列的长度\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "数据流的中位数",
@@ -1361,16 +2392,29 @@
     "tags": ["设计", "堆", "排序"],
     "languages": ["python"],
     "examples": [
-      {"input": "6\nadd 1\nadd 2\nfind\nadd 3\nfind\nfind", "output": "1.5\n2.0\n2.0"}
+      {
+        "input": "6\nadd 1\nadd 2\nfind\nadd 3\nfind\nfind",
+        "output": "1.5\n2.0\n2.0"
+      }
     ],
     "test_cases": [
-      {"input": "6\nadd 1\nadd 2\nfind\nadd 3\nfind\nfind", "expected": "1.5\n2.0\n2.0"},
-      {"input": "3\nadd 5\nfind\nadd 3", "expected": "5.0"},
-      {"input": "5\nadd 1\nadd 2\nadd 3\nadd 4\nfind", "expected": "2.5"}
+      {
+        "input": "6\nadd 1\nadd 2\nfind\nadd 3\nfind\nfind",
+        "expected": "1.5\n2.0\n2.0"
+      },
+      {
+        "input": "3\nadd 5\nfind\nadd 3",
+        "expected": "5.0"
+      },
+      {
+        "input": "5\nadd 1\nadd 2\nadd 3\nadd 4\nfind",
+        "expected": "2.5"
+      }
     ],
     "starter_code": {
       "python": "# 数据流的中位数\n# 第一行输入操作数n，接下来n行每行一个操作\n# add x 表示添加数字x，find 表示输出当前中位数（保留一位小数）\nn = int(input())\noperations = []\nfor _ in range(n):\n    operations.append(input().strip())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "最大矩形",
@@ -1379,17 +2423,33 @@
     "tags": ["数组", "栈", "动态规划", "矩阵"],
     "languages": ["python"],
     "examples": [
-      {"input": "4 5\n10100\n10111\n11111\n10010", "output": "6"}
+      {
+        "input": "4 5\n10100\n10111\n11111\n10010",
+        "output": "6"
+      }
     ],
     "test_cases": [
-      {"input": "4 5\n10100\n10111\n11111\n10010", "expected": "6"},
-      {"input": "1 1\n0", "expected": "0"},
-      {"input": "1 1\n1", "expected": "1"},
-      {"input": "2 2\n11\n11", "expected": "4"}
+      {
+        "input": "4 5\n10100\n10111\n11111\n10010",
+        "expected": "6"
+      },
+      {
+        "input": "1 1\n0",
+        "expected": "0"
+      },
+      {
+        "input": "1 1\n1",
+        "expected": "1"
+      },
+      {
+        "input": "2 2\n11\n11",
+        "expected": "4"
+      }
     ],
     "starter_code": {
       "python": "# 最大矩形\n# 第一行输入rows和cols，接下来rows行每行一个01字符串\n# 输出最大矩形面积\nrows, cols = map(int, input().split())\nmatrix = []\nfor _ in range(rows):\n    matrix.append(list(input().strip()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "戳气球",
@@ -1398,16 +2458,29 @@
     "tags": ["数组", "动态规划"],
     "languages": ["python"],
     "examples": [
-      {"input": "4\n3 1 5 8", "output": "167"}
+      {
+        "input": "4\n3 1 5 8",
+        "output": "167"
+      }
     ],
     "test_cases": [
-      {"input": "4\n3 1 5 8", "expected": "167"},
-      {"input": "1\n5", "expected": "5"},
-      {"input": "2\n1 5", "expected": "10"}
+      {
+        "input": "4\n3 1 5 8",
+        "expected": "167"
+      },
+      {
+        "input": "1\n5",
+        "expected": "5"
+      },
+      {
+        "input": "2\n1 5",
+        "expected": "10"
+      }
     ],
     "starter_code": {
       "python": "# 戳气球\n# 第一行输入数组长度n，第二行输入n个整数\n# 输出能获得的最大硬币数\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "去除重复字母",
@@ -1416,16 +2489,29 @@
     "tags": ["字符串", "栈", "贪心"],
     "languages": ["python"],
     "examples": [
-      {"input": "bcabc", "output": "abc"}
+      {
+        "input": "bcabc",
+        "output": "abc"
+      }
     ],
     "test_cases": [
-      {"input": "bcabc", "expected": "abc"},
-      {"input": "cbacdcbc", "expected": "acdb"},
-      {"input": "abcd", "expected": "abcd"}
+      {
+        "input": "bcabc",
+        "expected": "abc"
+      },
+      {
+        "input": "cbacdcbc",
+        "expected": "acdb"
+      },
+      {
+        "input": "abcd",
+        "expected": "abcd"
+      }
     ],
     "starter_code": {
       "python": "# 去除重复字母\n# 输入一个字符串s，输出去除重复字母后字典序最小的字符串\ns = input().strip()\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "俄罗斯套娃信封问题",
@@ -1434,16 +2520,29 @@
     "tags": ["数组", "动态规划", "二分查找", "排序"],
     "languages": ["python"],
     "examples": [
-      {"input": "4\n5 4\n6 4\n6 7\n2 3", "output": "3"}
+      {
+        "input": "4\n5 4\n6 4\n6 7\n2 3",
+        "output": "3"
+      }
     ],
     "test_cases": [
-      {"input": "4\n5 4\n6 4\n6 7\n2 3", "expected": "3"},
-      {"input": "1\n1 1", "expected": "1"},
-      {"input": "3\n1 2\n2 3\n3 4", "expected": "3"}
+      {
+        "input": "4\n5 4\n6 4\n6 7\n2 3",
+        "expected": "3"
+      },
+      {
+        "input": "1\n1 1",
+        "expected": "1"
+      },
+      {
+        "input": "3\n1 2\n2 3\n3 4",
+        "expected": "3"
+      }
     ],
     "starter_code": {
       "python": "# 俄罗斯套娃信封问题\n# 第一行输入信封个数n，接下来n行每行两个整数表示宽度和高度\n# 输出最多能组成的套娃信封数\nn = int(input())\nenvelopes = []\nfor _ in range(n):\n    envelopes.append(list(map(int, input().split())))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "最大正方形",
@@ -1452,17 +2551,33 @@
     "tags": ["数组", "动态规划", "矩阵"],
     "languages": ["python"],
     "examples": [
-      {"input": "4 5\n10100\n10111\n11111\n10010", "output": "4"}
+      {
+        "input": "4 5\n10100\n10111\n11111\n10010",
+        "output": "4"
+      }
     ],
     "test_cases": [
-      {"input": "4 5\n10100\n10111\n11111\n10010", "expected": "4"},
-      {"input": "2 2\n01\n10", "expected": "1"},
-      {"input": "1 1\n0", "expected": "0"},
-      {"input": "3 3\n111\n111\n111", "expected": "9"}
+      {
+        "input": "4 5\n10100\n10111\n11111\n10010",
+        "expected": "4"
+      },
+      {
+        "input": "2 2\n01\n10",
+        "expected": "1"
+      },
+      {
+        "input": "1 1\n0",
+        "expected": "0"
+      },
+      {
+        "input": "3 3\n111\n111\n111",
+        "expected": "9"
+      }
     ],
     "starter_code": {
       "python": "# 最大正方形\n# 第一行输入rows和cols，接下来rows行每行一个01字符串\n# 输出最大正方形面积\nrows, cols = map(int, input().split())\nmatrix = []\nfor _ in range(rows):\n    matrix.append(list(input().strip()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "接雨水",
@@ -1471,16 +2586,29 @@
     "tags": ["数组", "双指针", "单调栈"],
     "languages": ["python"],
     "examples": [
-      {"input": "12\n0 1 0 2 1 0 1 3 2 1 2 1", "output": "6"}
+      {
+        "input": "12\n0 1 0 2 1 0 1 3 2 1 2 1",
+        "output": "6"
+      }
     ],
     "test_cases": [
-      {"input": "12\n0 1 0 2 1 0 1 3 2 1 2 1", "expected": "6"},
-      {"input": "6\n4 2 0 3 2 5", "expected": "9"},
-      {"input": "3\n2 0 2", "expected": "2"}
+      {
+        "input": "12\n0 1 0 2 1 0 1 3 2 1 2 1",
+        "expected": "6"
+      },
+      {
+        "input": "6\n4 2 0 3 2 5",
+        "expected": "9"
+      },
+      {
+        "input": "3\n2 0 2",
+        "expected": "2"
+      }
     ],
     "starter_code": {
       "python": "# 接雨水\n# 第一行输入柱子数量n，第二行输入n个非负整数表示高度\n# 输出可接到的雨水总量\nn = int(input())\nheight = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "最长回文子串",
@@ -1489,16 +2617,29 @@
     "tags": ["字符串", "动态规划", "双指针"],
     "languages": ["python"],
     "examples": [
-      {"input": "babad", "output": "bab"}
+      {
+        "input": "babad",
+        "output": "bab"
+      }
     ],
     "test_cases": [
-      {"input": "babad", "expected": "bab"},
-      {"input": "cbbd", "expected": "bb"},
-      {"input": "forgeeksskeegfor", "expected": "geeksskeeg"}
+      {
+        "input": "babad",
+        "expected": "bab"
+      },
+      {
+        "input": "cbbd",
+        "expected": "bb"
+      },
+      {
+        "input": "forgeeksskeegfor",
+        "expected": "geeksskeeg"
+      }
     ],
     "starter_code": {
       "python": "# 最长回文子串\n# 输入一个字符串s，输出其中一个最长回文子串\ns = input().strip()\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "零钱兑换",
@@ -1507,16 +2648,29 @@
     "tags": ["动态规划", "数组"],
     "languages": ["python"],
     "examples": [
-      {"input": "3\n1 2 5\n11", "output": "3"}
+      {
+        "input": "3\n1 2 5\n11",
+        "output": "3"
+      }
     ],
     "test_cases": [
-      {"input": "3\n1 2 5\n11", "expected": "3"},
-      {"input": "1\n2\n3", "expected": "-1"},
-      {"input": "4\n2 5 10 1\n27", "expected": "4"}
+      {
+        "input": "3\n1 2 5\n11",
+        "expected": "3"
+      },
+      {
+        "input": "1\n2\n3",
+        "expected": "-1"
+      },
+      {
+        "input": "4\n2 5 10 1\n27",
+        "expected": "4"
+      }
     ],
     "starter_code": {
       "python": "# 零钱兑换\n# 第一行输入硬币种类数n，第二行输入n个硬币面额，第三行输入目标金额amount\n# 输出凑成amount所需的最少硬币数，没有解则输出-1\nn = int(input())\ncoins = list(map(int, input().split()))\namount = int(input())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "最小路径和",
@@ -1525,16 +2679,29 @@
     "tags": ["动态规划", "矩阵"],
     "languages": ["python"],
     "examples": [
-      {"input": "3 3\n1 3 1\n1 5 1\n4 2 1", "output": "7"}
+      {
+        "input": "3 3\n1 3 1\n1 5 1\n4 2 1",
+        "output": "7"
+      }
     ],
     "test_cases": [
-      {"input": "3 3\n1 3 1\n1 5 1\n4 2 1", "expected": "7"},
-      {"input": "2 3\n1 2 3\n4 5 6", "expected": "12"},
-      {"input": "1 1\n5", "expected": "5"}
+      {
+        "input": "3 3\n1 3 1\n1 5 1\n4 2 1",
+        "expected": "7"
+      },
+      {
+        "input": "2 3\n1 2 3\n4 5 6",
+        "expected": "12"
+      },
+      {
+        "input": "1 1\n5",
+        "expected": "5"
+      }
     ],
     "starter_code": {
       "python": "# 最小路径和\n# 第一行输入rows和cols，接下来rows行每行cols个非负整数\n# 输出从左上角走到右下角的最小路径和\nrows, cols = map(int, input().split())\ngrid = []\nfor _ in range(rows):\n    grid.append(list(map(int, input().split())))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "岛屿数量",
@@ -1543,16 +2710,29 @@
     "tags": ["图论", "深度优先搜索", "广度优先搜索", "矩阵"],
     "languages": ["python"],
     "examples": [
-      {"input": "4 5\n11110\n11010\n11000\n00000", "output": "1"}
+      {
+        "input": "4 5\n11110\n11010\n11000\n00000",
+        "output": "1"
+      }
     ],
     "test_cases": [
-      {"input": "4 5\n11110\n11010\n11000\n00000", "expected": "1"},
-      {"input": "4 5\n11000\n11000\n00100\n00011", "expected": "3"},
-      {"input": "1 1\n1", "expected": "1"}
+      {
+        "input": "4 5\n11110\n11010\n11000\n00000",
+        "expected": "1"
+      },
+      {
+        "input": "4 5\n11000\n11000\n00100\n00011",
+        "expected": "3"
+      },
+      {
+        "input": "1 1\n1",
+        "expected": "1"
+      }
     ],
     "starter_code": {
       "python": "# 岛屿数量\n# 第一行输入rows和cols，接下来rows行每行一个01字符串\n# 输出岛屿数量\nrows, cols = map(int, input().split())\ngrid = []\nfor _ in range(rows):\n    grid.append(list(input().strip()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "编辑距离",
@@ -1561,16 +2741,29 @@
     "tags": ["动态规划", "字符串"],
     "languages": ["python"],
     "examples": [
-      {"input": "horse\nros", "output": "3"}
+      {
+        "input": "horse\nros",
+        "output": "3"
+      }
     ],
     "test_cases": [
-      {"input": "horse\nros", "expected": "3"},
-      {"input": "intention\nexecution", "expected": "5"},
-      {"input": "abc\nabc", "expected": "0"}
+      {
+        "input": "horse\nros",
+        "expected": "3"
+      },
+      {
+        "input": "intention\nexecution",
+        "expected": "5"
+      },
+      {
+        "input": "abc\nabc",
+        "expected": "0"
+      }
     ],
     "starter_code": {
       "python": "# 编辑距离\n# 输入两行字符串word1和word2\n# 输出将word1转换成word2的最少操作数\nword1 = input().strip()\nword2 = input().strip()\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "不同路径 II",
@@ -1579,16 +2772,29 @@
     "tags": ["动态规划", "矩阵"],
     "languages": ["python"],
     "examples": [
-      {"input": "3 3\n0 0 0\n0 1 0\n0 0 0", "output": "2"}
+      {
+        "input": "3 3\n0 0 0\n0 1 0\n0 0 0",
+        "output": "2"
+      }
     ],
     "test_cases": [
-      {"input": "3 3\n0 0 0\n0 1 0\n0 0 0", "expected": "2"},
-      {"input": "2 2\n0 1\n0 0", "expected": "1"},
-      {"input": "3 2\n0 0\n1 1\n0 0", "expected": "0"}
+      {
+        "input": "3 3\n0 0 0\n0 1 0\n0 0 0",
+        "expected": "2"
+      },
+      {
+        "input": "2 2\n0 1\n0 0",
+        "expected": "1"
+      },
+      {
+        "input": "3 2\n0 0\n1 1\n0 0",
+        "expected": "0"
+      }
     ],
     "starter_code": {
       "python": "# 不同路径 II\n# 第一行输入rows和cols，接下来rows行每行cols个0或1\n# 0表示空地，1表示障碍物，输出不同路径数量\nrows, cols = map(int, input().split())\nobstacle_grid = []\nfor _ in range(rows):\n    obstacle_grid.append(list(map(int, input().split())))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "分割等和子集",
@@ -1597,16 +2803,29 @@
     "tags": ["动态规划", "背包问题", "数组"],
     "languages": ["python"],
     "examples": [
-      {"input": "4\n1 5 11 5", "output": "true"}
+      {
+        "input": "4\n1 5 11 5",
+        "output": "true"
+      }
     ],
     "test_cases": [
-      {"input": "4\n1 5 11 5", "expected": "true"},
-      {"input": "4\n1 2 3 5", "expected": "false"},
-      {"input": "4\n2 2 1 1", "expected": "true"}
+      {
+        "input": "4\n1 5 11 5",
+        "expected": "true"
+      },
+      {
+        "input": "4\n1 2 3 5",
+        "expected": "false"
+      },
+      {
+        "input": "4\n2 2 1 1",
+        "expected": "true"
+      }
     ],
     "starter_code": {
       "python": "# 分割等和子集\n# 第一行输入数组长度n，第二行输入n个正整数\n# 若可以分割成两个和相等的子集输出true，否则输出false\nn = int(input())\nnums = list(map(int, input().split()))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "课程表",
@@ -1615,16 +2834,29 @@
     "tags": ["图论", "拓扑排序", "广度优先搜索"],
     "languages": ["python"],
     "examples": [
-      {"input": "2 1\n1 0", "output": "true"}
+      {
+        "input": "2 1\n1 0",
+        "output": "true"
+      }
     ],
     "test_cases": [
-      {"input": "2 1\n1 0", "expected": "true"},
-      {"input": "2 2\n1 0\n0 1", "expected": "false"},
-      {"input": "4 4\n1 0\n2 0\n3 1\n3 2", "expected": "true"}
+      {
+        "input": "2 1\n1 0",
+        "expected": "true"
+      },
+      {
+        "input": "2 2\n1 0\n0 1",
+        "expected": "false"
+      },
+      {
+        "input": "4 4\n1 0\n2 0\n3 1\n3 2",
+        "expected": "true"
+      }
     ],
     "starter_code": {
       "python": "# 课程表\n# 第一行输入课程数numCourses和先修关系数m，接下来m行每行两个整数a b\n# 若可以完成所有课程输出true，否则输出false\nnum_courses, m = map(int, input().split())\nprerequisites = []\nfor _ in range(m):\n    prerequisites.append(list(map(int, input().split())))\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   },
   {
     "title": "搜索二维矩阵 II",
@@ -1633,15 +2865,28 @@
     "tags": ["矩阵", "二分查找", "双指针"],
     "languages": ["python"],
     "examples": [
-      {"input": "5 5\n1 4 7 11 15\n2 5 8 12 19\n3 6 9 16 22\n10 13 14 17 24\n18 21 23 26 30\n5", "output": "true"}
+      {
+        "input": "5 5\n1 4 7 11 15\n2 5 8 12 19\n3 6 9 16 22\n10 13 14 17 24\n18 21 23 26 30\n5",
+        "output": "true"
+      }
     ],
     "test_cases": [
-      {"input": "5 5\n1 4 7 11 15\n2 5 8 12 19\n3 6 9 16 22\n10 13 14 17 24\n18 21 23 26 30\n5", "expected": "true"},
-      {"input": "2 2\n1 4\n2 5\n20", "expected": "false"},
-      {"input": "1 1\n1\n1", "expected": "true"}
+      {
+        "input": "5 5\n1 4 7 11 15\n2 5 8 12 19\n3 6 9 16 22\n10 13 14 17 24\n18 21 23 26 30\n5",
+        "expected": "true"
+      },
+      {
+        "input": "2 2\n1 4\n2 5\n20",
+        "expected": "false"
+      },
+      {
+        "input": "1 1\n1\n1",
+        "expected": "true"
+      }
     ],
     "starter_code": {
       "python": "# 搜索二维矩阵 II\n# 第一行输入rows和cols，接下来rows行每行cols个整数，最后一行输入target\n# 若矩阵中存在target输出true，否则输出false\nrows, cols = map(int, input().split())\nmatrix = []\nfor _ in range(rows):\n    matrix.append(list(map(int, input().split())))\ntarget = int(input())\n\n# 在此编写你的解决方案\n"
-    }
+    },
+    "hints": ["仔细阅读题目描述和示例", "先考虑最简单的解法，再优化"]
   }
 ]

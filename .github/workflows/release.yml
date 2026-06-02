@@ -1,0 +1,277 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+  # Manual trigger for re-releases / hotfixes
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v1.2.0). Leave empty to use the latest tag.'
+        required: false
+        type: string
+      draft:
+        description: 'Create as draft release'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ---------------------------------------------------------------
+  # 1. Pre-release checks + changelog generation
+  # ---------------------------------------------------------------
+  prepare:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      changelog: ${{ steps.changelog.outputs.changelog }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version metadata
+        id: meta
+        shell: bash
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG"         >> "$GITHUB_OUTPUT"
+          echo "Release tag: $TAG  version: $VERSION"
+
+      - name: Validate package.json version matches tag
+        shell: bash
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${{ steps.meta.outputs.version }}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::warning::package.json version ($PKG_VERSION) does not match tag ($TAG_VERSION)"
+          fi
+
+      - name: Generate changelog
+        id: changelog
+        shell: bash
+        run: |
+          # Get previous tag
+          PREV_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -2 | tail -1 || echo "")
+
+          if [ -z "$PREV_TAG" ]; then
+            RANGE="HEAD"
+            echo "No previous tag found, generating full changelog"
+          else
+            RANGE="${PREV_TAG}..HEAD"
+            echo "Generating changelog from $PREV_TAG to HEAD"
+          fi
+
+          # Extract conventional commit groups
+          {
+            echo "## What's Changed"
+            echo ""
+
+            FEAT=$(git log "$RANGE" --pretty=format:"- %s (%h)" --grep="^feat" 2>/dev/null || true)
+            FIX=$(git log "$RANGE" --pretty=format:"- %s (%h)" --grep="^fix" 2>/dev/null || true)
+            PERF=$(git log "$RANGE" --pretty=format:"- %s (%h)" --grep="^perf" 2>/dev/null || true)
+            DOCS=$(git log "$RANGE" --pretty=format:"- %s (%h)" --grep="^docs" 2>/dev/null || true)
+            REFACTOR=$(git log "$RANGE" --pretty=format:"- %s (%h)" --grep="^refactor" 2>/dev/null || true)
+
+            if [ -n "$FEAT" ]; then echo "### Features"; echo "$FEAT"; echo ""; fi
+            if [ -n "$FIX" ]; then echo "### Bug Fixes"; echo "$FIX"; echo ""; fi
+            if [ -n "$PERF" ]; then echo "### Performance"; echo "$PERF"; echo ""; fi
+            if [ -n "$REFACTOR" ]; then echo "### Refactoring"; echo "$REFACTOR"; echo ""; fi
+            if [ -n "$DOCS" ]; then echo "### Documentation"; echo "$DOCS"; echo ""; fi
+
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG:-$(git rev-list --max-parents=0 HEAD | head -1)}...${{ steps.meta.outputs.tag }}"
+          } > /tmp/changelog.md
+
+          # Output as multiline string
+          {
+            echo "changelog<<CHANGELOG_EOF"
+            cat /tmp/changelog.md
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install & verify
+        run: |
+          npm ci --ignore-scripts
+          npm run typecheck
+          npm test
+
+  # ---------------------------------------------------------------
+  # 2. Multi-platform build
+  # ---------------------------------------------------------------
+  build:
+    name: Build (${{ matrix.platform }})
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+            artifact_glob: |
+              dist-release/*.exe
+              dist-release/*.yml
+              dist-release/*.blockmap
+          - os: macos-latest
+            platform: mac
+            artifact_glob: |
+              dist-release/*.dmg
+              dist-release/*.zip
+              dist-release/*.yml
+              dist-release/*.blockmap
+          - os: ubuntu-latest
+            platform: linux
+            artifact_glob: |
+              dist-release/*.AppImage
+              dist-release/*.deb
+              dist-release/*.rpm
+              dist-release/*.yml
+              dist-release/*.blockmap
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build renderer & main
+        run: npm run build
+
+      - name: Build Electron packages
+        run: npx electron-builder --${{ matrix.platform }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Windows code signing (uncomment and set secrets):
+          # CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE }}
+          # CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          # macOS code signing (uncomment and set secrets):
+          # CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
+          # CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+
+      - name: List artifacts
+        shell: bash
+        run: ls -lh dist-release/ || true
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: ${{ matrix.artifact_glob }}
+          if-no-files-found: error
+          retention-days: 7
+
+  # ---------------------------------------------------------------
+  # 3. Publish GitHub Release
+  # ---------------------------------------------------------------
+  publish:
+    name: Publish Release
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List downloaded artifacts
+        run: find artifacts -type f | head -50
+
+      - name: Write changelog file
+        run: |
+          cat > release_notes.md << 'NOTES_EOF'
+          ${{ needs.prepare.outputs.changelog }}
+          NOTES_EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: "CodeHelper ${{ needs.prepare.outputs.tag }}"
+          body_path: release_notes.md
+          draft: ${{ github.event.inputs.draft || false }}
+          prerelease: ${{ contains(needs.prepare.outputs.version, '-') }}
+          generate_release_notes: ${{ needs.prepare.outputs.changelog == '' }}
+          files: |
+            artifacts/**/*.exe
+            artifacts/**/*.dmg
+            artifacts/**/*.zip
+            artifacts/**/*.AppImage
+            artifacts/**/*.deb
+            artifacts/**/*.rpm
+            artifacts/**/*.yml
+            artifacts/**/*.blockmap
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ---------------------------------------------------------------
+  # 4. Post-release verification
+  # ---------------------------------------------------------------
+  verify:
+    name: Verify Release
+    needs: [prepare, publish]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RELEASE=$(gh release view "${{ needs.prepare.outputs.tag }}" --json tagName,publishedAt,assets 2>/dev/null || echo "")
+          if [ -z "$RELEASE" ]; then
+            echo "::error::Release ${{ needs.prepare.outputs.tag }} not found!"
+            exit 1
+          fi
+          echo "Release verified:"
+          echo "$RELEASE" | jq '{tag: .tagName, published: .publishedAt, assets: [.assets[].name]}'
+
+      - name: Verify auto-update feed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.prepare.outputs.tag }}"
+          # Check that update manifest yml files are present
+          ASSETS=$(gh release view "$TAG" --json assets --jq '.assets[].name')
+          echo "Release assets:"
+          echo "$ASSETS"
+
+          for MANIFEST in latest.yml latest-mac.yml latest-linux.yml; do
+            if echo "$ASSETS" | grep -q "$MANIFEST"; then
+              echo "OK: $MANIFEST found (auto-update feed will work)"
+            fi
+          done
+
+      - name: Summary
+        run: |
+          echo "## Release ${{ needs.prepare.outputs.tag }} Complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "All platforms built and published successfully." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Auto-update manifests are included for Electron Updater." >> "$GITHUB_STEP_SUMMARY"

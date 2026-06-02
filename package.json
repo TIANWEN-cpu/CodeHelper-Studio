@@ -8,6 +8,13 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "build:win": "electron-vite build && electron-builder --win",
+    "build:mac": "electron-vite build && electron-builder --mac",
+    "build:linux": "electron-vite build && electron-builder --linux",
+    "build:analyze": "electron-vite build -- --analyze",
+    "package": "electron-vite build && electron-builder",
+    "release:patch": "node scripts/version-bump.js patch && npm run build && npm run package",
+    "release:minor": "node scripts/version-bump.js minor && npm run build && npm run package",
+    "release:major": "node scripts/version-bump.js major && npm run build && npm run package",
     "postinstall": "electron-builder install-app-deps",
     "typecheck": "tsc -b",
     "lint": "eslint . --ext .ts,.tsx",
@@ -18,6 +25,7 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
+    "bench": "vitest bench --config vitest.bench.config.ts",
     "prepare": "husky"
   },
   "keywords": [
@@ -36,7 +44,6 @@
   },
   "type": "commonjs",
   "dependencies": {
-    "@electron-toolkit/utils": "^4.0.0",
     "@monaco-editor/react": "^4.7.0",
     "better-sqlite3": "^12.8.0",
     "lucide-react": "^1.7.0",
@@ -50,6 +57,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@electron/fuses": "^1.8.0",
     "@eslint/js": "^9.28.0",
     "@tailwindcss/vite": "^4.2.2",
     "@types/better-sqlite3": "^7.6.13",

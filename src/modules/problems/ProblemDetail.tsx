@@ -4,37 +4,29 @@ import { Play, Send, CheckCircle2, XCircle, ChevronsRight, Bot, Link2, Clock3 } 
 import { useProblemStore } from '../../stores/problemStore'
 import { registerMonacoThemes, useMonacoTheme } from '../../utils/monacoConfig'
 import { typedInvoke } from '../../api/ipc'
-import { toErrorMessage } from '../../utils/errors'
+import { toErrorMessage, parseJsonSafe } from '../../utils/errors'
 import {
   parseJsonArray,
   trackLabel,
   platformLabel,
   modeLabel,
   examStyleLabel,
+  LANGUAGE_OPTIONS,
 } from '../../utils/labels'
 
-const LANGUAGES = [
-  { value: 'python', label: 'Python' },
-  { value: 'c', label: 'C' },
-  { value: 'cpp', label: 'C++' },
-  { value: 'csharp', label: 'C#' },
-  { value: 'sql', label: 'SQL' },
-  { value: 'verilog', label: 'Verilog' },
-]
+const LANGUAGES = LANGUAGE_OPTIONS
 
 export function ProblemDetail() {
-  const {
-    activeProblem,
-    submitResult,
-    submitting,
-    submit,
-    selectedLanguage,
-    setSelectedLanguage,
-    listCollapsed,
-    setListCollapsed,
-    aiPanelOpen,
-    setAIPanelOpen,
-  } = useProblemStore()
+  const activeProblem = useProblemStore((s) => s.activeProblem)
+  const submitResult = useProblemStore((s) => s.submitResult)
+  const submitting = useProblemStore((s) => s.submitting)
+  const submit = useProblemStore((s) => s.submit)
+  const selectedLanguage = useProblemStore((s) => s.selectedLanguage)
+  const setSelectedLanguage = useProblemStore((s) => s.setSelectedLanguage)
+  const listCollapsed = useProblemStore((s) => s.listCollapsed)
+  const setListCollapsed = useProblemStore((s) => s.setListCollapsed)
+  const aiPanelOpen = useProblemStore((s) => s.aiPanelOpen)
+  const setAIPanelOpen = useProblemStore((s) => s.setAIPanelOpen)
   const monacoTheme = useMonacoTheme()
   const [code, setCode] = useState('')
   const [runOutput, setRunOutput] = useState<{ stdout: string; stderr: string } | null>(null)
@@ -47,7 +39,7 @@ export function ProblemDetail() {
       return
     }
 
-    const starterCode = JSON.parse(activeProblem.starter_code) as Record<string, string>
+    const starterCode = parseJsonSafe<Record<string, string>>(activeProblem.starter_code, {})
     const languages = parseJsonArray(activeProblem.languages)
     if (languages.length > 0 && !languages.includes(selectedLanguage)) {
       setSelectedLanguage(languages[0])
@@ -57,7 +49,15 @@ export function ProblemDetail() {
       starterCode[selectedLanguage] || starterCode.python || Object.values(starterCode)[0] || ''
     setCode(fallbackCode)
     setRunOutput(null)
-  }, [activeProblem?.id, selectedLanguage])
+  }, [activeProblem, selectedLanguage, setSelectedLanguage])
+
+  const cleanupRef = useRef<(() => void) | null>(null)
+
+  useEffect(() => {
+    return () => {
+      cleanupRef.current?.()
+    }
+  }, [])
 
   const handleDrag = (event: React.MouseEvent) => {
     event.preventDefault()
@@ -74,8 +74,10 @@ export function ProblemDetail() {
     const onUp = () => {
       document.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseup', onUp)
+      cleanupRef.current = null
     }
 
+    cleanupRef.current = onUp
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
   }
@@ -108,12 +110,11 @@ export function ProblemDetail() {
     )
   }
 
-  const examples = JSON.parse(activeProblem.examples) as Array<{
-    input: string
-    output: string
-    explanation?: string
-  }>
-  const tags = JSON.parse(activeProblem.tags) as string[]
+  const examples = parseJsonSafe<Array<{ input: string; output: string; explanation?: string }>>(
+    activeProblem.examples,
+    [],
+  )
+  const tags = parseJsonSafe<string[]>(activeProblem.tags, [])
   const tracks = parseJsonArray(activeProblem.tracks)
   const availableLanguages = parseJsonArray(activeProblem.languages)
   const isOJMode = (activeProblem.mode ?? 'oj') === 'oj'
@@ -166,9 +167,10 @@ export function ProblemDetail() {
         {listCollapsed && (
           <button
             onClick={() => setListCollapsed(false)}
-            className="ui-btn-ghost flex h-9 w-9 items-center justify-center"
+            aria-label="展开题目列表"
+            className="ui-btn-ghost flex h-9 w-9 items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
           >
-            <ChevronsRight size={16} />
+            <ChevronsRight size={16} aria-hidden="true" />
           </button>
         )}
 
@@ -192,6 +194,7 @@ export function ProblemDetail() {
           <select
             value={selectedLanguage}
             onChange={(event) => setSelectedLanguage(event.target.value)}
+            aria-label="选择编程语言"
             className="ui-select w-32 px-3 py-2 text-sm"
             disabled={!isOJMode}
           >
@@ -206,24 +209,28 @@ export function ProblemDetail() {
           <button
             onClick={handleRun}
             disabled={running || !isOJMode}
-            className="ui-btn-secondary flex items-center gap-1.5 px-3 py-2 text-sm"
+            aria-label="运行代码"
+            className="ui-btn-secondary flex items-center gap-1.5 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]"
           >
-            <Play size={13} />
+            <Play size={13} aria-hidden="true" />
             运行
           </button>
           <button
             onClick={handleSubmit}
             disabled={submitting || !isOJMode}
-            className="ui-btn-success flex items-center gap-1.5 px-3 py-2 text-sm"
+            aria-label="提交代码"
+            className="ui-btn-success flex items-center gap-1.5 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] focus-visible:ring-offset-2"
           >
-            <Send size={13} />
+            <Send size={13} aria-hidden="true" />
             提交
           </button>
           <button
             onClick={() => setAIPanelOpen(!aiPanelOpen)}
-            className={`flex items-center gap-1.5 px-3 py-2 text-sm ${aiPanelOpen ? 'ui-btn-accent' : 'ui-btn-secondary'}`}
+            aria-pressed={aiPanelOpen}
+            aria-label={aiPanelOpen ? '关闭 AI 侧边栏' : '打开 AI 侧边栏'}
+            className={`flex items-center gap-1.5 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] ${aiPanelOpen ? 'ui-btn-accent' : 'ui-btn-secondary'}`}
           >
-            <Bot size={13} />
+            <Bot size={13} aria-hidden="true" />
             AI
           </button>
         </div>
@@ -325,7 +332,12 @@ export function ProblemDetail() {
               }}
             />
           </div>
-          <div className="ui-card h-40 shrink-0 overflow-auto rounded-t-none border-b-0 border-x-0 border-t p-3 text-xs">
+          <div
+            className="ui-card h-40 shrink-0 overflow-auto rounded-t-none border-b-0 border-x-0 border-t p-3 text-xs"
+            role="log"
+            aria-label="运行输出"
+            aria-live="polite"
+          >
             {running && (
               <span className="animate-pulse text-[var(--theme-warning)]">运行中...</span>
             )}

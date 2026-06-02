@@ -97,4 +97,6 @@ export const MODULE_LABELS: Record<string, string> = {
   mistakes: '错题本',
   knowledge: '知识库',
   settings: '设置',
+  stats: '统计面板',
+  search: '全局搜索',
 }

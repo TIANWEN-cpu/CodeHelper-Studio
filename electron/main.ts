@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, Menu, ipcMain } from 'electron'
+import { app, BrowserWindow, shell, Menu } from 'electron'
 import { join } from 'path'
 import { readFileSync } from 'fs'
 import { registerRunnerIPC } from './ipc/runner'
@@ -8,6 +8,20 @@ import { registerProblemsIPC } from './ipc/problems'
 import { registerMistakesIPC } from './ipc/mistakes'
 import { registerRAGIPC } from './ipc/rag'
 import { registerChatIPC } from './ipc/chat'
+import { logIpcStatsSummary, getIpcStats } from './utils/perfMonitor'
+import { registerIpcHandler, rateLimitMiddleware } from './utils/middleware'
+
+// ---------------------------------------------------------------------------
+// Global error handlers — prevent silent crashes in the main process
+// ---------------------------------------------------------------------------
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[main] Unhandled promise rejection:', reason)
+})
+
+process.on('uncaughtException', (error) => {
+  console.error('[main] Uncaught exception:', error)
+})
 
 const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-8')) as {
   repository?: { url?: string }
@@ -15,7 +29,7 @@ const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-
 const REPO_URL =
   pkg.repository?.url?.replace(/\.git$/, '') ?? 'https://github.com/TIANWEN-cpu/CodeHelper'
 
-function setupApplicationMenu() {
+function setupApplicationMenu(): void {
   const template: Electron.MenuItemConstructorOptions[] = [
     {
       label: '文件',
@@ -173,20 +187,45 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   setupApplicationMenu()
-  ipcMain.handle('open-external', (_event, url: string) => {
-    if (typeof url !== 'string' || !url.trim()) throw new Error('参数无效: url')
-    url = url.trim().slice(0, 2000)
-    const parsed = new URL(url)
-    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('仅支持 http/https 链接')
-    return shell.openExternal(url)
-  })
-  registerRunnerIPC()
+
+  // Register high-risk IPC with middleware stack
+  registerIpcHandler(
+    'open-external',
+    (_event, url: unknown) => {
+      if (typeof url !== 'string' || !url.trim()) throw new Error('参数无效: url')
+      url = url.trim().slice(0, 2000)
+      const parsed = new URL(url as string)
+      if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('仅支持 http/https 链接')
+      return shell.openExternal(url as string)
+    },
+    [rateLimitMiddleware({ maxCalls: 20, windowMs: 10_000 })],
+  )
+
+  // Critical IPC: needed for initial render (theme, problem list)
   registerDatabaseIPC()
-  registerAIIPC()
   registerProblemsIPC()
-  registerMistakesIPC()
-  registerRAGIPC()
-  registerChatIPC()
+  registerRunnerIPC()
+  registerAIIPC()
+
+  // Defer non-critical IPC registrations until after the window is created
+  // This reduces the time to first paint
+  setImmediate(() => {
+    registerMistakesIPC()
+    registerChatIPC()
+    registerRAGIPC()
+  })
+
+  // Periodic performance stats logging (every 5 minutes)
+  setInterval(
+    () => {
+      logIpcStatsSummary()
+    },
+    5 * 60 * 1000,
+  )
+
+  // IPC stats endpoint for renderer diagnostics (with middleware)
+  registerIpcHandler('perf-get-ipc-stats', () => getIpcStats())
+
   createWindow()
 
   app.on('activate', () => {

@@ -15,7 +15,12 @@ interface UseAIStreamOptions {
   autoScroll?: boolean
 }
 
-export function useAIStream(options: UseAIStreamOptions = {}) {
+export interface UseAIStreamReturn {
+  scrollRef: React.RefObject<HTMLDivElement | null>
+  scrollToBottom: () => void
+}
+
+export function useAIStream(options: UseAIStreamOptions = {}): UseAIStreamReturn {
   const { autoScroll = true } = options
   const appendChunk = useChatStore((s) => s.appendChunk)
   const finishStream = useChatStore((s) => s.finishStream)
