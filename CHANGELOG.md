@@ -4,6 +4,82 @@
 
 ---
 
+## [1.1.0] - 2026-06-02
+
+基于 v1.0.0 发布后的多轮成熟度冲刺（Sprint 4-8），全面提升功能、架构、性能与安全。
+
+### 新功能
+
+- **命令面板 (Command Palette)** -- 全局快捷键 Ctrl+P 调出，支持分类过滤标签页与代码片段命令（Sprint 6）
+- **高级架构模块** -- 事件系统、中间件模式、服务层抽象、插件架构、依赖注入（Sprint 8）
+- **错误处理体系** -- 全局 ErrorToast 组件、各路由 ErrorBoundary、结构化错误处理工具 `errorHandler.ts`（Sprint 8）
+- **全局搜索 (Global Search)** -- 跨模块全文检索，支持结果高亮与搜索历史
+- **统计仪表板 (Stats Dashboard)** -- 学习数据分析可视化，支持目标设定与导出
+- **代码片段管理 (Code Snippets)** -- 用户自定义代码片段的增删改查
+- **标签页持久化 (Tab Persistence)** -- 编辑器标签页状态跨会话保存
+- **分屏编辑器 (Split Editor)** -- 支持代码双栏对比编辑
+- **终端面板集成 (Terminal Panel)** -- 内嵌终端，直接在应用内执行命令
+- **Minimap 开关** -- 编辑器 Minimap 可视化控制
+
+### 改进
+
+- **类型安全增强** -- 消除所有 `any` 类型逃逸，定义 `AIConfigRow` / `AIConfig` 等接口类型；typed IPC 层
+- **纯函数提取** -- `codeRunner`、`rag`、`problems`、`textUtils` 等核心模块提取至 `electron/utils/`
+- **共享标签映射** -- 提取 `src/utils/labels.ts` 统一管理标签显示逻辑
+- **性能优化** -- React 渲染优化（memo / useMemo / useCallback）、Monaco Editor 懒加载与 Worker 优化、Store 粒度化选择器、IPC 去重与分页、Bundle 代码分割
+- **数据层优化** -- 数据库 PRAGMA 调优与 ANALYZE、LRU 缓存、Dashboard 查询批处理、内容搜索索引
+- **启动优化** -- Layout 视图懒加载、启动服务耗时插桩
+- **内存优化** -- 会话清理、聊天历史裁剪、内存监控模块
+- **删除确认** -- 操作删除前增加 `window.confirm` 确认对话框
+- **版本号动态注入** -- 通过 `__APP_VERSION__` 消除硬编码
+- **命令面板增强** -- 更多命令支持、分类过滤、片段管理集成
+
+### 安全修复
+
+- **安全加固审计** -- 完整的安全审计与修复（Sprint 7 审计报告）
+- **Chromium 渲染沙箱** -- `contextIsolation` + `nodeIntegration: false`
+- **API 密钥加密** -- 使用 Electron `safeStorage` API 加密存储
+- **CSP 头部** -- 严格的 Content-Security-Policy 防止 XSS
+- **代码执行限制** -- 超时控制、输出大小限制、并发数限制
+- **命令注入防护** -- 移除所有 `shell: true` 调用
+- **IPC 校验** -- 参数类型检查与协议白名单
+- **Electron Fuses** -- 启用安全熔丝保护
+
+### Bug 修复
+
+- 修复 CI 环境中 `npm ci` 需要 `--ignore-scripts` 的兼容性问题
+- 修复 SQL 转义引号解析 bug（`sqlUtils.ts`）
+- 修复 Sprint 5 集成中的 ESLint 警告
+- 修复 `codeRunner.ts` 跨平台命令解析
+
+### 文档
+
+- 新增 CHANGELOG 与 README badges
+- 新增 CONTRIBUTING.md 贡献指南
+- 新增 Sprint 7 安全审计报告
+- 新增 `docs/` 文档体系：架构、FAQ、术语表、搜索索引、快速开始、API 参考、开发者指南、用户指南、故障排查、平台说明
+- 新增 JSDoc 注释覆盖公共 API
+
+### 测试
+
+- 新增 `codeRunner.ts` 30 个测试用例（100% 行覆盖）
+- 新增 `chatHelpers` 与 `dbSchema` 测试（+95 个用例）
+- Vitest 单元测试框架集成，覆盖核心纯函数模块
+- 覆盖率阈值门禁（coverage thresholds）
+- Pre-commit hooks 集成
+
+### 工程改进
+
+- ESLint flat config + Prettier 代码规范
+- GitHub Actions CI 工作流（lint、format check、typecheck、test）
+- Dependabot 自动合并工作流
+- PR 检查工作流
+- React ErrorBoundary 全局错误捕获
+- 知识库搜索优化为 SQL 查询，避免全量加载
+- 延迟同步题目数据，避免阻塞主线程
+
+---
+
 ## [1.0.0] - 2026-06-02
 
 CodeHelper 首个正式版本发布。基于 Electron + React + TypeScript 构建的 AI 驱动桌面编程助手。
