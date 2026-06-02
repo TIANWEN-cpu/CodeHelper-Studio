@@ -1,11 +1,13 @@
 /**
- * CommandPalette — enhanced Ctrl+Shift+P command palette.
+ * CommandPalette -- enhanced Ctrl+Shift+P command palette.
  *
  * Features:
  * - Fuzzy search through available commands
  * - Keyboard navigation (up/down/enter/escape)
  * - Recent commands section (persisted to localStorage)
- * - Command categories
+ * - Category filter tabs (press 1-6 or click to filter)
+ * - Command count and rich descriptions
+ * - Snippet management commands
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
@@ -18,6 +20,8 @@ import {
   Code,
   Settings as SettingsIcon,
   BarChart3,
+  Puzzle,
+  Filter,
 } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
 import { useChatStore } from '../stores/chatStore'
@@ -30,20 +34,25 @@ import type { LucideIcon } from 'lucide-react'
 interface Command {
   id: string
   label: string
+  description?: string
   category: CommandCategory
   shortcut?: string
   keywords?: string[]
   action: () => void
 }
 
-type CommandCategory = 'navigation' | 'editor' | 'ai' | 'view' | 'tools'
+type CommandCategory = 'navigation' | 'editor' | 'ai' | 'view' | 'tools' | 'snippets'
 
-const CATEGORY_META: Record<CommandCategory, { label: string; icon: LucideIcon }> = {
-  navigation: { label: '导航', icon: Navigation },
-  editor: { label: '编辑器', icon: Code },
-  ai: { label: 'AI 助手', icon: Zap },
-  view: { label: '视图', icon: SettingsIcon },
-  tools: { label: '工具', icon: BarChart3 },
+const CATEGORY_META: Record<
+  CommandCategory,
+  { label: string; icon: LucideIcon; shortcut: string }
+> = {
+  navigation: { label: '导航', icon: Navigation, shortcut: '1' },
+  editor: { label: '编辑器', icon: Code, shortcut: '2' },
+  ai: { label: 'AI 助手', icon: Zap, shortcut: '3' },
+  view: { label: '视图', icon: SettingsIcon, shortcut: '4' },
+  tools: { label: '工具', icon: BarChart3, shortcut: '5' },
+  snippets: { label: '代码片段', icon: Puzzle, shortcut: '6' },
 }
 
 const RECENT_COMMANDS_KEY = 'codehelper-recent-commands'
@@ -124,6 +133,7 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const [activeCategory, setActiveCategory] = useState<CommandCategory | 'all'>('all')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const setActiveModule = useAppStore((s) => s.setActiveModule)
@@ -136,6 +146,7 @@ export function CommandPalette() {
       {
         id: 'nav-problems',
         label: '切换到：刷题',
+        description: '打开题目列表和代码编辑器',
         category: 'navigation',
         keywords: ['problems', '题目', '刷题'],
         action: () => setActiveModule('problems'),
@@ -143,6 +154,7 @@ export function CommandPalette() {
       {
         id: 'nav-editor',
         label: '切换到：编辑器',
+        description: '打开独立的代码编辑器',
         category: 'navigation',
         keywords: ['editor', '代码', '编辑器'],
         action: () => setActiveModule('editor'),
@@ -150,6 +162,7 @@ export function CommandPalette() {
       {
         id: 'nav-chat',
         label: '切换到：AI 助手',
+        description: '与 AI 进行编程对话',
         category: 'navigation',
         keywords: ['chat', '对话', 'ai'],
         action: () => setActiveModule('ai-chat'),
@@ -157,6 +170,7 @@ export function CommandPalette() {
       {
         id: 'nav-mistakes',
         label: '切换到：错题本',
+        description: '查看和复习做错的题目',
         category: 'navigation',
         keywords: ['mistakes', '错题'],
         action: () => setActiveModule('mistakes'),
@@ -164,6 +178,7 @@ export function CommandPalette() {
       {
         id: 'nav-knowledge',
         label: '切换到：知识库',
+        description: '浏览知识库文档',
         category: 'navigation',
         keywords: ['knowledge', '知识', '文档'],
         action: () => setActiveModule('knowledge'),
@@ -171,6 +186,7 @@ export function CommandPalette() {
       {
         id: 'nav-settings',
         label: '切换到：设置',
+        description: '配置 AI、主题和其他选项',
         category: 'navigation',
         keywords: ['settings', '配置', '设置'],
         action: () => setActiveModule('settings'),
@@ -178,6 +194,7 @@ export function CommandPalette() {
       {
         id: 'nav-stats',
         label: '切换到：统计面板',
+        description: '查看学习进度和编码数据',
         category: 'navigation',
         keywords: ['stats', 'statistics', '统计', '数据'],
         action: () => setActiveModule('stats'),
@@ -185,6 +202,7 @@ export function CommandPalette() {
       {
         id: 'nav-search',
         label: '切换到：全局搜索',
+        description: '搜索题目、知识库和编辑器内容',
         category: 'navigation',
         keywords: ['search', '搜索', '查找'],
         action: () => setActiveModule('search'),
@@ -194,6 +212,7 @@ export function CommandPalette() {
       {
         id: 'new-chat',
         label: '新建 AI 对话',
+        description: '创建一个新的 AI 对话会话',
         category: 'ai',
         shortcut: 'Ctrl+N',
         keywords: ['chat', '新建', '对话'],
@@ -207,6 +226,7 @@ export function CommandPalette() {
       {
         id: 'run-code',
         label: '运行代码',
+        description: '执行当前编辑器中的代码',
         category: 'editor',
         shortcut: 'Ctrl+Enter',
         keywords: ['run', '执行', '运行'],
@@ -215,6 +235,7 @@ export function CommandPalette() {
       {
         id: 'new-file',
         label: '新建文件',
+        description: '在编辑器中创建新文件',
         category: 'editor',
         shortcut: 'Ctrl+N',
         keywords: ['new', 'file', '新建', '文件'],
@@ -223,6 +244,7 @@ export function CommandPalette() {
       {
         id: 'toggle-minimap',
         label: '切换 Minimap',
+        description: '显示或隐藏编辑器小地图',
         category: 'editor',
         keywords: ['minimap', '小地图'],
         action: () => window.dispatchEvent(new CustomEvent('codehelper:toggle-minimap')),
@@ -230,6 +252,7 @@ export function CommandPalette() {
       {
         id: 'toggle-split',
         label: '切换分屏编辑',
+        description: '启用或禁用并排编辑模式',
         category: 'editor',
         keywords: ['split', '分屏', '并排'],
         action: () => window.dispatchEvent(new CustomEvent('codehelper:toggle-split')),
@@ -237,6 +260,7 @@ export function CommandPalette() {
       {
         id: 'toggle-terminal',
         label: '切换终端面板',
+        description: '显示或隐藏集成终端',
         category: 'editor',
         keywords: ['terminal', '终端', '控制台'],
         action: () => window.dispatchEvent(new CustomEvent('codehelper:toggle-terminal')),
@@ -244,15 +268,25 @@ export function CommandPalette() {
       {
         id: 'insert-snippet',
         label: '插入代码片段...',
+        description: '从代码片段库中选择并插入',
         category: 'editor',
         keywords: ['snippet', '片段', '模板', '代码片段'],
         action: () => window.dispatchEvent(new CustomEvent('codehelper:show-snippets')),
+      },
+      {
+        id: 'format-code',
+        label: '格式化代码',
+        description: '自动格式化当前文件',
+        category: 'editor',
+        keywords: ['format', '格式化', '美化'],
+        action: () => window.dispatchEvent(new CustomEvent('codehelper:format-code')),
       },
 
       // View
       {
         id: 'toggle-sidebar',
         label: '切换侧栏显示',
+        description: '显示或隐藏左侧导航栏',
         category: 'view',
         keywords: ['sidebar', '侧栏'],
         action: toggleSidebar,
@@ -260,19 +294,156 @@ export function CommandPalette() {
       {
         id: 'global-search',
         label: '全局搜索',
+        description: '搜索题目、知识库和编辑器内容',
         category: 'view',
         shortcut: 'Ctrl+Shift+F',
         keywords: ['search', 'find', '搜索', '查找'],
         action: () => window.dispatchEvent(new CustomEvent('codehelper:global-search')),
+      },
+      {
+        id: 'focus-problem-list',
+        label: '聚焦题目列表',
+        description: '展开并聚焦到题目列表',
+        category: 'view',
+        keywords: ['focus', '聚焦', '题目列表'],
+        action: () => window.dispatchEvent(new CustomEvent('codehelper:focus-problems')),
       },
 
       // Tools
       {
         id: 'show-stats',
         label: '查看统计数据',
+        description: '打开统计面板查看学习进度',
         category: 'tools',
         keywords: ['stats', 'statistics', '统计', '数据'],
         action: () => setActiveModule('stats'),
+      },
+      {
+        id: 'manage-snippets',
+        label: '管理代码片段',
+        description: '创建、编辑或删除自定义代码片段',
+        category: 'tools',
+        keywords: ['snippet', 'manage', '片段', '管理'],
+        action: () => window.dispatchEvent(new CustomEvent('codehelper:manage-snippets')),
+      },
+
+      // Snippets
+      {
+        id: 'snippet-py-main',
+        label: 'Python: Main Entry',
+        description: 'if __name__ == "__main__": ...',
+        category: 'snippets',
+        keywords: ['python', 'main', '入口'],
+        action: () =>
+          window.dispatchEvent(
+            new CustomEvent('codehelper:insert-named-snippet', {
+              detail: { prefix: 'main', language: 'python' },
+            }),
+          ),
+      },
+      {
+        id: 'snippet-py-def',
+        label: 'Python: Function',
+        description: 'def name(params): ...',
+        category: 'snippets',
+        keywords: ['python', 'def', 'function', '函数'],
+        action: () =>
+          window.dispatchEvent(
+            new CustomEvent('codehelper:insert-named-snippet', {
+              detail: { prefix: 'def', language: 'python' },
+            }),
+          ),
+      },
+      {
+        id: 'snippet-py-class',
+        label: 'Python: Class',
+        description: 'class Name: ...',
+        category: 'snippets',
+        keywords: ['python', 'class', '类'],
+        action: () =>
+          window.dispatchEvent(
+            new CustomEvent('codehelper:insert-named-snippet', {
+              detail: { prefix: 'cls', language: 'python' },
+            }),
+          ),
+      },
+      {
+        id: 'snippet-py-try',
+        label: 'Python: Try/Except',
+        description: 'try: ... except: ...',
+        category: 'snippets',
+        keywords: ['python', 'try', 'except', '异常'],
+        action: () =>
+          window.dispatchEvent(
+            new CustomEvent('codehelper:insert-named-snippet', {
+              detail: { prefix: 'try', language: 'python' },
+            }),
+          ),
+      },
+      {
+        id: 'snippet-cpp-main',
+        label: 'C++: Main',
+        description: '#include <iostream> ... int main()',
+        category: 'snippets',
+        keywords: ['cpp', 'c++', 'main'],
+        action: () =>
+          window.dispatchEvent(
+            new CustomEvent('codehelper:insert-named-snippet', {
+              detail: { prefix: 'main', language: 'cpp' },
+            }),
+          ),
+      },
+      {
+        id: 'snippet-cpp-class',
+        label: 'C++: Class',
+        description: 'class Name { public: ... };',
+        category: 'snippets',
+        keywords: ['cpp', 'c++', 'class', '类'],
+        action: () =>
+          window.dispatchEvent(
+            new CustomEvent('codehelper:insert-named-snippet', {
+              detail: { prefix: 'cls', language: 'cpp' },
+            }),
+          ),
+      },
+      {
+        id: 'snippet-java-main',
+        label: 'Java: Main',
+        description: 'public class Main { public static void main }',
+        category: 'snippets',
+        keywords: ['java', 'main'],
+        action: () =>
+          window.dispatchEvent(
+            new CustomEvent('codehelper:insert-named-snippet', {
+              detail: { prefix: 'main', language: 'java' },
+            }),
+          ),
+      },
+      {
+        id: 'snippet-go-main',
+        label: 'Go: Main',
+        description: 'package main ... func main()',
+        category: 'snippets',
+        keywords: ['go', 'main'],
+        action: () =>
+          window.dispatchEvent(
+            new CustomEvent('codehelper:insert-named-snippet', {
+              detail: { prefix: 'main', language: 'go' },
+            }),
+          ),
+      },
+      {
+        id: 'snippet-rust-main',
+        label: 'Rust: Main',
+        description: 'fn main() { ... }',
+        category: 'snippets',
+        keywords: ['rust', 'main'],
+        action: () =>
+          window.dispatchEvent(
+            new CustomEvent('codehelper:insert-named-snippet', {
+              detail: { prefix: 'main', language: 'rust' },
+            }),
+          ),
       },
     ],
     [setActiveModule, toggleSidebar, createSession],
