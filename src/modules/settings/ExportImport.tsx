@@ -50,7 +50,7 @@ export function ExportImport() {
 
   const loadCounts = useCallback(async () => {
     try {
-      const data = await typedInvoke('export-get-counts' as never)
+      const data = await typedInvoke('export-get-counts')
       setCounts(data as Record<string, number>)
     } catch (err) {
       console.error('[ExportImport.loadCounts]', err)
@@ -89,7 +89,7 @@ export function ExportImport() {
 
     setExporting(true)
     try {
-      const result = (await typedInvoke('export-data' as never, [...selected])) as {
+      const result = (await typedInvoke('export-data', [...selected])) as {
         success: boolean
         filePath?: string
         error?: string
@@ -111,7 +111,7 @@ export function ExportImport() {
     setImporting(true)
     setImportResult(null)
     try {
-      const result = (await typedInvoke('import-data' as never, {
+      const result = (await typedInvoke('import-data', {
         conflictResolution,
         selectedData: [...selected],
       })) as ImportResult

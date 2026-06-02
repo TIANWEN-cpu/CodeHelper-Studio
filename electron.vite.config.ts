@@ -7,17 +7,18 @@ import tailwindcss from '@tailwindcss/vite'
 const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8'))
 
 // Bundle analysis — enabled via `npm run build:analyze`
-function resolveVisualizerPlugin() {
+async function resolveVisualizerPlugin(): Promise<never[]> {
   const shouldAnalyze = process.env.ANALYZE === '1' || process.env.ANALYZE === 'true'
   if (!shouldAnalyze) return []
-  return import('rollup-plugin-visualizer').then((mod) =>
+  const mod = await import('rollup-plugin-visualizer')
+  return [
     mod.visualizer({
       filename: resolve(__dirname, 'dist/bundle-stats.html'),
       open: true,
       gzipSize: true,
       brotliSize: true,
     }),
-  )
+  ]
 }
 
 export default defineConfig(async () => {
