@@ -19,7 +19,9 @@ const mockDBInstance = {
 }
 
 vi.mock('better-sqlite3', () => ({
-  default: vi.fn(() => mockDBInstance),
+  default: function MockDatabase() {
+    return mockDBInstance
+  },
 }))
 
 // Mock fs

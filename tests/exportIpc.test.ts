@@ -203,7 +203,8 @@ describe('export IPC', () => {
     })
 
     it('rejects non-existent file', async () => {
-      existsSpy.mockReturnValueOnce(false)
+      // First existsSync call is directory check (passes), second is file check (fails)
+      existsSpy.mockReturnValueOnce(true).mockReturnValueOnce(false)
       const result = await handlers['import-data-from-path'](null, '/tmp/nonexistent.json')
       expect(result.success).toBe(false)
       expect(result.errors).toContain('文件不存在')
