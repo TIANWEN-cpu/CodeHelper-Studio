@@ -8,7 +8,7 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     coverage: {
       provider: 'v8',
-      include: ['src/utils/**/*.ts', 'electron/utils/**/*.ts'],
+      include: ['src/utils/**/*.ts', 'electron/utils/**/*.ts', 'electron/db/**/*.ts', 'electron/ipc/**/*.ts'],
     },
   },
   resolve: {
