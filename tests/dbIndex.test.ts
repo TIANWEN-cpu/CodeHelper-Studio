@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import * as fs from 'fs'
 
 // Set process.resourcesPath before any imports
 process.resourcesPath = '/tmp/test-resources'
@@ -18,11 +19,16 @@ const mockDBInstance = {
   close: vi.fn(),
 }
 
-vi.mock('better-sqlite3', () => ({
-  default: function MockDatabase() {
-    return mockDBInstance
-  },
-}))
+vi.mock('better-sqlite3', () => {
+  return {
+    __esModule: true,
+    default: class MockDatabase {
+      constructor() {
+        return mockDBInstance
+      }
+    },
+  }
+})
 
 // Mock fs
 vi.mock('fs', async () => {
@@ -34,18 +40,19 @@ vi.mock('fs', async () => {
   }
 })
 
+import { getDB, closeDB, __resetDBForTesting } from '../electron/db/index'
+
 describe('electron/db/index', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // Reset the module to clear the singleton db
-    vi.resetModules()
+    // Reset the singleton without re-importing the module
+    __resetDBForTesting()
   })
 
-  it('getDB creates database with WAL mode and foreign keys', async () => {
-    const fs = await import('fs')
-    ;(fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false)
+  it('getDB creates database with WAL mode and foreign keys', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(false)
 
-    // Mock PRAGMA table_info to return columns
+    // Mock PRAGMA table_info to return all columns
     mockDBInstance.prepare.mockReturnValue({
       all: vi.fn(() => [
         { name: 'id' },
@@ -62,7 +69,6 @@ describe('electron/db/index', () => {
       run: vi.fn(),
     })
 
-    const { getDB } = await import('../electron/db/index')
     const db = getDB()
 
     expect(db).toBe(mockDBInstance)
@@ -70,68 +76,56 @@ describe('electron/db/index', () => {
     expect(mockDBInstance.pragma).toHaveBeenCalledWith('foreign_keys = ON')
   })
 
-  it('getDB returns same instance on subsequent calls (singleton)', async () => {
-    const fs = await import('fs')
-    ;(fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false)
+  it('getDB returns same instance on subsequent calls (singleton)', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(false)
     mockDBInstance.prepare.mockReturnValue({
       all: vi.fn(() => [{ name: 'id' }]),
       get: vi.fn(),
       run: vi.fn(),
     })
 
-    const { getDB } = await import('../electron/db/index')
     const db1 = getDB()
     const db2 = getDB()
 
     expect(db1).toBe(db2)
   })
 
-  it('getDB loads schema from first existing path', async () => {
-    const fs = await import('fs')
-    ;(fs.existsSync as ReturnType<typeof vi.fn>).mockImplementation((p: string) =>
-      p.includes('schema.sql'),
-    )
-    ;(fs.readFileSync as ReturnType<typeof vi.fn>).mockReturnValue(
-      'CREATE TABLE test (id INTEGER);',
-    )
+  it('getDB loads schema from first existing path', () => {
+    vi.mocked(fs.existsSync).mockImplementation((p: string) => p.includes('schema.sql'))
+    vi.mocked(fs.readFileSync).mockReturnValue('CREATE TABLE test (id INTEGER);')
     mockDBInstance.prepare.mockReturnValue({
       all: vi.fn(() => [{ name: 'id' }]),
       get: vi.fn(),
       run: vi.fn(),
     })
 
-    const { getDB } = await import('../electron/db/index')
     getDB()
 
     expect(fs.readFileSync).toHaveBeenCalled()
     expect(mockDBInstance.exec).toHaveBeenCalledWith('CREATE TABLE test (id INTEGER);')
   })
 
-  it('closeDB closes database and resets singleton', async () => {
-    const fs = await import('fs')
-    ;(fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false)
+  it('closeDB closes database and resets singleton', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(false)
     mockDBInstance.prepare.mockReturnValue({
       all: vi.fn(() => [{ name: 'id' }]),
       get: vi.fn(),
       run: vi.fn(),
     })
 
-    const { getDB, closeDB } = await import('../electron/db/index')
     getDB()
     closeDB()
 
     expect(mockDBInstance.close).toHaveBeenCalled()
   })
 
-  it('closeDB does nothing when db is null', async () => {
-    const { closeDB } = await import('../electron/db/index')
+  it('closeDB does nothing when db is null', () => {
     closeDB()
     // Should not throw
   })
 
-  it('ensureSchemaColumns adds missing columns', async () => {
-    const fs = await import('fs')
-    ;(fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false)
+  it('ensureSchemaColumns adds missing columns', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(false)
 
     // First call: only has 'id' column
     const allFn = vi.fn(() => [{ name: 'id' }])
@@ -143,7 +137,6 @@ describe('electron/db/index', () => {
     })
     mockDBInstance.exec = execFn
 
-    const { getDB } = await import('../electron/db/index')
     getDB()
 
     // Should have called exec to add missing columns
@@ -155,9 +148,8 @@ describe('electron/db/index', () => {
     expect(addedColumns).toBe(true)
   })
 
-  it('ensureSchemaColumns skips existing columns', async () => {
-    const fs = await import('fs')
-    ;(fs.existsSync as ReturnType<typeof vi.fn>).mockReturnValue(false)
+  it('ensureSchemaColumns skips existing columns', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(false)
 
     // All columns already exist
     const allColumns = [
@@ -188,7 +180,6 @@ describe('electron/db/index', () => {
     const execFn = vi.fn()
     mockDBInstance.exec = execFn
 
-    const { getDB } = await import('../electron/db/index')
     getDB()
 
     // Should NOT have called exec for ALTER TABLE

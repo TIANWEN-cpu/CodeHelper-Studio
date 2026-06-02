@@ -33,23 +33,20 @@ vi.mock('child_process', () => ({
   execFileSync: vi.fn(),
 }))
 
-vi.mock('better-sqlite3', () => ({
-  default: function MockDatabase() {
-    return {
-      exec: function mockExec() {
-        if (mockState.execError) throw new Error(mockState.execError)
-      },
-      prepare: function mockPrepare() {
-        return {
-          all: function mockAll() {
-            return mockState.queryResults
-          },
-        }
-      },
-      close: function mockClose() {},
+vi.mock('better-sqlite3', () => {
+  class MockDatabase {
+    exec() {
+      if (mockState.execError) throw new Error(mockState.execError)
     }
-  },
-}))
+    prepare() {
+      return {
+        all: () => mockState.queryResults,
+      }
+    }
+    close() {}
+  }
+  return { __esModule: true, default: MockDatabase }
+})
 
 // ─────────────────────────────────────────────
 // Imports (after mocks)

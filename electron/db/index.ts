@@ -5,6 +5,14 @@ import { readFileSync, existsSync } from 'fs'
 
 let db: Database.Database | null = null
 
+/** Reset singleton for testing. */
+export function __resetDBForTesting() {
+  if (db) {
+    db.close()
+  }
+  db = null
+}
+
 export function getDB(): Database.Database {
   if (!db) {
     const dbPath = join(app.getPath('userData'), 'codehelper.db')
