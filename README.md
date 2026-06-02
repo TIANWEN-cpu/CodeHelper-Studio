@@ -271,7 +271,7 @@ npm run build:win      # 打包 Windows 安装包
 
 | 文件                                       | 说明        |
 | :----------------------------------------- | :---------- |
-| `dist-release/CodeHelper Setup 1.0.0.exe`  | NSIS 安装包 |
+| `dist-release/CodeHelper Setup 1.1.0.exe`  | NSIS 安装包 |
 | `dist-release/win-unpacked/CodeHelper.exe` | 免安装版    |
 
 ---
@@ -282,7 +282,7 @@ npm run build:win      # 打包 Windows 安装包
 | :--------- | :-------------------------- |
 | 桌面框架   | Electron 41                 |
 | 前端框架   | React 19 + TypeScript 6     |
-| 构建工具   | Vite 8 + electron-vite      |
+| 构建工具   | Vite 7 + electron-vite 5    |
 | 状态管理   | Zustand 5                   |
 | 代码编辑器 | Monaco Editor 0.55          |
 | 样式方案   | TailwindCSS 4               |

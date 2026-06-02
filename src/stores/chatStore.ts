@@ -8,10 +8,10 @@ import type {
   StreamDonePayload,
 } from '../types/chat'
 import { SESSION_TITLE_MAX_LENGTH } from '../constants'
-import { toErrorMessage } from '../utils/errors'
+import { toErrorMessage, getUserMessage } from '../utils/errors'
 import { typedInvoke, invalidateCache } from '../api/ipc'
 import { eventBus } from '../utils/eventBus'
-import { ragContextService } from '../services/ragContextService'
+import { ragContextService } from '../utils/ragContextService'
 
 // Re-export types so existing consumers are not broken
 export type { Message as ChatMessage, Session as ChatSession, PromptPreset, MemoryItem }
@@ -138,8 +138,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({ activeSessionId: id, messages, error: null, streaming: false, currentRequestId: null })
       eventBus.emit('session:switched', id)
     } catch (error) {
-      const errMsg = toErrorMessage(error)
-      console.error('[ChatStore.switchSession]', errMsg)
+      const errMsg = getUserMessage(error)
+      console.error('[ChatStore.switchSession]', toErrorMessage(error))
       set({ error: errMsg })
     }
   },
@@ -224,7 +224,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         includeMemories: true,
       })
     } catch (error: unknown) {
-      const errMsg = toErrorMessage(error)
+      const errMsg = getUserMessage(error)
+      console.error('[ChatStore.sendMessage]', toErrorMessage(error))
       set((state) => ({
         error: errMsg,
         streaming: false,

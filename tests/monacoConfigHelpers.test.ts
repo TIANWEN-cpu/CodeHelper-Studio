@@ -118,7 +118,7 @@ describe('setMinimapEnabled', () => {
 describe('getDefaultEditorOptions', () => {
   it('returns an object with expected editor options', () => {
     const opts = getDefaultEditorOptions()
-    expect(opts).toBeDefined()
+    expect(opts).toBeDefined() // returns editor options object
     expect(opts.fontSize).toBe(14)
     expect(opts.fontFamily).toContain('JetBrains Mono')
     expect(opts.tabSize).toBe(2)
@@ -131,7 +131,7 @@ describe('getDefaultEditorOptions', () => {
 
   it('includes minimap configuration', () => {
     const opts = getDefaultEditorOptions()
-    expect(opts.minimap).toBeDefined()
+    expect(opts.minimap).toBeDefined() // minimap config is included
     expect(typeof opts.minimap?.enabled).toBe('boolean')
   })
 

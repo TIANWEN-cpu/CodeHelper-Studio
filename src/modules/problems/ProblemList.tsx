@@ -433,6 +433,7 @@ export function ProblemList() {
         {loadError && !loading && (
           <div className="px-3 py-6 text-center">
             <p className="text-sm text-[var(--theme-danger)]">{loadError}</p>
+            <p className="mt-1 text-xs text-[var(--theme-text-muted)]">请检查网络连接或稍后重试</p>
             <button
               onClick={() => void loadProblems()}
               className="ui-btn-accent mt-3 px-4 py-2 text-xs"

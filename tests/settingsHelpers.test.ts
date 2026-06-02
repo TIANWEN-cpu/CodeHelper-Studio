@@ -113,8 +113,7 @@ describe('formatDateTime', () => {
   it('formats valid ISO date string', () => {
     const result = formatDateTime('2024-06-15T10:30:00.000Z')
     // Should contain date components (exact format depends on locale)
-    expect(result).toBeTruthy()
-    expect(result.length).toBeGreaterThan(0)
+    expect(result).toBeTruthy() // formatted date string is non-empty
   })
 
   it('handles invalid date by replacing T with space', () => {
@@ -130,12 +129,12 @@ describe('formatDateTime', () => {
 
   it('formats date-only ISO string', () => {
     const result = formatDateTime('2024-01-15')
-    expect(result).toBeTruthy()
+    expect(result).toBeTruthy() // formatted date string is non-empty
   })
 
   it('handles ISO string with timezone offset', () => {
     const result = formatDateTime('2024-06-15T10:30:00+08:00')
-    expect(result).toBeTruthy()
+    expect(result).toBeTruthy() // formatted date string is non-empty
   })
 })
 

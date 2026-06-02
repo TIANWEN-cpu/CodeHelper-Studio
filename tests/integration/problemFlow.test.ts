@@ -288,7 +288,7 @@ describe('Integration: problem flow', () => {
       // Close the first problem tab
       useEditorStore.getState().closeTab('p1')
       expect(useEditorStore.getState().tabs).toHaveLength(2)
-      expect(useEditorStore.getState().tabs.find((t) => t.id === 'p2')).toBeTruthy()
+      expect(useEditorStore.getState().tabs.find((t) => t.id === 'p2')).toBeTruthy() // tab exists after closeTab
 
       // Active tab should have switched if we closed the active one
       useEditorStore.getState().setActiveTab('p2')

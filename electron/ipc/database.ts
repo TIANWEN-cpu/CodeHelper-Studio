@@ -4,7 +4,13 @@ import { trackPerformance } from '../utils/perfMonitor'
 import type { AIConfigRow, AIConfigDecrypted } from '../types/db'
 
 function encryptApiKey(apiKey: string): string {
-  if (!safeStorage.isEncryptionAvailable()) return apiKey
+  if (!safeStorage.isEncryptionAvailable()) {
+    console.warn(
+      '[security] safeStorage encryption unavailable — API key will be stored in plaintext. ' +
+        'This may happen on systems without a keychain/credential manager.',
+    )
+    return apiKey
+  }
   return 'enc:' + safeStorage.encryptString(apiKey).toString('base64')
 }
 

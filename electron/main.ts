@@ -256,7 +256,7 @@ function logMemoryUsage(): void {
   const mem = process.memoryUsage()
   const heapMB = (mem.heapUsed / 1024 / 1024).toFixed(1)
   const rssMB = (mem.rss / 1024 / 1024).toFixed(1)
-  console.log(`[memory] Heap: ${heapMB} MB, RSS: ${rssMB} MB`)
+  console.debug(`[memory] Heap: ${heapMB} MB, RSS: ${rssMB} MB`)
   if (mem.heapUsed > 512 * 1024 * 1024) {
     console.warn(`[memory] HIGH MEMORY USAGE ALERT: Heap at ${heapMB} MB`)
   }

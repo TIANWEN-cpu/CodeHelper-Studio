@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { Problem, Submission, ProblemFilters } from '../types/problem'
 import { DEFAULT_LANGUAGE } from '../constants'
-import { toErrorMessage } from '../utils/errors'
+import { toErrorMessage, getUserMessage } from '../utils/errors'
 import { typedInvoke, invalidateCache } from '../api/ipc'
 import { eventBus } from '../utils/eventBus'
 
@@ -53,7 +53,8 @@ export const useProblemStore = create<ProblemState>((set, get) => ({
       const problems = await typedInvoke('problems-list', get().filters)
       set({ problems })
     } catch (error: unknown) {
-      set({ loadError: toErrorMessage(error) })
+      set({ loadError: getUserMessage(error) })
+      console.error('[ProblemStore.loadProblems]', toErrorMessage(error))
     } finally {
       set({ loading: false })
     }

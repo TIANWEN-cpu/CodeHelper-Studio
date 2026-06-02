@@ -43,7 +43,7 @@ function getHeapMB(): number | null {
 function logMemoryUsage(): void {
   const heapMB = getHeapMB()
   if (heapMB !== null) {
-    console.log(`[memory:renderer] Heap: ${heapMB.toFixed(1)} MB`)
+    console.debug(`[memory:renderer] Heap: ${heapMB.toFixed(1)} MB`)
     if (heapMB > ALERT_HEAP_MB) {
       console.warn(
         `[memory:renderer] HIGH MEMORY ALERT: Heap at ${heapMB.toFixed(1)} MB (threshold: ${ALERT_HEAP_MB} MB)`,

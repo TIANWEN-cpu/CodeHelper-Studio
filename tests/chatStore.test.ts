@@ -245,7 +245,7 @@ describe('chatStore', () => {
       expect(state.messages[1].role).toBe('assistant')
       expect(state.messages[1].content).toBe('')
       expect(state.streaming).toBe(true)
-      expect(state.currentRequestId).toBeTruthy()
+      expect(state.currentRequestId).toBeTruthy() // requestId is a runtime-generated UUID
     })
 
     it('auto-renames session with title "新对话', async () => {
@@ -336,7 +336,7 @@ describe('chatStore', () => {
       await useChatStore.getState().sendMessage('Hello')
 
       const aiChatCall = mockInvoke.mock.calls.find((c: unknown[]) => c[0] === 'ai-chat')
-      expect(aiChatCall).toBeTruthy()
+      expect(aiChatCall).toBeTruthy() // dynamically generated call
       const payload = aiChatCall![1] as { messages: Array<{ role: string; content: string }> }
       expect(payload.messages[0]).toEqual({ role: 'system', content: 'You are a tutor' })
     })

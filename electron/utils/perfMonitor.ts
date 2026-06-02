@@ -96,19 +96,9 @@ export function logIpcStatsSummary(): void {
   const entries = Object.entries(stats).sort((a, b) => b[1].calls - a[1].calls)
 
   if (entries.length === 0) {
-    console.log('[perf] No IPC calls recorded yet.')
+    console.warn('[perf] No IPC calls recorded yet.')
     return
   }
 
-  console.log('[perf] IPC Call Statistics:')
-  console.log('  Channel                  | Calls | Avg (ms) | Slow | Last Called')
-  console.log('  -------------------------|-------|----------|------|------------')
-  for (const [channel, s] of entries) {
-    const ch = channel.padEnd(25)
-    const calls = String(s.calls).padStart(5)
-    const avg = s.avgMs.toFixed(1).padStart(8)
-    const slow = String(s.slowCalls).padStart(4)
-    const last = s.lastCalledAt > 0 ? new Date(s.lastCalledAt).toISOString().slice(11, 19) : '-'
-    console.log(`  ${ch} | ${calls} | ${avg} | ${slow} | ${last}`)
-  }
+  console.warn('[perf] IPC Call Statistics: %d channels tracked', entries.length)
 }

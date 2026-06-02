@@ -196,7 +196,7 @@ describe('1. Empty state tests', () => {
     it('loadProblems with loadError cleared on retry', async () => {
       mockInvoke.mockRejectedValueOnce(new Error('db error'))
       await useProblemStore.getState().loadProblems()
-      expect(useProblemStore.getState().loadError).toBeTruthy()
+      expect(useProblemStore.getState().loadError).toBeTruthy() // error message is set on DB failure
 
       mockInvoke.mockResolvedValueOnce([])
       await useProblemStore.getState().loadProblems()
@@ -478,7 +478,7 @@ describe('2. Boundary tests', () => {
     it('JSON parse of large payload', () => {
       const bigObj = { items: Array.from({ length: 10000 }, (_, i) => ({ id: i, val: `v${i}` })) }
       const json = JSON.stringify(bigObj)
-      expect(parseJsonSafe(json, null)).toBeTruthy()
+      expect(parseJsonSafe(json, null)).toBeTruthy() // returns parsed object
       // When given an object directly (not a string), parseJsonSafe returns it as-is
       // Actually parseJsonSafe expects a string, so let's test with the string
       const parsed2 = parseJsonSafe(json, null) as unknown as { items: unknown[] }
@@ -995,7 +995,7 @@ describe('3. Error recovery tests', () => {
       })
 
       expect(data).toBeNull()
-      expect(err).toBeTruthy()
+      expect(err).toBeInstanceOf(Error) // safeAsync wraps thrown values as Error
       expect(err!.message).toContain('ENOENT')
     })
 
@@ -1062,11 +1062,11 @@ describe('3. Error recovery tests', () => {
     })
 
     it('getUserMessage handles various invalid inputs', () => {
-      expect(getUserMessage(null)).toBeTruthy()
-      expect(getUserMessage(undefined)).toBeTruthy()
-      expect(getUserMessage(42)).toBeTruthy()
-      expect(getUserMessage(true)).toBeTruthy()
-      expect(getUserMessage([1, 2, 3])).toBeTruthy()
+      expect(getUserMessage(null)).toBe('发生未知错误，请稍后重试') // 'null' is filtered to fallback
+      expect(getUserMessage(undefined)).toBe('发生未知错误，请稍后重试') // 'undefined' is filtered to fallback
+      expect(getUserMessage(42)).toBe('42') // String(42) returns '42'
+      expect(getUserMessage(true)).toBe('true') // String(true) returns 'true'
+      expect(getUserMessage([1, 2, 3])).toBe('1,2,3') // Array joins to comma-separated string
     })
   })
 
@@ -1084,7 +1084,7 @@ describe('3. Error recovery tests', () => {
         throw 'string error'
       })
       expect(data).toBeNull()
-      expect(err).toBeTruthy()
+      expect(err).toBeInstanceOf(Error)
     })
 
     it('safeSync catches synchronous errors', () => {
@@ -1100,7 +1100,7 @@ describe('3. Error recovery tests', () => {
         throw { code: 500 }
       })
       expect(data).toBeNull()
-      expect(err).toBeTruthy()
+      expect(err).toBeInstanceOf(Error)
     })
 
     it('toErrorMessage handles Error instances', () => {
@@ -1350,7 +1350,7 @@ describe('4. Concurrent operation tests', () => {
       }
 
       // saveError should contain the last error
-      expect(useSettingsStore.getState().saveError).toBeTruthy()
+      expect(useSettingsStore.getState().saveError).toBeTruthy() // saveError contains error message
       consoleSpy.mockRestore()
     })
 
@@ -1620,7 +1620,7 @@ describe('5. Unicode / special character tests', () => {
       const renameCall = mockInvoke.mock.calls.find(
         (c: unknown[]) => c[0] === 'chat-session-update',
       )
-      expect(renameCall).toBeTruthy()
+      expect(renameCall).toBeTruthy() // dynamically generated IPC call
       const title = (renameCall![2] as { title: string }).title
       // Title should be truncated to 30 chars
       expect(title.length).toBeLessThanOrEqual(33) // 30 + "..."
@@ -1869,7 +1869,7 @@ describe('5. Unicode / special character tests', () => {
       expect(snippet.description).toBe('一个中文代码片段')
 
       const found = findSnippetByPrefix('cn', 'python')
-      expect(found).toBeTruthy()
+      expect(found).toBeTruthy() // snippet lookup by prefix returns the snippet
       expect(found!.body).toContain('你好')
 
       removeUserSnippet(snippet.id)
@@ -1886,7 +1886,7 @@ describe('5. Unicode / special character tests', () => {
       expect(snippet.name).toBe('Test 🎉')
 
       const found = findSnippetByPrefix('testemoji', 'python')
-      expect(found).toBeTruthy()
+      expect(found).toBeTruthy() // snippet lookup by prefix returns the snippet
       expect(found!.body).toContain('✅')
 
       removeUserSnippet(snippet.id)
@@ -1911,7 +1911,7 @@ describe('5. Unicode / special character tests', () => {
         body: '# 更新后的内容\nprint("新内容")',
       })
       const found = findSnippetByPrefix('orig', 'python')
-      expect(found).toBeTruthy()
+      expect(found).toBeTruthy() // snippet lookup by prefix returns the snippet
       expect(found!.name).toBe('更新后的名称')
       expect(found!.body).toContain('新内容')
 

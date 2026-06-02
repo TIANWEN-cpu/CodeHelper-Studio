@@ -74,7 +74,7 @@
 构建工具:  electron-vite 5 + Vite 7
 本地数据库: better-sqlite3
 CSS 方案:  Tailwind CSS 4
-测试框架:  Vitest
+测试框架:  Vitest 3
 代码规范:  ESLint 9 + Prettier 3
 CI/CD:    GitHub Actions
 ```

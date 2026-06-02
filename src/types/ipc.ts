@@ -317,6 +317,15 @@ export interface IpcChannelMap {
   'analytics-get-weekly-report': { args: [number?]; result: WeeklyReportData }
   'analytics-clear': { args: []; result: void }
 
+  // Performance
+  'perf-get-ipc-stats': {
+    args: []
+    result: Record<
+      string,
+      { calls: number; avgMs: number; slowCalls: number; lastCalledAt: number }
+    >
+  }
+
   // Demo data
   'demo-load-data': {
     args: []

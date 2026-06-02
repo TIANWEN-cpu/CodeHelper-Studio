@@ -58,7 +58,7 @@ describe('registerChatIPC', () => {
     const { registerChatIPC } = await import('../electron/ipc/chat')
     registerChatIPC()
 
-    expect(handlers['chat-sessions-list']).toBeDefined()
+    expect(handlers['chat-sessions-list']).toBeDefined() // IPC handler registration
     expect(handlers['chat-session-create']).toBeDefined()
     expect(handlers['chat-session-update']).toBeDefined()
     expect(handlers['chat-session-delete']).toBeDefined()
@@ -633,7 +633,7 @@ describe('registerChatIPC', () => {
         pinned: true,
         enabled: false,
       })
-      expect(result).toBeTruthy()
+      expect(result).toBeTruthy() // handler returns saved memory object with id
     })
 
     it('merges with existing memory on content match', () => {
@@ -655,7 +655,7 @@ describe('registerChatIPC', () => {
       })
 
       const result = handlers['chat-memory-save'](null, { content: 'Same content' })
-      expect(result).toBeTruthy()
+      expect(result).toBeTruthy() // handler returns merged memory object with id
     })
 
     it('inserts new memory when no match', () => {
@@ -671,7 +671,7 @@ describe('registerChatIPC', () => {
       })
 
       const result = handlers['chat-memory-save'](null, { content: 'New memory' })
-      expect(result).toBeTruthy()
+      expect(result).toBeTruthy() // handler returns newly inserted memory object
     })
   })
 

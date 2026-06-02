@@ -361,6 +361,17 @@ export function FeatureTour() {
     void skipTour()
   }, [skipTour])
 
+  // Close tour on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isVisible) {
+        handleClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isVisible, handleClose])
+
   if (!isVisible || !targetRect) return null
 
   const step = steps[currentStep]

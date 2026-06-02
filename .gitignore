@@ -44,3 +44,5 @@ dist-release/*.yaml
 *.transcript
 coverage/
 *.tmp
+*temp_commit_log*
+*temp_msg_check*

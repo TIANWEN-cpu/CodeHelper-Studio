@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3'
 import { spawn, spawnSync, execFileSync } from 'child_process'
-import { mkdirSync, writeFileSync } from 'fs'
+import { mkdirSync, writeFileSync, unlinkSync, existsSync } from 'fs'
 import { app } from 'electron'
 import { randomUUID } from 'crypto'
 import { join } from 'path'
@@ -70,6 +70,17 @@ function getTempDir(): string {
   return tempDir
 }
 
+/** Best-effort cleanup of temporary files. Silently ignores errors. */
+function cleanupFiles(...paths: string[]): void {
+  for (const p of paths) {
+    try {
+      if (existsSync(p)) unlinkSync(p)
+    } catch {
+      // Best-effort: temp dir OS cleanup will eventually reclaim these
+    }
+  }
+}
+
 export async function runCodeSnippet(
   code: string,
   language: string,
@@ -96,8 +107,12 @@ async function runPython(code: string, stdin?: string): Promise<CodeRunResult> {
   writeFileSync(file, code)
   // On some Linux distributions, only 'python3' is available (not 'python')
   const pythonCmd = IS_WIN ? 'python' : 'python3'
-  const result = await runProcess(resolveCommand(pythonCmd), [file], stdin)
-  return { ...result, stage: 'run' as const }
+  try {
+    const result = await runProcess(resolveCommand(pythonCmd), [file], stdin)
+    return { ...result, stage: 'run' as const }
+  } finally {
+    cleanupFiles(file)
+  }
 }
 
 async function runCFamily(
@@ -116,6 +131,7 @@ async function runCFamily(
     timeout: COMPILE_TIMEOUT,
   })
   if (compile.status !== 0) {
+    cleanupFiles(srcFile, outFile)
     return {
       stdout: '',
       stderr: String(compile.stderr ?? ''),
@@ -124,8 +140,12 @@ async function runCFamily(
     }
   }
 
-  const result = await runProcess(resolveCommand(outFile), [], stdin)
-  return { ...result, stage: 'run' as const }
+  try {
+    const result = await runProcess(resolveCommand(outFile), [], stdin)
+    return { ...result, stage: 'run' as const }
+  } finally {
+    cleanupFiles(srcFile, outFile)
+  }
 }
 
 async function runCSharp(code: string, stdin?: string): Promise<CodeRunResult> {
@@ -140,6 +160,7 @@ async function runCSharp(code: string, stdin?: string): Promise<CodeRunResult> {
   const compilerArgs = IS_WIN ? ['/out:' + outFile, srcFile] : ['-out:' + outFile, srcFile]
   const compile = spawnSync(resolveCommand(compiler), compilerArgs, { timeout: COMPILE_TIMEOUT })
   if (compile.status !== 0) {
+    cleanupFiles(srcFile, outFile)
     return {
       stdout: '',
       stderr: String(compile.stderr ?? ''),
@@ -148,8 +169,12 @@ async function runCSharp(code: string, stdin?: string): Promise<CodeRunResult> {
     }
   }
 
-  const result = await runProcess(resolveCommand(outFile), [], stdin)
-  return { ...result, stage: 'run' as const }
+  try {
+    const result = await runProcess(resolveCommand(outFile), [], stdin)
+    return { ...result, stage: 'run' as const }
+  } finally {
+    cleanupFiles(srcFile, outFile)
+  }
 }
 
 async function runSql(code: string): Promise<CodeRunResult> {
@@ -241,6 +266,9 @@ function runProcess(
 
     const { shell, shellArgs } = buildSandboxArgs(cmd, args)
     const proc = spawn(shell, shellArgs, {
+      // Explicitly disable shell on Windows to prevent cmd.exe injection
+      // On POSIX, shell execution is intentional for ulimit wrapping
+      shell: IS_WIN ? false : undefined,
       // Use process groups on POSIX so we can kill all children
       detached: !IS_WIN,
     })
@@ -296,7 +324,9 @@ function runProcess(
 
     if (stdin) {
       try {
-        proc.stdin.write(stdin)
+        // Enforce stdin size limit to prevent memory exhaustion
+        const stdinData = stdin.length > MAX_OUTPUT_SIZE ? stdin.slice(0, MAX_OUTPUT_SIZE) : stdin
+        proc.stdin.write(stdinData)
         proc.stdin.end()
       } catch (error) {
         console.warn('[codeRunner] Failed to write stdin:', error)

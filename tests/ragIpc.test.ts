@@ -61,7 +61,7 @@ describe('registerRAGIPC', () => {
     const { registerRAGIPC } = await import('../electron/ipc/rag')
     registerRAGIPC()
 
-    expect(handlers['knowledge-upload']).toBeDefined()
+    expect(handlers['knowledge-upload']).toBeDefined() // IPC handler registration
     expect(handlers['knowledge-list']).toBeDefined()
     expect(handlers['knowledge-delete']).toBeDefined()
     expect(handlers['knowledge-search']).toBeDefined()
@@ -268,7 +268,7 @@ describe('registerRAGIPC', () => {
       })
 
       const result = await handlers['knowledge-search'](null, 'Python data')
-      expect(result).toBeDefined()
+      expect(result).toBeDefined() // returns array of matching chunks
       expect(result.length).toBeLessThanOrEqual(5)
     })
 

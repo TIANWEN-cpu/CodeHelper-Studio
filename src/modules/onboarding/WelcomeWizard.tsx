@@ -11,7 +11,7 @@
  * Completion state is persisted via onboardingStore.
  */
 
-import { useState, useCallback, useMemo, type ReactNode } from 'react'
+import { useState, useCallback, useMemo, useEffect, type ReactNode } from 'react'
 import {
   Sparkles,
   Key,
@@ -630,6 +630,17 @@ export function WelcomeWizard() {
   const handleSkip = useCallback(async () => {
     await completeWizard()
   }, [completeWizard])
+
+  // Close wizard on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        void handleSkip()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleSkip])
 
   const step = WIZARD_STEPS[currentStep]
 

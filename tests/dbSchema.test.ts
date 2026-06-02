@@ -144,7 +144,7 @@ describe('DB schema: problems 表', () => {
 
   it('created_at 自动填充', () => {
     const row = queryOne('SELECT created_at FROM problems WHERE title = ?', ['t1'])
-    expect(row!.created_at).toBeTruthy()
+    expect(row!.created_at).toMatch(/^\d{4}-\d{2}-\d{2}/)
   })
 })
 
@@ -252,7 +252,7 @@ describe('DB schema: mistakes 表', () => {
 
   it('updated_at 自动填充', () => {
     const row = queryOne('SELECT updated_at FROM mistakes LIMIT 1')
-    expect(row!.updated_at).toBeTruthy()
+    expect(row!.updated_at).toMatch(/^\d{4}-\d{2}-\d{2}/)
   })
 })
 

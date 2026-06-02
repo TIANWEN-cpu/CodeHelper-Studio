@@ -83,6 +83,8 @@ export function ChatView() {
     [handleSend],
   )
 
+  const createSession = useChatStore((s) => s.createSession)
+  const handleCreateSession = useCallback(() => void createSession(), [createSession])
   const handleOpenSettings = useCallback(() => setActiveModule('settings'), [setActiveModule])
 
   const handleConfigChange = useCallback(
@@ -153,6 +155,7 @@ export function ChatView() {
             <EmptyState
               title="新建一个对话开始吧"
               description="你可以直接问编程问题、让 AI 解释题目，或者让它记住你的长期偏好。"
+              action={{ label: '新建对话', onClick: handleCreateSession }}
             />
           )}
 
@@ -225,7 +228,15 @@ export function ChatView() {
   )
 }
 
-function EmptyState({ title, description }: { title: string; description: string }) {
+function EmptyState({
+  title,
+  description,
+  action,
+}: {
+  title: string
+  description: string
+  action?: { label: string; onClick: () => void }
+}) {
   return (
     <div className="flex h-full items-center justify-center">
       <div className="ui-card w-full max-w-xl px-8 py-10 text-center">
@@ -234,6 +245,11 @@ function EmptyState({ title, description }: { title: string; description: string
         </div>
         <p className="text-lg font-semibold text-[var(--theme-text-primary)]">{title}</p>
         <p className="mt-2 text-sm leading-6 text-[var(--theme-text-muted)]">{description}</p>
+        {action && (
+          <button onClick={action.onClick} className="ui-btn-accent mt-4 px-4 py-2 text-sm">
+            {action.label}
+          </button>
+        )}
       </div>
     </div>
   )

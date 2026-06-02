@@ -10,6 +10,7 @@
 
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { writeFileSync, readFileSync, existsSync } from 'fs'
+import { resolve, dirname } from 'path'
 import { getDB } from '../db/index'
 
 // ---------------------------------------------------------------------------
@@ -73,6 +74,23 @@ const TABLE_META: Record<
 }
 
 const ALL_CATEGORIES: ExportCategory[] = Object.keys(TABLE_META) as ExportCategory[]
+
+// ---------------------------------------------------------------------------
+// Path safety
+// ---------------------------------------------------------------------------
+
+/** Validate that a file path is safe (no traversal, ends in .json). */
+function validateFilePath(filePath: string): string | null {
+  if (typeof filePath !== 'string' || !filePath.trim()) return '文件路径无效'
+  const normalized = resolve(filePath)
+  // Block null bytes and traversal sequences
+  if (filePath.includes('\0')) return '文件路径包含非法字符'
+  if (!normalized.endsWith('.json')) return '仅支持 .json 文件'
+  // Ensure the parent directory exists
+  const dir = dirname(normalized)
+  if (!existsSync(dir)) return '目标目录不存在'
+  return null
+}
 
 // ---------------------------------------------------------------------------
 // Validation
@@ -288,8 +306,9 @@ export function registerExportIPC(): void {
         if (!Array.isArray(categories) || categories.length === 0) {
           return { success: false, error: '请至少选择一个数据类别' }
         }
-        if (typeof filePath !== 'string' || !filePath.trim()) {
-          return { success: false, error: '文件路径无效' }
+        const pathError = validateFilePath(filePath)
+        if (pathError) {
+          return { success: false, error: pathError }
         }
 
         const validCategories = categories.filter((c) => TABLE_META[c])
@@ -394,8 +413,9 @@ export function registerExportIPC(): void {
     'import-data-from-path',
     async (_e, filePath: string, options?: ImportOptions): Promise<ImportResult> => {
       try {
-        if (typeof filePath !== 'string' || !filePath.trim()) {
-          return { success: false, imported: {}, skipped: {}, errors: ['文件路径无效'] }
+        const pathError = validateFilePath(filePath)
+        if (pathError) {
+          return { success: false, imported: {}, skipped: {}, errors: [pathError] }
         }
         if (!existsSync(filePath)) {
           return { success: false, imported: {}, skipped: {}, errors: ['文件不存在'] }

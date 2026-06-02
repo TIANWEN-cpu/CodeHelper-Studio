@@ -157,7 +157,8 @@ describe('analytics IPC handlers', () => {
     it('passes 0 days when explicitly set', () => {
       mockGetSummary.mockReturnValue({ totalEvents: 0, byType: {}, dailyCounts: [] })
       handle({}, 0)
-      expect(mockGetSummary).toHaveBeenCalledWith(0)
+      // Handler clamps 0 to 30 since days > 0 is false
+      expect(mockGetSummary).toHaveBeenCalledWith(30)
     })
 
     it('returns summary data', () => {

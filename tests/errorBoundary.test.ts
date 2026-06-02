@@ -141,12 +141,12 @@ describe('ErrorBoundary', () => {
       // The result should be a React element (object with type, props, etc.)
       // and should NOT be the children
       expect(result).not.toBe('child content')
-      expect(result).toBeTruthy()
+      expect(result).toBeTruthy() // render() returns a JSX element when hasError is true
       // It should be a JSX element (object with props)
       if (typeof result === 'object' && result !== null && 'props' in result) {
         const props = (result as { props: Record<string, unknown> }).props
-        expect(props).toBeTruthy()
-        expect(props.style).toBeTruthy()
+        expect(props).toBeTruthy() // JSX element has props
+        expect(props.style).toBeTruthy() // error UI has inline styles
       }
     })
 
@@ -156,11 +156,10 @@ describe('ErrorBoundary', () => {
       instance.state = { hasError: true, error: new Error('specific error') }
 
       const result = instance.render()
-      // Verify the structure contains the error message
+      // The ErrorBoundary renders a static Chinese message, not the raw error
       if (typeof result === 'object' && result !== null && 'props' in result) {
         const props = (result as { props: Record<string, unknown> }).props
         const children = props.children as Array<{ props?: Record<string, unknown> }>
-        // Find the <p> element that contains the error message
         const pElement = children?.find(
           (child: unknown) =>
             typeof child === 'object' &&
@@ -170,7 +169,9 @@ describe('ErrorBoundary', () => {
         )
         if (pElement && typeof pElement === 'object' && 'props' in pElement) {
           const pProps = (pElement as { props: Record<string, unknown> }).props
-          expect(pProps.children).toBe('specific error')
+          expect(pProps.children).toBe(
+            '应用遇到了意外错误，请尝试重新加载页面。如果问题持续存在，请尝试重启应用。',
+          )
         }
       }
     })
@@ -193,7 +194,9 @@ describe('ErrorBoundary', () => {
         )
         if (pElement && typeof pElement === 'object' && 'props' in pElement) {
           const pProps = (pElement as { props: Record<string, unknown> }).props
-          expect(pProps.children).toBe('发生了未知错误，请尝试重新加载页面。')
+          expect(pProps.children).toBe(
+            '应用遇到了意外错误，请尝试重新加载页面。如果问题持续存在，请尝试重启应用。',
+          )
         }
       }
     })

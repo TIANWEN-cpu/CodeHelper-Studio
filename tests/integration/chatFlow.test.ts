@@ -129,7 +129,7 @@ describe('Integration: chat flow', () => {
       expect(state1.messages[1].role).toBe('assistant')
       expect(state1.messages[1].content).toBe('')
       expect(state1.streaming).toBe(true)
-      expect(state1.currentRequestId).toBeTruthy()
+      expect(state1.currentRequestId).toBeTruthy() // requestId is a runtime-generated UUID
 
       // Step 3: Simulate stream chunks arriving
       const reqId = state1.currentRequestId!
@@ -155,7 +155,7 @@ describe('Integration: chat flow', () => {
         (c: unknown[]) =>
           c[0] === 'chat-message-save' && (c[1] as { role: string }).role === 'assistant',
       )
-      expect(saveCall).toBeTruthy()
+      expect(saveCall).toBeTruthy() // dynamically generated IPC call
       expect((saveCall![1] as { content: string }).content).toBe(
         'Python is a high-level programming language.',
       )
@@ -345,7 +345,7 @@ describe('Integration: chat flow', () => {
       await useChatStore.getState().sendMessage('Explain mergesort')
 
       const aiChatCall = mockInvoke.mock.calls.find((c: unknown[]) => c[0] === 'ai-chat')
-      expect(aiChatCall).toBeTruthy()
+      expect(aiChatCall).toBeTruthy() // dynamically generated IPC call
       const payload = aiChatCall![1] as { messages: Array<{ role: string; content: string }> }
       expect(payload.messages[0]).toEqual({ role: 'system', content: 'You are an algorithm tutor' })
     })

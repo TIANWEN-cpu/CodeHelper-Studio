@@ -42,12 +42,12 @@ describe('App defaults', () => {
   })
 
   it('MODULE_LABELS 包含所有模块', () => {
-    expect(MODULE_LABELS.problems).toBeTruthy()
-    expect(MODULE_LABELS.editor).toBeTruthy()
-    expect(MODULE_LABELS['ai-chat']).toBeTruthy()
-    expect(MODULE_LABELS.mistakes).toBeTruthy()
-    expect(MODULE_LABELS.knowledge).toBeTruthy()
-    expect(MODULE_LABELS.settings).toBeTruthy()
+    expect(MODULE_LABELS.problems).toBe('刷题系统')
+    expect(MODULE_LABELS.editor).toBe('代码编辑器')
+    expect(MODULE_LABELS['ai-chat']).toBe('AI 助手')
+    expect(MODULE_LABELS.mistakes).toBe('错题本')
+    expect(MODULE_LABELS.knowledge).toBe('知识库')
+    expect(MODULE_LABELS.settings).toBe('设置')
   })
 
   it('SESSION_TITLE_MAX_LENGTH 是正整数', () => {

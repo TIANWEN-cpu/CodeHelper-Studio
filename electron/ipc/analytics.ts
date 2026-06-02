@@ -29,6 +29,14 @@ export function registerAnalyticsIPC(): void {
       if (!VALID_EVENT_TYPES.has(eventType)) {
         throw new Error(`Invalid event type: ${eventType}`)
       }
+      if (!eventData || typeof eventData !== 'object') {
+        throw new Error('参数无效: eventData')
+      }
+      // Limit serialized size to prevent abuse
+      const serialized = JSON.stringify(eventData)
+      if (serialized.length > 10000) {
+        throw new Error('eventData 数据过大')
+      }
       trackEvent(eventType as AnalyticsEventType, eventData)
     },
   )
@@ -41,18 +49,30 @@ export function registerAnalyticsIPC(): void {
         filters?.eventType && VALID_EVENT_TYPES.has(filters.eventType)
           ? (filters.eventType as AnalyticsEventType)
           : undefined
-      return getEvents(eventType, filters?.since, filters?.until)
+      const since =
+        filters?.since && typeof filters.since === 'string'
+          ? filters.since.trim().slice(0, 30)
+          : undefined
+      const until =
+        filters?.until && typeof filters.until === 'string'
+          ? filters.until.trim().slice(0, 30)
+          : undefined
+      return getEvents(eventType, since, until)
     },
   )
 
   // Get aggregated summary
   ipcMain.handle('analytics-get-summary', (_e, days?: number) => {
-    return getSummary(days ?? 30)
+    const d =
+      typeof days === 'number' && Number.isFinite(days) && days > 0 ? Math.min(days, 365) : 30
+    return getSummary(d)
   })
 
   // Get weekly report
   ipcMain.handle('analytics-get-weekly-report', (_e, weekOffset?: number) => {
-    return getWeeklyReport(weekOffset ?? 0)
+    const offset =
+      typeof weekOffset === 'number' && Number.isFinite(weekOffset) ? Math.floor(weekOffset) : 0
+    return getWeeklyReport(offset)
   })
 
   // Clear all analytics data (privacy control)

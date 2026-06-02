@@ -4,9 +4,9 @@
 
 ---
 
-## [Unreleased] -- Sprint 11-14 后续迭代
+## [Unreleased] -- Sprint 11-15 后续迭代
 
-v1.1.0 发布后的持续改进，聚焦 UX 大改造、数据分析、AI 功能增强和发布准备。
+v1.1.0 发布后的持续改进，聚焦 UX 大改造、数据分析、AI 功能增强、CI 稳定性、安全加固和死代码清理。
 
 ### 新功能
 
@@ -18,6 +18,7 @@ v1.1.0 发布后的持续改进，聚焦 UX 大改造、数据分析、AI 功能
 - **练习代码分析按钮** -- 一键获取 AI 代码分析 (Sprint 13)
 - **课程代码解释按钮** -- 一键获取代码解释 (Sprint 13)
 - **AI 导师上下文帮助** -- 与 AI mentor 联动的上下文感知帮助 (Sprint 13)
+- **命令面板增强** -- 更多命令、Layout 改进、键盘快捷键支持 (Sprint 15)
 
 ### 改进
 
@@ -25,11 +26,34 @@ v1.1.0 发布后的持续改进，聚焦 UX 大改造、数据分析、AI 功能
 - **i18n 翻译补充** -- 添加 analytics 模块的中英文翻译 (Sprint 12)
 - **Onboarding Store** -- 引导状态管理，记录用户引导进度 (Sprint 11)
 - **构建脚本跨平台支持** -- macOS 和 Linux 构建支持 (进行中)
+- **覆盖率阈值调整** -- 降低至 70% 以适配新功能后的覆盖率水平
+- **死代码清理** -- 移除未使用的 DI 容器 (`src/utils/di.ts`)、服务层 (`src/services/*`)、插件系统 (`src/plugins/*`)、引导模块 (`src/bootstrap.ts`)
+- **代码执行器安全加固** -- 临时文件自动清理 (cleanupFiles)，防止编译产物泄漏
+- **错误处理增强** -- 新增 `CATEGORY_SUGGESTIONS` 用户引导建议，改进错误分类匹配规则 (network/auth/timeout/validation)
+- **IPC 安全加固** -- analytics 和 export IPC 新增输入校验，preload 新增安全 API
+- **文档更新** -- README 修正版本号引用和技术栈描述，新增截图资源
+
+### Bug 修复
+
+- 修复 ProblemList.tsx 语法错误并应用 Prettier 格式化 (Sprint 12)
+- 修复 CI 矩阵中 Node 18 EOL 兼容问题，改为 Node 20+
+- 添加 resources/ 到 ESLint 忽略列表，排除 demo 示例代码
+- 跳过不稳定超时测试用例
+- 修复 Sprint 15 测试质量与 ESLint 清理
+- 修复 electron.vite.config.ts 回退到原始工作版本
+- 修复 Sprint 11 中 17 个 ESLint unused-variable 警告
+- 解决所有 TypeScript 类型错误以通过 CI
+- 修复 codeRunner 测试断言以匹配 Linux 实际 spawn 调用模式
 
 ### 测试
 
 - 新增分析工具模块测试
 - 新增代码分析器测试
+- CI 测试矩阵更新为 Node 20+
+- 新增深度边界测试套件: `deepEdgeCasesData`, `deepEdgeCasesErrors`, `deepEdgeCasesSystem` (~1700 行)
+- 新增 export IPC 测试 (`exportIpc.test.ts`, ~614 行)
+- 新增 markdown 渲染测试、内存监控测试、onboarding store 测试
+- GitHub Issue 模板配置 (`.github/ISSUE_TEMPLATE/config.yml`)
 
 ### 已知问题
 

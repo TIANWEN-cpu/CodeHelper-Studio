@@ -22,6 +22,15 @@ const allowedInvokeChannels = new Set([
   'knowledge-list',
   'knowledge-delete',
   'knowledge-search',
+  // Advanced knowledge features
+  'knowledge-semantic-search',
+  'knowledge-summarize',
+  'knowledge-concept-graph',
+  'knowledge-concept-detail',
+  'knowledge-auto-tag',
+  'knowledge-tags',
+  'knowledge-tag-documents',
+  'knowledge-rag-context',
   'open-external',
   'chat-sessions-list',
   'chat-session-create',
@@ -37,12 +46,22 @@ const allowedInvokeChannels = new Set([
   'chat-memory-delete',
   'chat-memory-capture',
   'platform-info',
+  // Analytics
+  'analytics-track',
+  'analytics-get-events',
+  'analytics-get-summary',
+  'analytics-get-weekly-report',
+  'analytics-clear',
+  // Demo data
+  'demo-load-data',
   // Export/Import
   'export-data',
   'export-data-to-path',
   'import-data',
   'import-data-from-path',
   'export-get-counts',
+  // Performance
+  'perf-get-ipc-stats',
 ])
 
 const allowedEventChannels = new Set(['ai-chat-chunk', 'ai-chat-done'])

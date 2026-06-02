@@ -173,7 +173,7 @@ describe('updateUserSnippet', () => {
 describe('findSnippetByPrefix', () => {
   it('finds snippet by prefix', () => {
     const snippet = findSnippetByPrefix('main', 'python')
-    expect(snippet).toBeDefined()
+    expect(snippet).toBeDefined() // snippet is found by prefix and language
     expect(snippet!.prefix).toBe('main')
     expect(snippet!.language).toBe('python')
   })
@@ -218,7 +218,7 @@ describe('getSnippetPrefixes', () => {
     const prefixes = getSnippetPrefixes('python')
     expect(prefixes.length).toBeGreaterThan(0)
     for (const p of prefixes) {
-      expect(p.prefix).toBeDefined()
+      expect(p.prefix).toBeDefined() // prefix info object has required fields
       expect(p.description).toBeDefined()
       expect(p.body).toBeDefined()
     }

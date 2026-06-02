@@ -82,7 +82,7 @@ export type ErrorCategory = 'network' | 'validation' | 'auth' | 'not-found' | 't
  */
 export const CATEGORY_MESSAGES: Record<ErrorCategory, string> = {
   network: '网络连接失败，请检查网络后重试',
-  auth: '认证失败，请检查 API Key 配置',
+  auth: '认证失败，请检查 API 密钥配置',
   timeout: '请求超时，请稍后重试',
   'not-found': '请求的资源不存在',
   validation: '输入数据不合法，请检查后重试',
@@ -90,23 +90,53 @@ export const CATEGORY_MESSAGES: Record<ErrorCategory, string> = {
 }
 
 /**
+ * Suggested actions for each error category, shown as guidance to the user.
+ */
+export const CATEGORY_SUGGESTIONS: Record<ErrorCategory, string> = {
+  network: '请检查网络连接是否正常，或稍后重试',
+  auth: '请前往"设置"页面检查 API 密钥是否正确配置',
+  timeout: '服务器响应较慢，请稍后重试或检查 API 服务状态',
+  'not-found': '请确认请求的资源是否存在',
+  validation: '请检查输入内容是否符合要求',
+  unknown: '如果问题持续存在，请尝试重启应用',
+}
+
+/**
  * Attempt to categorize an error by inspecting its message.
  */
 export function categorizeError(error: unknown): ErrorCategory {
   const msg = toErrorMessage(error).toLowerCase()
-  if (msg.includes('network') || msg.includes('fetch') || msg.includes('econnrefused')) {
+  if (
+    msg.includes('network') ||
+    msg.includes('fetch') ||
+    msg.includes('failed to fetch') ||
+    msg.includes('econnrefused')
+  ) {
     return 'network'
   }
-  if (msg.includes('unauthorized') || msg.includes('401') || msg.includes('403')) {
+  if (
+    msg.includes('unauthorized') ||
+    msg.includes('401') ||
+    msg.includes('403') ||
+    msg.includes('api key') ||
+    msg.includes('api_key') ||
+    msg.includes('invalid key')
+  ) {
     return 'auth'
   }
-  if (msg.includes('timeout') || msg.includes('timed out')) {
+  if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('abort')) {
     return 'timeout'
   }
   if (msg.includes('not found') || msg.includes('404')) {
     return 'not-found'
   }
-  if (msg.includes('invalid') || msg.includes('validation') || msg.includes('required')) {
+  if (
+    msg.includes('invalid') ||
+    msg.includes('validation') ||
+    msg.includes('required') ||
+    msg.includes('bad request') ||
+    msg.includes('400')
+  ) {
     return 'validation'
   }
   return 'unknown'
@@ -114,13 +144,14 @@ export function categorizeError(error: unknown): ErrorCategory {
 
 /**
  * Get a user-friendly error message, with category-based fallback.
+ * Returns the direct error message when available; otherwise falls back
+ * to a Chinese category-based message.
  */
 export function getUserMessage(error: unknown): string {
   const direct = toErrorMessage(error)
-  const isReadableMessage =
-    direct && direct !== 'undefined' && direct !== 'null' && direct !== '[object Object]'
-  if (isReadableMessage) {
+  if (direct && direct !== 'undefined' && direct !== 'null' && direct !== '') {
     return direct
   }
-  return CATEGORY_MESSAGES[categorizeError(error)]
+  const category = categorizeError(error)
+  return CATEGORY_MESSAGES[category]
 }

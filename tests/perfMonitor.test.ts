@@ -27,7 +27,7 @@ describe('trackPerformance', () => {
     await wrapped()
 
     const stats = getIpcStats()
-    expect(stats['stats-channel']).toBeDefined()
+    expect(stats['stats-channel']).toBeDefined() // stats entry is created after tracked call
     expect(stats['stats-channel'].calls).toBeGreaterThanOrEqual(2)
     expect(stats['stats-channel'].avgMs).toBeGreaterThanOrEqual(0)
   })
@@ -64,7 +64,7 @@ describe('trackPerformance', () => {
     }
 
     const stats = getIpcStats()
-    expect(stats['error-stats-channel']).toBeDefined()
+    expect(stats['error-stats-channel']).toBeDefined() // stats entry is created even on error
     expect(stats['error-stats-channel'].calls).toBeGreaterThanOrEqual(1)
   })
 })
@@ -85,7 +85,7 @@ describe('getIpcStats', () => {
 
 describe('logIpcStatsSummary', () => {
   it('logs stats without throwing', () => {
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     logIpcStatsSummary()
     expect(consoleSpy).toHaveBeenCalled()
     consoleSpy.mockRestore()
@@ -94,7 +94,7 @@ describe('logIpcStatsSummary', () => {
   it('handles empty stats', () => {
     // We can't really empty the stats since they accumulate,
     // but we can verify the function runs without error
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     logIpcStatsSummary()
     expect(consoleSpy).toHaveBeenCalled()
     consoleSpy.mockRestore()

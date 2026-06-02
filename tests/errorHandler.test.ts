@@ -19,8 +19,8 @@ describe('reportError', () => {
     const report = reportError(new Error('test'), 'TestContext')
     expect(report.message).toBe('test')
     expect(report.context).toBe('TestContext')
-    expect(report.category).toBeDefined()
-    expect(report.timestamp).toBeDefined()
+    expect(report.category).toBe('unknown') // Error with empty message gets unknown category
+    expect(report.timestamp).toBeDefined() // timestamp is auto-generated
     expect(report.error).toBeInstanceOf(Error)
   })
 
@@ -114,7 +114,7 @@ describe('handleAsync', () => {
   it('returns error report on failure', async () => {
     const [data, err] = await handleAsync(() => Promise.reject(new Error('async fail')), 'Ctx')
     expect(data).toBeNull()
-    expect(err).toBeDefined()
+    expect(err).toBeDefined() // handleAsync wraps rejected promise as ErrorReport
     expect(err!.message).toBe('async fail')
     expect(err!.context).toBe('Ctx')
   })

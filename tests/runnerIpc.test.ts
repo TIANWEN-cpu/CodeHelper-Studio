@@ -172,7 +172,7 @@ describe('runner IPC handler', () => {
   // -------------------------------------------------------------------
   describe('handler registration', () => {
     it('registers run-code handler', () => {
-      expect(handlers['run-code']).toBeDefined()
+      expect(handlers['run-code']).toBeDefined() // IPC handler registration
       expect(typeof handlers['run-code']).toBe('function')
     })
   })

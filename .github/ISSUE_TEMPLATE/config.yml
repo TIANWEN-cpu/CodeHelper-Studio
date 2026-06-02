@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 常见问题 (FAQ)
+    url: https://github.com/TIANWEN-cpu/CodeHelper/blob/main/FAQ.md
+    about: 提交 Issue 前请先查阅常见问题，可能已有解答
+  - name: 功能文档
+    url: https://github.com/TIANWEN-cpu/CodeHelper/blob/main/docs/README.md
+    about: 查阅完整技术文档与 API 参考

@@ -72,7 +72,7 @@ describe('registerProblemsIPC', () => {
     const { registerProblemsIPC } = await import('../electron/ipc/problems')
     registerProblemsIPC()
 
-    expect(handlers['problems-list']).toBeDefined()
+    expect(handlers['problems-list']).toBeDefined() // IPC handler registration
     expect(handlers['problems-get']).toBeDefined()
     expect(handlers['problems-submit']).toBeDefined()
     expect(handlers['problems-submissions']).toBeDefined()
@@ -131,7 +131,7 @@ describe('registerProblemsIPC', () => {
       })
 
       const result = await handlers['problems-list'](null, { difficulty: 'easy' })
-      expect(result).toBeDefined()
+      expect(result).toBeDefined() // returns filtered problem list
     })
 
     it('applies tag filter', async () => {
@@ -141,7 +141,7 @@ describe('registerProblemsIPC', () => {
       })
 
       const result = await handlers['problems-list'](null, { tag: 'array' })
-      expect(result).toBeDefined()
+      expect(result).toEqual([{ id: 1 }])
     })
 
     it('applies source filter', async () => {
@@ -151,7 +151,7 @@ describe('registerProblemsIPC', () => {
       })
 
       const result = await handlers['problems-list'](null, { source: 'leetcode' })
-      expect(result).toBeDefined()
+      expect(result).toEqual([{ id: 1 }])
     })
 
     it('applies track filter', async () => {
@@ -161,7 +161,7 @@ describe('registerProblemsIPC', () => {
       })
 
       const result = await handlers['problems-list'](null, { track: 'beginner' })
-      expect(result).toBeDefined()
+      expect(result).toEqual([{ id: 1 }])
     })
 
     it('applies platform filter', async () => {
@@ -171,7 +171,7 @@ describe('registerProblemsIPC', () => {
       })
 
       const result = await handlers['problems-list'](null, { platform: 'leetcode' })
-      expect(result).toBeDefined()
+      expect(result).toEqual([{ id: 1 }])
     })
 
     it('applies mode filter', async () => {
@@ -181,7 +181,7 @@ describe('registerProblemsIPC', () => {
       })
 
       const result = await handlers['problems-list'](null, { mode: 'acm' })
-      expect(result).toBeDefined()
+      expect(result).toEqual([{ id: 1 }])
     })
 
     it('handles null/undefined filters', async () => {

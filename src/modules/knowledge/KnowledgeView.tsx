@@ -449,10 +449,15 @@ export function KnowledgeView() {
       {error && (
         <div className="mb-4 flex items-center gap-3 rounded-2xl bg-[var(--theme-danger-soft)] px-4 py-3 text-sm text-[var(--theme-danger)]">
           <AlertCircle size={16} className="shrink-0" />
-          <span className="flex-1">{error}</span>
+          <div className="flex-1">
+            <span>{error}</span>
+            <span className="block mt-1 text-xs text-[var(--theme-text-muted)]">
+              请检查 API 配置或网络连接
+            </span>
+          </div>
           <button
             onClick={handleDismissError}
-            className="flex items-center gap-1 text-xs underline hover:no-underline"
+            className="flex items-center gap-1 text-xs underline hover:no-underline shrink-0"
           >
             <RefreshCw size={12} />
             重试
@@ -504,6 +509,14 @@ export function KnowledgeView() {
             <FileText size={48} className="mx-auto mb-4 opacity-30" />
             <p className="text-base font-medium text-[var(--theme-text-primary)]">暂无文档</p>
             <p className="mt-2 text-sm">上传后会自动切分片段，供后续检索和问答使用。</p>
+            <button
+              onClick={handleUpload}
+              disabled={uploading}
+              className="ui-btn-accent mt-5 px-5 py-2 text-sm"
+            >
+              <Upload size={14} className="inline mr-1.5" />
+              上传文件
+            </button>
           </div>
         ) : (
           <div className="space-y-3">

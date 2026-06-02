@@ -90,7 +90,7 @@ describe('registerMistakesIPC', () => {
     const { registerMistakesIPC } = await import('../electron/ipc/mistakes')
     registerMistakesIPC()
 
-    expect(handlers['mistakes-list']).toBeDefined()
+    expect(handlers['mistakes-list']).toBeDefined() // IPC handler registration
     expect(handlers['mistakes-get']).toBeDefined()
     expect(handlers['mistakes-update-analysis']).toBeDefined()
     expect(handlers['mistakes-delete']).toBeDefined()
@@ -165,7 +165,7 @@ describe('registerRunnerIPC', () => {
   it('registers run-code handler', async () => {
     const { registerRunnerIPC } = await import('../electron/ipc/runner')
     registerRunnerIPC()
-    expect(handlers['run-code']).toBeDefined()
+    expect(handlers['run-code']).toBeDefined() // IPC handler registration
   })
 
   it('validates args object', async () => {
@@ -227,7 +227,7 @@ describe('registerDatabaseIPC', () => {
     const { registerDatabaseIPC } = await import('../electron/ipc/database')
     registerDatabaseIPC()
 
-    expect(handlers['db-get-setting']).toBeDefined()
+    expect(handlers['db-get-setting']).toBeDefined() // IPC handler registration
     expect(handlers['db-set-setting']).toBeDefined()
     expect(handlers['db-get-ai-configs']).toBeDefined()
     expect(handlers['db-save-ai-config']).toBeDefined()
@@ -413,7 +413,7 @@ describe('registerDatabaseIPC', () => {
       registerDatabaseIPC()
 
       const result = handlers['db-get-default-ai-config']()
-      expect(result).toBeTruthy()
+      expect(result).toBeTruthy() // returns the default config object
       expect(result.name).toBe('Default')
     })
 
@@ -442,7 +442,7 @@ describe('registerDatabaseIPC', () => {
       registerDatabaseIPC()
 
       const result = handlers['db-get-default-ai-config']()
-      expect(result).toBeTruthy()
+      expect(result).toBeTruthy() // falls back to first available config
     })
 
     it('returns null when no configs exist', async () => {

@@ -201,10 +201,15 @@ ${mistake.correct_code}
       {error && (
         <div className="mb-4 flex items-center gap-3 rounded-2xl bg-[var(--theme-danger-soft)] px-4 py-3 text-sm text-[var(--theme-danger)]">
           <AlertCircle size={16} className="shrink-0" />
-          <span className="flex-1">{error}</span>
+          <div className="flex-1">
+            <span>{error}</span>
+            <span className="block mt-1 text-xs text-[var(--theme-text-muted)]">
+              请检查 API 配置或网络连接
+            </span>
+          </div>
           <button
             onClick={() => void loadMistakes()}
-            className="flex items-center gap-1 text-xs underline hover:no-underline"
+            className="flex items-center gap-1 text-xs underline hover:no-underline shrink-0"
           >
             <RefreshCw size={12} />
             重试

@@ -2,11 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import { registerGlobalErrorHandlers } from './utils/errorHandler'
-import { bootstrapServices } from './bootstrap'
 import './assets/main.css'
-
-// Bootstrap services into the DI container before rendering
-bootstrapServices()
 
 // Register global error handlers before rendering the app
 registerGlobalErrorHandlers()

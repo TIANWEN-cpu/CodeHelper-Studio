@@ -516,24 +516,22 @@ describe('Edge-case: getUserMessage', () => {
   it('empty Error message falls back to category', () => {
     // empty string has no category keywords -> unknown
     const msg = getUserMessage(new Error(''))
-    expect(msg).toBeTruthy()
+    expect(msg).toBe('发生未知错误，请稍后重试')
   })
 
   it('"undefined" string triggers fallback', () => {
     const msg = getUserMessage('undefined')
-    expect(msg).toBeTruthy()
-    // Should be the unknown category message
     expect(msg).toBe('发生未知错误，请稍后重试')
   })
 
   it('"null" string triggers fallback', () => {
     const msg = getUserMessage('null')
-    expect(msg).toBeTruthy()
+    expect(msg).toBe('发生未知错误，请稍后重试')
   })
 
   it('[object Object] triggers fallback', () => {
     const msg = getUserMessage({})
-    expect(msg).toBeTruthy()
+    expect(msg).toBe('[object Object]') // String({}) produces '[object Object]'
   })
 
   it('object with network message returns message string', () => {

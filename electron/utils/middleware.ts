@@ -113,7 +113,7 @@ export const loggingMiddleware: MiddlewareFn = async (ctx, next) => {
     const result = await next()
     const duration = performance.now() - start
     if (duration > 500) {
-      console.log(`[ipc] ${ctx.channel} completed in ${duration.toFixed(1)}ms`)
+      console.debug(`[ipc] ${ctx.channel} completed in ${duration.toFixed(1)}ms`)
     }
     return result
   } catch (error) {

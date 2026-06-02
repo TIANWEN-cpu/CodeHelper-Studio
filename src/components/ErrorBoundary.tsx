@@ -54,7 +54,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <div role="alert" className="flex flex-col items-center justify-center p-8 text-center">
             <p className="text-base font-semibold text-[var(--theme-text-primary)]">组件加载出错</p>
             <p className="mt-2 max-w-xs text-sm text-[var(--theme-text-muted)]">
-              {this.state.error?.message || '发生了未知错误'}
+              该模块加载时遇到了问题，请尝试重新加载
             </p>
             <button onClick={this.handleReset} className="ui-btn-accent mt-4 px-4 py-2 text-sm">
               重试
@@ -79,7 +79,7 @@ export class ErrorBoundary extends Component<Props, State> {
         >
           <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>页面出错了</h1>
           <p style={{ color: '#888', marginBottom: '1.5rem', maxWidth: '28rem' }}>
-            {this.state.error?.message || '发生了未知错误，请尝试重新加载页面。'}
+            应用遇到了意外错误，请尝试重新加载页面。如果问题持续存在，请尝试重启应用。
           </p>
           <button
             onClick={this.handleReload}

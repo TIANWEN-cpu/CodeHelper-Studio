@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { ChatConfig } from '../types/chat'
 import { typedInvoke, invalidateCache } from '../api/ipc'
-import { toErrorMessage } from '../utils/errors'
+import { toErrorMessage, getUserMessage } from '../utils/errors'
 import { eventBus } from '../utils/eventBus'
 
 // Re-export type so existing consumers are not broken
@@ -41,7 +41,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       await get().loadConfigs()
       eventBus.emit('settings:config-saved', Number(configId))
     } catch (error: unknown) {
-      set({ saveError: toErrorMessage(error) })
+      set({ saveError: getUserMessage(error) })
+      console.error('[SettingsStore.saveConfig]', toErrorMessage(error))
       throw error
     } finally {
       set({ saving: false })

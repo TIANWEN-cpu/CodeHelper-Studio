@@ -257,7 +257,8 @@ describe('codeRunner', () => {
       expect(result.stdout).toBe('fallback output\n')
       // spawn is called via /bin/sh -c with ulimit wrappers on Linux
       const spawnCall = vi.mocked(spawn).mock.calls[0]
-      expect(spawnCall[0]).toBeTruthy()
+      // On Windows with execFileSync throwing, resolveCommand falls back to the raw command name
+      expect(spawnCall[0]).toBe('python')
     })
   })
 
@@ -408,9 +409,9 @@ describe('codeRunner', () => {
   // ─────────────────────────────────────────────
 
   describe('runProcess 超时处理', () => {
-    // FIXME: vi.useFakeTimers() conflicts with the test runner timeout mechanism
-    it.skip('超时终止进程并返回超时错误', async () => {
-      // Use real timers — codeRunner DEFAULT_TIMEOUT is 10000ms
+    it('超时终止进程并返回超时错误', async () => {
+      vi.useFakeTimers()
+
       const proc = Object.assign(new EventEmitter(), {
         stdin: new PassThrough(),
         stdout: new PassThrough(),
@@ -429,11 +430,14 @@ describe('codeRunner', () => {
 
       const promise = runCodeSnippet('while(true){}', 'python')
 
+      // Advance past DEFAULT_TIMEOUT (10000ms) to trigger the timeout handler
+      await vi.advanceTimersByTimeAsync(10001)
+
       const result = await promise
       expect(result.exitCode).toBe(1)
       expect(result.stderr).toContain('超时')
       expect(proc.kill).toHaveBeenCalled()
-    }, 20000)
+    })
   })
 
   // ─────────────────────────────────────────────
