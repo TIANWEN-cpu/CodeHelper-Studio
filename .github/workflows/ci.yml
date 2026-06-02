@@ -62,7 +62,7 @@ jobs:
         run: npm run typecheck
 
   # ---------------------------------------------------------------
-  # 3. Unit tests -- matrix across Node 18 / 20 / 22
+  # 3. Unit tests -- matrix across Node 20 / 22
   # ---------------------------------------------------------------
   test:
     name: Test (Node ${{ matrix.node-version }})
@@ -71,7 +71,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [18, 20, 22]
+        node-version: [20, 22]
 
     steps:
       - uses: actions/checkout@v4

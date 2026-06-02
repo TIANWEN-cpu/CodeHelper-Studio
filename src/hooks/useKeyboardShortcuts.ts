@@ -88,7 +88,6 @@ export function useKeyboardShortcuts(): void {
     ]
 
     const handler = (event: KeyboardEvent) => {
-      // Skip shortcuts when typing in input fields (except for the run shortcut)
       const inInput = isInputFocused()
 
       for (const shortcut of shortcuts) {
@@ -98,15 +97,15 @@ export function useKeyboardShortcuts(): void {
           : !event.ctrlKey && !event.metaKey
         const shiftMatch = shortcut.shift ? event.shiftKey : !event.shiftKey
 
-        if (keyMatch && ctrlMatch && shiftMatch) {
-          // Ctrl+S and Ctrl+Enter should still work in editors
-          if (inInput && shortcut.key !== 'Enter' && shortcut.key !== 's') {
-            continue
-          }
-          event.preventDefault()
-          shortcut.action()
-          return
-        }
+        if (!keyMatch || !ctrlMatch || !shiftMatch) continue
+
+        // Ctrl+S and Ctrl+Enter should still work in editors
+        const isExemptInInput = shortcut.key === 'Enter' || shortcut.key === 's'
+        if (inInput && !isExemptInInput) continue
+
+        event.preventDefault()
+        shortcut.action()
+        return
       }
     }
 

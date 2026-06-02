@@ -117,7 +117,9 @@ export function categorizeError(error: unknown): ErrorCategory {
  */
 export function getUserMessage(error: unknown): string {
   const direct = toErrorMessage(error)
-  if (direct && direct !== 'undefined' && direct !== 'null' && direct !== '[object Object]') {
+  const isReadableMessage =
+    direct && direct !== 'undefined' && direct !== 'null' && direct !== '[object Object]'
+  if (isReadableMessage) {
     return direct
   }
   return CATEGORY_MESSAGES[categorizeError(error)]

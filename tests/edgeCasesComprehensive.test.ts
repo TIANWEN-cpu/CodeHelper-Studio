@@ -769,7 +769,18 @@ describe('3. Error recovery tests', () => {
       })
       mockInvoke.mockResolvedValueOnce(undefined) // chat-message-save
       mockInvoke.mockResolvedValueOnce([]) // chat-memory-capture
-      mockInvoke.mockRejectedValueOnce(new Error('NetworkError: fetch failed'))
+      mockInvoke.mockResolvedValueOnce({
+        recentProblems: [],
+        learningHistory: [],
+        knowledgeChunks: [],
+        userProfile: {
+          preferredLanguage: '',
+          difficultyLevel: '',
+          strongTopics: [],
+          weakTopics: [],
+        },
+      }) // knowledge-rag-context (RAG enrichment)
+      mockInvoke.mockRejectedValueOnce(new Error('NetworkError: fetch failed')) // ai-chat
 
       await useChatStore.getState().sendMessage('Hello')
 
@@ -801,7 +812,18 @@ describe('3. Error recovery tests', () => {
       })
       mockInvoke.mockResolvedValueOnce(undefined)
       mockInvoke.mockResolvedValueOnce([])
-      mockInvoke.mockRejectedValueOnce(new Error('Request timeout'))
+      mockInvoke.mockResolvedValueOnce({
+        recentProblems: [],
+        learningHistory: [],
+        knowledgeChunks: [],
+        userProfile: {
+          preferredLanguage: '',
+          difficultyLevel: '',
+          strongTopics: [],
+          weakTopics: [],
+        },
+      }) // knowledge-rag-context (RAG enrichment)
+      mockInvoke.mockRejectedValueOnce(new Error('Request timeout')) // ai-chat
 
       await useChatStore.getState().sendMessage('Hello')
 

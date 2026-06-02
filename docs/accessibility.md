@@ -1,189 +1,272 @@
-# Accessibility (a11y) Guide for CodeHelper
+# CodeHelper 无障碍（a11y）指南
 
-CodeHelper follows WCAG 2.1 AA guidelines to ensure the application is usable by everyone, including people who rely on assistive technologies.
+CodeHelper 遵循 WCAG 2.1 AA 标准，致力于为所有人（包括依赖辅助技术的用户）提供良好的使用体验。
 
-## Landmarks and Page Structure
+---
 
-The application uses semantic HTML landmarks to help screen readers and keyboard users navigate:
+## 1. 无障碍功能概述
 
-- **Skip-to-content link**: A visually hidden link appears on first `Tab` press, allowing users to jump directly to the main content area, bypassing the sidebar navigation.
-- **`<nav>`**: The sidebar navigation is wrapped in a `<nav aria-label="主导航">` element.
-- **`<main>`**: The primary content area uses `<main id="main-content">`. It receives `tabIndex={-1}` so the skip-to-content link can programmatically focus it.
-- **`role="status"`**: The status bar at the bottom of the screen uses `role="status"` to announce connection and running state changes to screen readers.
+CodeHelper 在以下方面实现了无障碍支持：
 
-## Keyboard Navigation
+- **语义化页面结构**：使用 `<nav>`、`<main>`、`role="navigation"`、`role="status"` 等语义标记，帮助屏幕阅读器理解页面结构。
+- **跳转到主内容链接**：首次按下 `Tab` 键时，会显示一个视觉上隐藏的"跳转到主内容"链接，允许键盘用户跳过侧栏导航，直接进入主要内容区域。
+- **全局键盘快捷键**：所有核心操作均可通过键盘完成，无需鼠标。
+- **焦点管理**：所有可交互元素均具备可见的焦点指示器（`focus-visible:ring-2`），仅在键盘操作时显示，鼠标点击时不显示。
+- **动态内容通知**：使用 `aria-live` 区域实时向屏幕阅读器推送状态变化（AI 流式输出、代码运行、通知弹窗等）。
+- **减少动画偏好**：尊重操作系统 `prefers-reduced-motion: reduce` 设置，禁用所有非必要动画和过渡。
+- **高对比度模式**：支持 Windows 高对比度模式（`forced-colors: active`），按钮和卡片使用系统边框颜色。
+- **主题色对比度**：三套主题（Mocha、Fjord、Ember）均按 WCAG AA 标准设计文本与背景的对比度。
+- **表单标签**：所有输入控件均通过 `aria-label`、`<label>` 元素或两者结合的方式提供可访问名称。
+- **装饰性图标隐藏**：所有纯装饰性图标使用 `aria-hidden="true"`，避免屏幕阅读器播报无关内容。
 
-### Global Shortcuts
+---
 
-| Shortcut       | Action               |
-| -------------- | -------------------- |
-| `Ctrl+Shift+P` | Open Command Palette |
-| `Ctrl+Shift+F` | Open Global Search   |
-| `Ctrl+N`       | New AI chat session  |
-| `Ctrl+Enter`   | Run code in editor   |
-| `Ctrl+S`       | Save current file    |
+## 2. 键盘快捷键参考
 
-### Sidebar Navigation
+### 全局快捷键
 
-- All sidebar buttons are focusable and support `Tab` navigation.
-- The currently active module is announced via `aria-current="page"`.
-- Sidebar collapse/expand buttons use `aria-expanded` to indicate state.
-- Visible focus rings (`focus-visible:ring-2`) are applied to all interactive elements.
+| 快捷键         | 功能         | 说明                                     |
+| :------------- | :----------- | :--------------------------------------- |
+| `Ctrl+N`       | 新建 AI 对话 | 切换到 AI 助手模块并创建新会话           |
+| `Ctrl+S`       | 保存当前文件 | 触发编辑器保存                           |
+| `Ctrl+Enter`   | 运行代码     | 执行编辑器中当前打开的代码               |
+| `Ctrl+Shift+P` | 命令面板     | 打开命令面板，可搜索并执行所有命令       |
+| `Ctrl+Shift+F` | 全局搜索     | 打开全局搜索，跨题目、知识库和编辑器搜索 |
 
-### Modals and Dropdowns
+> macOS 用户：上述 `Ctrl` 对应 `Cmd` 键，应用会自动识别。
 
-- **Command Palette** (`Ctrl+Shift+P`): Supports `Arrow Up/Down` for navigation, `Enter` to execute, and `Escape` to close. Uses `role="dialog"`, `aria-modal="true"`, and `aria-activedescendant` for the selected item.
-- **Global Search** (`Ctrl+Shift+F`): Same keyboard pattern as Command Palette. Uses `role="dialog"` and `aria-modal="true"`.
-- **Session Preset Menu**: Closes on `Escape` key. Uses `aria-expanded` and `aria-haspopup` on the trigger button.
+### 命令面板快捷键
 
-### Tabs (Editor)
+命令面板打开后，支持以下键盘操作：
 
-- Editor tabs use `role="tablist"` and `role="tab"` with `aria-selected` to indicate the active tab.
-- Close buttons on tabs use `aria-label="关闭 <filename>"`.
-- New tab button uses `aria-label="新建文件"`.
+| 按键      | 功能                                                                   |
+| :-------- | :--------------------------------------------------------------------- |
+| `↑` / `↓` | 上下导航命令列表                                                       |
+| `Enter`   | 执行选中的命令                                                         |
+| `Tab`     | 切换命令分类筛选（全部 / 导航 / 编辑器 / AI / 视图 / 工具 / 代码片段） |
+| `Escape`  | 关闭命令面板                                                           |
+| `1` - `6` | 按数字键快速切换分类                                                   |
 
-### Toggle Buttons
+### 侧栏导航
 
-- Minimap, split editor, and terminal toggles use `aria-pressed` to communicate their on/off state.
-- Filter chips in ProblemList and GlobalSearch use `aria-pressed` for the active state.
+- 使用 `Tab` 键在侧栏按钮之间移动焦点。
+- 当前激活的模块通过 `aria-current="page"` 通知屏幕阅读器。
+- 侧栏展开/收起按钮通过 `aria-expanded` 标识当前状态。
+- 所有按钮均提供 `aria-label` 和 `title` 属性。
 
-## ARIA Attributes
+### 编辑器标签页
 
-### Labels
+- 标签页使用 `role="tablist"` 和 `role="tab"`，通过 `aria-selected` 标识活动标签。
+- 关闭按钮使用 `aria-label="关闭 <文件名>"`。
+- 新建标签按钮使用 `aria-label="新建文件"`。
 
-- All icon-only buttons have `aria-label` attributes describing their action.
-- All decorative icons use `aria-hidden="true"` to be ignored by screen readers.
-- Form inputs have explicit `aria-label` attributes (search fields, textarea for chat, terminal input).
-- Select dropdowns (AI config, programming language) have `aria-label` attributes.
+---
 
-### Live Regions
+## 3. 屏幕阅读器支持
 
-- **Toast notifications**: The toast container uses `role="status"` with `aria-live="polite"` and `aria-relevant="additions"`. Error toasts use `role="alert"` for immediate announcement.
-- **AI chat messages**: The message list uses `role="log"` with `aria-live="polite"`.
-- **Console/Terminal output**: Uses `role="log"` with `aria-live="polite"`.
-- **Status bar running indicator**: Uses `aria-live="polite"` for streaming/running status.
-- **AI typing indicator**: Uses `role="status"` with `aria-label="AI 正在回复"`.
+### 语义角色一览
 
-### Dialogs
+| 元素         | 角色 / 属性                                                     | 说明                              |
+| :----------- | :-------------------------------------------------------------- | :-------------------------------- |
+| 侧栏         | `role="navigation"` + `aria-label="主导航"`                     | 导航地标                          |
+| 主内容区     | `<main id="main-content">`                                      | 主要地标                          |
+| 状态栏       | `role="status"` + `aria-label="状态栏"`                         | 通知连接状态和运行状态            |
+| 运行状态指示 | `aria-live="polite"`                                            | 实时播报"AI 生成中"或"代码运行中" |
+| 通知弹窗容器 | `role="status"` + `aria-live="polite"`                          | 一般通知                          |
+| 错误弹窗     | `role="alert"`                                                  | 立即播报错误信息                  |
+| AI 对话消息  | `role="log"` + `aria-live="polite"`                             | 流式对话内容                      |
+| 控制台输出   | `role="log"` + `aria-live="polite"`                             | 代码运行结果                      |
+| 终端面板     | `role="log"` + `aria-live="polite"`                             | 终端输出                          |
+| AI 输入指示  | `role="status"` + `aria-label="AI 正在回复"`                    | AI 打字状态                       |
+| 命令面板     | `role="dialog"` + `aria-modal="true"` + `aria-label="命令面板"` | 模态对话框                        |
+| 全局搜索     | `role="dialog"` + `aria-modal="true"` + `aria-label="全局搜索"` | 模态对话框                        |
+| 命令列表     | `role="listbox"` + `role="option"` + `aria-selected`            | 可选择列表                        |
+| 加载动画     | `role="status"` + `aria-label="加载中"`                         | 加载状态                          |
+| 空状态       | `role="status"`                                                 | 无数据提示                        |
+| 错误边界     | `role="alert"`                                                  | 组件错误提示                      |
+| 统计图表     | `role="img"` + `aria-label`                                     | SVG 图表描述                      |
+| 活动日历     | `role="grid"`                                                   | 日历网格                          |
 
-- Command Palette: `role="dialog"`, `aria-modal="true"`, `aria-label="命令面板"`
-- Global Search: `role="dialog"`, `aria-modal="true"`, `aria-label="全局搜索"`
-- Command list uses `role="listbox"` with `role="option"` and `aria-selected` on each item.
+### 表单控件标签
 
-### Dynamic Content
+所有表单输入均通过以下一种或多种方式提供可访问名称：
 
-- **Error boundaries**: Use `role="alert"` to announce errors.
-- **Empty states**: Use `role="status"`.
-- **Loading spinners**: Use `role="status"` with `aria-label="加载中"`.
-- **Error with retry**: Uses `role="alert"`.
-- **Submit results**: The output panel uses `role="log"` with `aria-live="polite"`.
-- **Stats charts**: SVG line chart uses `role="img"` with `aria-label`. Activity calendar uses `role="grid"`.
+- `aria-label` 属性（搜索框、聊天输入、终端输入等）
+- 关联的 `<label>` 元素（设置页面表单字段）
+- `placeholder` 文本（仅作补充，不作为唯一标签）
 
-## Color Contrast
+### 对话框交互
 
-All three themes (Mocha, Fjord, Ember) have been designed with WCAG AA contrast ratios in mind:
+命令面板和全局搜索对话框支持完整的键盘交互：
 
-- **Primary text** (`--theme-text-primary`) on app background (`--theme-bg-app`): contrast ratio >= 7:1 (AAA)
-- **Secondary text** (`--theme-text-secondary`): contrast ratio >= 4.5:1 (AA)
-- **Muted text** (`--theme-text-muted`): used only for supplementary information; contrast ratio >= 3:1
-- **Accent on dark backgrounds**: meets AA large text requirements
-- **Status colors** (success, warning, danger, info): chosen for distinguishability on dark backgrounds
+- 使用 `aria-activedescendant` 关联当前选中项
+- 使用 `aria-controls` 关联搜索输入与结果列表
+- 使用 `aria-expanded` 和 `aria-haspopup` 标识下拉菜单状态
+- `Escape` 键关闭所有对话框和弹出菜单
 
-## Reduced Motion
+---
 
-The application respects the `prefers-reduced-motion: reduce` media query:
+## 4. 颜色对比度信息
 
-- All CSS animations (`animate-spin`, `animate-pulse`, typing dots, status pulse) are disabled.
-- Transition durations are set to `0.01ms` (effectively instant).
-- Sidebar collapse transition is disabled.
+### 文本对比度
 
-## High Contrast Mode
+三套主题的文本颜色与背景对比度设计如下：
 
-The application supports Windows High Contrast Mode (`forced-colors: active`):
+| 文本层级 | CSS 变量                 | 对比度要求        | 说明                                 |
+| :------- | :----------------------- | :---------------- | :----------------------------------- |
+| 主要文本 | `--theme-text-primary`   | >= 7:1（AAA 级）  | 标题、正文、按钮文字                 |
+| 次要文本 | `--theme-text-secondary` | >= 4.5:1（AA 级） | 副标题、描述文字                     |
+| 弱化文本 | `--theme-text-muted`     | >= 3:1            | 仅用于辅助信息（时间戳、提示文字等） |
 
-- Buttons use `ButtonText` border color.
-- Cards use `CanvasText` border color.
+### 主题配色
 
-## Screen Reader Support
+| 主题         | 背景色    | 主要文本  | 强调色            | 特点                   |
+| :----------- | :-------- | :-------- | :---------------- | :--------------------- |
+| Mocha Night  | `#1e1e2e` | `#cdd6f4` | `#cba6f7`（紫）   | 柔和紫调深夜模式       |
+| Fjord Blue   | `#0f1724` | `#e7f2fb` | `#69d2e7`（青蓝） | 清冷蓝青配色，对比更强 |
+| Ember Copper | `#17110f` | `#f3e7db` | `#f2a65a`（铜橙） | 暖色阅读氛围           |
 
-### Semantic Roles
+### 状态颜色
 
-- Navigation: `role="navigation"` on sidebar
-- Main content: `<main>` landmark
-- Logs: `role="log"` for chat messages, console output, terminal output, and submit results
-- Status: `role="status"` for toasts, loading states, empty states, typing indicator
-- Alert: `role="alert"` for error toasts and error boundaries
-- Tabs: `role="tablist"` / `role="tab"` for editor tabs
-- Dialogs: `role="dialog"` with `aria-modal` for overlays
-- Lists: `role="listbox"` / `role="option"` for command palette results
+| 状态      | 颜色变量          | 用途               |
+| :-------- | :---------------- | :----------------- |
+| 成功      | `--theme-success` | 判题通过、保存成功 |
+| 警告      | `--theme-warning` | 注意事项、一般提示 |
+| 危险/错误 | `--theme-danger`  | 错误信息、判题失败 |
+| 信息      | `--theme-info`    | 普通提示           |
 
-### Form Labels
+所有状态颜色均针对深色背景进行了可辨别性优化。
 
-All form inputs have accessible names via one or more of:
+### 选区颜色
 
-- `aria-label` attribute
-- Associated `<label>` element (SettingsView Field component)
-- `placeholder` text (supplementary only, not relied upon as sole label)
+文本选区使用主题强调色作为背景、强调对比色作为文字颜色（`::selection`），确保选中文本可读。
 
-## Files Changed
+---
 
-### src/components/
+## 5. 已知限制
 
-- `Layout.tsx` -- Skip-to-content link, `<nav>`, `<main>` landmark
-- `Sidebar.tsx` -- `role="navigation"`, `aria-label`, `aria-current`, `aria-expanded`, focus-visible rings
-- `CommandPalette.tsx` -- `role="dialog"`, `aria-modal`, `aria-activedescendant`, `role="listbox"/"option"`
-- `Toast.tsx` -- `role="alert"` for errors, `aria-relevant`, `aria-hidden` on icons
-- `LoadingSpinner.tsx` -- `role="status"`, `aria-label`, sr-only text
-- `StatusBar.tsx` -- `role="status"`, `aria-label`, `aria-live` on running indicator, `aria-hidden` on icons
-- `EmptyState.tsx` -- `role="status"`, `aria-hidden` on icon
-- `ErrorWithRetry.tsx` -- `role="alert"`, `aria-hidden` on icons, focus-visible ring
-- `ErrorBoundary.tsx` -- Already had `role="alert"` (no changes needed)
+以下是当前版本在无障碍方面的已知不足：
 
-### src/modules/ai-chat/
+1. **Monaco 编辑器的无障碍由上游控制**：Monaco Editor 自行管理其内部的无障碍支持（如行号播报、代码折叠等），CodeHelper 无法覆盖其行为。Monaco 的屏幕阅读器模式需要用户在编辑器中手动启用（`Ctrl+Shift+U` 或通过命令面板）。
 
-- `ChatView.tsx` -- `role="log"`, `aria-live`, `aria-label` on textarea/send/select, `aria-hidden` on icons
-- `MessageBubble.tsx` -- `aria-hidden` on avatar icons, `role="status"` on typing indicator
-- `SessionList.tsx` -- `aria-label` on all icon buttons, `aria-expanded`/`aria-haspopup` on preset menu, Escape key handler, `aria-hidden` on icons
+2. **统计图表缺少详细数据替代**：SVG 图表提供了 `aria-label` 摘要描述，但未提供完整的文本数据表格作为替代视图。屏幕阅读器用户只能获得概要信息。
 
-### src/modules/editor/
+3. **拖拽调整面板大小仅限鼠标**：编辑器分屏和终端面板的拖拽调整手柄（`resize-handle`）暂不支持键盘操作。屏幕阅读器用户无法通过键盘调整面板宽度。
 
-- `EditorView.tsx` -- `aria-pressed` on toggle buttons, `aria-label` on all toolbar buttons, `aria-hidden` on icons
-- `EditorTabs.tsx` -- `role="tablist"`/`role="tab"`, `aria-selected`, `aria-label` on close/new buttons, `aria-hidden` on icons
-- `Console.tsx` -- `role="log"`, `aria-label`, `aria-live`
-- `TerminalPanel.tsx` -- `role="separator"` on resize handle, `role="log"`, `aria-live`, `aria-label` on all buttons/input, `aria-hidden` on icons
-- `MonacoEditor.tsx` -- No changes needed (Monaco handles its own accessibility)
+4. **活动日历网格缺少完整 ARIA 标注**：统计页面的活动日历使用了 `role="grid"`，但单元格缺少详细的 `role="gridcell"` 和日期标注。
 
-### src/modules/problems/
+5. **代码片段管理界面**：代码片段创建/编辑对话框的无障碍标注可能不够完整。
 
-- `ProblemList.tsx` -- `aria-label` on search/collapse buttons, `aria-pressed` on filter chips, `aria-hidden` on icons
-- `ProblemDetail.tsx` -- `aria-label` on all toolbar buttons, `aria-pressed` on AI toggle, `role="log"` on output panel, `aria-live`, `aria-hidden` on icons
-- `AISidebar.tsx` -- `aria-label` on close/send buttons, `role="log"` on message area, `aria-live`, `aria-hidden` on icons
-- `ProblemsView.tsx` -- No changes needed (structural only)
+6. **知识图谱可视化**：知识图谱（KnowledgeGraph）组件基于 Canvas 渲染，暂未提供文本替代方案。
 
-### src/modules/mistakes/
+7. **国际化与无障碍**：当前所有 ARIA 标签使用中文硬编码，不支持多语言环境下的自动切换。
 
-- `MistakesView.tsx` -- `aria-label` on retry/delete buttons, `aria-hidden` on icons
+---
 
-### src/modules/knowledge/
+## 6. 如何测试无障碍
 
-- `KnowledgeView.tsx` -- `aria-label` on delete buttons and search input, `aria-hidden` on icons
+### 手动键盘测试
 
-### src/modules/stats/
+1. **Tab 键遍历**：打开应用后，按 `Tab` 键检查焦点是否按逻辑顺序移动（跳转链接 -> 侧栏按钮 -> 主内容 -> 状态栏）。
+2. **跳转链接测试**：首次按 `Tab` 时应出现"跳转到主内容"链接，按 `Enter` 后焦点应跳至主内容区。
+3. **命令面板测试**：按 `Ctrl+Shift+P` 打开命令面板，使用 `↑`/`↓` 导航，`Enter` 执行，`Escape` 关闭。
+4. **侧栏导航测试**：用 `Tab` 在侧栏按钮间移动，按 `Enter` 切换模块，确认当前模块有 `aria-current="page"` 标记。
+5. **编辑器标签页测试**：用 `Tab` 到达标签栏后用方向键切换标签。
 
-- `StatsView.tsx` -- `role="img"` with `aria-label` on SVG chart, `role="group"` on stat cards, `role="grid"` on activity calendar, `aria-hidden` on icons
+### 屏幕阅读器测试
 
-### src/modules/settings/
+推荐使用以下屏幕阅读器进行测试：
 
-- `SettingsView.tsx` -- No structural changes needed (already uses `<label>` elements via Field component)
+| 平台    | 工具         | 启动方式                               |
+| :------ | :----------- | :------------------------------------- |
+| Windows | NVDA（免费） | 下载安装后启动，使用 Electron 应用测试 |
+| Windows | Narrator     | `Win + Ctrl + Enter` 启动              |
+| macOS   | VoiceOver    | `Cmd + F5` 启动                        |
 
-### src/modules/search/
+测试要点：
 
-- `GlobalSearch.tsx` -- `role="dialog"`, `aria-modal`, `aria-label` on search/close buttons, `aria-pressed` on filter buttons, `aria-hidden` on icons
+- 确认侧栏按钮的标签被正确播报
+- 确认通知弹窗出现时屏幕阅读器有语音提示
+- 确认 AI 对话的消息流式输出时有实时播报
+- 确认命令面板的选中项变化时有播报
 
-### src/assets/
+### 自动化测试
 
-- `main.css` -- Added `.sr-only` utility, `focus:not-sr-only` for skip link, global `*:focus-visible` outline, `prefers-reduced-motion` support, `forced-colors` (high contrast) support
+```bash
+# 使用 axe-core 进行自动化无障碍审计
+# 在项目的 E2E 测试中集成 @axe-core/electron
 
-### src/index.html
+npm install --save-dev @axe-core/electron
+```
 
-- No changes needed (already has `lang="zh-CN"`)
+在 Electron 应用中集成 axe-core 示例：
+
+```javascript
+const AxeBuilder = require('@axe-core/electron').default
+
+async function runA11yAudit() {
+  const results = await new AxeBuilder({ BrowserWindow }).analyze()
+  console.log(results.violations)
+}
+```
+
+### 对比度测试工具
+
+- **浏览器 DevTools**：Chrome DevTools 的 Elements 面板可直接查看元素的颜色对比度。
+- **Colour Contrast Analyser**（TPGi）：桌面工具，可拾取屏幕颜色并计算对比度。
+- **WebAIM Contrast Checker**：在线工具 https://webaim.org/resources/contrastchecker/
+
+### 减少动画测试
+
+在操作系统设置中启用"减少动画"选项后重新打开应用，确认：
+
+- 所有加载动画停止
+- 侧栏展开/收起无过渡动画
+- 通知弹窗无滑入动画
+- 状态指示器不再脉冲闪烁
+
+### 高对比度模式测试
+
+Windows 用户可在 设置 > 辅助功能 > 对比度主题 中启用高对比度模式，确认应用按钮和卡片边框使用系统颜色。
+
+---
+
+## 7. WCAG 2.1 合规状态
+
+### 合规等级：AA（部分 AAA）
+
+| WCAG 原则                     | 状态     | 说明                                                                                                    |
+| :---------------------------- | :------- | :------------------------------------------------------------------------------------------------------ |
+| **1.1 非文本内容**            | 部分符合 | 所有图标按钮有 `aria-label`；统计图表有 `aria-label` 摘要但缺少完整文本替代；知识图谱 Canvas 无文本替代 |
+| **1.3 信息和关系**            | 符合     | 使用语义 HTML 和 ARIA 角色传达结构信息                                                                  |
+| **1.3.4 方向**                | 符合     | 不限制显示方向                                                                                          |
+| **1.4.1 颜色的使用**          | 符合     | 状态信息不仅依赖颜色，同时使用图标和文字                                                                |
+| **1.4.3 对比度（最低）**      | 符合     | 所有文本达到 AA 标准（次要文本 >= 4.5:1，主要文本 >= 7:1）                                              |
+| **1.4.4 文本大小调整**        | 符合     | 使用相对单位，支持浏览器缩放                                                                            |
+| **1.4.10 内容回流**           | 符合     | 布局使用 Flexbox，支持响应式回流                                                                        |
+| **1.4.11 非文本对比度**       | 符合     | UI 组件和图形对象对比度 >= 3:1                                                                          |
+| **1.4.12 文本间距**           | 符合     | 不依赖固定行高或字母间距                                                                                |
+| **1.4.13 悬浮或聚焦时的内容** | 符合     | 悬浮提示可通过 `Escape` 关闭                                                                            |
+| **2.1.1 键盘**                | 部分符合 | 主要功能支持键盘操作；拖拽调整面板大小不支持键盘                                                        |
+| **2.1.2 无键盘陷阱**          | 符合     | 所有对话框和模态框可通过 `Escape` 退出                                                                  |
+| **2.4.1 跳过区块**            | 符合     | 提供"跳转到主内容"链接                                                                                  |
+| **2.4.3 焦点顺序**            | 符合     | 焦点按逻辑顺序移动                                                                                      |
+| **2.4.6 标题和标签**          | 符合     | 所有区域有描述性标签                                                                                    |
+| **2.4.7 焦点可见**            | 符合     | 所有交互元素有 `focus-visible` 焦点指示器                                                               |
+| **2.5.3 标签包含名称**        | 符合     | 可见标签文本与可访问名称一致                                                                            |
+| **3.2.1 聚焦时**              | 符合     | 聚焦不触发意外的上下文变化                                                                              |
+| **4.1.2 名称、角色、值**      | 符合     | 所有自定义组件有正确的 ARIA 角色和属性                                                                  |
+| **4.1.3 状态消息**            | 符合     | 使用 `aria-live` 区域播报状态变化                                                                       |
+
+### 暂不完全符合的准则
+
+| WCAG 准则        | 状态     | 原因                                       | 计划                                   |
+| :--------------- | :------- | :----------------------------------------- | :------------------------------------- |
+| 1.1.1 非文本内容 | 部分符合 | 知识图谱 Canvas 和统计图表缺少完整文本替代 | 为 Canvas 图表提供可切换的数据表格视图 |
+| 2.1.1 键盘       | 部分符合 | 拖拽调整面板大小不支持键盘                 | 计划添加键盘快捷键调整面板宽度         |
+| 2.4.1 绕过区块   | 部分符合 | 侧栏收起时无跳转链接（影响较小）           | 评估是否需要在收起状态下保留           |
+
+---
+
+> 最后更新：2026-06-02
+> 版本：v1.1.0

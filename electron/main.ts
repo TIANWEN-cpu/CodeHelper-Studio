@@ -251,6 +251,31 @@ function createWindow(): void {
   }
 }
 
+/** Log memory usage and warn if heap exceeds 512 MB. */
+function logMemoryUsage(): void {
+  const mem = process.memoryUsage()
+  const heapMB = (mem.heapUsed / 1024 / 1024).toFixed(1)
+  const rssMB = (mem.rss / 1024 / 1024).toFixed(1)
+  console.log(`[memory] Heap: ${heapMB} MB, RSS: ${rssMB} MB`)
+  if (mem.heapUsed > 512 * 1024 * 1024) {
+    console.warn(`[memory] HIGH MEMORY USAGE ALERT: Heap at ${heapMB} MB`)
+  }
+}
+
+function registerPeriodicDiagnostics(): void {
+  setInterval(() => logIpcStatsSummary(), 5 * 60 * 1000)
+  setInterval(() => logMemoryUsage(), 2 * 60 * 1000)
+}
+
+function registerDeferredIPC(): void {
+  registerMistakesIPC()
+  registerChatIPC()
+  registerRAGIPC()
+  registerAnalyticsIPC()
+  registerDemoDataIPC()
+  registerExportIPC()
+}
+
 app.whenReady().then(() => {
   setupApplicationMenu()
 
@@ -276,39 +301,10 @@ app.whenReady().then(() => {
   // Platform information endpoint for renderer
   registerIpcHandler('platform-info', () => getPlatformInfo())
 
-  // Defer non-critical IPC registrations until after the window is created
-  // This reduces the time to first paint
-  setImmediate(() => {
-    registerMistakesIPC()
-    registerChatIPC()
-    registerRAGIPC()
-    registerAnalyticsIPC()
-    registerDemoDataIPC()
-    registerExportIPC()
-  })
+  // Defer non-critical IPC registrations to reduce time to first paint
+  setImmediate(() => registerDeferredIPC())
 
-  // Periodic performance stats logging (every 5 minutes)
-  setInterval(
-    () => {
-      logIpcStatsSummary()
-    },
-    5 * 60 * 1000,
-  )
-
-  // Periodic memory usage monitoring (every 2 minutes)
-  setInterval(
-    () => {
-      const mem = process.memoryUsage()
-      const heapMB = (mem.heapUsed / 1024 / 1024).toFixed(1)
-      const rssMB = (mem.rss / 1024 / 1024).toFixed(1)
-      console.log(`[memory] Heap: ${heapMB} MB, RSS: ${rssMB} MB`)
-      // Alert on high memory usage (>512 MB heap)
-      if (mem.heapUsed > 512 * 1024 * 1024) {
-        console.warn(`[memory] HIGH MEMORY USAGE ALERT: Heap at ${heapMB} MB`)
-      }
-    },
-    2 * 60 * 1000,
-  )
+  registerPeriodicDiagnostics()
 
   // IPC stats endpoint for renderer diagnostics (with middleware)
   registerIpcHandler('perf-get-ipc-stats', () => getIpcStats())

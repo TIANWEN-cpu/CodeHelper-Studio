@@ -43,6 +43,52 @@ interface ChatState {
   deleteMemory: (id: number) => Promise<void>
 }
 
+/** Ensure an active session exists, creating one if needed. Returns the session ID. */
+async function ensureActiveSession(get: () => ChatState): Promise<string> {
+  let { activeSessionId } = get()
+  if (!activeSessionId) {
+    activeSessionId = await get().createSession()
+  }
+  return activeSessionId
+}
+
+/** Auto-rename sessions still titled '新对话' based on the first user message. */
+async function autoRenameIfNeeded(
+  get: () => ChatState,
+  sessionId: string,
+  content: string,
+): Promise<void> {
+  const session = get().sessions.find((item) => item.id === sessionId)
+  if (!session || session.title !== '新对话') return
+
+  const title =
+    content.slice(0, SESSION_TITLE_MAX_LENGTH) +
+    (content.length > SESSION_TITLE_MAX_LENGTH ? '...' : '')
+  await get().renameSession(sessionId, title)
+}
+
+/** Build the API message array from current state, injecting system prompt. */
+function buildApiMessages(
+  get: () => ChatState,
+  session: Session | undefined,
+  excludeMsgId: string,
+): Array<{ role: string; content: string }> {
+  const apiMessages: Array<{ role: string; content: string }> = []
+  if (session?.system_prompt) {
+    apiMessages.push({ role: 'system', content: session.system_prompt })
+  }
+  for (const message of get().messages) {
+    if (message.content && message.id !== excludeMsgId) {
+      apiMessages.push({ role: message.role, content: message.content })
+    }
+  }
+  return apiMessages
+}
+
+function buildRequestId(): string {
+  return `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
 export const useChatStore = create<ChatState>((set, get) => ({
   sessions: [],
   activeSessionId: null,
@@ -129,10 +175,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   sendMessage: async (content: string, configId?: number) => {
-    let { activeSessionId } = get()
-    if (!activeSessionId) {
-      activeSessionId = await get().createSession()
-    }
+    const activeSessionId = await ensureActiveSession(get)
 
     const requestId = buildRequestId()
     const userMsg: Message = {
@@ -162,26 +205,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     })
     await typedInvoke('chat-memory-capture', { content, session_id: activeSessionId })
 
-    const session = get().sessions.find((item) => item.id === activeSessionId)
-    if (session && session.title === '新对话') {
-      const title =
-        content.slice(0, SESSION_TITLE_MAX_LENGTH) +
-        (content.length > SESSION_TITLE_MAX_LENGTH ? '...' : '')
-      await get().renameSession(activeSessionId, title)
-    }
+    await autoRenameIfNeeded(get, activeSessionId, content)
 
-    const apiMessages: Array<{ role: string; content: string }> = []
-    if (session?.system_prompt) {
-      apiMessages.push({ role: 'system', content: session.system_prompt })
-    }
-    for (const message of get().messages) {
-      if (message.content && message.id !== assistantMsg.id) {
-        apiMessages.push({ role: message.role, content: message.content })
-      }
-    }
+    const session = get().sessions.find((item) => item.id === activeSessionId)
+    const apiMessages = buildApiMessages(get, session, assistantMsg.id)
 
     try {
-      // Enrich messages with RAG context (recent problems, learning history, knowledge base)
       const enrichedMessages = await ragContextService.enrichMessages(apiMessages, {
         query: content,
         maxProblems: 3,
@@ -294,7 +323,3 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 }))
-
-function buildRequestId(): string {
-  return `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-}

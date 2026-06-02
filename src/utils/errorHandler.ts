@@ -153,8 +153,8 @@ export function clearErrorLog(): void {
  * Falls back to the raw error message when it is short and readable.
  */
 function getUserFriendlyMessage(category: ErrorCategory, raw: string): string {
-  // If the raw message is already short and readable, use it directly
-  if (raw && raw.length < 120 && raw !== 'undefined' && raw !== 'null') {
+  const isShortReadable = raw && raw.length < 120 && raw !== 'undefined' && raw !== 'null'
+  if (isShortReadable) {
     return raw
   }
 

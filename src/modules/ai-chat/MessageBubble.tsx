@@ -3,8 +3,55 @@ import { Bot, User } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import type { Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+// Use light build instead of full Prism to avoid bundling all 300 languages.
+// Only register the ~20 languages the app actually encounters.
+import { Light as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
+
+// Register only the languages actually used in the app (saves ~600KB from vendor-markdown)
+import python from 'react-syntax-highlighter/dist/esm/languages/prism/python'
+import javascript from 'react-syntax-highlighter/dist/esm/languages/prism/javascript'
+import typescript from 'react-syntax-highlighter/dist/esm/languages/prism/typescript'
+import java from 'react-syntax-highlighter/dist/esm/languages/prism/java'
+import c from 'react-syntax-highlighter/dist/esm/languages/prism/c'
+import cpp from 'react-syntax-highlighter/dist/esm/languages/prism/cpp'
+import csharp from 'react-syntax-highlighter/dist/esm/languages/prism/csharp'
+import rust from 'react-syntax-highlighter/dist/esm/languages/prism/rust'
+import go from 'react-syntax-highlighter/dist/esm/languages/prism/go'
+import css from 'react-syntax-highlighter/dist/esm/languages/prism/css'
+import html from 'react-syntax-highlighter/dist/esm/languages/prism/markup'
+import json from 'react-syntax-highlighter/dist/esm/languages/prism/json'
+import bash from 'react-syntax-highlighter/dist/esm/languages/prism/bash'
+import sql from 'react-syntax-highlighter/dist/esm/languages/prism/sql'
+import markdown from 'react-syntax-highlighter/dist/esm/languages/prism/markdown'
+import yaml from 'react-syntax-highlighter/dist/esm/languages/prism/yaml'
+import ruby from 'react-syntax-highlighter/dist/esm/languages/prism/ruby'
+import php from 'react-syntax-highlighter/dist/esm/languages/prism/php'
+import swift from 'react-syntax-highlighter/dist/esm/languages/prism/swift'
+import kotlin from 'react-syntax-highlighter/dist/esm/languages/prism/kotlin'
+
+SyntaxHighlighter.registerLanguage('python', python)
+SyntaxHighlighter.registerLanguage('javascript', javascript)
+SyntaxHighlighter.registerLanguage('typescript', typescript)
+SyntaxHighlighter.registerLanguage('java', java)
+SyntaxHighlighter.registerLanguage('c', c)
+SyntaxHighlighter.registerLanguage('cpp', cpp)
+SyntaxHighlighter.registerLanguage('csharp', csharp)
+SyntaxHighlighter.registerLanguage('rust', rust)
+SyntaxHighlighter.registerLanguage('go', go)
+SyntaxHighlighter.registerLanguage('css', css)
+SyntaxHighlighter.registerLanguage('html', html)
+SyntaxHighlighter.registerLanguage('markup', html)
+SyntaxHighlighter.registerLanguage('json', json)
+SyntaxHighlighter.registerLanguage('bash', bash)
+SyntaxHighlighter.registerLanguage('shell', bash)
+SyntaxHighlighter.registerLanguage('sql', sql)
+SyntaxHighlighter.registerLanguage('markdown', markdown)
+SyntaxHighlighter.registerLanguage('yaml', yaml)
+SyntaxHighlighter.registerLanguage('ruby', ruby)
+SyntaxHighlighter.registerLanguage('php', php)
+SyntaxHighlighter.registerLanguage('swift', swift)
+SyntaxHighlighter.registerLanguage('kotlin', kotlin)
 import type { ChatMessage } from '../../stores/chatStore'
 
 interface Props {

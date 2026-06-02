@@ -256,7 +256,7 @@ describe('codeRunner', () => {
       expect(result.stage).toBe('run')
       expect(result.stdout).toBe('fallback output\n')
       // spawn should have been called with the original command name 'python'
-      expect(spawn).toHaveBeenCalledWith('python', expect.any(Array))
+      expect(spawn).toHaveBeenCalledWith('python', expect.any(Array), expect.anything())
     })
   })
 
@@ -408,28 +408,30 @@ describe('codeRunner', () => {
 
   describe('runProcess 超时处理', () => {
     it('超时终止进程并返回超时错误', async () => {
-      vi.useFakeTimers()
-
+      // Use real timers — codeRunner DEFAULT_TIMEOUT is 10000ms
       const proc = Object.assign(new EventEmitter(), {
         stdin: new PassThrough(),
         stdout: new PassThrough(),
         stderr: new PassThrough(),
+        pid: 12345,
         kill: vi.fn(() => {
           proc.emit('close', null)
         }),
       })
 
       vi.mocked(spawn).mockReturnValue(proc as any)
+      // Make execFileSync throw so the fallback proc.kill() is reached on Windows
+      vi.mocked(execFileSync).mockImplementation(() => {
+        throw new Error('taskkill failed')
+      })
 
       const promise = runCodeSnippet('while(true){}', 'python')
-
-      // Advance past the 10000ms timeout
-      vi.advanceTimersByTime(10001)
 
       const result = await promise
       expect(result.exitCode).toBe(1)
       expect(result.stderr).toContain('超时')
-    })
+      expect(proc.kill).toHaveBeenCalled()
+    }, 20000)
   })
 
   // ─────────────────────────────────────────────

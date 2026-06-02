@@ -8,6 +8,14 @@ import { useEditorStore } from '../../stores/editorStore'
 import { useCodeExecution } from '../../hooks/useCodeExecution'
 import { getMinimapEnabled, setMinimapEnabled } from '../../utils/monacoConfig'
 
+function toolbarBtnClass(active: boolean): string {
+  const base =
+    'flex items-center gap-1 rounded px-2 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)]'
+  return active
+    ? `${base} bg-[var(--theme-accent-soft)] text-[var(--theme-accent)]`
+    : `${base} text-[var(--theme-text-muted)] hover:bg-[var(--theme-bg-hover)]`
+}
+
 export function EditorView() {
   const { output, running, execute } = useCodeExecution()
   // Only subscribe to activeTabId — avoid re-rendering on every keystroke
@@ -76,46 +84,31 @@ export function EditorView() {
       <div className="ui-toolbar flex items-center border-b">
         <EditorTabs />
         <div className="ml-auto flex items-center gap-1 px-2">
-          {/* Minimap toggle */}
           <button
             onClick={handleToggleMinimap}
             aria-pressed={minimapEnabled}
             aria-label="切换 Minimap"
-            className={`flex items-center gap-1 rounded px-2 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] ${
-              minimapEnabled
-                ? 'bg-[var(--theme-accent-soft)] text-[var(--theme-accent)]'
-                : 'text-[var(--theme-text-muted)] hover:bg-[var(--theme-bg-hover)]'
-            }`}
+            className={toolbarBtnClass(minimapEnabled)}
             title="切换 Minimap"
           >
             <Map size={14} aria-hidden="true" />
           </button>
 
-          {/* Split editor toggle */}
           <button
             onClick={handleToggleSplit}
             aria-pressed={splitView}
             aria-label="切换分屏编辑"
-            className={`flex items-center gap-1 rounded px-2 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] ${
-              splitView
-                ? 'bg-[var(--theme-accent-soft)] text-[var(--theme-accent)]'
-                : 'text-[var(--theme-text-muted)] hover:bg-[var(--theme-bg-hover)]'
-            }`}
+            className={toolbarBtnClass(splitView)}
             title="分屏编辑"
           >
             <Columns size={14} aria-hidden="true" />
           </button>
 
-          {/* Terminal toggle */}
           <button
             onClick={handleToggleTerminal}
             aria-pressed={terminalOpen}
             aria-label="切换终端面板"
-            className={`flex items-center gap-1 rounded px-2 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-accent)] ${
-              terminalOpen
-                ? 'bg-[var(--theme-accent-soft)] text-[var(--theme-accent)]'
-                : 'text-[var(--theme-text-muted)] hover:bg-[var(--theme-bg-hover)]'
-            }`}
+            className={toolbarBtnClass(terminalOpen)}
             title="终端面板"
           >
             <Terminal size={14} aria-hidden="true" />
