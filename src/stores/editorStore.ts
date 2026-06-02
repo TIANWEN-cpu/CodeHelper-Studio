@@ -22,7 +22,8 @@ export const useEditorStore = create<EditorState>((set) => ({
       id: 'welcome',
       filename: 'welcome.py',
       language: 'python',
-      content: '# 欢迎使用 CodeHelper!\n# 在这里编写你的代码\n\ndef hello():\n    print("Hello, CodeHelper!")\n\nhello()\n',
+      content:
+        '# 欢迎使用 CodeHelper!\n# 在这里编写你的代码\n\ndef hello():\n    print("Hello, CodeHelper!")\n\nhello()\n',
     },
   ],
   activeTabId: 'welcome',

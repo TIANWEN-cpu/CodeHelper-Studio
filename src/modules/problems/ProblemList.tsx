@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle2, Circle, ChevronsLeft, Search } from 'lucide-react'
 import { useProblemStore } from '../../stores/problemStore'
-import { parseJsonArray, sourceLabel, platformLabel, modeLabel, trackLabel } from '../../utils/labels'
+import {
+  parseJsonArray,
+  sourceLabel,
+  platformLabel,
+  modeLabel,
+  trackLabel,
+} from '../../utils/labels'
 
 const diffColors: Record<string, string> = {
   easy: 'text-[var(--theme-success)]',
@@ -16,7 +22,15 @@ const diffLabels: Record<string, string> = {
 }
 
 export function ProblemList() {
-  const { problems, activeProblemId, loadProblems, setActiveProblem, filters, setFilters, setListCollapsed } = useProblemStore()
+  const {
+    problems,
+    activeProblemId,
+    loadProblems,
+    setActiveProblem,
+    filters,
+    setFilters,
+    setListCollapsed,
+  } = useProblemStore()
   const [search, setSearch] = useState('')
 
   useEffect(() => {
@@ -69,8 +83,12 @@ export function ProblemList() {
     <div className="ui-toolbar flex w-80 shrink-0 flex-col border-r">
       <div className="flex items-center justify-between border-b px-4 py-3 glass-line">
         <div>
-          <span className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--theme-text-muted)]">题目列表</span>
-          <p className="mt-1 text-xs text-[var(--theme-text-muted)]">{filtered.length} / {problems.length} 道题</p>
+          <span className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--theme-text-muted)]">
+            题目列表
+          </span>
+          <p className="mt-1 text-xs text-[var(--theme-text-muted)]">
+            {filtered.length} / {problems.length} 道题
+          </p>
         </div>
         <button
           onClick={() => setListCollapsed(true)}
@@ -83,7 +101,10 @@ export function ProblemList() {
 
       <div className="border-b px-3 py-3 glass-line">
         <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--theme-text-muted)]" />
+          <Search
+            size={14}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--theme-text-muted)]"
+          />
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -232,15 +253,25 @@ export function ProblemList() {
                     {problem.id}. {problem.title}
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
-                    <span className={`text-xs ${diffColors[problem.difficulty]}`}>{diffLabels[problem.difficulty]}</span>
-                    {problem.source && <span className="ui-chip text-[10px]">{sourceLabel(problem.source)}</span>}
-                    {problem.platform && <span className="ui-chip text-[10px]">{platformLabel(problem.platform)}</span>}
-                    {problem.mode && problem.mode !== 'oj' && <span className="ui-chip-info">{modeLabel(problem.mode)}</span>}
+                    <span className={`text-xs ${diffColors[problem.difficulty]}`}>
+                      {diffLabels[problem.difficulty]}
+                    </span>
+                    {problem.source && (
+                      <span className="ui-chip text-[10px]">{sourceLabel(problem.source)}</span>
+                    )}
+                    {problem.platform && (
+                      <span className="ui-chip text-[10px]">{platformLabel(problem.platform)}</span>
+                    )}
+                    {problem.mode && problem.mode !== 'oj' && (
+                      <span className="ui-chip-info">{modeLabel(problem.mode)}</span>
+                    )}
                   </div>
                   {tracks.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {tracks.slice(0, 3).map((track) => (
-                        <span key={track} className="ui-chip text-[10px]">{trackLabel(track)}</span>
+                        <span key={track} className="ui-chip text-[10px]">
+                          {trackLabel(track)}
+                        </span>
                       ))}
                     </div>
                   )}
@@ -269,7 +300,9 @@ function FilterRow({
 }) {
   return (
     <div className="border-b px-3 py-3 glass-line">
-      <div className="mb-2 text-[11px] uppercase tracking-[0.2em] text-[var(--theme-text-muted)]">{title}</div>
+      <div className="mb-2 text-[11px] uppercase tracking-[0.2em] text-[var(--theme-text-muted)]">
+        {title}
+      </div>
       <div className="flex flex-wrap gap-2">
         {items.map((item) => (
           <button
@@ -284,4 +317,3 @@ function FilterRow({
     </div>
   )
 }
-

@@ -85,7 +85,9 @@ export function ChatView() {
                 </div>
                 <div>
                   <h2 className="ui-section-title text-base">AI 助手</h2>
-                  <p className="text-xs text-[var(--theme-text-muted)]">支持跨对话记忆、预设角色和代码问答</p>
+                  <p className="text-xs text-[var(--theme-text-muted)]">
+                    支持跨对话记忆、预设角色和代码问答
+                  </p>
                 </div>
               </div>
 
@@ -145,7 +147,11 @@ export function ChatView() {
               <MessageBubble
                 key={message.id}
                 msg={message}
-                isStreaming={streaming && message.role === 'assistant' && message.id === messages[messages.length - 1]?.id}
+                isStreaming={
+                  streaming &&
+                  message.role === 'assistant' &&
+                  message.id === messages[messages.length - 1]?.id
+                }
               />
             ))}
 

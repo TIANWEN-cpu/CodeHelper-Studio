@@ -16,7 +16,9 @@ function resolveCommand(cmd: string): string {
   const cached = resolvedPaths.get(cmd)
   if (cached !== undefined) return cached
   try {
-    const resolved = execFileSync('where', [cmd], { timeout: 5000, encoding: 'utf-8' }).trim().split(/\r?\n/)[0]
+    const resolved = execFileSync('where', [cmd], { timeout: 5000, encoding: 'utf-8' })
+      .trim()
+      .split(/\r?\n/)[0]
     resolvedPaths.set(cmd, resolved)
     return resolved
   } catch {
@@ -40,7 +42,11 @@ function getTempDir() {
   return tempDir
 }
 
-export async function runCodeSnippet(code: string, language: string, stdin?: string): Promise<CodeRunResult> {
+export async function runCodeSnippet(
+  code: string,
+  language: string,
+  stdin?: string,
+): Promise<CodeRunResult> {
   switch (language) {
     case 'python':
       return runPython(code, stdin)

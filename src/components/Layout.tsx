@@ -13,12 +13,18 @@ export function Layout() {
 
   const renderModule = () => {
     switch (activeModule) {
-      case 'problems': return <ProblemsView />
-      case 'editor': return <EditorView />
-      case 'settings': return <SettingsView />
-      case 'ai-chat': return <ChatView />
-      case 'mistakes': return <MistakesView />
-      case 'knowledge': return <KnowledgeView />
+      case 'problems':
+        return <ProblemsView />
+      case 'editor':
+        return <EditorView />
+      case 'settings':
+        return <SettingsView />
+      case 'ai-chat':
+        return <ChatView />
+      case 'mistakes':
+        return <MistakesView />
+      case 'knowledge':
+        return <KnowledgeView />
     }
   }
 
@@ -26,9 +32,7 @@ export function Layout() {
     <div className="h-screen flex flex-col bg-[var(--theme-bg-app)] text-[var(--theme-text-primary)]">
       <div className="flex-1 flex min-h-0 overflow-hidden">
         <Sidebar />
-        <div className="flex-1 flex min-h-0 flex-col overflow-hidden">
-          {renderModule()}
-        </div>
+        <div className="flex-1 flex min-h-0 flex-col overflow-hidden">{renderModule()}</div>
       </div>
       <StatusBar />
     </div>

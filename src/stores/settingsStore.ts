@@ -23,7 +23,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   loading: false,
   loadConfigs: async () => {
     set({ loading: true })
-    const configs = await window.api.invoke('db-get-ai-configs') as AIConfig[]
+    const configs = (await window.api.invoke('db-get-ai-configs')) as AIConfig[]
     set({ aiConfigs: configs, loading: false })
   },
   saveConfig: async (config) => {

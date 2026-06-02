@@ -14,7 +14,11 @@ const AI_PANEL_MAX_WIDTH = 760
 const quickPrompts = [
   { icon: Lightbulb, label: '解释题目', prompt: '请用简单的中文解释这道题目的要求和解题思路。' },
   { icon: Code2, label: '给我提示', prompt: '请给我循序渐进的解题提示，但不要直接给最终答案。' },
-  { icon: Bug, label: '分析代码', prompt: '请分析我当前可能会写出的代码问题，并提醒我最容易出错的点。' },
+  {
+    icon: Bug,
+    label: '分析代码',
+    prompt: '请分析我当前可能会写出的代码问题，并提醒我最容易出错的点。',
+  },
 ]
 
 export function AISidebar() {
@@ -68,7 +72,10 @@ export function AISidebar() {
     const panelRight = panelRef.current?.getBoundingClientRect().right ?? window.innerWidth
 
     const onMove = (moveEvent: MouseEvent) => {
-      const nextWidth = Math.max(AI_PANEL_MIN_WIDTH, Math.min(AI_PANEL_MAX_WIDTH, panelRight - moveEvent.clientX))
+      const nextWidth = Math.max(
+        AI_PANEL_MIN_WIDTH,
+        Math.min(AI_PANEL_MAX_WIDTH, panelRight - moveEvent.clientX),
+      )
       setAIPanelWidth(nextWidth)
     }
 
@@ -107,14 +114,21 @@ export function AISidebar() {
     const apiMessages = [
       {
         role: 'system' as const,
-        content: '你是一名中文编程辅导助手，正在帮助用户刷题。请优先给提示、思路和错误定位，保持简洁、耐心、可执行。',
+        content:
+          '你是一名中文编程辅导助手，正在帮助用户刷题。请优先给提示、思路和错误定位，保持简洁、耐心、可执行。',
       },
-      ...messages.filter((msg) => msg.content).map((msg) => ({ role: msg.role as 'user' | 'assistant', content: msg.content })),
+      ...messages
+        .filter((msg) => msg.content)
+        .map((msg) => ({ role: msg.role as 'user' | 'assistant', content: msg.content })),
       { role: 'user' as const, content: context + text },
     ]
 
     try {
-      await window.api.invoke('ai-chat', { messages: apiMessages, requestId, includeMemories: false })
+      await window.api.invoke('ai-chat', {
+        messages: apiMessages,
+        requestId,
+        includeMemories: false,
+      })
     } catch (error) {
       setMessages((prev) => {
         const next = [...prev]
@@ -147,11 +161,18 @@ export function AISidebar() {
             <Bot size={15} />
           </div>
           <div>
-            <div className="text-sm font-semibold text-[var(--theme-text-primary)]">题目侧边 AI</div>
-            <div className="text-[11px] text-[var(--theme-text-muted)]">更适合追问思路、定位 bug 和逐步提示</div>
+            <div className="text-sm font-semibold text-[var(--theme-text-primary)]">
+              题目侧边 AI
+            </div>
+            <div className="text-[11px] text-[var(--theme-text-muted)]">
+              更适合追问思路、定位 bug 和逐步提示
+            </div>
           </div>
         </div>
-        <button onClick={() => setAIPanelOpen(false)} className="ui-btn-ghost flex h-8 w-8 items-center justify-center">
+        <button
+          onClick={() => setAIPanelOpen(false)}
+          className="ui-btn-ghost flex h-8 w-8 items-center justify-center"
+        >
           <X size={14} />
         </button>
       </div>
@@ -190,13 +211,15 @@ export function AISidebar() {
                 }`}
               >
                 <pre className="whitespace-pre-wrap font-sans">{msg.content}</pre>
-                {msg.role === 'assistant' && streaming && msg.id === messages[messages.length - 1]?.id && (
-                  <span className="ml-1 mt-1 inline-flex items-center gap-0.5">
-                    <span className="typing-dot" />
-                    <span className="typing-dot" />
-                    <span className="typing-dot" />
-                  </span>
-                )}
+                {msg.role === 'assistant' &&
+                  streaming &&
+                  msg.id === messages[messages.length - 1]?.id && (
+                    <span className="ml-1 mt-1 inline-flex items-center gap-0.5">
+                      <span className="typing-dot" />
+                      <span className="typing-dot" />
+                      <span className="typing-dot" />
+                    </span>
+                  )}
               </div>
               {msg.role === 'user' && (
                 <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-xl bg-[var(--theme-info)] text-[var(--theme-accent-contrast)]">

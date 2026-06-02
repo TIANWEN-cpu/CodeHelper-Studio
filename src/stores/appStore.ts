@@ -27,7 +27,7 @@ export const useAppStore = create<AppState>((set) => ({
     await window.api.invoke('db-set-setting', THEME_SETTING_KEY, theme)
   },
   loadTheme: async () => {
-    const saved = await window.api.invoke('db-get-setting', THEME_SETTING_KEY) as ThemeId | null
+    const saved = (await window.api.invoke('db-get-setting', THEME_SETTING_KEY)) as ThemeId | null
     const theme = saved && ['mocha', 'fjord', 'ember'].includes(saved) ? saved : 'mocha'
     applyTheme(theme)
     set({ theme })

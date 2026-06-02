@@ -78,10 +78,11 @@ const api = {
     if (typeof callback !== 'function') {
       throw new Error('IPC 事件回调必须是函数')
     }
-    const subscription = (_event: Electron.IpcRendererEvent, ...args: unknown[]) => callback(...args)
+    const subscription = (_event: Electron.IpcRendererEvent, ...args: unknown[]) =>
+      callback(...args)
     ipcRenderer.on(channel, subscription)
     return () => ipcRenderer.removeListener(channel, subscription)
-  }
+  },
 }
 
 contextBridge.exposeInMainWorld('api', api)

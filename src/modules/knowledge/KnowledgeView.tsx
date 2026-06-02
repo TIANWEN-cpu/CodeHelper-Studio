@@ -22,7 +22,7 @@ export function KnowledgeView() {
   const [uploading, setUploading] = useState(false)
 
   const loadDocs = async () => {
-    const data = await window.api.invoke('knowledge-list') as Doc[]
+    const data = (await window.api.invoke('knowledge-list')) as Doc[]
     setDocs(data)
   }
 
@@ -46,7 +46,7 @@ export function KnowledgeView() {
     if (!searchQuery.trim()) {
       return
     }
-    const results = await window.api.invoke('knowledge-search', searchQuery) as SearchResult[]
+    const results = (await window.api.invoke('knowledge-search', searchQuery)) as SearchResult[]
     setSearchResults(results)
   }
 
@@ -60,9 +60,15 @@ export function KnowledgeView() {
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="ui-section-title text-2xl">知识库</h1>
-          <p className="mt-2 text-sm text-[var(--theme-text-muted)]">上传 PDF、Markdown 或 TXT 文档，让 AI 在问答时引用你的资料。</p>
+          <p className="mt-2 text-sm text-[var(--theme-text-muted)]">
+            上传 PDF、Markdown 或 TXT 文档，让 AI 在问答时引用你的资料。
+          </p>
         </div>
-        <button onClick={handleUpload} disabled={uploading} className="ui-btn-accent flex items-center gap-2 px-4 py-2 text-sm">
+        <button
+          onClick={handleUpload}
+          disabled={uploading}
+          className="ui-btn-accent flex items-center gap-2 px-4 py-2 text-sm"
+        >
           <Upload size={14} />
           {uploading ? '上传中...' : '上传文件'}
         </button>
@@ -72,7 +78,10 @@ export function KnowledgeView() {
         <div className="ui-card p-4">
           <div className="flex flex-col gap-3 md:flex-row">
             <div className="relative flex-1">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--theme-text-muted)]" />
+              <Search
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--theme-text-muted)]"
+              />
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
@@ -81,7 +90,10 @@ export function KnowledgeView() {
                 className="ui-input pl-10 pr-3 py-3 text-sm"
               />
             </div>
-            <button onClick={() => void handleSearch()} className="ui-btn-secondary px-4 py-3 text-sm">
+            <button
+              onClick={() => void handleSearch()}
+              className="ui-btn-secondary px-4 py-3 text-sm"
+            >
               搜索
             </button>
           </div>
@@ -89,14 +101,18 @@ export function KnowledgeView() {
 
         {searchResults.length > 0 && (
           <div>
-            <h3 className="mb-3 text-sm font-semibold text-[var(--theme-text-muted)]">搜索结果 ({searchResults.length})</h3>
+            <h3 className="mb-3 text-sm font-semibold text-[var(--theme-text-muted)]">
+              搜索结果 ({searchResults.length})
+            </h3>
             <div className="space-y-3">
               {searchResults.map((result, index) => (
                 <div key={index} className="ui-card p-4">
                   <div className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--theme-accent)]">
                     {result.filename}
                   </div>
-                  <div className="text-sm leading-7 text-[var(--theme-text-secondary)]">{result.content}</div>
+                  <div className="text-sm leading-7 text-[var(--theme-text-secondary)]">
+                    {result.content}
+                  </div>
                 </div>
               ))}
             </div>
@@ -104,7 +120,9 @@ export function KnowledgeView() {
         )}
 
         <div>
-          <h3 className="mb-3 text-sm font-semibold text-[var(--theme-text-muted)]">已上传文档 ({docs.length})</h3>
+          <h3 className="mb-3 text-sm font-semibold text-[var(--theme-text-muted)]">
+            已上传文档 ({docs.length})
+          </h3>
           {docs.length === 0 ? (
             <div className="ui-card py-14 text-center text-[var(--theme-text-muted)]">
               <FileText size={48} className="mx-auto mb-4 opacity-30" />
@@ -120,7 +138,9 @@ export function KnowledgeView() {
                       <FileText size={18} />
                     </div>
                     <div>
-                      <div className="text-sm font-medium text-[var(--theme-text-primary)]">{doc.filename}</div>
+                      <div className="text-sm font-medium text-[var(--theme-text-primary)]">
+                        {doc.filename}
+                      </div>
                       <div className="mt-1 text-xs text-[var(--theme-text-muted)]">
                         {doc.chunk_count} 个片段 · {doc.created_at?.slice(0, 10)}
                       </div>

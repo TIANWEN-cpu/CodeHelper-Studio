@@ -20,7 +20,7 @@ export function splitSqlStatements(sql: string): string[] {
       continue
     }
 
-    if (char === '\'' || char === '"') {
+    if (char === "'" || char === '"') {
       if (quote === char) {
         quote = null
       } else if (!quote) {

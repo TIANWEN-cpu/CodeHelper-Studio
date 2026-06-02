@@ -34,10 +34,10 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: resolve(__dirname, 'src/index.html')
-      },
-      define: {
-        __APP_VERSION__: JSON.stringify(pkg.version)
       }
+    },
+    define: {
+      __APP_VERSION__: JSON.stringify(pkg.version)
     },
     plugins: [react(), tailwindcss()]
   }

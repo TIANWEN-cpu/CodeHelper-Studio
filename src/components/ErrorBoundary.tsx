@@ -30,19 +30,19 @@ export class ErrorBoundary extends Component<Props, State> {
   render(): ReactNode {
     if (this.state.hasError) {
       return (
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100vh',
-          padding: '2rem',
-          textAlign: 'center',
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-        }}>
-          <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
-            页面出错了
-          </h1>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100vh',
+            padding: '2rem',
+            textAlign: 'center',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+          }}
+        >
+          <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>页面出错了</h1>
           <p style={{ color: '#888', marginBottom: '1.5rem', maxWidth: '28rem' }}>
             {this.state.error?.message || '发生了未知错误，请尝试重新加载页面。'}
           </p>

@@ -9,8 +9,11 @@ import { registerMistakesIPC } from './ipc/mistakes'
 import { registerRAGIPC } from './ipc/rag'
 import { registerChatIPC } from './ipc/chat'
 
-const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-8')) as { repository?: { url?: string } }
-const REPO_URL = pkg.repository?.url?.replace(/\.git$/, '') ?? 'https://github.com/TIANWEN-cpu/CodeHelper'
+const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-8')) as {
+  repository?: { url?: string }
+}
+const REPO_URL =
+  pkg.repository?.url?.replace(/\.git$/, '') ?? 'https://github.com/TIANWEN-cpu/CodeHelper'
 
 function setupApplicationMenu() {
   const template: Electron.MenuItemConstructorOptions[] = [
@@ -100,8 +103,8 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       webSecurity: true,
-      navigateOnDragDrop: false
-    }
+      navigateOnDragDrop: false,
+    },
   })
 
   // Content-Security-Policy: prevent XSS via inline script execution
@@ -110,9 +113,9 @@ function createWindow(): void {
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
-          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data https:; connect-src 'self' https:; font-src 'self' data:;"
-        ]
-      }
+          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data https:; connect-src 'self' https:; font-src 'self' data:;",
+        ],
+      },
     })
   })
 
@@ -151,7 +154,9 @@ function createWindow(): void {
       if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
         shell.openExternal(details.url)
       } else {
-        console.warn(`[security] Blocked navigation to disallowed protocol: ${parsed.protocol} (${details.url})`)
+        console.warn(
+          `[security] Blocked navigation to disallowed protocol: ${parsed.protocol} (${details.url})`,
+        )
       }
     } catch {
       console.warn(`[security] Blocked navigation to invalid URL: ${details.url}`)

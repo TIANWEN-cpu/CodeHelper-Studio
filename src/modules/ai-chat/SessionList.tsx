@@ -3,7 +3,15 @@ import { Plus, Trash2, MessageSquare, Pencil, Check, X } from 'lucide-react'
 import { useChatStore, type ChatSession } from '../../stores/chatStore'
 
 export function SessionList() {
-  const { sessions, activeSessionId, createSession, switchSession, deleteSession, renameSession, presets } = useChatStore()
+  const {
+    sessions,
+    activeSessionId,
+    createSession,
+    switchSession,
+    deleteSession,
+    renameSession,
+    presets,
+  } = useChatStore()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [showPresetMenu, setShowPresetMenu] = useState(false)
@@ -29,7 +37,9 @@ export function SessionList() {
     <div className="ui-toolbar flex w-72 shrink-0 min-h-0 flex-col border-r">
       <div className="flex items-center justify-between border-b px-4 py-3 glass-line shrink-0">
         <div>
-          <span className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--theme-text-muted)]">对话</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--theme-text-muted)]">
+            对话
+          </span>
           <p className="mt-1 text-xs text-[var(--theme-text-muted)]">预设角色、长期会话一处管理</p>
         </div>
         <div className="relative">
@@ -48,7 +58,9 @@ export function SessionList() {
                 空白对话
               </button>
               <div className="my-1 border-t glass-line" />
-              <div className="px-4 py-2 text-[11px] uppercase tracking-[0.24em] text-[var(--theme-text-muted)]">预设角色</div>
+              <div className="px-4 py-2 text-[11px] uppercase tracking-[0.24em] text-[var(--theme-text-muted)]">
+                预设角色
+              </div>
               {presets.map((preset) => (
                 <button
                   key={preset.id}
@@ -75,11 +87,13 @@ export function SessionList() {
             }`}
           >
             <div className="flex items-start gap-3">
-              <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
-                activeSessionId === session.id
-                  ? 'bg-[var(--theme-accent)] text-[var(--theme-accent-contrast)]'
-                  : 'bg-[var(--theme-bg-hover)] text-[var(--theme-text-muted)]'
-              }`}>
+              <div
+                className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
+                  activeSessionId === session.id
+                    ? 'bg-[var(--theme-accent)] text-[var(--theme-accent-contrast)]'
+                    : 'bg-[var(--theme-bg-hover)] text-[var(--theme-text-muted)]'
+                }`}
+              >
                 <MessageSquare size={14} />
               </div>
 
@@ -92,17 +106,25 @@ export function SessionList() {
                     className="ui-input flex-1 px-2 py-1 text-xs"
                     autoFocus
                   />
-                  <button onClick={confirmRename} className="rounded p-1 text-[var(--theme-success)] hover:bg-[var(--theme-success-soft)]">
+                  <button
+                    onClick={confirmRename}
+                    className="rounded p-1 text-[var(--theme-success)] hover:bg-[var(--theme-success-soft)]"
+                  >
                     <Check size={12} />
                   </button>
-                  <button onClick={() => setEditingId(null)} className="rounded p-1 text-[var(--theme-danger)] hover:bg-[var(--theme-danger-soft)]">
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="rounded p-1 text-[var(--theme-danger)] hover:bg-[var(--theme-danger-soft)]"
+                  >
                     <X size={12} />
                   </button>
                 </div>
               ) : (
                 <>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-[var(--theme-text-primary)]">{session.title}</div>
+                    <div className="truncate text-sm font-medium text-[var(--theme-text-primary)]">
+                      {session.title}
+                    </div>
                     <div className="mt-1 text-xs text-[var(--theme-text-muted)]">
                       {new Date(session.updated_at).toLocaleString('zh-CN', {
                         month: '2-digit',

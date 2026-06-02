@@ -80,7 +80,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   memories: [],
 
   loadSessions: async () => {
-    const sessions = await window.api.invoke('chat-sessions-list') as ChatSession[]
+    const sessions = (await window.api.invoke('chat-sessions-list')) as ChatSession[]
     set({ sessions })
   },
 
@@ -97,7 +97,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   switchSession: async (id: string) => {
-    const rows = await window.api.invoke('chat-messages-load', id) as Array<{
+    const rows = (await window.api.invoke('chat-messages-load', id)) as Array<{
       id: number
       role: ChatMessage['role']
       content: string
@@ -138,8 +138,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     const requestId = buildRequestId()
-    const userMsg: ChatMessage = { id: `msg-${Date.now()}`, role: 'user', content, timestamp: Date.now() }
-    const assistantMsg: ChatMessage = { id: `msg-${Date.now() + 1}`, role: 'assistant', content: '', timestamp: Date.now() }
+    const userMsg: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      role: 'user',
+      content,
+      timestamp: Date.now(),
+    }
+    const assistantMsg: ChatMessage = {
+      id: `msg-${Date.now() + 1}`,
+      role: 'assistant',
+      content: '',
+      timestamp: Date.now(),
+    }
 
     set((state) => ({
       messages: [...state.messages, userMsg, assistantMsg],
@@ -148,7 +158,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       error: null,
     }))
 
-    await window.api.invoke('chat-message-save', { session_id: activeSessionId, role: 'user', content })
+    await window.api.invoke('chat-message-save', {
+      session_id: activeSessionId,
+      role: 'user',
+      content,
+    })
     await window.api.invoke('chat-memory-capture', { content, session_id: activeSessionId })
 
     const session = get().sessions.find((item) => item.id === activeSessionId)
@@ -226,12 +240,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   loadPresets: async () => {
-    const presets = await window.api.invoke('chat-presets-list') as PromptPreset[]
+    const presets = (await window.api.invoke('chat-presets-list')) as PromptPreset[]
     set({ presets })
   },
 
   loadMemories: async (search?: string) => {
-    const memories = await window.api.invoke('chat-memories-list', search) as MemoryItem[]
+    const memories = (await window.api.invoke('chat-memories-list', search)) as MemoryItem[]
     set({ memories })
   },
 

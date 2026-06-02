@@ -1,6 +1,6 @@
 import { ipcMain, dialog } from 'electron'
 import { getDB } from '../db/index'
-import { readFileSync } from 'fs'
+import { readFileSync, statSync } from 'fs'
 import { basename, extname } from 'path'
 import { splitIntoChunks, escapeRegExp } from '../utils/textUtils'
 
@@ -16,9 +16,7 @@ export function registerRAGIPC() {
   ipcMain.handle('knowledge-upload', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
-      filters: [
-        { name: '文档', extensions: ['txt', 'md', 'pdf'] }
-      ]
+      filters: [{ name: '文档', extensions: ['txt', 'md', 'pdf'] }],
     })
 
     if (result.canceled || result.filePaths.length === 0) return null
@@ -32,7 +30,7 @@ export function registerRAGIPC() {
       let content = ''
 
       const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
-      const stat = require('fs').statSync(filePath)
+      const stat = statSync(filePath)
       if (stat.size > MAX_FILE_SIZE) {
         throw new Error(`文件 "${filename}" 超过大小限制（最大 10MB）`)
       }
@@ -41,13 +39,14 @@ export function registerRAGIPC() {
         content = readFileSync(filePath, 'utf-8')
       } else if (ext === '.pdf') {
         try {
-          const pdfParseModule = await import('pdf-parse').catch(() => {
+          const { PDFParse } = await import('pdf-parse').catch(() => {
             throw new Error('缺少 pdf-parse 模块，请运行: npm install pdf-parse')
           })
-          const pdfParse = pdfParseModule.default
           const buffer = readFileSync(filePath)
-          const data = await pdfParse(buffer)
-          content = data.text
+          const parser = new PDFParse({ data: buffer })
+          const textResult = await parser.getText()
+          content = textResult.text
+          await parser.destroy()
         } catch (error) {
           throw new Error(`PDF 解析失败: ${error instanceof Error ? error.message : String(error)}`)
         }
@@ -56,13 +55,15 @@ export function registerRAGIPC() {
       // Split into chunks (~500 chars)
       const chunks = splitIntoChunks(content, 500)
 
-      const docResult = db.prepare(
-        'INSERT INTO knowledge_docs (filename, file_type, content, chunk_count) VALUES (?,?,?,?)'
-      ).run(filename, ext, content, chunks.length)
+      const docResult = db
+        .prepare(
+          'INSERT INTO knowledge_docs (filename, file_type, content, chunk_count) VALUES (?,?,?,?)',
+        )
+        .run(filename, ext, content, chunks.length)
 
       const docId = docResult.lastInsertRowid
       const insertChunk = db.prepare(
-        'INSERT INTO knowledge_chunks (doc_id, content, chunk_index) VALUES (?,?,?)'
+        'INSERT INTO knowledge_chunks (doc_id, content, chunk_index) VALUES (?,?,?)',
       )
 
       chunks.forEach((chunk, i) => {
@@ -76,7 +77,11 @@ export function registerRAGIPC() {
   })
 
   ipcMain.handle('knowledge-list', () => {
-    return getDB().prepare('SELECT id, filename, file_type, chunk_count, created_at FROM knowledge_docs ORDER BY created_at DESC').all()
+    return getDB()
+      .prepare(
+        'SELECT id, filename, file_type, chunk_count, created_at FROM knowledge_docs ORDER BY created_at DESC',
+      )
+      .all()
   })
 
   ipcMain.handle('knowledge-delete', (_e, id: number) => {
@@ -88,18 +93,23 @@ export function registerRAGIPC() {
     if (typeof query !== 'string' || !query.trim()) throw new Error('参数无效: query')
     query = query.trim().slice(0, 1000)
     // Simple keyword search (no embedding for now)
-    const keywords = query.toLowerCase().split(/\s+/).filter(k => k.length > 1)
+    const keywords = query
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((k) => k.length > 1)
     if (keywords.length === 0) return []
 
     const db = getDB()
     const conditions = keywords.map(() => 'LOWER(kc.content) LIKE ?').join(' OR ')
-    const params = keywords.map(kw => `%${kw}%`)
-    const matchingChunks = db.prepare(
-      `SELECT kc.*, kd.filename FROM knowledge_chunks kc JOIN knowledge_docs kd ON kc.doc_id = kd.id WHERE ${conditions}`
-    ).all(...params) as KnowledgeChunkRow[]
+    const params = keywords.map((kw) => `%${kw}%`)
+    const matchingChunks = db
+      .prepare(
+        `SELECT kc.*, kd.filename FROM knowledge_chunks kc JOIN knowledge_docs kd ON kc.doc_id = kd.id WHERE ${conditions}`,
+      )
+      .all(...params) as KnowledgeChunkRow[]
 
     // Score chunks by keyword match frequency
-    const scored = matchingChunks.map(chunk => {
+    const scored = matchingChunks.map((chunk) => {
       const text = chunk.content.toLowerCase()
       let score = 0
       for (const kw of keywords) {
@@ -113,4 +123,3 @@ export function registerRAGIPC() {
     return scored.slice(0, 5)
   })
 }
-

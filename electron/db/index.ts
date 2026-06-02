@@ -14,9 +14,9 @@ export function getDB(): Database.Database {
 
     // Load and execute schema - try multiple paths
     const candidates = [
-      join(process.resourcesPath, 'db', 'schema.sql'),           // packaged: extraResources
-      join(__dirname, '../../electron/db/schema.sql'),            // dev: source
-      join(__dirname, '../db/schema.sql'),                        // fallback
+      join(process.resourcesPath, 'db', 'schema.sql'), // packaged: extraResources
+      join(__dirname, '../../electron/db/schema.sql'), // dev: source
+      join(__dirname, '../db/schema.sql'), // fallback
     ]
 
     let schema = ''

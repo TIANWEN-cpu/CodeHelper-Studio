@@ -20,10 +20,10 @@ export function EditorView() {
     setOutput(null)
 
     try {
-      const result = await window.api.invoke('run-code', {
+      const result = (await window.api.invoke('run-code', {
         code: activeTab.content,
         language: activeTab.language,
-      }) as { stdout: string; stderr: string }
+      })) as { stdout: string; stderr: string }
       setOutput(result)
     } catch (error: unknown) {
       setOutput({ stdout: '', stderr: String(error) })

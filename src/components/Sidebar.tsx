@@ -31,9 +31,7 @@ export function Sidebar() {
   return (
     <div className="w-12 bg-[var(--theme-bg-sidebar)] flex flex-col items-center py-3 gap-2 border-r border-[var(--theme-border)]">
       {topItems.map(({ id, icon, label }) => btn(id, icon, label))}
-      <div className="mt-auto">
-        {btn('settings', Settings, '设置')}
-      </div>
+      <div className="mt-auto">{btn('settings', Settings, '设置')}</div>
     </div>
   )
 }

@@ -1,5 +1,14 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
-import { Plus, Trash2, Pencil, RefreshCw, ClipboardPaste, MessageSquare, Brain, Sparkles } from 'lucide-react'
+import {
+  Plus,
+  Trash2,
+  Pencil,
+  RefreshCw,
+  ClipboardPaste,
+  MessageSquare,
+  Brain,
+  Sparkles,
+} from 'lucide-react'
 import { useSettingsStore, type AIConfig } from '../../stores/settingsStore'
 import { useChatStore, type MemoryItem } from '../../stores/chatStore'
 import { useAppStore, type ThemeId } from '../../stores/appStore'
@@ -36,8 +45,14 @@ export function SettingsView() {
   const [saveSuccess, setSaveSuccess] = useState('')
   const [saving, setSaving] = useState(false)
   const [smartPaste, setSmartPaste] = useState('')
-  const [editingPreset, setEditingPreset] = useState<{ id?: number; name: string; prompt: string } | null>(null)
-  const [editingMemory, setEditingMemory] = useState<Partial<MemoryItem> & { content: string; category: string } | null>(null)
+  const [editingPreset, setEditingPreset] = useState<{
+    id?: number
+    name: string
+    prompt: string
+  } | null>(null)
+  const [editingMemory, setEditingMemory] = useState<
+    (Partial<MemoryItem> & { content: string; category: string }) | null
+  >(null)
   const [memorySearch, setMemorySearch] = useState('')
   const [tab, setTab] = useState<SettingsTab>('ai')
 
@@ -90,10 +105,10 @@ export function SettingsView() {
     setFetchError('')
 
     try {
-      const models = await window.api.invoke('ai-fetch-models', {
+      const models = (await window.api.invoke('ai-fetch-models', {
         api_key: editing.api_key,
         base_url: editing.base_url,
-      }) as string[]
+      })) as string[]
       setModelList(models)
 
       if (models.length > 0 && !editing.model) {
@@ -115,7 +130,8 @@ export function SettingsView() {
     const normalizedBaseUrl = editing.base_url.trim()
     const normalizedApiKey = editing.api_key.trim()
     const normalizedModel = editing.model.trim()
-    const normalizedName = editing.name.trim() || buildConfigName(normalizedBaseUrl, normalizedModel)
+    const normalizedName =
+      editing.name.trim() || buildConfigName(normalizedBaseUrl, normalizedModel)
 
     if (!normalizedBaseUrl) {
       setSaveError('请先填写 Base URL。')
@@ -231,7 +247,11 @@ export function SettingsView() {
 
       <div className="mb-5 flex gap-2">
         <TabButton active={tab === 'ai'} label="AI 模型配置" onClick={() => setTab('ai')} />
-        <TabButton active={tab === 'presets'} label="预设提示词" onClick={() => setTab('presets')} />
+        <TabButton
+          active={tab === 'presets'}
+          label="预设提示词"
+          onClick={() => setTab('presets')}
+        />
         <TabButton active={tab === 'memories'} label="记忆库" onClick={() => setTab('memories')} />
       </div>
 
@@ -243,7 +263,9 @@ export function SettingsView() {
                 <ClipboardPaste size={16} className="text-[var(--theme-accent)]" />
                 <div>
                   <div className="font-medium text-[var(--theme-text-primary)]">智能粘贴</div>
-                  <div className="text-xs text-[var(--theme-text-muted)]">自动识别 Base URL 和 API Key，适合复制控制台或网页里的完整文本。</div>
+                  <div className="text-xs text-[var(--theme-text-muted)]">
+                    自动识别 Base URL 和 API Key，适合复制控制台或网页里的完整文本。
+                  </div>
                 </div>
               </div>
               <div className="flex flex-col gap-3 md:flex-row">
@@ -263,9 +285,14 @@ export function SettingsView() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="ui-section-title text-xl">AI 模型配置</h2>
-                <p className="mt-1 text-sm text-[var(--theme-text-muted)]">支持多套模型配置，并可指定默认模型供聊天和刷题 AI 使用。</p>
+                <p className="mt-1 text-sm text-[var(--theme-text-muted)]">
+                  支持多套模型配置，并可指定默认模型供聊天和刷题 AI 使用。
+                </p>
               </div>
-              <button onClick={() => setEditing({ ...emptyConfig })} className="ui-btn-accent flex items-center gap-2 px-4 py-2 text-sm">
+              <button
+                onClick={() => setEditing({ ...emptyConfig })}
+                className="ui-btn-accent flex items-center gap-2 px-4 py-2 text-sm"
+              >
                 <Plus size={14} />
                 添加配置
               </button>
@@ -282,17 +309,33 @@ export function SettingsView() {
                 <div key={config.id} className="ui-card flex items-start justify-between gap-4 p-5">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-base font-semibold text-[var(--theme-text-primary)]">{config.name}</span>
+                      <span className="text-base font-semibold text-[var(--theme-text-primary)]">
+                        {config.name}
+                      </span>
                       {config.is_default === 1 && <span className="ui-chip-warning">默认</span>}
                     </div>
-                    <div className="mt-2 text-sm text-[var(--theme-text-secondary)]">{config.model}</div>
-                    <div className="mt-1 text-xs text-[var(--theme-text-muted)]">{config.base_url}</div>
+                    <div className="mt-2 text-sm text-[var(--theme-text-secondary)]">
+                      {config.model}
+                    </div>
+                    <div className="mt-1 text-xs text-[var(--theme-text-muted)]">
+                      {config.base_url}
+                    </div>
                   </div>
                   <div className="flex gap-1">
-                    <button onClick={() => setEditing({ ...config })} className="ui-btn-ghost flex h-9 w-9 items-center justify-center hover:text-[var(--theme-text-primary)]">
+                    <button
+                      onClick={() => setEditing({ ...config })}
+                      className="ui-btn-ghost flex h-9 w-9 items-center justify-center hover:text-[var(--theme-text-primary)]"
+                    >
                       <Pencil size={14} />
                     </button>
-                    <button onClick={() => config.id && window.confirm('确定要删除该 AI 配置？') && void deleteConfig(config.id)} className="ui-btn-ghost flex h-9 w-9 items-center justify-center hover:text-[var(--theme-danger)]">
+                    <button
+                      onClick={() =>
+                        config.id &&
+                        window.confirm('确定要删除该 AI 配置？') &&
+                        void deleteConfig(config.id)
+                      }
+                      className="ui-btn-ghost flex h-9 w-9 items-center justify-center hover:text-[var(--theme-danger)]"
+                    >
                       <Trash2 size={14} />
                     </button>
                   </div>
@@ -336,7 +379,9 @@ export function SettingsView() {
 
                 <div className="mt-4">
                   <div className="mb-2 flex items-center justify-between">
-                    <label className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--theme-text-muted)]">模型</label>
+                    <label className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--theme-text-muted)]">
+                      模型
+                    </label>
                     <button
                       onClick={() => void handleFetchModels()}
                       disabled={fetchingModels || !editing.api_key || !editing.base_url}
@@ -369,7 +414,9 @@ export function SettingsView() {
                     />
                   )}
 
-                  {fetchError && <div className="mt-2 text-xs text-[var(--theme-danger)]">{fetchError}</div>}
+                  {fetchError && (
+                    <div className="mt-2 text-xs text-[var(--theme-danger)]">{fetchError}</div>
+                  )}
                 </div>
 
                 <label className="mt-4 flex items-center gap-2 text-sm text-[var(--theme-text-primary)]">
@@ -377,22 +424,35 @@ export function SettingsView() {
                     id="is_default"
                     type="checkbox"
                     checked={editing.is_default === 1}
-                    onChange={(event) => setEditing({ ...editing, is_default: event.target.checked ? 1 : 0 })}
+                    onChange={(event) =>
+                      setEditing({ ...editing, is_default: event.target.checked ? 1 : 0 })
+                    }
                     className="accent-[var(--theme-accent)]"
                   />
                   设为默认模型
                 </label>
 
                 <div className="mt-5 flex gap-2">
-                  <button onClick={() => void handleSave()} disabled={saving} className="ui-btn-success px-4 py-2 text-sm">
+                  <button
+                    onClick={() => void handleSave()}
+                    disabled={saving}
+                    className="ui-btn-success px-4 py-2 text-sm"
+                  >
                     {saving ? '保存中...' : '保存'}
                   </button>
-                  <button onClick={() => setEditing(null)} className="ui-btn-secondary px-4 py-2 text-sm">
+                  <button
+                    onClick={() => setEditing(null)}
+                    className="ui-btn-secondary px-4 py-2 text-sm"
+                  >
                     取消
                   </button>
                 </div>
-                {saveError && <div className="mt-3 text-sm text-[var(--theme-danger)]">{saveError}</div>}
-                {saveSuccess && <div className="mt-3 text-sm text-[var(--theme-success)]">{saveSuccess}</div>}
+                {saveError && (
+                  <div className="mt-3 text-sm text-[var(--theme-danger)]">{saveError}</div>
+                )}
+                {saveSuccess && (
+                  <div className="mt-3 text-sm text-[var(--theme-success)]">{saveSuccess}</div>
+                )}
               </div>
             )}
           </div>
@@ -403,9 +463,14 @@ export function SettingsView() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="ui-section-title text-xl">预设提示词</h2>
-                <p className="mt-1 text-sm text-[var(--theme-text-muted)]">把常用角色整理成预设，开启新对话时就能一键复用。</p>
+                <p className="mt-1 text-sm text-[var(--theme-text-muted)]">
+                  把常用角色整理成预设，开启新对话时就能一键复用。
+                </p>
               </div>
-              <button onClick={() => setEditingPreset({ name: '', prompt: '' })} className="ui-btn-accent flex items-center gap-2 px-4 py-2 text-sm">
+              <button
+                onClick={() => setEditingPreset({ name: '', prompt: '' })}
+                className="ui-btn-accent flex items-center gap-2 px-4 py-2 text-sm"
+              >
                 <Plus size={14} />
                 添加预设
               </button>
@@ -418,15 +483,25 @@ export function SettingsView() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <MessageSquare size={15} className="text-[var(--theme-accent)]" />
-                        <span className="font-semibold text-[var(--theme-text-primary)]">{preset.name}</span>
+                        <span className="font-semibold text-[var(--theme-text-primary)]">
+                          {preset.name}
+                        </span>
                         {preset.is_builtin === 1 && <span className="ui-chip">内置</span>}
                       </div>
-                      <div className="mt-3 line-clamp-3 text-sm leading-7 text-[var(--theme-text-muted)]">{preset.prompt}</div>
+                      <div className="mt-3 line-clamp-3 text-sm leading-7 text-[var(--theme-text-muted)]">
+                        {preset.prompt}
+                      </div>
                     </div>
                     {preset.is_builtin === 0 && (
                       <div className="flex gap-1">
                         <button
-                          onClick={() => setEditingPreset({ id: preset.id, name: preset.name, prompt: preset.prompt })}
+                          onClick={() =>
+                            setEditingPreset({
+                              id: preset.id,
+                              name: preset.name,
+                              prompt: preset.prompt,
+                            })
+                          }
                           className="ui-btn-ghost flex h-9 w-9 items-center justify-center hover:text-[var(--theme-text-primary)]"
                         >
                           <Pencil size={14} />
@@ -446,12 +521,16 @@ export function SettingsView() {
 
             {editingPreset && (
               <div className="ui-card p-5">
-                <h3 className="ui-section-title text-lg">{editingPreset.id ? '编辑预设' : '新建预设'}</h3>
+                <h3 className="ui-section-title text-lg">
+                  {editingPreset.id ? '编辑预设' : '新建预设'}
+                </h3>
                 <div className="mt-4 space-y-4">
                   <Field label="名称">
                     <input
                       value={editingPreset.name}
-                      onChange={(event) => setEditingPreset({ ...editingPreset, name: event.target.value })}
+                      onChange={(event) =>
+                        setEditingPreset({ ...editingPreset, name: event.target.value })
+                      }
                       className="ui-input px-4 py-3 text-sm"
                       placeholder="如：Python 专家"
                     />
@@ -459,7 +538,9 @@ export function SettingsView() {
                   <Field label="系统提示词">
                     <textarea
                       value={editingPreset.prompt}
-                      onChange={(event) => setEditingPreset({ ...editingPreset, prompt: event.target.value })}
+                      onChange={(event) =>
+                        setEditingPreset({ ...editingPreset, prompt: event.target.value })
+                      }
                       rows={5}
                       className="ui-textarea resize-none px-4 py-3 text-sm"
                       placeholder="你是一名..."
@@ -467,8 +548,18 @@ export function SettingsView() {
                   </Field>
                 </div>
                 <div className="mt-5 flex gap-2">
-                  <button onClick={() => void handleSavePreset()} className="ui-btn-success px-4 py-2 text-sm">保存</button>
-                  <button onClick={() => setEditingPreset(null)} className="ui-btn-secondary px-4 py-2 text-sm">取消</button>
+                  <button
+                    onClick={() => void handleSavePreset()}
+                    className="ui-btn-success px-4 py-2 text-sm"
+                  >
+                    保存
+                  </button>
+                  <button
+                    onClick={() => setEditingPreset(null)}
+                    className="ui-btn-secondary px-4 py-2 text-sm"
+                  >
+                    取消
+                  </button>
                 </div>
               </div>
             )}
@@ -480,10 +571,14 @@ export function SettingsView() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="ui-section-title text-xl">记忆库</h2>
-                <p className="mt-1 text-sm text-[var(--theme-text-muted)]">AI 会在新对话里自动召回相关长期记忆，你也可以手动整理它们。</p>
+                <p className="mt-1 text-sm text-[var(--theme-text-muted)]">
+                  AI 会在新对话里自动召回相关长期记忆，你也可以手动整理它们。
+                </p>
               </div>
               <button
-                onClick={() => setEditingMemory({ content: '', category: 'general', pinned: 0, enabled: 1 })}
+                onClick={() =>
+                  setEditingMemory({ content: '', category: 'general', pinned: 0, enabled: 1 })
+                }
                 className="ui-btn-accent flex items-center gap-2 px-4 py-2 text-sm"
               >
                 <Plus size={14} />
@@ -508,8 +603,12 @@ export function SettingsView() {
             {memories.length === 0 && !editingMemory && (
               <div className="ui-card py-14 text-center text-[var(--theme-text-muted)]">
                 <Brain size={48} className="mx-auto mb-4 opacity-30" />
-                <p className="text-base font-medium text-[var(--theme-text-primary)]">还没有长期记忆</p>
-                <p className="mt-2 text-sm">你可以手动添加，或者在聊天里直接说“记住我更喜欢先看思路”。</p>
+                <p className="text-base font-medium text-[var(--theme-text-primary)]">
+                  还没有长期记忆
+                </p>
+                <p className="mt-2 text-sm">
+                  你可以手动添加，或者在聊天里直接说“记住我更喜欢先看思路”。
+                </p>
               </div>
             )}
 
@@ -524,23 +623,39 @@ export function SettingsView() {
                         {memory.enabled === 0 && <span className="ui-chip-danger">已停用</span>}
                         <span className="ui-chip">来源 {memory.source}</span>
                       </div>
-                      <div className="mt-3 whitespace-pre-wrap text-sm leading-7 text-[var(--theme-text-primary)]">{memory.content}</div>
+                      <div className="mt-3 whitespace-pre-wrap text-sm leading-7 text-[var(--theme-text-primary)]">
+                        {memory.content}
+                      </div>
                       <div className="mt-3 text-xs text-[var(--theme-text-muted)]">
                         更新于 {formatDateTime(memory.updated_at)}
-                        {memory.last_used_at ? ` · 最近使用 ${formatDateTime(memory.last_used_at)}` : ''}
+                        {memory.last_used_at
+                          ? ` · 最近使用 ${formatDateTime(memory.last_used_at)}`
+                          : ''}
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <button onClick={() => void toggleMemoryField(memory, 'pinned')} className="ui-btn-secondary px-3 py-2 text-xs">
+                      <button
+                        onClick={() => void toggleMemoryField(memory, 'pinned')}
+                        className="ui-btn-secondary px-3 py-2 text-xs"
+                      >
                         {memory.pinned === 1 ? '取消置顶' : '置顶'}
                       </button>
-                      <button onClick={() => void toggleMemoryField(memory, 'enabled')} className="ui-btn-secondary px-3 py-2 text-xs">
+                      <button
+                        onClick={() => void toggleMemoryField(memory, 'enabled')}
+                        className="ui-btn-secondary px-3 py-2 text-xs"
+                      >
                         {memory.enabled === 1 ? '停用' : '启用'}
                       </button>
-                      <button onClick={() => setEditingMemory({ ...memory })} className="ui-btn-secondary flex h-9 w-9 items-center justify-center">
+                      <button
+                        onClick={() => setEditingMemory({ ...memory })}
+                        className="ui-btn-secondary flex h-9 w-9 items-center justify-center"
+                      >
                         <Pencil size={14} />
                       </button>
-                      <button onClick={() => void deleteMemory(memory.id)} className="ui-btn-secondary flex h-9 w-9 items-center justify-center hover:text-[var(--theme-danger)]">
+                      <button
+                        onClick={() => void deleteMemory(memory.id)}
+                        className="ui-btn-secondary flex h-9 w-9 items-center justify-center hover:text-[var(--theme-danger)]"
+                      >
                         <Trash2 size={14} />
                       </button>
                     </div>
@@ -551,12 +666,16 @@ export function SettingsView() {
 
             {editingMemory && (
               <div className="ui-card p-5">
-                <h3 className="ui-section-title text-lg">{editingMemory.id ? '编辑记忆' : '新建记忆'}</h3>
+                <h3 className="ui-section-title text-lg">
+                  {editingMemory.id ? '编辑记忆' : '新建记忆'}
+                </h3>
                 <div className="mt-4 space-y-4">
                   <Field label="记忆内容">
                     <textarea
                       value={editingMemory.content}
-                      onChange={(event) => setEditingMemory({ ...editingMemory, content: event.target.value })}
+                      onChange={(event) =>
+                        setEditingMemory({ ...editingMemory, content: event.target.value })
+                      }
                       rows={5}
                       className="ui-textarea resize-none px-4 py-3 text-sm"
                       placeholder="例如：用户偏好我用中文回答，并优先给出可直接执行的方案。"
@@ -567,7 +686,9 @@ export function SettingsView() {
                     <Field label="分类">
                       <select
                         value={editingMemory.category}
-                        onChange={(event) => setEditingMemory({ ...editingMemory, category: event.target.value })}
+                        onChange={(event) =>
+                          setEditingMemory({ ...editingMemory, category: event.target.value })
+                        }
                         className="ui-select px-4 py-3 text-sm"
                       >
                         {memoryCategories.map((category) => (
@@ -583,7 +704,12 @@ export function SettingsView() {
                         <input
                           type="checkbox"
                           checked={Number(editingMemory.pinned ?? 0) === 1}
-                          onChange={(event) => setEditingMemory({ ...editingMemory, pinned: event.target.checked ? 1 : 0 })}
+                          onChange={(event) =>
+                            setEditingMemory({
+                              ...editingMemory,
+                              pinned: event.target.checked ? 1 : 0,
+                            })
+                          }
                           className="accent-[var(--theme-accent)]"
                         />
                         置顶
@@ -592,7 +718,12 @@ export function SettingsView() {
                         <input
                           type="checkbox"
                           checked={Number(editingMemory.enabled ?? 1) === 1}
-                          onChange={(event) => setEditingMemory({ ...editingMemory, enabled: event.target.checked ? 1 : 0 })}
+                          onChange={(event) =>
+                            setEditingMemory({
+                              ...editingMemory,
+                              enabled: event.target.checked ? 1 : 0,
+                            })
+                          }
                           className="accent-[var(--theme-accent)]"
                         />
                         启用
@@ -602,8 +733,18 @@ export function SettingsView() {
                 </div>
 
                 <div className="mt-5 flex gap-2">
-                  <button onClick={() => void handleSaveMemory()} className="ui-btn-success px-4 py-2 text-sm">保存</button>
-                  <button onClick={() => setEditingMemory(null)} className="ui-btn-secondary px-4 py-2 text-sm">取消</button>
+                  <button
+                    onClick={() => void handleSaveMemory()}
+                    className="ui-btn-success px-4 py-2 text-sm"
+                  >
+                    保存
+                  </button>
+                  <button
+                    onClick={() => setEditingMemory(null)}
+                    className="ui-btn-secondary px-4 py-2 text-sm"
+                  >
+                    取消
+                  </button>
                 </div>
               </div>
             )}
@@ -619,7 +760,14 @@ function ThemeCard({
   active,
   onClick,
 }: {
-  option: { id: ThemeId; name: string; description: string; accent: string; panel: string; glow: string }
+  option: {
+    id: ThemeId
+    name: string
+    description: string
+    accent: string
+    panel: string
+    glow: string
+  }
   active: boolean
   onClick: () => void
 }) {
@@ -627,12 +775,14 @@ function ThemeCard({
     <button
       onClick={onClick}
       className={`theme-card ${active ? 'shadow-[0_0_0_1px_var(--theme-accent)]' : ''}`}
-      style={{
-        background: `linear-gradient(180deg, color-mix(in srgb, ${option.panel} 92%, #ffffff 8%), ${option.panel})`,
-        borderColor: active ? option.accent : undefined,
-        boxShadow: active ? `0 0 0 1px ${option.accent}, 0 22px 48px ${option.glow}` : undefined,
-        ['--card-glow' as string]: option.glow,
-      } as CSSProperties}
+      style={
+        {
+          background: `linear-gradient(180deg, color-mix(in srgb, ${option.panel} 92%, #ffffff 8%), ${option.panel})`,
+          borderColor: active ? option.accent : undefined,
+          boxShadow: active ? `0 0 0 1px ${option.accent}, 0 22px 48px ${option.glow}` : undefined,
+          ['--card-glow' as string]: option.glow,
+        } as CSSProperties
+      }
     >
       <div className="relative z-10">
         <div className="flex items-center justify-between">
@@ -643,7 +793,10 @@ function ThemeCard({
           {active && <span className="ui-chip-accent border-0 bg-white/12 text-white">当前</span>}
         </div>
         <div className="mt-5 flex gap-2">
-          <div className="h-10 flex-1 rounded-2xl border border-white/10" style={{ background: option.panel }} />
+          <div
+            className="h-10 flex-1 rounded-2xl border border-white/10"
+            style={{ background: option.panel }}
+          />
           <div className="h-10 w-16 rounded-2xl" style={{ background: option.accent }} />
         </div>
       </div>
@@ -654,13 +807,23 @@ function ThemeCard({
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <label className="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--theme-text-muted)]">{label}</label>
+      <label className="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--theme-text-muted)]">
+        {label}
+      </label>
       {children}
     </div>
   )
 }
 
-function TabButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+function TabButton({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean
+  label: string
+  onClick: () => void
+}) {
   return (
     <button
       onClick={onClick}

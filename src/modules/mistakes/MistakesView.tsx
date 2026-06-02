@@ -30,7 +30,7 @@ export function MistakesView() {
   const { setActiveProblem } = useProblemStore()
 
   const loadMistakes = async () => {
-    const data = await window.api.invoke('mistakes-list') as Mistake[]
+    const data = (await window.api.invoke('mistakes-list')) as Mistake[]
     setMistakes(data)
   }
 
@@ -51,17 +51,21 @@ export function MistakesView() {
 ${mistake.last_wrong_code}
 \`\`\`
 
-${mistake.correct_code ? `正确代码：
+${
+  mistake.correct_code
+    ? `正确代码：
 \`\`\`
 ${mistake.correct_code}
 \`\`\`
-` : ''}请用中文回答，简洁明了。`
+`
+    : ''
+}请用中文回答，简洁明了。`
 
-      const result = await window.api.invoke('ai-chat', {
+      const result = (await window.api.invoke('ai-chat', {
         messages: [{ role: 'user', content: prompt }],
         requestId: `mistake-${mistake.id}-${Date.now()}`,
         includeMemories: false,
-      }) as { content?: string }
+      })) as { content?: string }
 
       if (result.content?.trim()) {
         await window.api.invoke('mistakes-update-analysis', mistake.id, result.content)
@@ -90,7 +94,9 @@ ${mistake.correct_code}
       <div className="mb-6 flex items-end justify-between gap-4">
         <div>
           <h1 className="ui-section-title text-2xl">错题本</h1>
-          <p className="mt-2 text-sm text-[var(--theme-text-muted)]">集中复盘做错的题目、错误类型和 AI 给出的改进建议。</p>
+          <p className="mt-2 text-sm text-[var(--theme-text-muted)]">
+            集中复盘做错的题目、错误类型和 AI 给出的改进建议。
+          </p>
         </div>
         <span className="ui-chip">{mistakes.length} 条记录</span>
       </div>
@@ -98,7 +104,9 @@ ${mistake.correct_code}
       {mistakes.length === 0 && (
         <div className="ui-card mx-auto max-w-3xl px-8 py-14 text-center text-[var(--theme-text-muted)]">
           <AlertTriangle size={48} className="mx-auto mb-4 opacity-30" />
-          <p className="text-base font-medium text-[var(--theme-text-primary)]">暂时还没有错题记录</p>
+          <p className="text-base font-medium text-[var(--theme-text-primary)]">
+            暂时还没有错题记录
+          </p>
           <p className="mt-2 text-sm">做题提交失败后，这里会自动沉淀你的高频错误和分析结果。</p>
         </div>
       )}
@@ -108,10 +116,16 @@ ${mistake.correct_code}
           <div key={mistake.id} className="ui-card p-5">
             <div className="mb-3 flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-lg font-semibold text-[var(--theme-text-primary)]">{mistake.title}</h3>
+                <h3 className="text-lg font-semibold text-[var(--theme-text-primary)]">
+                  {mistake.title}
+                </h3>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <span className={`text-sm ${diffColors[mistake.difficulty]}`}>
-                    {mistake.difficulty === 'easy' ? '简单' : mistake.difficulty === 'medium' ? '中等' : '困难'}
+                    {mistake.difficulty === 'easy'
+                      ? '简单'
+                      : mistake.difficulty === 'medium'
+                        ? '中等'
+                        : '困难'}
                   </span>
                   <span className="ui-chip-danger">错误 {mistake.error_count} 次</span>
                   {mistake.error_types && <span className="ui-chip">{mistake.error_types}</span>}

@@ -103,7 +103,11 @@ export function MessageBubble({ msg, isStreaming }: Props) {
                 return <table className="my-3 w-full border-collapse text-xs">{children}</table>
               },
               th({ children }) {
-                return <th className="border border-[var(--theme-border)] bg-[var(--theme-code-header)] px-2 py-1">{children}</th>
+                return (
+                  <th className="border border-[var(--theme-border)] bg-[var(--theme-code-header)] px-2 py-1">
+                    {children}
+                  </th>
+                )
               },
               td({ children }) {
                 return <td className="border border-[var(--theme-border)] px-2 py-1">{children}</td>

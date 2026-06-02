@@ -82,12 +82,12 @@ export const useProblemStore = create<ProblemState>((set, get) => ({
   aiPanelWidth: 420,
 
   loadProblems: async () => {
-    const problems = await window.api.invoke('problems-list', get().filters) as Problem[]
+    const problems = (await window.api.invoke('problems-list', get().filters)) as Problem[]
     set({ problems })
   },
 
   setActiveProblem: async (id: number) => {
-    const problem = await window.api.invoke('problems-get', id) as Problem
+    const problem = (await window.api.invoke('problems-get', id)) as Problem
     set({ activeProblemId: id, activeProblem: problem, submitResult: null })
   },
 
@@ -106,11 +106,11 @@ export const useProblemStore = create<ProblemState>((set, get) => ({
     if (!activeProblemId) return
     set({ submitting: true, submitResult: null })
     try {
-      const result = await window.api.invoke('problems-submit', {
+      const result = (await window.api.invoke('problems-submit', {
         problemId: activeProblemId,
         code,
         language,
-      }) as SubmitResult
+      })) as SubmitResult
       set({ submitResult: result })
       get().loadProblems()
     } finally {

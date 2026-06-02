@@ -108,10 +108,7 @@ export function mergeErrorTypes(rawErrorTypes: string | undefined, status: strin
   }
 }
 
-export function normalizeProblemSeed(
-  problem: ProblemSeed,
-  fallbackSource: string,
-): ProblemSeed {
+export function normalizeProblemSeed(problem: ProblemSeed, fallbackSource: string): ProblemSeed {
   return {
     ...problem,
     source: problem.source ?? fallbackSource,
