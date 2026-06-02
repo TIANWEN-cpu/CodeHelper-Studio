@@ -554,7 +554,7 @@ export function AnalyticsView() {
             </div>
           </div>
           {chartData.some((d) => d.count > 0) ? (
-            <BarChartView data={chartData} />
+            <BarChartView data={chartData.map((d) => ({ label: d.date, value: d.count }))} />
           ) : (
             <div className="py-8 text-center text-sm text-[var(--theme-text-muted)]">
               暂无趋势数据，开始使用后自动记录
