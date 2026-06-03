@@ -28,6 +28,8 @@ const emptyConfig: AIConfig = {
   task_type: null,
 }
 
+const isMaskedApiKey = (value: string) => value.includes('*')
+
 const memoryCategories = [
   { value: 'general', label: '通用' },
   { value: 'preference', label: '偏好' },
@@ -118,6 +120,13 @@ export function SettingsView() {
       return
     }
 
+    if (isMaskedApiKey(editing.api_key)) {
+      setFetchError(
+        '为保护 API Key，已保存配置不会回显明文。请重新输入真实 API Key 后再获取模型列表。',
+      )
+      return
+    }
+
     setFetchingModels(true)
     setFetchError('')
 
@@ -158,6 +167,12 @@ export function SettingsView() {
 
     if (!normalizedApiKey) {
       setSaveError('请先填写 API Key。')
+      setSaveSuccess('')
+      return
+    }
+
+    if (!editing.id && isMaskedApiKey(normalizedApiKey)) {
+      setSaveError('新建配置需要填写真实 API Key。')
       setSaveSuccess('')
       return
     }

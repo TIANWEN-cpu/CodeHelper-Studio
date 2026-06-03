@@ -66,4 +66,5 @@ export interface ChatConfig {
   model: string
   is_default: number
   task_type: string | null
+  has_api_key?: boolean
 }

@@ -297,14 +297,14 @@ describe('registerDatabaseIPC', () => {
   })
 
   describe('db-get-ai-configs', () => {
-    it('returns decrypted configs', async () => {
+    it('returns masked configs without exposing decrypted API keys', async () => {
       mockDB.prepare.mockReturnValue({
         get: vi.fn(),
         all: vi.fn(() => [
           {
             id: 1,
             name: 'GPT',
-            api_key: 'sk-xxx',
+            api_key: 'sk-live-secret',
             base_url: 'https://api.openai.com',
             model: 'gpt-4',
             is_default: 1,
@@ -318,7 +318,9 @@ describe('registerDatabaseIPC', () => {
 
       const result = await handlers['db-get-ai-configs']()
       expect(result).toHaveLength(1)
-      expect(result[0].api_key).toBe('sk-xxx')
+      expect(result[0].api_key).not.toBe('sk-live-secret')
+      expect(result[0].api_key).toBe('sk-********cret')
+      expect(result[0].has_api_key).toBe(true)
     })
   })
 
@@ -415,6 +417,8 @@ describe('registerDatabaseIPC', () => {
       const result = handlers['db-get-default-ai-config']()
       expect(result).toBeTruthy() // returns the default config object
       expect(result.name).toBe('Default')
+      expect(result.api_key).toBe('******')
+      expect(result.has_api_key).toBe(true)
     })
 
     it('falls back to first config when no default', async () => {
@@ -507,6 +511,46 @@ describe('registerDatabaseIPC', () => {
       await expect(
         handlers['ai-fetch-models'](null, { api_key: 'sk-test', base_url: '' }),
       ).rejects.toThrow('参数无效: base_url')
+    })
+
+    it('rejects metadata and private network base_url', async () => {
+      setupDB({})
+      const { registerDatabaseIPC } = await import('../electron/ipc/database')
+      registerDatabaseIPC()
+
+      await expect(
+        handlers['ai-fetch-models'](null, {
+          api_key: 'sk-test',
+          base_url: 'http://169.254.169.254',
+        }),
+      ).rejects.toThrow('不允许访问该 Base URL')
+      await expect(
+        handlers['ai-fetch-models'](null, {
+          api_key: 'sk-test',
+          base_url: 'http://192.168.1.10:8000',
+        }),
+      ).rejects.toThrow('不允许访问该 Base URL')
+    })
+
+    it('allows explicit loopback base_url for local Ollama-compatible providers', async () => {
+      setupDB({})
+      const { registerDatabaseIPC } = await import('../electron/ipc/database')
+      registerDatabaseIPC()
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ data: [{ id: 'llama3' }] }),
+      })
+      vi.stubGlobal('fetch', mockFetch)
+
+      const result = await handlers['ai-fetch-models'](null, {
+        api_key: 'ollama',
+        base_url: 'http://127.0.0.1:11434/v1',
+      })
+      expect(result).toEqual(['llama3'])
+      expect(mockFetch).toHaveBeenCalledWith('http://127.0.0.1:11434/v1/models', expect.anything())
+
+      vi.unstubAllGlobals()
     })
 
     it('fetches and returns sorted model list', async () => {
@@ -603,7 +647,7 @@ describe('registerDatabaseIPC', () => {
       origIsEncryption.mockReturnValue(false)
     })
 
-    it('decrypts encrypted api key on read', async () => {
+    it('masks decrypted encrypted api key on read', async () => {
       const electron = await import('electron')
       ;(electron.safeStorage.decryptString as ReturnType<typeof vi.fn>).mockReturnValue(
         'my-decrypted-key',
@@ -629,7 +673,9 @@ describe('registerDatabaseIPC', () => {
       registerDatabaseIPC()
 
       const result = await handlers['db-get-ai-configs']()
-      expect(result[0].api_key).toBe('my-decrypted-key')
+      expect(electron.safeStorage.decryptString).toHaveBeenCalled()
+      expect(result[0].api_key).toBe('my-********-key')
+      expect(result[0].has_api_key).toBe(true)
     })
 
     it('returns empty string when decryption fails', async () => {
@@ -661,7 +707,7 @@ describe('registerDatabaseIPC', () => {
       expect(result[0].api_key).toBe('')
     })
 
-    it('passes through non-encrypted api key', async () => {
+    it('masks non-encrypted api key on read', async () => {
       mockDB.prepare.mockReturnValue({
         get: vi.fn(),
         all: vi.fn(() => [
@@ -682,7 +728,8 @@ describe('registerDatabaseIPC', () => {
       registerDatabaseIPC()
 
       const result = await handlers['db-get-ai-configs']()
-      expect(result[0].api_key).toBe('sk-plain-key')
+      expect(result[0].api_key).toBe('sk-******-key')
+      expect(result[0].has_api_key).toBe(true)
     })
   })
 

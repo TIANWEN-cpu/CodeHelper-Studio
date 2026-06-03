@@ -65,6 +65,14 @@ describe('registerRAGIPC', () => {
     expect(handlers['knowledge-list']).toBeDefined()
     expect(handlers['knowledge-delete']).toBeDefined()
     expect(handlers['knowledge-search']).toBeDefined()
+    expect(handlers['knowledge-semantic-search']).toBeDefined()
+    expect(handlers['knowledge-summarize']).toBeDefined()
+    expect(handlers['knowledge-concept-graph']).toBeDefined()
+    expect(handlers['knowledge-concept-detail']).toBeDefined()
+    expect(handlers['knowledge-auto-tag']).toBeDefined()
+    expect(handlers['knowledge-tags']).toBeDefined()
+    expect(handlers['knowledge-tag-documents']).toBeDefined()
+    expect(handlers['knowledge-rag-context']).toBeDefined()
   })
 
   describe('knowledge-upload', () => {

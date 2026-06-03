@@ -13,6 +13,8 @@ import { registerDemoDataIPC } from './ipc/demoData'
 import { registerExportIPC } from './ipc/export'
 import { logIpcStatsSummary, getIpcStats } from './utils/perfMonitor'
 import { registerIpcHandler, rateLimitMiddleware } from './utils/middleware'
+import { buildContentSecurityPolicy } from './utils/contentSecurityPolicy'
+import { getPreloadScriptPath } from './utils/runtimePaths'
 import { arch, release } from 'os'
 
 // ---------------------------------------------------------------------------
@@ -200,7 +202,7 @@ function createWindow(): void {
     backgroundColor: '#1e1e2e',
     show: false,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.mjs'),
+      preload: getPreloadScriptPath(__dirname),
       contextIsolation: true,
       nodeIntegration: false,
       webSecurity: true,
@@ -214,7 +216,10 @@ function createWindow(): void {
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
-          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data https:; connect-src 'self' https:; font-src 'self' data:;",
+          buildContentSecurityPolicy({
+            isPackaged: app.isPackaged,
+            rendererUrl: process.env['ELECTRON_RENDERER_URL'],
+          }),
         ],
       },
     })

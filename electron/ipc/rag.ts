@@ -6,6 +6,72 @@ import { splitIntoChunks, escapeRegExp } from '../utils/textUtils'
 import { trackPerformance } from '../utils/perfMonitor'
 import type { KnowledgeChunkRow } from '../types/db'
 
+type ScoredKnowledgeChunk = KnowledgeChunkRow & { score: number }
+
+function validateKnowledgeQuery(query: string): string {
+  if (typeof query !== 'string' || !query.trim()) throw new Error('参数无效: query')
+  return query.trim().slice(0, 1000)
+}
+
+function keywordSearch(query: string, limit = 5): ScoredKnowledgeChunk[] {
+  const normalizedQuery = validateKnowledgeQuery(query)
+  const keywords = normalizedQuery
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((k) => k.length > 1)
+  if (keywords.length === 0) return []
+
+  const db = getDB()
+  const conditions = keywords.map(() => 'LOWER(kc.content) LIKE ?').join(' OR ')
+  const params = keywords.map((kw) => `%${kw}%`)
+  const matchingChunks = db
+    .prepare(
+      `SELECT kc.*, kd.filename FROM knowledge_chunks kc JOIN knowledge_docs kd ON kc.doc_id = kd.id WHERE ${conditions}`,
+    )
+    .all(...params) as KnowledgeChunkRow[]
+
+  const scored = matchingChunks.map((chunk) => {
+    const text = chunk.content.toLowerCase()
+    let score = 0
+    for (const kw of keywords) {
+      const matches = (text.match(new RegExp(escapeRegExp(kw), 'g')) || []).length
+      score += matches
+    }
+    return { ...chunk, score }
+  })
+
+  scored.sort((a, b) => b.score - a.score)
+  return scored.slice(0, limit)
+}
+
+function topConceptsFromChunks(chunks: ScoredKnowledgeChunk[], limit = 8): string[] {
+  const counts = new Map<string, number>()
+  const stopWords = new Set([
+    'the',
+    'and',
+    'for',
+    'with',
+    'this',
+    'that',
+    'from',
+    'are',
+    'was',
+    'were',
+  ])
+
+  for (const chunk of chunks) {
+    for (const word of chunk.content.toLowerCase().match(/[a-z0-9_一-龥]{2,}/g) ?? []) {
+      if (stopWords.has(word)) continue
+      counts.set(word, (counts.get(word) ?? 0) + 1)
+    }
+  }
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([word]) => word)
+}
+
 export function registerRAGIPC(): void {
   ipcMain.handle('knowledge-upload', async () => {
     const result = await dialog.showOpenDialog({
@@ -93,38 +159,76 @@ export function registerRAGIPC(): void {
 
   ipcMain.handle(
     'knowledge-search',
-    trackPerformance('knowledge-search', (_e, query: string) => {
-      if (typeof query !== 'string' || !query.trim()) throw new Error('参数无效: query')
-      query = query.trim().slice(0, 1000)
-      // Simple keyword search (no embedding for now)
-      const keywords = query
-        .toLowerCase()
-        .split(/\s+/)
-        .filter((k) => k.length > 1)
-      if (keywords.length === 0) return []
+    trackPerformance('knowledge-search', (_e, query: string) => keywordSearch(query, 5)),
+  )
 
-      const db = getDB()
-      const conditions = keywords.map(() => 'LOWER(kc.content) LIKE ?').join(' OR ')
-      const params = keywords.map((kw) => `%${kw}%`)
-      const matchingChunks = db
-        .prepare(
-          `SELECT kc.*, kd.filename FROM knowledge_chunks kc JOIN knowledge_docs kd ON kc.doc_id = kd.id WHERE ${conditions}`,
-        )
-        .all(...params) as KnowledgeChunkRow[]
+  ipcMain.handle(
+    'knowledge-semantic-search',
+    trackPerformance('knowledge-semantic-search', (_e, query: string) =>
+      keywordSearch(query, 10).map((chunk) => ({
+        content: chunk.content,
+        filename: chunk.filename,
+        doc_id: chunk.doc_id,
+        chunk_id: chunk.id,
+        score: Math.min(1, chunk.score / 5),
+        explanation: '当前使用关键词匹配作为语义搜索降级结果。',
+      })),
+    ),
+  )
 
-      // Score chunks by keyword match frequency
-      const scored = matchingChunks.map((chunk) => {
-        const text = chunk.content.toLowerCase()
-        let score = 0
-        for (const kw of keywords) {
-          const matches = (text.match(new RegExp(escapeRegExp(kw), 'g')) || []).length
-          score += matches
-        }
-        return { ...chunk, score }
-      })
-
-      scored.sort((a, b) => b.score - a.score)
-      return scored.slice(0, 5)
+  ipcMain.handle(
+    'knowledge-summarize',
+    trackPerformance('knowledge-summarize', (_e, query: string) => {
+      const chunks = keywordSearch(query, 5)
+      const keyConcepts = topConceptsFromChunks(chunks, 6)
+      return {
+        summary:
+          chunks.length > 0
+            ? `基于 ${chunks.length} 个知识库片段的关键词检索结果生成降级摘要。`
+            : '知识库中暂未找到相关内容。',
+        keyConcepts,
+      }
     }),
+  )
+
+  ipcMain.handle('knowledge-concept-graph', () => ({ nodes: [], edges: [] }))
+
+  ipcMain.handle('knowledge-concept-detail', (_e, conceptId: string) => {
+    if (typeof conceptId !== 'string' || !conceptId.trim()) throw new Error('参数无效: conceptId')
+    const label = conceptId.trim()
+    return {
+      concept: { id: label, label, weight: 0, category: 'keyword' },
+      documents: [],
+      relatedConcepts: [],
+      description: '当前概念图谱为实验性能力，暂无可用详情。',
+    }
+  })
+
+  ipcMain.handle('knowledge-auto-tag', (_e, docId: number) => {
+    if (typeof docId !== 'number' || !Number.isFinite(docId) || docId < 1)
+      throw new Error('参数无效: docId')
+    return []
+  })
+
+  ipcMain.handle('knowledge-tags', () => [])
+
+  ipcMain.handle('knowledge-tag-documents', (_e, tag: string) => {
+    if (typeof tag !== 'string' || !tag.trim()) throw new Error('参数无效: tag')
+    return []
+  })
+
+  ipcMain.handle(
+    'knowledge-rag-context',
+    trackPerformance('knowledge-rag-context', (_e, query?: string) => ({
+      recentProblems: [],
+      learningHistory: [],
+      knowledgeChunks: query ? keywordSearch(query, 5).map((chunk) => chunk.content) : [],
+      userProfile: {
+        preferredLanguage: 'zh-CN',
+        difficultyLevel: 'beginner',
+        strongTopics: [],
+        weakTopics: [],
+      },
+    })),
   )
 }

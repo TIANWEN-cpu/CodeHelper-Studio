@@ -1,6 +1,7 @@
 import { ipcMain, safeStorage } from 'electron'
 import { getDB } from '../db/index'
 import { trackPerformance } from '../utils/perfMonitor'
+import { assertAllowedProviderBaseUrl } from '../utils/providerSecurity'
 import type { AIConfigRow, AIConfigDecrypted } from '../types/db'
 
 function encryptApiKey(apiKey: string): string {
@@ -26,9 +27,31 @@ function decryptApiKey(value: string): string {
   return value
 }
 
+type AIConfigPublic = Omit<AIConfigDecrypted, 'api_key'> & { api_key: string; has_api_key: boolean }
+
 function decryptConfigRow(row: AIConfigRow | undefined | null): AIConfigDecrypted | null {
   if (!row) return null
   return { ...row, api_key: decryptApiKey(row.api_key) }
+}
+
+function maskApiKey(apiKey: string): string {
+  if (!apiKey) return ''
+  if (apiKey.length <= 6) return '*'.repeat(apiKey.length)
+  return `${apiKey.slice(0, 3)}${'*'.repeat(Math.min(8, apiKey.length - 6))}${apiKey.slice(-4)}`
+}
+
+function publicConfigRow(row: AIConfigRow | undefined | null): AIConfigPublic | null {
+  const decrypted = decryptConfigRow(row)
+  if (!decrypted) return null
+  return {
+    ...decrypted,
+    api_key: maskApiKey(decrypted.api_key),
+    has_api_key: Boolean(decrypted.api_key),
+  }
+}
+
+function isMaskedApiKey(value: string): boolean {
+  return value.includes('*')
 }
 
 export function registerDatabaseIPC(): void {
@@ -57,7 +80,7 @@ export function registerDatabaseIPC(): void {
       const rows = getDB()
         .prepare('SELECT * FROM ai_configs ORDER BY is_default DESC, id ASC')
         .all() as AIConfigRow[]
-      return rows.map(decryptConfigRow)
+      return rows.map(publicConfigRow)
     }),
   )
 
@@ -84,12 +107,25 @@ export function registerDatabaseIPC(): void {
         throw new Error('参数无效: model')
       config.name = config.name.trim().slice(0, 200)
       config.api_key = config.api_key.slice(0, 2000)
-      config.base_url = config.base_url.trim().slice(0, 2000)
+      config.base_url = assertAllowedProviderBaseUrl(config.base_url.trim().slice(0, 2000))
       config.model = config.model.trim().slice(0, 200)
       if (config.task_type !== undefined && typeof config.task_type === 'string')
         config.task_type = config.task_type.trim().slice(0, 100)
       const db = getDB()
-      const encryptedKey = encryptApiKey(config.api_key)
+      const existingConfig = config.id
+        ? (db.prepare('SELECT * FROM ai_configs WHERE id = ?').get(config.id) as
+            | AIConfigRow
+            | undefined)
+        : undefined
+      const submittedApiKey = config.api_key.trim()
+      const apiKeyForStorage =
+        !submittedApiKey || isMaskedApiKey(submittedApiKey)
+          ? existingConfig
+            ? decryptApiKey(existingConfig.api_key)
+            : ''
+          : submittedApiKey
+      if (!apiKeyForStorage) throw new Error('参数无效: api_key')
+      const encryptedKey = encryptApiKey(apiKeyForStorage)
       const saveConfigFn = db.transaction(() => {
         if (config.is_default) {
           db.prepare('UPDATE ai_configs SET is_default = 0').run()
@@ -139,7 +175,7 @@ export function registerDatabaseIPC(): void {
         | undefined) ??
       (getDB().prepare('SELECT * FROM ai_configs LIMIT 1').get() as AIConfigRow | undefined) ??
       undefined
-    return decryptConfigRow(row ?? null)
+    return publicConfigRow(row ?? null)
   })
 
   // Fetch available models from API
@@ -150,8 +186,8 @@ export function registerDatabaseIPC(): void {
     if (typeof args.base_url !== 'string' || !args.base_url.trim())
       throw new Error('参数无效: base_url')
     args.api_key = args.api_key.trim().slice(0, 2000)
-    args.base_url = args.base_url.trim().slice(0, 2000)
-    const url = `${args.base_url.replace(/\/$/, '')}/models`
+    args.base_url = assertAllowedProviderBaseUrl(args.base_url.trim().slice(0, 2000))
+    const url = `${args.base_url}/models`
 
     let response: Response
     try {

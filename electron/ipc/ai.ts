@@ -1,6 +1,7 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { getDB } from '../db/index'
 import { getRelevantMemories, markMemoriesUsed } from './chat'
+import { assertAllowedProviderBaseUrl } from '../utils/providerSecurity'
 import type { AIConfigForChat, ChatMessage } from '../types/db'
 
 export function registerAIIPC(): void {
@@ -75,7 +76,7 @@ export function registerAIIPC(): void {
           throw new Error('未配置AI模型，请先在设置中添加')
         }
 
-        const url = `${config.base_url.replace(/\/$/, '')}/chat/completions`
+        const url = `${assertAllowedProviderBaseUrl(config.base_url)}/chat/completions`
         const win = BrowserWindow.fromWebContents(event.sender)
         const messages = injectMemories(args.messages, args.includeMemories)
 
