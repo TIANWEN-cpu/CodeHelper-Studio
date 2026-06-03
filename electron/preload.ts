@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+console.log('[STARTUP] Preload script executing...')
+
 const allowedInvokeChannels = new Set([
   'run-code',
   'db-get-setting',
@@ -84,25 +86,37 @@ function isSerializable(value: unknown, depth = 0): boolean {
 const api = {
   invoke: (channel: string, ...args: unknown[]) => {
     if (typeof channel !== 'string') {
-      throw new Error('IPC channel 必须是字符串')
+      const err = 'IPC channel 必须是字符串'
+      console.error('[IPC][ERROR] Preload invoke rejected:', err)
+      throw new Error(err)
     }
     if (!allowedInvokeChannels.has(channel)) {
-      throw new Error(`不允许的 IPC 调用: ${channel}`)
+      const err = `不允许的 IPC 调用: ${channel}`
+      console.error('[IPC][ERROR] Preload invoke rejected:', err)
+      throw new Error(err)
     }
     if (!args.every((a) => isSerializable(a))) {
-      throw new Error('IPC 参数包含不可序列化的值')
+      const err = 'IPC 参数包含不可序列化的值'
+      console.error(`[IPC][ERROR] Preload invoke rejected for "${channel}":`, err)
+      throw new Error(err)
     }
     return ipcRenderer.invoke(channel, ...args)
   },
   on: (channel: string, callback: (...args: unknown[]) => void) => {
     if (typeof channel !== 'string') {
-      throw new Error('IPC channel 必须是字符串')
+      const err = 'IPC channel 必须是字符串'
+      console.error('[IPC][ERROR] Preload on() rejected:', err)
+      throw new Error(err)
     }
     if (!allowedEventChannels.has(channel)) {
-      throw new Error(`不允许的 IPC 事件监听: ${channel}`)
+      const err = `不允许的 IPC 事件监听: ${channel}`
+      console.error('[IPC][ERROR] Preload on() rejected:', err)
+      throw new Error(err)
     }
     if (typeof callback !== 'function') {
-      throw new Error('IPC 事件回调必须是函数')
+      const err = 'IPC 事件回调必须是函数'
+      console.error(`[IPC][ERROR] Preload on("${channel}") rejected:`, err)
+      throw new Error(err)
     }
     const subscription = (_event: Electron.IpcRendererEvent, ...args: unknown[]) =>
       callback(...args)
@@ -112,3 +126,6 @@ const api = {
 }
 
 contextBridge.exposeInMainWorld('api', api)
+console.log(
+  `[STARTUP] Preload complete — exposed ${allowedInvokeChannels.size} invoke channels, ${allowedEventChannels.size} event channels`,
+)

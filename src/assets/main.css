@@ -94,6 +94,9 @@ html[data-theme='ember'] {
 html,
 body,
 #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
   background:
     radial-gradient(circle at top right, var(--theme-glow), transparent 28%),
     linear-gradient(

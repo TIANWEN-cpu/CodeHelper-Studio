@@ -18,22 +18,57 @@ import { getPreloadScriptPath } from './utils/runtimePaths'
 import { arch, release } from 'os'
 
 // ---------------------------------------------------------------------------
+// Diagnostic startup timer
+// ---------------------------------------------------------------------------
+const startupBegin = Date.now()
+function startupLog(phase: string): void {
+  const elapsed = Date.now() - startupBegin
+  console.log(`[STARTUP] ${phase} (+${elapsed}ms)`)
+}
+function startupError(phase: string, err: unknown): void {
+  const elapsed = Date.now() - startupBegin
+  console.error(`[STARTUP][ERROR] ${phase} (+${elapsed}ms):`, err)
+}
+
+startupLog('Main process starting — pid: ' + process.pid)
+console.log(
+  '[STARTUP] Electron:',
+  process.versions.electron,
+  '| Chrome:',
+  process.versions.chrome,
+  '| Node:',
+  process.versions.node,
+)
+console.log('[STARTUP] Platform:', process.platform, '| Arch:', arch(), '| OS release:', release())
+console.log('[STARTUP] app.isPackaged:', app.isPackaged)
+console.log('[STARTUP] CWD:', process.cwd())
+console.log('[STARTUP] __dirname:', __dirname)
+
+// ---------------------------------------------------------------------------
 // Global error handlers — prevent silent crashes in the main process
 // ---------------------------------------------------------------------------
 
 process.on('unhandledRejection', (reason) => {
-  console.error('[main] Unhandled promise rejection:', reason)
+  console.error('[ERROR] Unhandled promise rejection:', reason)
 })
 
 process.on('uncaughtException', (error) => {
-  console.error('[main] Uncaught exception:', error)
+  console.error('[ERROR] Uncaught exception:', error)
 })
 
-const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-8')) as {
-  repository?: { url?: string }
+let REPO_URL = 'https://github.com/TIANWEN-cpu/CodeHelper'
+try {
+  const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-8')) as {
+    repository?: { url?: string }
+  }
+  REPO_URL = pkg.repository?.url?.replace(/\.git$/, '') ?? REPO_URL
+  console.log(
+    '[STARTUP] package.json loaded, version:',
+    (pkg as Record<string, unknown>).version ?? 'unknown',
+  )
+} catch (err) {
+  console.error('[STARTUP][ERROR] Failed to read package.json:', err)
 }
-const REPO_URL =
-  pkg.repository?.url?.replace(/\.git$/, '') ?? 'https://github.com/TIANWEN-cpu/CodeHelper'
 
 /** Get a human-readable platform name. */
 function getPlatformDisplayName(): string {
@@ -194,21 +229,32 @@ function createWindowContextMenu(
 }
 
 function createWindow(): void {
-  const mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    minWidth: 900,
-    minHeight: 600,
-    backgroundColor: '#1e1e2e',
-    show: false,
-    webPreferences: {
-      preload: getPreloadScriptPath(__dirname),
-      contextIsolation: true,
-      nodeIntegration: false,
-      webSecurity: true,
-      navigateOnDragDrop: false,
-    },
-  })
+  startupLog('Window creation starting')
+  const preloadPath = getPreloadScriptPath(__dirname)
+  console.log('[STARTUP] Preload script path:', preloadPath)
+
+  let mainWindow: BrowserWindow
+  try {
+    mainWindow = new BrowserWindow({
+      width: 1200,
+      height: 800,
+      minWidth: 900,
+      minHeight: 600,
+      backgroundColor: '#1e1e2e',
+      show: false,
+      webPreferences: {
+        preload: preloadPath,
+        contextIsolation: true,
+        nodeIntegration: false,
+        webSecurity: true,
+        navigateOnDragDrop: false,
+      },
+    })
+    startupLog('BrowserWindow created')
+  } catch (err) {
+    startupError('BrowserWindow creation failed', err)
+    throw err
+  }
 
   // Content-Security-Policy: prevent XSS via inline script execution
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
@@ -226,7 +272,31 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => {
+    startupLog('Window ready-to-show — displaying window')
     mainWindow.show()
+  })
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    startupLog('Renderer did-finish-load')
+  })
+
+  mainWindow.webContents.on(
+    'did-fail-load',
+    (_event, errorCode, errorDescription, validatedURL) => {
+      startupError('Renderer did-fail-load', { errorCode, errorDescription, validatedURL })
+    },
+  )
+
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error('[ERROR] Renderer process gone:', details.reason, details.exitCode)
+  })
+
+  mainWindow.webContents.on('unresponsive', () => {
+    console.error('[ERROR] Window became unresponsive')
+  })
+
+  mainWindow.webContents.on('responsive', () => {
+    console.log('[STARTUP] Window became responsive again')
   })
 
   mainWindow.webContents.on('context-menu', (_event, params) => {
@@ -250,9 +320,12 @@ function createWindow(): void {
   })
 
   if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
+    console.log('[STARTUP] Loading renderer from dev server:', process.env['ELECTRON_RENDERER_URL'])
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    const rendererPath = join(__dirname, '../renderer/index.html')
+    console.log('[STARTUP] Loading renderer from file:', rendererPath)
+    mainWindow.loadFile(rendererPath)
   }
 }
 
@@ -273,54 +346,133 @@ function registerPeriodicDiagnostics(): void {
 }
 
 function registerDeferredIPC(): void {
-  registerMistakesIPC()
-  registerChatIPC()
-  registerRAGIPC()
-  registerAnalyticsIPC()
-  registerDemoDataIPC()
-  registerExportIPC()
+  startupLog('Registering deferred IPC handlers...')
+  try {
+    registerMistakesIPC()
+    console.log('[IPC] Registered: mistakes handlers')
+  } catch (e) {
+    startupError('registerMistakesIPC', e)
+  }
+  try {
+    registerChatIPC()
+    console.log('[IPC] Registered: chat handlers')
+  } catch (e) {
+    startupError('registerChatIPC', e)
+  }
+  try {
+    registerRAGIPC()
+    console.log('[IPC] Registered: RAG/knowledge handlers')
+  } catch (e) {
+    startupError('registerRAGIPC', e)
+  }
+  try {
+    registerAnalyticsIPC()
+    console.log('[IPC] Registered: analytics handlers')
+  } catch (e) {
+    startupError('registerAnalyticsIPC', e)
+  }
+  try {
+    registerDemoDataIPC()
+    console.log('[IPC] Registered: demo data handlers')
+  } catch (e) {
+    startupError('registerDemoDataIPC', e)
+  }
+  try {
+    registerExportIPC()
+    console.log('[IPC] Registered: export/import handlers')
+  } catch (e) {
+    startupError('registerExportIPC', e)
+  }
+  startupLog('All deferred IPC handlers registered')
 }
 
-app.whenReady().then(() => {
-  setupApplicationMenu()
+app
+  .whenReady()
+  .then(() => {
+    startupLog('app.whenReady fired')
+    console.log('[STARTUP] userData path:', app.getPath('userData'))
 
-  // Register high-risk IPC with middleware stack
-  registerIpcHandler(
-    'open-external',
-    (_event, url: unknown) => {
-      if (typeof url !== 'string' || !url.trim()) throw new Error('参数无效: url')
-      url = url.trim().slice(0, 2000)
-      const parsed = new URL(url as string)
-      if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('仅支持 http/https 链接')
-      return shell.openExternal(url as string)
-    },
-    [rateLimitMiddleware({ maxCalls: 20, windowMs: 10_000 })],
-  )
+    startupLog('Setting up application menu...')
+    setupApplicationMenu()
+    startupLog('Application menu set up')
 
-  // Critical IPC: needed for initial render (theme, problem list)
-  registerDatabaseIPC()
-  registerProblemsIPC()
-  registerRunnerIPC()
-  registerAIIPC()
+    // Register high-risk IPC with middleware stack
+    startupLog('Registering critical IPC handlers...')
+    registerIpcHandler(
+      'open-external',
+      (_event, url: unknown) => {
+        if (typeof url !== 'string' || !url.trim()) throw new Error('参数无效: url')
+        url = url.trim().slice(0, 2000)
+        const parsed = new URL(url as string)
+        if (!['http:', 'https:'].includes(parsed.protocol))
+          throw new Error('仅支持 http/https 链接')
+        return shell.openExternal(url as string)
+      },
+      [rateLimitMiddleware({ maxCalls: 20, windowMs: 10_000 })],
+    )
+    console.log('[IPC] Registered: open-external')
 
-  // Platform information endpoint for renderer
-  registerIpcHandler('platform-info', () => getPlatformInfo())
+    // Critical IPC: needed for initial render (theme, problem list)
+    try {
+      registerDatabaseIPC()
+      console.log('[IPC] Registered: database handlers')
+    } catch (e) {
+      startupError('registerDatabaseIPC', e)
+    }
+    try {
+      registerProblemsIPC()
+      console.log('[IPC] Registered: problems handlers')
+    } catch (e) {
+      startupError('registerProblemsIPC', e)
+    }
+    try {
+      registerRunnerIPC()
+      console.log('[IPC] Registered: runner handlers')
+    } catch (e) {
+      startupError('registerRunnerIPC', e)
+    }
+    try {
+      registerAIIPC()
+      console.log('[IPC] Registered: AI handlers')
+    } catch (e) {
+      startupError('registerAIIPC', e)
+    }
 
-  // Defer non-critical IPC registrations to reduce time to first paint
-  setImmediate(() => registerDeferredIPC())
+    // Platform information endpoint for renderer
+    registerIpcHandler('platform-info', () => getPlatformInfo())
+    console.log('[IPC] Registered: platform-info')
 
-  registerPeriodicDiagnostics()
+    // Register ALL IPC handlers synchronously before creating the window.
+    // Using setImmediate() here creates a race condition: the deferred handlers
+    // (RAG, chat, mistakes, analytics, demoData, export) would be registered in
+    // the next event-loop tick, but createWindow() calls loadURL() synchronously.
+    // While Electron's internal scheduling usually means the renderer JS hasn't
+    // executed by then, this is fragile — a slow loadURL or fast renderer
+    // hydration could cause "No handler registered" errors.
+    startupLog('Registering deferred IPC (non-critical)...')
+    registerDeferredIPC()
 
-  // IPC stats endpoint for renderer diagnostics (with middleware)
-  registerIpcHandler('perf-get-ipc-stats', () => getIpcStats())
+    startupLog('Starting periodic diagnostics...')
+    registerPeriodicDiagnostics()
 
-  createWindow()
+    // IPC stats endpoint for renderer diagnostics (with middleware)
+    registerIpcHandler('perf-get-ipc-stats', () => getIpcStats())
+    console.log('[IPC] Registered: perf-get-ipc-stats')
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    startupLog('All IPC handlers registered — creating window...')
+    createWindow()
+    startupLog('createWindow() returned')
+
+    app.on('activate', () => {
+      console.log('[STARTUP] app activate event — windows:', BrowserWindow.getAllWindows().length)
+      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    })
   })
-})
+  .catch((err) => {
+    startupError('app.whenReady() rejected', err)
+  })
 
 app.on('window-all-closed', () => {
+  console.log('[STARTUP] All windows closed, platform:', process.platform)
   if (process.platform !== 'darwin') app.quit()
 })

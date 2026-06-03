@@ -15,14 +15,17 @@ import {
 import type { ProblemRow, MistakeRow } from '../types/db'
 
 export function registerProblemsIPC(): void {
+  console.log('[IPC] registerProblemsIPC: starting problem sync...')
   setTimeout(() => {
     try {
       syncProblems()
+      console.log('[IPC] Problem sync completed')
     } catch (err) {
-      console.error('Failed to sync problems:', err)
+      console.error('[ERROR] Failed to sync problems:', err)
     }
   }, 0)
 
+  let firstCall = true
   ipcMain.handle(
     'problems-list',
     trackPerformance(
@@ -39,6 +42,10 @@ export function registerProblemsIPC(): void {
           mode?: string
         },
       ) => {
+        if (firstCall) {
+          firstCall = false
+          console.log('[IPC] First call to "problems-list"')
+        }
         if (filters !== undefined && filters !== null) {
           if (typeof filters !== 'object') throw new Error('参数无效: filters')
           const stringFields = [

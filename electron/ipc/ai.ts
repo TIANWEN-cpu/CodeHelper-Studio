@@ -6,6 +6,7 @@ import type { AIConfigForChat, ChatMessage } from '../types/db'
 
 export function registerAIIPC(): void {
   const activeRequests = new Map<string, AbortController>()
+  let firstCall = true
 
   ipcMain.handle(
     'ai-chat',
@@ -18,6 +19,10 @@ export function registerAIIPC(): void {
         includeMemories?: boolean
       },
     ) => {
+      if (firstCall) {
+        firstCall = false
+        console.log('[IPC] First call to "ai-chat"')
+      }
       if (!args || typeof args !== 'object') throw new Error('参数无效')
       if (!Array.isArray(args.messages) || args.messages.length === 0)
         throw new Error('参数无效: messages')

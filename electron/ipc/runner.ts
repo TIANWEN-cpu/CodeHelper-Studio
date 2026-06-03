@@ -2,9 +2,14 @@ import { ipcMain } from 'electron'
 import { runCodeSnippet } from '../utils/codeRunner'
 
 export function registerRunnerIPC(): void {
+  let firstCall = true
   ipcMain.handle(
     'run-code',
     async (_event, args: { code: string; language: string; stdin?: string }) => {
+      if (firstCall) {
+        firstCall = false
+        console.log('[IPC] First call to "run-code"')
+      }
       if (!args || typeof args !== 'object') throw new Error('参数无效')
       if (typeof args.code !== 'string') throw new Error('参数无效: code')
       if (typeof args.language !== 'string' || !args.language.trim())

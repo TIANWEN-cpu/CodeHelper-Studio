@@ -113,12 +113,12 @@ export const loggingMiddleware: MiddlewareFn = async (ctx, next) => {
     const result = await next()
     const duration = performance.now() - start
     if (duration > 500) {
-      console.debug(`[ipc] ${ctx.channel} completed in ${duration.toFixed(1)}ms`)
+      console.warn(`[IPC] SLOW "${ctx.channel}" completed in ${duration.toFixed(1)}ms`)
     }
     return result
   } catch (error) {
     const duration = performance.now() - start
-    console.error(`[ipc] ${ctx.channel} FAILED after ${duration.toFixed(1)}ms:`, error)
+    console.error(`[IPC][ERROR] "${ctx.channel}" FAILED after ${duration.toFixed(1)}ms:`, error)
     throw error
   }
 }
@@ -218,4 +218,7 @@ export function registerIpcHandler(
 ): void {
   const defaultStack: MiddlewareFn[] = [loggingMiddleware, errorMiddleware, ...extra]
   ipcMain.handle(channel, withMiddleware(channel, handler, defaultStack))
+  console.log(
+    `[IPC] Handler registered via middleware: "${channel}" (middlewares: ${defaultStack.length})`,
+  )
 }

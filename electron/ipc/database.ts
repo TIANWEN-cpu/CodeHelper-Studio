@@ -55,8 +55,17 @@ function isMaskedApiKey(value: string): boolean {
 }
 
 export function registerDatabaseIPC(): void {
+  const firstCall = new Set<string>()
+  function logFirstCall(channel: string): void {
+    if (!firstCall.has(channel)) {
+      firstCall.add(channel)
+      console.log(`[IPC] First call to "${channel}"`)
+    }
+  }
+
   // Settings
   ipcMain.handle('db-get-setting', (_e, key: string) => {
+    logFirstCall('db-get-setting')
     if (typeof key !== 'string' || !key.trim()) throw new Error('参数无效: key')
     key = key.trim().slice(0, 256)
     const row = getDB().prepare('SELECT value FROM settings WHERE key = ?').get(key) as
@@ -66,6 +75,7 @@ export function registerDatabaseIPC(): void {
   })
 
   ipcMain.handle('db-set-setting', (_e, key: string, value: string) => {
+    logFirstCall('db-set-setting')
     if (typeof key !== 'string' || !key.trim()) throw new Error('参数无效: key')
     if (typeof value !== 'string') throw new Error('参数无效: value')
     key = key.trim().slice(0, 256)
@@ -77,6 +87,7 @@ export function registerDatabaseIPC(): void {
   ipcMain.handle(
     'db-get-ai-configs',
     trackPerformance('db-get-ai-configs', () => {
+      logFirstCall('db-get-ai-configs')
       const rows = getDB()
         .prepare('SELECT * FROM ai_configs ORDER BY is_default DESC, id ASC')
         .all() as AIConfigRow[]

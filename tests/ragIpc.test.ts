@@ -48,6 +48,11 @@ function makeStmt(result: unknown = undefined) {
   }
 }
 
+/** Flush microtask queue so the deferred DB init (Promise.resolve().then) completes. */
+async function flushMicrotasks() {
+  await new Promise((resolve) => setTimeout(resolve, 0))
+}
+
 describe('registerRAGIPC', () => {
   beforeEach(() => {
     Object.keys(handlers).forEach((k) => delete handlers[k])
@@ -207,6 +212,7 @@ describe('registerRAGIPC', () => {
 
       const { registerRAGIPC } = await import('../electron/ipc/rag')
       registerRAGIPC()
+      await flushMicrotasks() // allow deferred DB init to complete
 
       const result = handlers['knowledge-list']()
       expect(result).toEqual(docs)
@@ -218,15 +224,16 @@ describe('registerRAGIPC', () => {
       mockDB.prepare.mockReturnValue(makeStmt(undefined))
       const { registerRAGIPC } = await import('../electron/ipc/rag')
       registerRAGIPC()
+      await flushMicrotasks() // allow deferred DB init to complete
     })
 
-    it('validates id', () => {
-      expect(() => handlers['knowledge-delete'](null, -1)).toThrow('参数无效: id')
-      expect(() => handlers['knowledge-delete'](null, NaN)).toThrow('参数无效: id')
-      expect(() => handlers['knowledge-delete'](null, 0)).toThrow('参数无效: id')
+    it('validates id', async () => {
+      await expect(handlers['knowledge-delete'](null, -1)).rejects.toThrow('参数无效: id')
+      await expect(handlers['knowledge-delete'](null, NaN)).rejects.toThrow('参数无效: id')
+      await expect(handlers['knowledge-delete'](null, 0)).rejects.toThrow('参数无效: id')
     })
 
-    it('deletes knowledge doc', () => {
+    it('deletes knowledge doc', async () => {
       const runFn = vi.fn()
       mockDB.prepare.mockImplementation(() => ({
         get: vi.fn(),
@@ -234,7 +241,7 @@ describe('registerRAGIPC', () => {
         run: runFn,
       }))
 
-      handlers['knowledge-delete'](null, 5)
+      await handlers['knowledge-delete'](null, 5)
       expect(runFn).toHaveBeenCalled()
     })
   })
@@ -244,6 +251,7 @@ describe('registerRAGIPC', () => {
       mockDB.prepare.mockReturnValue(makeStmt(undefined))
       const { registerRAGIPC } = await import('../electron/ipc/rag')
       registerRAGIPC()
+      await flushMicrotasks() // allow deferred DB init to complete
     })
 
     it('validates query', async () => {

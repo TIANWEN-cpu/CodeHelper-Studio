@@ -173,6 +173,12 @@ export function Layout() {
             </Suspense>
           </ErrorBoundary>
         )
+      default:
+        return (
+          <div className="flex flex-1 items-center justify-center text-[var(--theme-text-muted)]">
+            未知模块
+          </div>
+        )
     }
   }
 

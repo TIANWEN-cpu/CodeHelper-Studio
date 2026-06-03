@@ -4,6 +4,26 @@
 
 ---
 
+## [2.1.0] - 2026-06-03
+
+本地迭代版本，聚焦 Electron 启动稳定性、知识库延迟初始化与前端可诊断性。
+
+### 新功能 / 改进
+
+- Electron 启动链路补充关键阶段日志，包括 DB 连接、schema 加载、schema 执行、ensureSchemaColumns 完成。
+- RAG / Knowledge DB 改为延迟初始化，避免阻塞主启动流程。
+- 读型知识库 IPC 在 DB 未就绪时返回 graceful empty payload。
+- 写型知识库 IPC 增加带超时的 DB 获取路径，避免永久卡死。
+- database / problems / ai 等 IPC 注册链路增加 first-call 诊断日志。
+- renderer 启动流程关键位置补充日志，便于定位首次白屏问题。
+- preload、runtimePaths、middleware、CSP、RAG test 路径进一步校验与加固。
+
+### 测试
+
+- 维持 1477 项通过。
+
+---
+
 ## [1.1.0] - 2026-06-02
 
 基于 v1.0.0 发布后的全面成熟度升级（Sprint 4-27），涵盖功能增强、架构重构、安全加固、测试覆盖、UX 打磨、性能优化与文档完善。

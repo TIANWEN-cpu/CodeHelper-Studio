@@ -16,9 +16,16 @@ export function __resetDBForTesting() {
 export function getDB(): Database.Database {
   if (!db) {
     const dbPath = join(app.getPath('userData'), 'codehelper.db')
-    db = new Database(dbPath)
-    db.pragma('journal_mode = WAL')
-    db.pragma('foreign_keys = ON')
+    console.log('[STARTUP] Initializing database at:', dbPath)
+    try {
+      db = new Database(dbPath)
+      db.pragma('journal_mode = WAL')
+      db.pragma('foreign_keys = ON')
+      console.log('[STARTUP] Database connected, WAL mode enabled')
+    } catch (err) {
+      console.error('[ERROR] Database connection failed:', err)
+      throw err
+    }
 
     // Load and execute schema - try multiple paths
     const candidates = [
@@ -31,15 +38,34 @@ export function getDB(): Database.Database {
     for (const p of candidates) {
       if (existsSync(p)) {
         schema = readFileSync(p, 'utf-8')
+        console.log('[STARTUP] Schema loaded from:', p, `(${schema.length} chars)`)
         break
       }
     }
 
-    if (schema) {
-      db.exec(schema)
+    if (!schema) {
+      console.warn('[STARTUP] No schema file found in candidates:', candidates)
     }
 
-    ensureSchemaColumns(db)
+    if (schema) {
+      try {
+        db.exec(schema)
+        console.log('[STARTUP] Schema executed successfully')
+      } catch (err) {
+        console.error('[ERROR] Schema execution failed:', err)
+        throw err
+      }
+    }
+
+    try {
+      ensureSchemaColumns(db)
+      console.log('[STARTUP] Schema columns ensured')
+    } catch (err) {
+      console.error('[ERROR] ensureSchemaColumns failed:', err)
+      throw err
+    }
+
+    console.log('[STARTUP] Database initialization complete')
   }
   return db
 }

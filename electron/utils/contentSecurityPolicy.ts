@@ -22,10 +22,10 @@ export function buildContentSecurityPolicy(options: ContentSecurityPolicyOptions
   if (devRenderer) {
     return [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https:",
-      "connect-src 'self' https: http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:*",
+      "connect-src 'self' https: http://localhost:* ws://localhost:* wss://localhost:* http://127.0.0.1:* ws://127.0.0.1:* wss://127.0.0.1:*",
       "font-src 'self' data:",
     ].join('; ')
   }
