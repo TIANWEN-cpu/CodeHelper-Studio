@@ -5,6 +5,7 @@
  */
 
 import { ipcMain } from 'electron'
+import { getDB } from '../db/index'
 import {
   trackEvent,
   getEvents,
@@ -78,5 +79,35 @@ export function registerAnalyticsIPC(): void {
   // Clear all analytics data (privacy control)
   ipcMain.handle('analytics-clear', () => {
     clearAllAnalytics()
+  })
+
+  // Get current learning streak (consecutive days with at least one event)
+  ipcMain.handle('analytics-get-streak', () => {
+    const db = getDB()
+    const rows = db
+      .prepare(
+        `SELECT DATE(timestamp) AS day, COUNT(*) AS cnt
+         FROM analytics_events
+         GROUP BY DATE(timestamp)
+         ORDER BY day DESC`,
+      )
+      .all() as Array<{ day: string; cnt: number }>
+
+    if (rows.length === 0) return 0
+
+    const today = new Date().toISOString().slice(0, 10)
+    const daySet = new Set(rows.map((r) => r.day))
+
+    let streak = 0
+    const d = new Date(today + 'T00:00:00')
+    // If today has no events, start checking from yesterday
+    if (!daySet.has(today)) {
+      d.setDate(d.getDate() - 1)
+    }
+    while (daySet.has(d.toISOString().slice(0, 10))) {
+      streak++
+      d.setDate(d.getDate() - 1)
+    }
+    return streak
   })
 }

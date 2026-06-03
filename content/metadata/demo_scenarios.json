@@ -1,0 +1,86 @@
+{
+  "version": "1.0",
+  "description": "DevLearner AI 演示数据 — 展示完整的学习场景",
+  "scenarios": {
+    "beginner": {
+      "id": "beginner-python-basics",
+      "title": "Python 入门基础",
+      "subtitle": "从零开始，掌握 Python 基础语法",
+      "icon": "seedling",
+      "description": "适合零基础学习者。从环境准备开始，逐步掌握变量、控制流、函数和异常处理。每天学习 30-40 分钟，一周即可完成。",
+      "track_id": "python",
+      "total_lessons": 5,
+      "total_exercises": 6,
+      "estimated_hours": 5,
+      "lesson_order": [
+        "py-thinking",
+        "py-data-types",
+        "py-control-flow",
+        "py-functions",
+        "py-exceptions-files"
+      ],
+      "exercise_ids": [
+        "py-add",
+        "py-normalize-name",
+        "py-even-sum",
+        "py-count-vowels",
+        "py-safe-divide",
+        "py-word-count"
+      ]
+    },
+    "intermediate": {
+      "id": "intermediate-algorithms",
+      "title": "算法与数据结构",
+      "subtitle": "提升编程思维，掌握核心算法",
+      "icon": "brain",
+      "description": "适合有一定编程基础的学习者。学习时间复杂度分析、数组与字符串操作、哈希表和链表等核心数据结构。配合 LeetCode 风格的练习题巩固。",
+      "track_id": "algorithms",
+      "total_lessons": 4,
+      "total_exercises": 5,
+      "estimated_hours": 8,
+      "lesson_order": [
+        "algo-complexity-basics",
+        "algo-arrays-strings",
+        "algo-hash-tables",
+        "algo-linked-lists"
+      ],
+      "exercise_ids": [
+        "algo-two-sum-hash",
+        "algo-valid-anagram",
+        "algo-two-pointer-palindrome",
+        "algo-binary-search-index",
+        "algo-running-sum"
+      ]
+    },
+    "advanced": {
+      "id": "advanced-system-design",
+      "title": "系统设计进阶",
+      "subtitle": "理解大型系统的架构与设计思想",
+      "icon": "building",
+      "description": "适合有 2 年以上开发经验的工程师。学习系统设计的核心概念，包括数据库设计、缓存策略、分布式系统和微服务架构。需要结合多个技术栈的综合知识。",
+      "track_id": "integration",
+      "total_lessons": 5,
+      "total_exercises": 4,
+      "estimated_hours": 12,
+      "lesson_order": [
+        "int-api-design",
+        "int-docker",
+        "int-ci-cd",
+        "db-schema-design",
+        "db-indexes"
+      ],
+      "exercise_ids": [
+        "db-join-user-order",
+        "db-subquery-high-score",
+        "integration-book-repo",
+        "integration-css-selector"
+      ]
+    }
+  },
+  "demo_user": {
+    "name": "演示用户",
+    "description": "已完成第 1 周 Python 入门学习的典型用户",
+    "learning_start": "2026-05-26",
+    "current_date": "2026-06-01"
+  }
+}

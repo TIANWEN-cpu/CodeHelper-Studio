@@ -23,19 +23,19 @@ export function buildContentSecurityPolicy(options: ContentSecurityPolicyOptions
     return [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      "style-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: https:",
       "connect-src 'self' https: http://localhost:* ws://localhost:* wss://localhost:* http://127.0.0.1:* ws://127.0.0.1:* wss://127.0.0.1:*",
-      "font-src 'self' data:",
+      "font-src 'self' data: https://fonts.gstatic.com",
     ].join('; ')
   }
 
   return [
     "default-src 'self'",
     "script-src 'self'",
-    "style-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: https:",
     "connect-src 'self' https:",
-    "font-src 'self' data:",
+    "font-src 'self' data: https://fonts.gstatic.com",
   ].join('; ')
 }

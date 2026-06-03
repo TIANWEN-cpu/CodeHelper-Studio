@@ -142,3 +142,78 @@ CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(category);
 CREATE INDEX IF NOT EXISTS idx_memories_content_lower ON memories(lower(content));
 CREATE INDEX IF NOT EXISTS idx_analytics_events_type ON analytics_events(event_type, timestamp);
 CREATE INDEX IF NOT EXISTS idx_analytics_events_timestamp ON analytics_events(timestamp);
+
+---------------------------------------------------------------------------
+-- DevLearnerAI tables (course / lesson / achievement / review tracking)
+---------------------------------------------------------------------------
+
+-- Course/Lesson progress tracking
+CREATE TABLE IF NOT EXISTS lesson_progress (
+  lesson_id TEXT PRIMARY KEY,
+  track_id TEXT NOT NULL,
+  module_id TEXT,
+  status TEXT DEFAULT 'not_started' CHECK(status IN ('not_started','in_progress','completed')),
+  completed INTEGER DEFAULT 0,
+  last_opened TEXT,
+  completed_at TEXT
+);
+
+-- Lesson notes with tags and code snippets
+CREATE TABLE IF NOT EXISTS lesson_notes (
+  lesson_id TEXT PRIMARY KEY,
+  content TEXT DEFAULT '',
+  tags TEXT DEFAULT '[]',
+  code_snippets TEXT DEFAULT '[]',
+  updated_at TEXT
+);
+
+-- Achievement definitions
+CREATE TABLE IF NOT EXISTS achievements (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT,
+  icon TEXT,
+  category TEXT,
+  threshold INTEGER DEFAULT 1
+);
+
+-- Achievement progress tracking
+CREATE TABLE IF NOT EXISTS achievement_progress (
+  achievement_id TEXT PRIMARY KEY REFERENCES achievements(id),
+  current_value INTEGER DEFAULT 0,
+  unlocked INTEGER DEFAULT 0,
+  unlocked_at TEXT
+);
+
+-- Spaced repetition schedule (SM-2 algorithm)
+CREATE TABLE IF NOT EXISTS review_schedule (
+  exercise_id TEXT PRIMARY KEY,
+  interval_days REAL DEFAULT 1,
+  ease_factor REAL DEFAULT 2.5,
+  repetitions INTEGER DEFAULT 0,
+  next_review TEXT,
+  last_reviewed TEXT
+);
+
+-- Exercise drafts (auto-save)
+CREATE TABLE IF NOT EXISTS exercise_drafts (
+  exercise_id TEXT PRIMARY KEY,
+  title TEXT,
+  code TEXT,
+  updated_at TEXT
+);
+
+-- Exercise timer/hint tracking
+CREATE TABLE IF NOT EXISTS exercise_timers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  exercise_id TEXT NOT NULL,
+  duration_sec REAL,
+  difficulty TEXT,
+  recorded_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Indexes for DevLearnerAI tables
+CREATE INDEX IF NOT EXISTS idx_lesson_progress_track ON lesson_progress(track_id, completed);
+CREATE INDEX IF NOT EXISTS idx_review_schedule_next ON review_schedule(next_review);
+CREATE INDEX IF NOT EXISTS idx_achievement_progress_unlocked ON achievement_progress(unlocked);
+CREATE INDEX IF NOT EXISTS idx_exercise_timers_exercise ON exercise_timers(exercise_id);

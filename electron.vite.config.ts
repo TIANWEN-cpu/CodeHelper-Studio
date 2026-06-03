@@ -49,22 +49,27 @@ export default defineConfig(async () => {
     },
     renderer: {
       root: 'src',
+      resolve: {
+        alias: {
+          '@': resolve(__dirname, 'src'),
+        },
+      },
       build: {
         rollupOptions: {
           input: resolve(__dirname, 'src/index.html'),
           output: {
             // Chunk splitting strategy for optimal caching and lazy loading
             manualChunks: {
-              // Monaco editor is the heaviest dependency — isolate it
-              'vendor-monaco': ['monaco-editor', '@monaco-editor/react'],
               // React core
               'vendor-react': ['react', 'react-dom'],
-              // Markdown rendering (split from Monaco for independent loading)
-              'vendor-markdown': ['react-markdown', 'react-syntax-highlighter', 'remark-gfm'],
-              // State management
-              'vendor-state': ['zustand'],
+              // Animation library
+              'vendor-motion': ['motion'],
+              // Charts
+              'vendor-charts': ['recharts'],
               // Icons (tree-shakeable named imports used across components)
               'vendor-icons': ['lucide-react'],
+              // State management
+              'vendor-state': ['zustand'],
             },
           },
         },

@@ -1,92 +1,139 @@
-import { Layout } from './components/Layout'
-import { ErrorBoundary } from './components/ErrorBoundary'
-import { ToastProvider } from './components/Toast'
-import { useEffect, lazy, Suspense, useState, useRef } from 'react'
-import { useAppStore } from './stores/appStore'
-import { useOnboardingStore } from './modules/onboarding'
-import { startMemoryMonitor, stopMemoryMonitor } from './utils/memoryMonitor'
+import React, { Suspense, lazy, useEffect } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
+import { Sidebar } from './components/layout/Sidebar'
+import { Header } from './components/layout/Header'
+import { AITutorPanel } from './components/layout/AITutorPanel'
+import { useAppStore } from './store'
+import {
+  loadAppearance,
+  applyAll,
+  applyTheme,
+  resolveTheme,
+  watchSystemTheme,
+} from './lib/appearance'
 
-// Lazy load onboarding components — they are only needed on first run
-const WelcomeWizard = lazy(() =>
-  import('./modules/onboarding').then((m) => ({ default: m.WelcomeWizard })),
+// Lazy Loaded Views for better initial bundle size
+const HomeView = lazy(() =>
+  import('./views/HomeView').then((module) => ({ default: module.HomeView })),
 )
-const FeatureTour = lazy(() =>
-  import('./modules/onboarding').then((m) => ({ default: m.FeatureTour })),
+const WorkspaceView = lazy(() =>
+  import('./views/WorkspaceView').then((module) => ({ default: module.WorkspaceView })),
 )
-const SetupChecklist = lazy(() =>
-  import('./modules/onboarding').then((m) => ({ default: m.SetupChecklist })),
+const SettingsView = lazy(() =>
+  import('./views/SettingsView').then((module) => ({ default: module.SettingsView })),
+)
+const KnowledgeView = lazy(() =>
+  import('./views/KnowledgeView').then((module) => ({ default: module.KnowledgeView })),
+)
+const ReviewView = lazy(() =>
+  import('./views/ReviewView').then((module) => ({ default: module.ReviewView })),
+)
+const LearnView = lazy(() =>
+  import('./views/LearnView').then((module) => ({ default: module.LearnView })),
+)
+const PracticeView = lazy(() =>
+  import('./views/PracticeView').then((module) => ({ default: module.PracticeView })),
+)
+const ProfileView = lazy(() =>
+  import('./views/ProfileView').then((module) => ({ default: module.ProfileView })),
 )
 
-// ---------------------------------------------------------------------------
-// Initialization timeout — if IPC calls hang, the user should still see the app
-// ---------------------------------------------------------------------------
-
-const INIT_TIMEOUT_MS = 5000
+// Loading Fallback
+const ViewLoader = () => (
+  <div className="w-full h-full flex flex-col items-center justify-center">
+    <div className="w-8 h-8 rounded-full border-2 border-[var(--color-border-subtle)] border-t-[var(--color-accent-primary)] animate-spin mb-4" />
+    <span className="text-sm text-[var(--color-text-muted)] animate-pulse">
+      Loading workspace...
+    </span>
+  </div>
+)
 
 function App() {
-  const loadTheme = useAppStore((state) => state.loadTheme)
+  const { currentView, showAITutor, setShowAITutor } = useAppStore()
 
-  // Onboarding state
-  const hydrated = useOnboardingStore((s) => s.hydrated)
-  const wizardCompleted = useOnboardingStore((s) => s.wizardCompleted)
-  const tourCompleted = useOnboardingStore((s) => s.tourCompleted)
-  const hydrate = useOnboardingStore((s) => s.hydrate)
-
-  // Track whether initialization has completed (or timed out)
-  const [initReady, setInitReady] = useState(false)
-  const initTimedOut = useRef(false)
-
+  // 启动时从数据库读回外观设置并应用到 DOM；"跟随系统"时监听系统主题变化。
   useEffect(() => {
-    void loadTheme()
-  }, [loadTheme])
-
-  useEffect(() => {
-    void hydrate()
-  }, [hydrate])
-
-  // Start renderer memory monitoring on mount
-  useEffect(() => {
-    startMemoryMonitor()
-    return () => stopMemoryMonitor()
-  }, [])
-
-  // Safety net: if hydration never resolves (IPC hang), allow the UI to render
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (!initTimedOut.current) {
-        initTimedOut.current = true
-        console.warn(
-          '[CodeHelper] Init timed out after ' + INIT_TIMEOUT_MS + 'ms — rendering UI anyway',
-        )
-        setInitReady(true)
+    let cancelled = false
+    let unwatch = () => {}
+    loadAppearance().then((a) => {
+      if (cancelled) return
+      applyAll(a)
+      useAppStore.getState().hydrateTheme(resolveTheme(a.theme, a.followSystem))
+      if (a.followSystem) {
+        unwatch = watchSystemTheme((sysTheme) => {
+          applyTheme(sysTheme)
+          useAppStore.getState().hydrateTheme(sysTheme)
+        })
       }
-    }, INIT_TIMEOUT_MS)
-
-    return () => clearTimeout(timer)
+    })
+    return () => {
+      cancelled = true
+      unwatch()
+    }
   }, [])
 
-  // Mark ready once hydrated completes normally
-  useEffect(() => {
-    if (hydrated && !initTimedOut.current) {
-      setInitReady(true)
+  // Render main content based on view
+  const renderView = () => {
+    let view
+    switch (currentView) {
+      case 'home':
+        view = <HomeView />
+        break
+      case 'workspace':
+        view = <WorkspaceView />
+        break
+      case 'knowledge':
+        view = <KnowledgeView />
+        break
+      case 'settings':
+        view = <SettingsView />
+        break
+      case 'review':
+        view = <ReviewView />
+        break
+      case 'learn':
+        view = <LearnView />
+        break
+      case 'practice':
+        view = <PracticeView />
+        break
+      case 'profile':
+        view = <ProfileView />
+        break
+      default:
+        view = <HomeView />
     }
-  }, [hydrated])
+    return <Suspense fallback={<ViewLoader />}>{view}</Suspense>
+  }
+
+  const hideHeader = currentView === 'workspace' || currentView === 'practice'
 
   return (
-    <ErrorBoundary>
-      <ToastProvider>
-        {/* Always render the main layout immediately — don't block on async init */}
-        <Layout />
-        {/* Onboarding overlays — only render after hydration (or timeout) */}
-        {initReady && (
-          <Suspense fallback={null}>
-            {!wizardCompleted && <WelcomeWizard />}
-            {wizardCompleted && !tourCompleted && <FeatureTour />}
-            {wizardCompleted && <SetupChecklist />}
-          </Suspense>
-        )}
-      </ToastProvider>
-    </ErrorBoundary>
+    <div className="flex h-screen w-full bg-[var(--color-bg-base)] text-[var(--color-text-primary)] overflow-hidden font-sans">
+      <Sidebar />
+
+      <div className="flex-1 flex flex-col min-w-0">
+        {!hideHeader && <Header />}
+        <main className="flex-1 overflow-hidden relative">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentView}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+              className="w-full h-full flex flex-col pt-1"
+            >
+              {renderView()}
+            </motion.div>
+          </AnimatePresence>
+        </main>
+      </div>
+
+      <AnimatePresence>
+        {showAITutor && <AITutorPanel onClose={() => setShowAITutor(false)} />}
+      </AnimatePresence>
+    </div>
   )
 }
 
