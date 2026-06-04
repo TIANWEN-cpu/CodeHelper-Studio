@@ -24,6 +24,8 @@ export interface Appearance {
   uiScale: string // 如 "100%"
   fontSize: number // px，范围 12–24，14 为中性基准
   reduceMotion: boolean
+  glassEffect: boolean // 毛玻璃（backdrop-blur）开关，默认开
+  highContrast: boolean // 高对比度，默认关
 }
 
 export const DEFAULT_APPEARANCE: Appearance = {
@@ -33,6 +35,8 @@ export const DEFAULT_APPEARANCE: Appearance = {
   uiScale: '100%',
   fontSize: 14,
   reduceMotion: false,
+  glassEffect: true,
+  highContrast: false,
 }
 
 // ---- 颜色工具：按百分比提亮(正)/加深(负) ----
@@ -124,6 +128,18 @@ export function applyReduceMotion(on: boolean): void {
   document.documentElement.setAttribute('data-reduce-motion', on ? 'true' : 'false')
 }
 
+/** 毛玻璃效果：关闭时在 <html> 标记 data-glass="off"，index.css 据此禁用 backdrop-blur。 */
+export function applyGlassEffect(on: boolean): void {
+  if (typeof document === 'undefined') return
+  document.documentElement.setAttribute('data-glass', on ? 'on' : 'off')
+}
+
+/** 高对比度：开启时标记 data-contrast="high"，index.css 据此调亮边框与次要文字。 */
+export function applyHighContrast(on: boolean): void {
+  if (typeof document === 'undefined') return
+  document.documentElement.setAttribute('data-contrast', on ? 'high' : 'normal')
+}
+
 /** 一次性应用整组外观设置（启动时与重置时用）。 */
 export function applyAll(a: Appearance): void {
   applyTheme(resolveTheme(a.theme, a.followSystem))
@@ -131,18 +147,22 @@ export function applyAll(a: Appearance): void {
   applyScale(a.uiScale)
   applyFontSize(a.fontSize)
   applyReduceMotion(a.reduceMotion)
+  applyGlassEffect(a.glassEffect)
+  applyHighContrast(a.highContrast)
 }
 
 /** 从数据库读回已持久化的外观设置（失败回退默认值）。 */
 export async function loadAppearance(): Promise<Appearance> {
   try {
-    const [theme, follow, color, scale, font, rm] = await Promise.all([
+    const [theme, follow, color, scale, font, rm, glass, contrast] = await Promise.all([
       getSetting('theme_mode'),
       getSetting('follow_system'),
       getSetting('theme_color'),
       getSetting('ui_scale'),
       getSetting('font_size'),
       getSetting('reduce_motion'),
+      getSetting('glass_effect'),
+      getSetting('high_contrast'),
     ])
     const parsedFont = font ? parseInt(font, 10) : NaN
     return {
@@ -152,6 +172,8 @@ export async function loadAppearance(): Promise<Appearance> {
       uiScale: scale || DEFAULT_APPEARANCE.uiScale,
       fontSize: Number.isFinite(parsedFont) ? parsedFont : DEFAULT_APPEARANCE.fontSize,
       reduceMotion: rm === 'true',
+      glassEffect: glass == null ? DEFAULT_APPEARANCE.glassEffect : glass === 'true',
+      highContrast: contrast === 'true',
     }
   } catch {
     return { ...DEFAULT_APPEARANCE }

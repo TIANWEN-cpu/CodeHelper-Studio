@@ -1,5 +1,5 @@
 import React from 'react'
-import { Monitor, Palette, Check, RotateCcw, Settings, Download, Upload, Info } from 'lucide-react'
+import { Palette, Check, RotateCcw, Settings, Download, Upload, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSettingsData } from '../hooks/useSettingsData'
 import { useAppStore } from '../store'
@@ -8,6 +8,8 @@ import {
   applyScale,
   applyFontSize,
   applyReduceMotion,
+  applyGlassEffect,
+  applyHighContrast,
   applyTheme,
   resolveTheme,
   type ThemeMode,
@@ -52,21 +54,11 @@ export function SettingsView() {
   const [themeColor, setThemeColor] = React.useState('#6366F1')
   const [followSystem, setFollowSystem] = React.useState(false)
 
-  // ---- Layout ----
-  const [showAIPanel, setShowAIPanel] = React.useState(true)
-  const [showBottomPanel, setShowBottomPanel] = React.useState(true)
-  const [compactSidebar, setCompactSidebar] = React.useState(false)
-  const [doubleLineTabs, setDoubleLineTabs] = React.useState(true)
-
   // ---- Code / Display ----
-  const [codeTheme, setCodeTheme] = React.useState('One Dark Pro')
   const [uiScale, setUiScale] = React.useState('100%')
   const [fontSize, setFontSize] = React.useState(14)
-  const [regionFormat, setRegionFormat] = React.useState('中国 (UTC+8)')
-  const [weekStart, setWeekStart] = React.useState('周一')
 
   // ---- Effects ----
-  const [animations, setAnimations] = React.useState(true)
   const [glassEffect, setGlassEffect] = React.useState(true)
   const [highContrast, setHighContrast] = React.useState(false)
   const [reduceMotion, setReduceMotion] = React.useState(false)
@@ -81,16 +73,8 @@ export function SettingsView() {
           'theme_mode',
           'theme_color',
           'follow_system',
-          'show_ai_panel',
-          'show_bottom_panel',
-          'compact_sidebar',
-          'double_line_tabs',
-          'code_theme',
           'ui_scale',
           'font_size',
-          'region_format',
-          'week_start',
-          'animations',
           'glass_effect',
           'high_contrast',
           'reduce_motion',
@@ -104,19 +88,11 @@ export function SettingsView() {
 
         if (vals.theme_color) setThemeColor(vals.theme_color)
         if (vals.follow_system) setFollowSystem(vals.follow_system === 'true')
-        if (vals.show_ai_panel) setShowAIPanel(vals.show_ai_panel === 'true')
-        if (vals.show_bottom_panel) setShowBottomPanel(vals.show_bottom_panel === 'true')
-        if (vals.compact_sidebar) setCompactSidebar(vals.compact_sidebar === 'true')
-        if (vals.double_line_tabs) setDoubleLineTabs(vals.double_line_tabs === 'true')
-        if (vals.code_theme) setCodeTheme(vals.code_theme)
         if (vals.ui_scale) setUiScale(vals.ui_scale)
         if (vals.font_size) {
           const n = parseInt(vals.font_size, 10)
           if (!isNaN(n)) setFontSize(n)
         }
-        if (vals.region_format) setRegionFormat(vals.region_format)
-        if (vals.week_start) setWeekStart(vals.week_start)
-        if (vals.animations) setAnimations(vals.animations === 'true')
         if (vals.glass_effect) setGlassEffect(vals.glass_effect === 'true')
         if (vals.high_contrast) setHighContrast(vals.high_contrast === 'true')
         if (vals.reduce_motion) setReduceMotion(vals.reduce_motion === 'true')
@@ -145,53 +121,13 @@ export function SettingsView() {
   const tabs = [
     { id: 'appearance', label: '外观', icon: Palette },
     { id: 'ai', label: 'AI 模型', icon: Settings },
-    { id: 'data', label: '数据与同步', icon: Download },
+    { id: 'data', label: '数据', icon: Download },
     { id: 'about', label: '关于', icon: Info },
   ]
 
   const themeColors = ['#6366F1', '#8B5CF6', '#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#EC4899']
 
   const scaleOptions = ['90%', '100%', '110%', '125%', '150%']
-  const regionOptions = ['中国 (UTC+8)']
-  const weekStartOptions = ['周一', '周日']
-
-  const codeThemeOptions = ['One Dark Pro', 'Github Dark', 'Dracula']
-  const codeThemeColors: Record<
-    string,
-    {
-      bg: string
-      border: string
-      keyword: string
-      func: string
-      string: string
-      text: string
-    }
-  > = {
-    'One Dark Pro': {
-      bg: '#1E1E1E',
-      border: '#333',
-      keyword: '#569CD6',
-      func: '#DCDCAA',
-      string: '#C586C0',
-      text: '#D4D4D4',
-    },
-    'Github Dark': {
-      bg: '#0D1117',
-      border: '#21262D',
-      keyword: '#FF7B72',
-      func: '#D2A8FF',
-      string: '#A5D6FF',
-      text: '#C9D1D9',
-    },
-    Dracula: {
-      bg: '#282A36',
-      border: '#44475A',
-      keyword: '#FF79C6',
-      func: '#50FA7B',
-      string: '#F1FA8C',
-      text: '#F8F8F2',
-    },
-  }
 
   // ---- Handlers ----
   const handleToggle = (
@@ -202,8 +138,10 @@ export function SettingsView() {
     const next = !value
     setter(next)
     save(key, String(next))
-    // 已知的需要即时作用到 DOM 的开关
+    // 即时作用到 DOM 的开关
     if (key === 'reduce_motion') applyReduceMotion(next)
+    else if (key === 'glass_effect') applyGlassEffect(next)
+    else if (key === 'high_contrast') applyHighContrast(next)
   }
 
   const handleThemeMode = (mode: ThemeMode) => {
@@ -238,35 +176,12 @@ export function SettingsView() {
     applyFontSize(clamped)
   }
 
-  const handleRegion = (value: string) => {
-    setRegionFormat(value)
-    save('region_format', value)
-  }
-
-  const handleWeekStart = (value: string) => {
-    setWeekStart(value)
-    save('week_start', value)
-  }
-
-  const handleCodeTheme = (value: string) => {
-    setCodeTheme(value)
-    save('code_theme', value)
-  }
-
   const handleResetDefaults = () => {
     setTheme('dark')
     setThemeColor('#6366F1')
     setFollowSystem(false)
-    setShowAIPanel(true)
-    setShowBottomPanel(true)
-    setCompactSidebar(false)
-    setDoubleLineTabs(true)
-    setCodeTheme('One Dark Pro')
     setUiScale('100%')
     setFontSize(14)
-    setRegionFormat('中国 (UTC+8)')
-    setWeekStart('周一')
-    setAnimations(true)
     setGlassEffect(true)
     setHighContrast(false)
     setReduceMotion(false)
@@ -275,16 +190,8 @@ export function SettingsView() {
       theme_mode: 'dark',
       theme_color: '#6366F1',
       follow_system: 'false',
-      show_ai_panel: 'true',
-      show_bottom_panel: 'true',
-      compact_sidebar: 'false',
-      double_line_tabs: 'true',
-      code_theme: 'One Dark Pro',
       ui_scale: '100%',
       font_size: '14',
-      region_format: '中国 (UTC+8)',
-      week_start: '周一',
-      animations: 'true',
       glass_effect: 'true',
       high_contrast: 'false',
       reduce_motion: 'false',
@@ -295,6 +202,8 @@ export function SettingsView() {
     applyScale('100%')
     applyFontSize(14)
     applyReduceMotion(false)
+    applyGlassEffect(true)
+    applyHighContrast(false)
   }
 
   const handleSave = () => {
@@ -304,48 +213,11 @@ export function SettingsView() {
     applyScale(uiScale)
     applyFontSize(fontSize)
     applyReduceMotion(reduceMotion)
+    applyGlassEffect(glassEffect)
+    applyHighContrast(highContrast)
   }
 
-  // ---- Layout settings data ----
-  const layoutSettings = [
-    {
-      title: '显示右侧 AI 面板',
-      desc: '',
-      key: 'show_ai_panel',
-      value: showAIPanel,
-      setter: setShowAIPanel,
-    },
-    {
-      title: '显示底部面板',
-      desc: '',
-      key: 'show_bottom_panel',
-      value: showBottomPanel,
-      setter: setShowBottomPanel,
-    },
-    {
-      title: '紧凑侧边栏',
-      desc: '减少侧边栏宽度，显示更多内容',
-      key: 'compact_sidebar',
-      value: compactSidebar,
-      setter: setCompactSidebar,
-    },
-    {
-      title: '标签页双行显示',
-      desc: '在空间不足时使用双行标签',
-      key: 'double_line_tabs',
-      value: doubleLineTabs,
-      setter: setDoubleLineTabs,
-    },
-  ]
-
   const effectSettings = [
-    {
-      title: '动画效果',
-      desc: '开启界面过渡动画效果',
-      key: 'animations',
-      value: animations,
-      setter: setAnimations,
-    },
     {
       title: '毛玻璃效果',
       desc: '为部分面板启用毛玻璃效果',
@@ -368,9 +240,6 @@ export function SettingsView() {
       setter: setReduceMotion,
     },
   ]
-
-  // ---- Code preview ----
-  const currentThemeColors = codeThemeColors[codeTheme] || codeThemeColors['One Dark Pro']
 
   // ---- Render ----
   return (
@@ -475,35 +344,6 @@ export function SettingsView() {
                     <ToggleSwitch active={followSystem} onToggle={handleFollowSystem} />
                   </div>
                 </div>
-
-                <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
-                  <h3 className="font-semibold text-white text-[15px] mb-4">布局设置</h3>
-                  <p className="text-xs text-[var(--color-text-muted)] mb-4">自定义工作台布局</p>
-
-                  <div className="space-y-4">
-                    {layoutSettings.map((setting) => (
-                      <div key={setting.key} className="flex items-center justify-between">
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5 text-[var(--color-accent-purple)]">
-                            <Monitor size={16} />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-white">{setting.title}</p>
-                            {setting.desc && (
-                              <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                                {setting.desc}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <ToggleSwitch
-                          active={setting.value}
-                          onToggle={() => handleToggle(setting.key, setting.value, setting.setter)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </div>
 
               {/* Column 2 */}
@@ -530,9 +370,18 @@ export function SettingsView() {
                         {themeColor === color && <Check size={14} className="text-white" />}
                       </button>
                     ))}
-                    <button className="w-8 h-8 rounded-full border border-[var(--color-border-subtle)] flex items-center justify-center text-[var(--color-text-muted)] hover:text-white transition-colors">
+                    <label
+                      className="w-8 h-8 rounded-full border border-[var(--color-border-subtle)] flex items-center justify-center text-[var(--color-text-muted)] hover:text-white hover:border-[var(--color-accent-purple)] transition-colors cursor-pointer"
+                      title="自定义颜色"
+                    >
                       <span className="text-lg leading-none mb-0.5">+</span>
-                    </button>
+                      <input
+                        type="color"
+                        value={themeColor}
+                        onChange={(e) => handleThemeColor(e.target.value)}
+                        className="sr-only"
+                      />
+                    </label>
                   </div>
 
                   <h3 className="font-semibold text-white text-[15px] mb-4">界面缩放</h3>
@@ -578,93 +427,10 @@ export function SettingsView() {
                     <span className="text-base text-[var(--color-text-muted)]">A</span>
                   </div>
                 </div>
-
-                <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
-                  <h3 className="font-semibold text-white text-[15px] mb-4">语言与区域</h3>
-                  <p className="text-xs text-[var(--color-text-muted)] mb-4">
-                    设置应用语言和区域偏好
-                  </p>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1.5">
-                        区域格式
-                      </label>
-                      <select
-                        value={regionFormat}
-                        onChange={(e) => handleRegion(e.target.value)}
-                        className="w-full bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[var(--color-accent-purple)] appearance-none"
-                      >
-                        {regionOptions.map((opt) => (
-                          <option key={opt}>{opt}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1.5">
-                        每周起始日
-                      </label>
-                      <select
-                        value={weekStart}
-                        onChange={(e) => handleWeekStart(e.target.value)}
-                        className="w-full bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[var(--color-accent-purple)] appearance-none"
-                      >
-                        {weekStartOptions.map((opt) => (
-                          <option key={opt}>{opt}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
               </div>
 
               {/* Column 3 */}
               <div className="space-y-6">
-                <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
-                  <h3 className="font-semibold text-white text-[15px] mb-4">代码主题</h3>
-                  <p className="text-xs text-[var(--color-text-muted)] mb-4">
-                    选择编辑器的代码配色方案
-                  </p>
-
-                  <select
-                    value={codeTheme}
-                    onChange={(e) => handleCodeTheme(e.target.value)}
-                    className="w-full bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[var(--color-accent-purple)] appearance-none mb-4"
-                  >
-                    {codeThemeOptions.map((opt) => (
-                      <option key={opt}>{opt}</option>
-                    ))}
-                  </select>
-
-                  <div
-                    className="rounded-lg p-4 font-mono text-xs overflow-hidden border"
-                    style={{
-                      backgroundColor: currentThemeColors.bg,
-                      borderColor: currentThemeColors.border,
-                    }}
-                  >
-                    <pre className="leading-relaxed" style={{ color: currentThemeColors.text }}>
-                      <span style={{ color: currentThemeColors.keyword }}>def</span>{' '}
-                      <span style={{ color: currentThemeColors.func }}>two_sum</span>
-                      (nums, target): hash_map = {'{'} {'}'}
-                      <span style={{ color: currentThemeColors.keyword }}>for</span> i, num{' '}
-                      <span style={{ color: currentThemeColors.keyword }}>in</span>{' '}
-                      <span style={{ color: currentThemeColors.func }}>enumerate</span>
-                      (nums): complement = target - num{' '}
-                      <span style={{ color: currentThemeColors.keyword }}>if</span> complement{' '}
-                      <span style={{ color: currentThemeColors.keyword }}>in</span> hash_map:{' '}
-                      <span style={{ color: currentThemeColors.keyword }}>return</span>{' '}
-                      [hash_map[complement], i] hash_map[num] = i
-                    </pre>
-                  </div>
-
-                  <div className="mt-4 text-right">
-                    <button className="text-xs text-[var(--color-accent-purple)] hover:text-[#7C3AED] transition-colors">
-                      在编辑器中预览 →
-                    </button>
-                  </div>
-                </div>
-
                 <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
                   <h3 className="font-semibold text-white text-[15px] mb-4">其他外观设置</h3>
 

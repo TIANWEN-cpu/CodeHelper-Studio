@@ -98,6 +98,20 @@ body {
   transition-duration: 0.001ms !important;
 }
 
+/* 毛玻璃效果关闭：禁用所有 backdrop-blur，回到实心面板背景 */
+:root[data-glass='off'] [class*='backdrop-blur'] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* 高对比度：调亮边框与次要文字，增强可读性 */
+:root[data-contrast='high'] {
+  --color-border-subtle: #5b6280;
+  --color-border-default: #7a82a8;
+  --color-text-muted: #c0c6dd;
+  --color-text-secondary: #eef1fb;
+}
+
 ::selection {
   background-color: rgba(139, 92, 246, 0.4);
   color: white;
