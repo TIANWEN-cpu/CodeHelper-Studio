@@ -12,6 +12,34 @@
 - AI Tutor 右侧面板已协调化：不再小屏绝对覆盖主内容，视觉改为内置右侧工具面板。
 - 已通过 lint/build/Electron 冷启动验证，并提交检查点 `f32b781`。
 
+## 已完成本轮修复
+
+- ReviewView 第一批真实化完成：筛选、重置、tab 内容、删除错题、正确代码展示、重新练习、本地规则复盘、SM-2 复习按钮语义均已接真实状态或真实 IPC；已通过 lint/build/Electron 冷启动验证，并提交 `e76efe6`。
+- KnowledgeView 真实化完成：删除假下拉、收藏、回收站、最近访问清空等无后端支撑入口；搜索明确为关键词匹配；文档/片段点击显示真实元数据或检索片段；上传、删除、筛选、排序、视图切换接真实状态；已通过 lint/build/Electron 冷启动验证，并提交 `512bae9`。
+- LearnView 搜索与底部面板清理完成：课程搜索接 `lessons-search` 与本地 track/module/lesson 过滤；删除无真实内容的章节练习/运行结果/讨论 tab，仅保留真实笔记；已通过 lint/build/Electron 冷启动验证，并提交 `8d8edac`。
+- SettingsView 占位 tab 清理完成：删除仅显示“后续版本”的编辑器/快捷键 tab，只保留已接真实行为的设置页；已通过 lint/build/Electron 冷启动验证，并提交 `2d64839`。
+
+## 已完成本轮修复
+
+- ReviewView 第一批真实化完成：筛选、重置、tab 内容、删除错题、正确代码展示、重新练习、本地规则复盘、SM-2 复习按钮语义均已接真实状态或真实 IPC；已通过 lint/build/Electron 冷启动验证，并提交 `e76efe6`。
+- KnowledgeView 真实化完成：删除假下拉、收藏、回收站、最近访问清空等无后端支撑入口；搜索明确为关键词匹配；文档/片段点击显示真实元数据或检索片段；上传、删除、筛选、排序、视图切换接真实状态；已通过 lint/build/Electron 冷启动验证，并提交 `512bae9`。
+- LearnView 搜索与底部面板清理完成：课程搜索接 `lessons-search` 与本地 track/module/lesson 过滤；删除无真实内容的章节练习/运行结果/讨论 tab，仅保留真实笔记；已通过 lint/build/Electron 冷启动验证，并提交 `8d8edac`。
+- SettingsView 占位 tab 清理完成：删除仅显示“后续版本”的编辑器/快捷键 tab，只保留已接真实行为的设置页；已通过 lint/build/Electron 冷启动验证，并提交 `2d64839`。
+
+## 已完成本轮修复
+
+- ReviewView 第一批真实化完成：筛选、重置、tab 内容、删除错题、正确代码展示、重新练习、本地规则复盘、SM-2 复习按钮语义均已接真实状态或真实 IPC；已通过 lint/build/Electron 冷启动验证，并提交 `e76efe6`。
+- KnowledgeView 真实化完成：删除假下拉、收藏、回收站、最近访问清空等无后端支撑入口；搜索明确为关键词匹配；文档/片段点击显示真实元数据或检索片段；上传、删除、筛选、排序、视图切换接真实状态；已通过 lint/build/Electron 冷启动验证，并提交 `512bae9`。
+- LearnView 搜索与底部面板清理完成：课程搜索接 `lessons-search` 与本地 track/module/lesson 过滤；删除无真实内容的章节练习/运行结果/讨论 tab，仅保留真实笔记；已通过 lint/build/Electron 冷启动验证，并提交 `8d8edac`。
+- SettingsView 占位 tab 清理完成：删除仅显示“后续版本”的编辑器/快捷键 tab，只保留已接真实行为的设置页；已通过 lint/build/Electron 冷启动验证，并提交 `2d64839`。
+
+## 已完成本轮修复
+
+- ReviewView 第一批真实化完成：筛选/重置/tab/删除/正确代码展示/重新练习/本地规则复盘/SM-2 复习按钮语义均已接真实状态或真实 IPC；已验证并提交 `e76efe6`。
+- KnowledgeView 真实化完成：删除收藏、回收站、最近访问清空、假下拉等无后端支撑入口；搜索明确为关键词匹配；文档/片段点击显示真实元数据或检索片段；上传/删除/筛选/排序/视图切换接真实状态；已验证并提交 `512bae9`。
+- LearnView 搜索与底部面板清理完成：课程搜索接 `lessons-search` 与本地 track/module/lesson 过滤；删除无真实内容的章节练习/运行结果/讨论 tab，仅保留真实笔记；已验证并提交 `8d8edac`。
+- SettingsView 占位 tab 清理完成：删除仅显示“后续版本”的编辑器/快捷键 tab，只保留已接真实行为的设置页；已验证并提交 `2d64839`。
+
 ## 第一轮审查发现
 
 ### P0 - ReviewView 假功能/断裂功能
