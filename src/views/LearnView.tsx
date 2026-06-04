@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   BookOpen,
   CheckCircle2,
@@ -88,6 +88,8 @@ export function LearnView() {
     saveNote,
     savingNote,
     markCompleted,
+    searchResults,
+    search,
   } = useLearnData()
 
   // Local UI state
@@ -97,12 +99,53 @@ export function LearnView() {
   const [currentModuleId, setCurrentModuleId] = useState<string | null>(null)
   const [trackProgress, setTrackProgress] = useState<Map<string, boolean>>(new Map())
   const [noteText, setNoteText] = useState('')
-  const [activeConsoleTab, setActiveConsoleTab] = useState<
-    'exercise' | 'output' | 'notes' | 'discussion'
-  >('notes')
+  const [lessonQuery, setLessonQuery] = useState('')
+  const [activeConsoleTab, setActiveConsoleTab] = useState<'notes'>('notes')
+
+  const handleLessonSearchChange = useCallback(
+    (value: string) => {
+      setLessonQuery(value)
+      void search(value)
+    },
+    [search],
+  )
+
+  const visibleTracks = useMemo(() => {
+    const q = lessonQuery.trim().toLowerCase()
+    const resultIds = new Set(searchResults)
+    if (!q) return tracks
+
+    return tracks
+      .map((track) => {
+        const trackMatches =
+          track.title.toLowerCase().includes(q) || track.summary.toLowerCase().includes(q)
+        const modules = track.modules
+          .map((mod) => {
+            const moduleMatches =
+              trackMatches ||
+              mod.title.toLowerCase().includes(q) ||
+              mod.summary.toLowerCase().includes(q)
+            const lessons = moduleMatches
+              ? mod.lessons
+              : mod.lessons.filter((lesson) => {
+                  const localMatch =
+                    lesson.title.toLowerCase().includes(q) ||
+                    lesson.summary.toLowerCase().includes(q) ||
+                    lesson.tags?.some((tag) => tag.toLowerCase().includes(q))
+                  return localMatch || resultIds.has(lesson.id)
+                })
+            return moduleMatches || lessons.length > 0 ? { ...mod, lessons } : null
+          })
+          .filter((mod): mod is (typeof track.modules)[number] => mod !== null)
+        return trackMatches || modules.length > 0 ? { ...track, modules } : null
+      })
+      .filter((track): track is (typeof tracks)[number] => track !== null)
+  }, [lessonQuery, searchResults, tracks])
 
   // ---- Derive the active track from selectedLessonId ----
-  const activeTrack = currentTrackId ? tracks.find((t) => t.id === currentTrackId) : tracks[0]
+  const activeTrack = currentTrackId
+    ? visibleTracks.find((t) => t.id === currentTrackId) || visibleTracks[0]
+    : visibleTracks[0]
 
   const activeModule = (() => {
     if (!activeTrack) return undefined
@@ -274,9 +317,9 @@ export function LearnView() {
                 {/* Header */}
                 <div className="p-4 border-b border-[var(--color-border-subtle)] relative">
                   <div className="flex justify-between items-center mb-4">
-                    <button className="flex items-center gap-1 text-[var(--color-text-secondary)] hover:text-white transition-colors text-sm">
-                      <ChevronLeft size={16} /> 返回课程列表
-                    </button>
+                    <div className="flex items-center gap-1 text-[var(--color-text-secondary)] text-sm">
+                      <BookOpen size={16} /> 课程目录
+                    </div>
                     <button
                       onClick={() => setNavCollapsed(true)}
                       className="p-1 hover:bg-[var(--color-bg-hover)] rounded text-[var(--color-text-muted)] hover:text-white"
@@ -313,6 +356,8 @@ export function LearnView() {
                     />
                     <input
                       type="text"
+                      value={lessonQuery}
+                      onChange={(e) => handleLessonSearchChange(e.target.value)}
                       placeholder="搜索课程、章节、知识点..."
                       className="w-full bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] rounded-lg pl-8 p-1.5 text-xs text-white placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent-purple)]"
                     />
@@ -551,28 +596,6 @@ export function LearnView() {
                     <div className="flex items-center justify-between px-4 pt-1 border-b border-[var(--color-border-subtle)]">
                       <div className="flex items-center gap-4">
                         <button
-                          onClick={() => setActiveConsoleTab('exercise')}
-                          className={cn(
-                            'px-2 py-2 text-xs font-medium border-b-2',
-                            activeConsoleTab === 'exercise'
-                              ? 'text-[var(--color-accent-purple)] border-[var(--color-accent-purple)]'
-                              : 'text-[var(--color-text-secondary)] border-transparent',
-                          )}
-                        >
-                          章节练习
-                        </button>
-                        <button
-                          onClick={() => setActiveConsoleTab('output')}
-                          className={cn(
-                            'px-2 py-2 text-xs font-medium border-b-2',
-                            activeConsoleTab === 'output'
-                              ? 'text-[var(--color-accent-purple)] border-[var(--color-accent-purple)]'
-                              : 'text-[var(--color-text-secondary)] border-transparent',
-                          )}
-                        >
-                          运行结果
-                        </button>
-                        <button
                           onClick={() => setActiveConsoleTab('notes')}
                           className={cn(
                             'px-2 py-2 text-xs font-medium border-b-2',
@@ -582,17 +605,6 @@ export function LearnView() {
                           )}
                         >
                           笔记
-                        </button>
-                        <button
-                          onClick={() => setActiveConsoleTab('discussion')}
-                          className={cn(
-                            'px-2 py-2 text-xs font-medium border-b-2',
-                            activeConsoleTab === 'discussion'
-                              ? 'text-[var(--color-accent-purple)] border-[var(--color-accent-purple)]'
-                              : 'text-[var(--color-text-secondary)] border-transparent',
-                          )}
-                        >
-                          讨论
                         </button>
                       </div>
                       <button
@@ -605,21 +617,6 @@ export function LearnView() {
                     </div>
 
                     <div className="p-4 flex-1 overflow-y-auto">
-                      {/* Exercise Tab */}
-                      {activeConsoleTab === 'exercise' && (
-                        <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-muted)]">
-                          暂无章节练习
-                        </div>
-                      )}
-
-                      {/* Output Tab */}
-                      {activeConsoleTab === 'output' && (
-                        <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-muted)]">
-                          运行代码后结果将显示在此处
-                        </div>
-                      )}
-
-                      {/* Notes Tab */}
                       {activeConsoleTab === 'notes' && (
                         <div className="flex flex-col h-full gap-2">
                           <div className="flex items-center justify-between">
@@ -650,13 +647,6 @@ export function LearnView() {
                             className="flex-1 bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-lg p-3 text-sm text-white placeholder-[var(--color-text-muted)] resize-none focus:outline-none focus:border-[var(--color-accent-purple)] font-mono leading-relaxed"
                             disabled={!currentLesson}
                           />
-                        </div>
-                      )}
-
-                      {/* Discussion Tab */}
-                      {activeConsoleTab === 'discussion' && (
-                        <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-muted)]">
-                          暂无讨论内容
                         </div>
                       )}
                     </div>
