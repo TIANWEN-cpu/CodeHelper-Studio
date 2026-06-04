@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'motion/react'
 import { useWorkspaceData } from '@/hooks/useWorkspaceData'
 import { useAppStore } from '@/store'
+import { CodeEditor } from '@/components/editor/CodeEditor'
 import type { SubmitResult as ExerciseSubmitResult } from '@/services/practiceService'
 
 const DEFAULT_WORKSPACE_CODE = `# 从左侧题库或工作区题目加载 starter code 后开始编码
@@ -93,6 +94,7 @@ export function WorkspaceView({
   // 底部面板初始折叠态来自设置页"显示底部面板"；进入工作区时按偏好展开/收起，之后本地可临时切换。
   const bottomPanelCollapsed = useAppStore((s) => s.bottomPanelCollapsed)
   const doubleLineTabs = useAppStore((s) => s.doubleLineTabs)
+  const codeTheme = useAppStore((s) => s.codeTheme)
   const [explorerCollapsed, setExplorerCollapsed] = useState(false)
   const [terminalCollapsed, setTerminalCollapsed] = useState(bottomPanelCollapsed)
   const [problemId, setProblemId] = useState<string>('')
@@ -234,23 +236,14 @@ export function WorkspaceView({
           </div>
         </div>
 
-        {/* Editor */}
-        <div
-          className="flex-1 overflow-auto relative font-mono text-sm leading-relaxed p-4"
-          style={{ backgroundColor: '#0B0E14' }}
-        >
-          <div className="absolute left-0 top-0 bottom-0 w-12 bg-[#0B0E14] text-right pr-4 pt-4 text-[#4B5563] select-none text-xs">
-            {code.split('\n').map((_, i) => (
-              <div key={i} className="leading-relaxed">
-                {i + 1}
-              </div>
-            ))}
-          </div>
-          <textarea
+        {/* Editor：CodeMirror 语法高亮，含行号；code_theme 驱动配色，Ctrl/Cmd+Enter 运行 */}
+        <div className="flex-1 overflow-hidden relative">
+          <CodeEditor
             value={code}
-            onChange={(e) => setCode(e.target.value)}
-            className="w-full h-full bg-transparent outline-none resize-none pl-12 text-[#E5E7EB] z-10 relative whitespace-pre"
-            spellCheck="false"
+            onChange={setCode}
+            language={language}
+            themeId={codeTheme}
+            onRun={handleRun}
           />
         </div>
 

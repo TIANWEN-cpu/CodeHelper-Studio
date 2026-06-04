@@ -16,6 +16,17 @@ import {
 } from '../lib/appearance'
 import { AIModelSettings } from './settings/AIModelSettings'
 import { REGION_OPTIONS } from '../lib/locale'
+import { CODE_THEME_OPTIONS, DEFAULT_CODE_THEME } from '../lib/codeThemes'
+import { CodeEditor } from '../components/editor/CodeEditor'
+
+// 代码主题卡片的实时预览片段。
+const CODE_THEME_PREVIEW = `def greet(name):
+    # 打招呼
+    msg = f"Hello, {name}!"
+    print(msg)
+    return len(msg)
+
+greet("CodeHelper")`
 
 // ---- Helper: Toggle Switch ----
 
@@ -61,6 +72,8 @@ export function SettingsView() {
   const setDateRegion = useAppStore((s) => s.setDateRegion)
   const weekStart = useAppStore((s) => s.weekStart)
   const setWeekStart = useAppStore((s) => s.setWeekStart)
+  const codeTheme = useAppStore((s) => s.codeTheme)
+  const setCodeTheme = useAppStore((s) => s.setCodeTheme)
 
   const [activeTab, setActiveTab] = React.useState('appearance')
   const [loaded, setLoaded] = React.useState(false)
@@ -208,6 +221,7 @@ export function SettingsView() {
     setDoubleLineTabs(true)
     setDateRegion('zh-CN') // 内部持久化 region_format
     setWeekStart('mon') // 内部持久化 week_start
+    setCodeTheme(DEFAULT_CODE_THEME) // 内部持久化 code_theme
 
     const defaults: Record<string, string> = {
       theme_mode: 'dark',
@@ -548,6 +562,47 @@ export function SettingsView() {
                       }}
                     />
                     <span className="text-base text-[var(--color-text-muted)]">A</span>
+                  </div>
+                </div>
+
+                <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
+                  <h3 className="font-semibold text-white text-[15px] mb-1">代码主题</h3>
+                  <p className="text-xs text-[var(--color-text-muted)] mb-4">
+                    工作区编辑器的语法高亮配色
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    {CODE_THEME_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        onClick={() => setCodeTheme(opt.id)}
+                        className={cn(
+                          'flex items-center justify-between px-3 py-2 rounded-lg border text-sm transition-colors',
+                          codeTheme === opt.id
+                            ? 'border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/10 text-white'
+                            : 'border-[var(--color-border-subtle)] text-[var(--color-text-secondary)] hover:text-white',
+                        )}
+                      >
+                        <span className="truncate">{opt.label}</span>
+                        <span
+                          className={cn(
+                            'w-2.5 h-2.5 rounded-full shrink-0 ml-2',
+                            opt.dark
+                              ? 'bg-[#1C2030] border border-white/25'
+                              : 'bg-white border border-black/20',
+                          )}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                  {/* 实时预览：直接复用工作区编辑器（只读），随选择即时换肤 */}
+                  <div className="rounded-lg overflow-hidden border border-[var(--color-border-subtle)] h-[150px]">
+                    <CodeEditor
+                      value={CODE_THEME_PREVIEW}
+                      onChange={() => {}}
+                      language="python"
+                      themeId={codeTheme}
+                      readOnly
+                    />
                   </div>
                 </div>
               </div>

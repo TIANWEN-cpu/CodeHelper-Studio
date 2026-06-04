@@ -3,6 +3,7 @@ import { ViewType } from './types'
 import { applyTheme, persistAppearance, type ThemeMode } from './lib/appearance'
 import { getSetting } from './services/settingsService'
 import type { RegionFormat } from './lib/locale'
+import { DEFAULT_CODE_THEME } from './lib/codeThemes'
 
 export type WeekStart = 'mon' | 'sun'
 
@@ -16,6 +17,8 @@ interface AppState {
   dateRegion: RegionFormat
   /** 每周起始日：驱动学习热力图按星期对齐的首行/列。 */
   weekStart: WeekStart
+  /** 代码主题 id：驱动工作区 CodeMirror 编辑器语法高亮配色。 */
+  codeTheme: string
   theme: ThemeMode
   setCurrentView: (view: ViewType) => void
   toggleAITutor: () => void
@@ -31,6 +34,8 @@ interface AppState {
   setDateRegion: (r: RegionFormat) => void
   /** 设置每周起始日并持久化 week_start。 */
   setWeekStart: (w: WeekStart) => void
+  /** 设置代码主题并持久化 code_theme。 */
+  setCodeTheme: (id: string) => void
   /** 设置主题：写 DOM + 持久化 + 更新状态；手动选主题时关闭"跟随系统"。 */
   setTheme: (theme: ThemeMode) => void
   toggleTheme: () => void
@@ -48,6 +53,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   doubleLineTabs: true,
   dateRegion: 'zh-CN',
   weekStart: 'mon',
+  codeTheme: DEFAULT_CODE_THEME,
   theme: 'dark',
   setCurrentView: (view) => set({ currentView: view }),
   toggleAITutor: () => set((state) => ({ showAITutor: !state.showAITutor })),
@@ -72,6 +78,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     persistAppearance('week_start', w)
     set({ weekStart: w })
   },
+  setCodeTheme: (id) => {
+    persistAppearance('code_theme', id)
+    set({ codeTheme: id })
+  },
   setTheme: (theme) => {
     applyTheme(theme)
     set({ theme })
@@ -83,13 +93,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   hydrateTheme: (theme) => set({ theme }),
   hydrateLayout: async () => {
     try {
-      const [ai, collapse, bottom, dbl, region, week] = await Promise.all([
+      const [ai, collapse, bottom, dbl, region, week, codeTheme] = await Promise.all([
         getSetting('show_ai_panel'),
         getSetting('compact_sidebar'),
         getSetting('show_bottom_panel'),
         getSetting('double_line_tabs'),
         getSetting('region_format'),
         getSetting('week_start'),
+        getSetting('code_theme'),
       ])
       set({
         showAITutor: ai === 'true',
@@ -101,6 +112,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         dateRegion: region === 'iso' || region === 'en-US' ? region : 'zh-CN',
         // week_start：兼容旧的"周日"中文值。
         weekStart: week === 'sun' || week === '周日' ? 'sun' : 'mon',
+        // code_theme：空值回退默认主题。
+        codeTheme: codeTheme || DEFAULT_CODE_THEME,
       })
     } catch {
       /* 读取失败时保持默认布局 */
