@@ -17,7 +17,6 @@ import { motion, AnimatePresence } from 'motion/react'
 import { useLearnData } from '@/hooks/useLearnData'
 import { getLessonProgress } from '@/services/learnService'
 
-// @ts-expect-error - marked v14 types may not be installed in all packaging environments
 import { marked } from 'marked'
 
 /** Render a track icon: URL -> <img>, otherwise -> gradient placeholder with first char */
@@ -64,8 +63,7 @@ function LessonStatusIcon({ isActive, isCompleted }: { isActive: boolean; isComp
 /** Simple markdown renderer using marked */
 function MarkdownContent({ markdown }: { markdown: string }) {
   if (!markdown) return null
-  const html =
-    typeof marked.parse === 'function' ? marked.parse(markdown) : String(marked(markdown))
+  const html = marked.parse(markdown, { async: false })
 
   return <div className="learn-markdown" dangerouslySetInnerHTML={{ __html: html }} />
 }
