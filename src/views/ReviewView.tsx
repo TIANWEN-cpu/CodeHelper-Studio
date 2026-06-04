@@ -49,6 +49,7 @@ export function ReviewView() {
   const [leftPanelCollapsed, setLeftPanelCollapsed] = React.useState(false)
   const [isMaximized, setIsMaximized] = React.useState(false)
   const [showCorrectCode, setShowCorrectCode] = React.useState(false)
+  const [sortMode, setSortMode] = React.useState<'recent' | 'oldest' | 'errors'>('recent')
 
   // Auto-select first item when list loads
   React.useEffect(() => {
@@ -69,6 +70,21 @@ export function ReviewView() {
   const dueCount = stats?.totalDue ?? dueReviews.length
   const masteredCount = stats?.mastered ?? 0
   const reviewRate = totalCount > 0 ? Math.round((masteredCount / totalCount) * 100) : 0
+
+  // 错题列表真实排序：最近/最早添加，或按错误类型数量多到少。
+  const sortedMistakes = React.useMemo(() => {
+    const arr = [...filteredMistakes]
+    if (sortMode === 'errors') {
+      arr.sort((a, b) => b.error_types.length - a.error_types.length)
+    } else {
+      arr.sort((a, b) => {
+        const ta = new Date(a.created_at).getTime()
+        const tb = new Date(b.created_at).getTime()
+        return sortMode === 'oldest' ? ta - tb : tb - ta
+      })
+    }
+    return arr
+  }, [filteredMistakes, sortMode])
 
   const selected = currentMistake
   const displayTitle = selected?.problem_title ?? '请选择一道错题'
@@ -444,9 +460,18 @@ export function ReviewView() {
                     <span className="text-xs font-semibold text-white">
                       错题列表 ({totalCount})
                     </span>
-                    <span className="text-[10px] text-[var(--color-text-muted)] flex items-center">
-                      最近复习 ▾
-                    </span>
+                    <select
+                      value={sortMode}
+                      onChange={(e) =>
+                        setSortMode(e.target.value as 'recent' | 'oldest' | 'errors')
+                      }
+                      className="text-[10px] text-[var(--color-text-muted)] bg-transparent border-none outline-none cursor-pointer hover:text-white focus-visible:text-white"
+                      title="排序方式"
+                    >
+                      <option value="recent">最近添加</option>
+                      <option value="oldest">最早添加</option>
+                      <option value="errors">错误类型多</option>
+                    </select>
                   </div>
 
                   <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
@@ -464,7 +489,7 @@ export function ReviewView() {
                         暂无错题记录
                       </div>
                     )}
-                    {filteredMistakes.map((item, index) => {
+                    {sortedMistakes.map((item, index) => {
                       const isActive = currentMistake?.id === item.id
                       const isDue = dueReviews.some((r) => r.exercise_id === item.problem_id)
                       const statusLabel = isDue ? '待复习' : '已掌握'
