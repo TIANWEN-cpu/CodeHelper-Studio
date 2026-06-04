@@ -32,11 +32,22 @@
 
 设置页现存项均已验证真实生效：主题模式、跟随系统、主题色（含自定义）、界面缩放、字体大小、毛玻璃、高对比度、减少动态效果、AI 模型配置、数据导出/导入、关于（真实 platformInfo）。
 
-## 待用户裁定 / 后续可选
+## 第三轮（"全部实现为真" + 收尾全局复扫，已完成并验证）
 
-- 被删除的布局/区域开关（紧凑侧边栏、显示 AI 面板/底部面板、双行标签、区域格式、每周起始日）若用户希望保留，应作为**真实功能**实现（接 store 控制初始布局 / 接日期 locale），而非恢复假开关。
-- 代码主题若要真实生效，需要给工作区编辑器引入语法高亮引擎（如 CodeMirror/Monaco/Shiki），再让 code_theme 驱动配色。
+用户裁定：第二轮被删的开关一律"全部实现为真"（含引入语法高亮引擎），不接受删除；随后"收尾 + 全局复扫"。
+
+- 布局开关真实化 `8f91567`：紧凑侧边栏 / 显示 AI 面板 / 显示底部面板 / 双行标签接入全局 store（新增状态 + setter + 启动 `hydrateLayout` 读回持久化），并真实驱动 Sidebar 折叠、WorkspaceView 底部面板初始态与编辑器标签单/双行；设置页重加"布局设置"卡片。
+- 区域格式 / 每周起始日真实化 `b6784c3`：新增 `src/lib/locale.ts`（中文/ISO/英文 + `formatDate`）；store 新增 `dateRegion`/`weekStart`；**热力图重建**为按真实日期零填充、按 weekStart 对齐的 13 周 × 7 天网格（原为线性 48 格、稀疏不连续）；HomeView/ReviewView 日期改用 `formatDate`；设置页重加"语言与区域"卡片（多真实选项，替换原单选项伪选择）。
+- 代码主题语法高亮引擎 `0fadac8`：工作区编辑器由纯 textarea 升级为 **CodeMirror 6**（`@uiw/react-codemirror` + lang-python/js + thememirror），保留行号/运行/提交/练习模式/语言；新增 `codeTheme` store + `src/lib/codeThemes.ts`（6 主题）；设置页重加"代码主题"卡片（含复用编辑器的只读实时预览），code_theme 真实换肤。
+- 行为埋点接通 `580611f`（全局复扫最大发现）：`analytics_events` 唯一写入口 `analytics-track` 此前全项目从未调用 → 首页活动/热力图/连续天数 + 由事件推导的 XP/等级恒空。新增 `analyticsService.track`，在 runCode/submitToProblem(accepted)/submitCode(passed)/markLessonCompleted/sendMessage 五处真实动作埋点；`getRecentActivity` 重写为中文动作描述（不再展示英文枚举）；HomeView 活动图标/状态/跳转按真实事件类型键控。顺带删除死代码 `getQuickLinks`。
+- ReviewView 真实排序 `e3cf0f5`：错题列表"最近复习 ▾"伪装可排序的静态 span 改为真实 `<select>`（最近/最早添加、错误类型多）+ `sortedMistakes` 真实排序。
+- LearnView 诚实化 `fd228bf`：移除搜索框内误导性的 `Ctrl K` 角标（Ctrl+K 实为 Header 全局命令面板快捷键，与该输入无关）。
+
+全局交叉复扫（3 个只读子代理覆盖全部视图/布局/AI 组件）结论：除上述两处（HomeView 活动展示、ReviewView 伪排序）外，其余交互/展示均可追溯到真实 service/IPC/store/hook；上述均已修复。每批 lint + build + Electron 冷启动验证（80 通道 / ready-to-show / did-finish-load / 零渲染层错误）；后端 analytics IPC 测试 24/24 通过。
+
+## 后续可选（非"假功能"，属能力增强）
+
 - ReviewView 复盘目前是本地规则降级；如默认 AI config 可用可升级为真实 `ai-chat`。
 - Knowledge/RAG 的语义/向量检索、自动标签、概念图谱需后端真实实现后再暴露入口。
 - 真正的全局搜索若要做，应作为独立功能，不混入命令面板。
-- 死代码 `homeService.getQuickLinks()`（英文、无引用）可在收尾批删除。
+- 埋点的 `event_data` 目前仅 code_run 带 language；problem_solved/lesson_completed 可进一步带题目/课程标题以丰富活动详情（需 service 层透传 title）。
