@@ -3,6 +3,8 @@ import CodeMirror, { keymap } from '@uiw/react-codemirror'
 import type { Extension } from '@codemirror/state'
 import { python } from '@codemirror/lang-python'
 import { javascript } from '@codemirror/lang-javascript'
+import { cpp } from '@codemirror/lang-cpp'
+import { sql } from '@codemirror/lang-sql'
 import { dracula, cobalt, espresso, coolGlow, tomorrow, solarizedLight } from 'thememirror'
 
 // code_theme id → CodeMirror 主题扩展（仅本编辑器分包引入 thememirror）。
@@ -19,11 +21,14 @@ function themeExtension(id: string): Extension {
   return THEME_MAP[id] ?? dracula
 }
 
-// 语言 → 语法扩展；工作区以 Python 为主，兼容 JS/Node/TS。
+// 语言 → 语法扩展；支持 Python/JS/Node/TS/C 系/SQL，未知回退 Python。
 function languageExtension(language: string): Extension {
   const lang = language.toLowerCase()
   if (lang === 'javascript' || lang === 'node' || lang === 'js') return javascript()
   if (lang === 'typescript' || lang === 'ts') return javascript({ typescript: true })
+  // C / C++ / C#（C# 用 C++ 模式近似高亮）
+  if (lang === 'c' || lang === 'cpp' || lang === 'c++' || lang === 'csharp') return cpp()
+  if (lang === 'sql') return sql()
   return python()
 }
 

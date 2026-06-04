@@ -95,6 +95,9 @@ export async function runCodeSnippet(
       return runCFamily(code, stdin, 'g++')
     case 'csharp':
       return runCSharp(code, stdin)
+    case 'javascript':
+    case 'node':
+      return runNode(code, stdin)
     case 'sql':
       return runSql(code)
     default:
@@ -109,6 +112,17 @@ async function runPython(code: string, stdin?: string): Promise<CodeRunResult> {
   const pythonCmd = IS_WIN ? 'python' : 'python3'
   try {
     const result = await runProcess(resolveCommand(pythonCmd), [file], stdin)
+    return { ...result, stage: 'run' as const }
+  } finally {
+    cleanupFiles(file)
+  }
+}
+
+async function runNode(code: string, stdin?: string): Promise<CodeRunResult> {
+  const file = join(getTempDir(), `main_${randomUUID()}.js`)
+  writeFileSync(file, code)
+  try {
+    const result = await runProcess(resolveCommand('node'), [file], stdin)
     return { ...result, stage: 'run' as const }
   } finally {
     cleanupFiles(file)

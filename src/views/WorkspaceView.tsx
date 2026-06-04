@@ -19,6 +19,24 @@ import type { SubmitResult as ExerciseSubmitResult } from '@/services/practiceSe
 const DEFAULT_WORKSPACE_CODE = `# 从左侧题库或工作区题目加载 starter code 后开始编码
 print("Hello, CodeHelper")`
 
+/**
+ * 工作区可运行语言 → 显示名 / 文件后缀 / 终端示意命令。
+ * 与 electron/utils/codeRunner.ts 后端真实支持的语言保持一致：
+ * python / javascript(node) / c / cpp / csharp / sql。
+ */
+const LANGUAGE_META: Record<string, { label: string; ext: string; cmd: string }> = {
+  python: { label: 'Python', ext: 'py', cmd: 'python' },
+  javascript: { label: 'JavaScript (Node)', ext: 'js', cmd: 'node' },
+  c: { label: 'C', ext: 'c', cmd: 'gcc' },
+  cpp: { label: 'C++', ext: 'cpp', cmd: 'g++' },
+  csharp: { label: 'C#', ext: 'cs', cmd: 'csc' },
+  sql: { label: 'SQL', ext: 'sql', cmd: 'sqlite3' },
+}
+
+function languageMeta(language: string): { label: string; ext: string; cmd: string } {
+  return LANGUAGE_META[language] ?? { label: language, ext: 'txt', cmd: language }
+}
+
 function safeFileBaseName(input: string | undefined): string {
   const base = (input || 'main')
     .trim()
@@ -100,7 +118,7 @@ export function WorkspaceView({
   const [problemId, setProblemId] = useState<string>('')
   const [workspaceFileBaseName, setWorkspaceFileBaseName] = useState('main')
   const fileBaseName = safeFileBaseName(exerciseContext?.id ?? workspaceFileBaseName)
-  const fileName = `${fileBaseName}.py`
+  const fileName = `${fileBaseName}.${languageMeta(language).ext}`
 
   // Workspace standalone mode still uses the SQLite problems table.
   // Practice embedded mode receives its exercise id/code from PracticeView and submits via exercises-evaluate.
@@ -288,9 +306,8 @@ export function WorkspaceView({
                   {/* Terminal Output */}
                   <div className="flex-1 p-3 overflow-y-auto font-mono text-xs text-[#D1D5DB] space-y-1.5 bg-[#0B0E14] custom-scrollbar relative">
                     <div className="flex items-center gap-2">
-                      <span className="text-[#F59E0B]">&gt;</span>{' '}
-                      {language === 'python' ? 'python' : 'node'}
-                      src/{fileName}
+                      <span className="text-[#F59E0B]">&gt;</span> {languageMeta(language).cmd} src/
+                      {fileName}
                     </div>
 
                     {isRunning ? (
@@ -457,8 +474,11 @@ export function WorkspaceView({
                         onChange={(e) => setLanguage(e.target.value)}
                         className="w-full bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-white px-3 py-1.5 outline-none focus:border-[var(--color-accent-primary)]"
                       >
-                        <option value="python">Python</option>
-                        <option value="javascript">Node.js</option>
+                        {Object.entries(LANGUAGE_META).map(([value, meta]) => (
+                          <option key={value} value={value}>
+                            {meta.label}
+                          </option>
+                        ))}
                       </select>
                     </div>
                     <div>
@@ -530,7 +550,7 @@ export function WorkspaceView({
                     ? 1
                     : 0}
             </span>
-            <span>{language === 'python' ? 'Python' : 'Node.js'} ready</span>
+            <span>{languageMeta(language).label} ready</span>
           </div>
           <div className="flex items-center gap-4">
             <span>{fileName}</span>
