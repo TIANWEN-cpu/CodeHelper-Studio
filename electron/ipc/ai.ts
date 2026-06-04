@@ -17,6 +17,7 @@ export function registerAIIPC(): void {
         configId?: number
         requestId?: string
         includeMemories?: boolean
+        sessionId?: string
       },
     ) => {
       if (firstCall) {
@@ -42,6 +43,10 @@ export function registerAIIPC(): void {
       if (args.requestId !== undefined) {
         if (typeof args.requestId !== 'string') throw new Error('参数无效: requestId')
         args.requestId = args.requestId.trim().slice(0, 200)
+      }
+      if (args.sessionId !== undefined) {
+        if (typeof args.sessionId !== 'string') throw new Error('参数无效: sessionId')
+        args.sessionId = args.sessionId.trim().slice(0, 200)
       }
 
       const requestId = args.requestId ?? `req-${Date.now()}`
@@ -83,7 +88,8 @@ export function registerAIIPC(): void {
 
         const url = `${assertAllowedProviderBaseUrl(config.base_url)}/chat/completions`
         const win = BrowserWindow.fromWebContents(event.sender)
-        const messages = injectMemories(args.messages, args.includeMemories)
+        const withHistory = buildSessionMessages(db, args.sessionId, args.messages)
+        const messages = injectMemories(withHistory, args.includeMemories ?? true)
 
         let response: Response
         try {
@@ -159,6 +165,45 @@ export function registerAIIPC(): void {
       }
     },
   )
+}
+
+/** 历史消息上限：拼接最近 N 条，避免上下文无限增长。 */
+const MAX_HISTORY_MESSAGES = 20
+
+/**
+ * 按 sessionId 组装发给模型的消息：[会话人设 system?] + [最近历史] + [本轮新消息]。
+ * 注意：渲染层在收到回复后才持久化本轮 user 消息，故此时 chat_history 尚不含本轮
+ * user，拼接后不会重复。无 sessionId 时按原样返回。
+ */
+function buildSessionMessages(
+  db: ReturnType<typeof getDB>,
+  sessionId: string | undefined,
+  outgoing: ChatMessage[],
+): ChatMessage[] {
+  if (!sessionId) return outgoing
+  try {
+    const prefix: ChatMessage[] = []
+    const session = db
+      .prepare('SELECT system_prompt FROM chat_sessions WHERE id = ?')
+      .get(sessionId) as { system_prompt?: string } | undefined
+    const persona = session?.system_prompt?.trim()
+    if (persona) prefix.push({ role: 'system', content: persona })
+
+    const rows = db
+      .prepare(
+        'SELECT role, content FROM chat_history WHERE session_id = ? ORDER BY created_at ASC, id ASC',
+      )
+      .all(sessionId) as { role: string; content: string }[]
+    for (const row of rows.slice(-MAX_HISTORY_MESSAGES)) {
+      if (row.role === 'user' || row.role === 'assistant' || row.role === 'system') {
+        prefix.push({ role: row.role, content: row.content })
+      }
+    }
+    return [...prefix, ...outgoing]
+  } catch (error) {
+    console.warn('[ai] Failed to build session history, sending outgoing only:', error)
+    return outgoing
+  }
 }
 
 function injectMemories(messages: ChatMessage[], includeMemories = false): ChatMessage[] {

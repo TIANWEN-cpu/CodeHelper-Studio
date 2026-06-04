@@ -77,8 +77,8 @@ export async function saveMessage(
 /**
  * Send a chat message to the AI provider.
  * The backend streams response chunks via `ai-chat-chunk` / `ai-chat-done` events.
- * The `messages` array is required by the backend (which fetches history from DB);
- * here we send the single outgoing message and let the backend build context.
+ * 仅发送本轮新消息；后端按 sessionId 从 chat_history 取最近历史、注入会话人设
+ * (system_prompt) 与跨会话长期记忆，组装完整上下文后再请求模型。
  */
 export async function sendMessage(
   sessionId: string,
@@ -90,9 +90,23 @@ export async function sendMessage(
   track('ai_chat_sent', {})
   return invoke<void>('ai-chat', {
     messages: [{ role: 'user' as const, content }],
+    sessionId,
     configId,
     requestId,
+    includeMemories: true,
   })
+}
+
+/**
+ * 从用户消息中自动捕获长期记忆（"记住…/以后…/我叫…"等句式）；
+ * 渲染层在每轮对话后调用，后端正则抽取并去重入库。best-effort，不影响对话。
+ */
+export async function captureMemory(content: string, sessionId?: string): Promise<void> {
+  try {
+    await invoke<unknown>('chat-memory-capture', { content, session_id: sessionId })
+  } catch {
+    /* 记忆捕获失败不影响对话 */
+  }
 }
 
 // --------------- Streaming Subscriptions ---------------

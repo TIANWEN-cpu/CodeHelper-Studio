@@ -9,6 +9,7 @@ import {
   loadMessages,
   sendMessage as sendMessageApi,
   saveMessage,
+  captureMemory,
   onChunk,
   onDone,
   getPresets as getPresetsApi,
@@ -228,6 +229,8 @@ export function useAIChat(): UseAIChatReturn {
           try {
             await saveMessage(sessionId, 'user', content)
             await saveMessage(sessionId, 'assistant', fullContent)
+            // 自动从用户消息捕获长期记忆（"记住…/以后…"等），跨会话复用。
+            await captureMemory(content, sessionId)
           } catch (saveErr) {
             console.warn('[useAIChat] Failed to persist messages:', saveErr)
           }
