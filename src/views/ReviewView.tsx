@@ -92,14 +92,14 @@ export function ReviewView() {
   const selected = currentMistake
   const displayTitle = selected?.problem_title ?? '请选择一道错题'
   const displayStatus =
-    dueReviews.some((r) => r.exercise_id === selected?.problem_id) ||
+    dueReviews.some((r) => r.exercise_id === String(selected?.problem_id)) ||
     selected?.difficulty === '待复习'
       ? '待复习'
       : '已掌握'
   const isDue = displayStatus === '待复习'
 
   // Review schedule for selected mistake
-  const reviewForSelected = dueReviews.find((r) => r.exercise_id === selected?.problem_id)
+  const reviewForSelected = dueReviews.find((r) => r.exercise_id === String(selected?.problem_id))
   const reviewSchedule = reviewForSelected
     ? [
         {
@@ -159,11 +159,13 @@ export function ReviewView() {
   }
 
   // Handlers
-  const handleReviewPlan = async () => {
+  // 间隔复习自评：用户对当前错题的掌握度真实驱动 SM-2 quality（0-5），不再恒为 3。
+  const handleReview = async (quality: number) => {
     if (!selected) return
     try {
-      await updateReview(selected.problem_id, 3)
+      await updateReview(String(selected.problem_id), quality)
       await getStats()
+      await loadDueReviews()
     } catch {
       /* error handled by hook */
     }
@@ -718,13 +720,35 @@ export function ReviewView() {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={handleReviewPlan}
-                  disabled={!selected}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] hover:text-white text-[var(--color-text-secondary)] rounded-lg text-sm font-medium transition-colors disabled:opacity-40"
-                >
-                  <Clock size={14} /> 完成本次复习
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-[var(--color-text-muted)] flex items-center gap-1">
+                    <Clock size={13} /> 复习自评:
+                  </span>
+                  <button
+                    onClick={() => handleReview(2)}
+                    disabled={!selected}
+                    className="px-2.5 py-2 rounded-lg text-sm font-medium border border-[#EF4444]/30 text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors disabled:opacity-40"
+                    title="没掌握：缩短间隔，尽快再复习"
+                  >
+                    还不会
+                  </button>
+                  <button
+                    onClick={() => handleReview(3)}
+                    disabled={!selected}
+                    className="px-2.5 py-2 rounded-lg text-sm font-medium border border-[#F59E0B]/30 text-[#F59E0B] hover:bg-[#F59E0B]/10 transition-colors disabled:opacity-40"
+                    title="有点难：按正常节奏推进间隔"
+                  >
+                    有点难
+                  </button>
+                  <button
+                    onClick={() => handleReview(5)}
+                    disabled={!selected}
+                    className="px-2.5 py-2 rounded-lg text-sm font-medium border border-[#10B981]/30 text-[#10B981] hover:bg-[#10B981]/10 transition-colors disabled:opacity-40"
+                    title="已掌握：大幅延长下次复习间隔"
+                  >
+                    已掌握
+                  </button>
+                </div>
                 <button
                   onClick={handleAiAnalysis}
                   disabled={!selected || aiAnalyzing}

@@ -222,6 +222,14 @@ export function registerProblemsIPC(): void {
               )
               .run(args.problemId, args.code, JSON.stringify(errorTypes))
           }
+          // 错题进入 SM-2 间隔复习队列（key = problem_id 字符串，今日到期）；
+          // 已有排程则保留（INSERT OR IGNORE 幂等），使"练错→错题→复习"真正闭环。
+          getDB()
+            .prepare(
+              `INSERT OR IGNORE INTO review_schedule (exercise_id, interval_days, ease_factor, repetitions, next_review)
+               VALUES (?, 1, 2.5, 0, date('now'))`,
+            )
+            .run(String(args.problemId))
         } else {
           // If solved, update mistake with correct code
           getDB()

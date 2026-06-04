@@ -98,13 +98,17 @@ export function registerReviewIPC(): void {
   // -----------------------------------------------------------------------
   ipcMain.handle('review-due', () => {
     const today = todayISO()
+    // LEFT JOIN problems 取回错题的标题/难度（错题的 review key = problem_id 字符串化）；
+    // 非题库来源（如练习 id）CAST 不到 problems 时 title 为空。
     return getDB()
       .prepare(
-        `SELECT * FROM review_schedule
-         WHERE next_review IS NOT NULL AND next_review <= ?
-         ORDER BY next_review ASC`,
+        `SELECT rs.*, p.title AS title, p.difficulty AS difficulty
+         FROM review_schedule rs
+         LEFT JOIN problems p ON p.id = CAST(rs.exercise_id AS INTEGER)
+         WHERE rs.next_review IS NOT NULL AND rs.next_review <= ?
+         ORDER BY rs.next_review ASC`,
       )
-      .all(today) as ReviewScheduleRow[]
+      .all(today)
   })
 
   // -----------------------------------------------------------------------

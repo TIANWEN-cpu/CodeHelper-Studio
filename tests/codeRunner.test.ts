@@ -218,14 +218,12 @@ describe('codeRunner', () => {
   // ─────────────────────────────────────────────
 
   describe('runCodeSnippet 语言分发', () => {
-    it('不支持的语言返回错误', async () => {
+    it('javascript 走 node 运行路径', async () => {
+      vi.mocked(spawn).mockReturnValue(mockChildProcess(0, 'hi\n') as any)
       const result = await runCodeSnippet('console.log("hi")', 'javascript')
-      expect(result).toEqual({
-        stdout: '',
-        stderr: '不支持的语言: javascript',
-        exitCode: 1,
-        stage: 'run',
-      })
+      expect(result.stage).toBe('run')
+      expect(result.exitCode).toBe(0)
+      expect(result.stdout).toContain('hi')
     })
 
     it('rust 返回不支持', async () => {
