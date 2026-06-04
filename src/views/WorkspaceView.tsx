@@ -12,6 +12,7 @@ import {
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'motion/react'
 import { useWorkspaceData } from '@/hooks/useWorkspaceData'
+import { useAppStore } from '@/store'
 import type { SubmitResult as ExerciseSubmitResult } from '@/services/practiceService'
 
 const DEFAULT_WORKSPACE_CODE = `# 从左侧题库或工作区题目加载 starter code 后开始编码
@@ -89,8 +90,11 @@ export function WorkspaceView({
   const isSubmitting = exerciseContext?.isSubmitting ?? workspaceSubmitting
   const exerciseSubmitResult = exerciseContext?.submitResult ?? null
 
+  // 底部面板初始折叠态来自设置页"显示底部面板"；进入工作区时按偏好展开/收起，之后本地可临时切换。
+  const bottomPanelCollapsed = useAppStore((s) => s.bottomPanelCollapsed)
+  const doubleLineTabs = useAppStore((s) => s.doubleLineTabs)
   const [explorerCollapsed, setExplorerCollapsed] = useState(false)
-  const [terminalCollapsed, setTerminalCollapsed] = useState(false)
+  const [terminalCollapsed, setTerminalCollapsed] = useState(bottomPanelCollapsed)
   const [problemId, setProblemId] = useState<string>('')
   const [workspaceFileBaseName, setWorkspaceFileBaseName] = useState('main')
   const fileBaseName = safeFileBaseName(exerciseContext?.id ?? workspaceFileBaseName)
@@ -202,8 +206,20 @@ export function WorkspaceView({
       <div className="flex-1 flex flex-col min-w-0 bg-[#0F111A]">
         {/* Editor Tabs ... */}
         <div className="flex items-center bg-[var(--color-bg-panel)] overflow-x-auto hide-scrollbar border-b border-[#2A2F45]">
-          <div className="flex items-center px-4 py-2 bg-[#0F111A] text-[#E5E7EB] border-t-2 border-[var(--color-accent-primary)] text-xs font-medium min-w-max gap-2 rounded-t-md mx-1 border-r border-l border-[#2A2F45]">
-            <FileCode2 size={14} className="text-[#38BDF8]" /> {fileName}
+          <div
+            className={cn(
+              'flex bg-[#0F111A] text-[#E5E7EB] border-t-2 border-[var(--color-accent-primary)] text-xs font-medium min-w-max rounded-t-md mx-1 border-r border-l border-[#2A2F45] px-4',
+              doubleLineTabs ? 'flex-col items-start py-1.5 gap-0.5' : 'items-center py-2 gap-2',
+            )}
+          >
+            <span className="flex items-center gap-2">
+              <FileCode2 size={14} className="text-[#38BDF8]" /> {fileName}
+            </span>
+            {doubleLineTabs && (
+              <span className="text-[10px] font-normal text-[var(--color-text-muted)] pl-[22px]">
+                {language.toUpperCase()} · {isExerciseMode ? '练习模式' : '工作区'}
+              </span>
+            )}
           </div>
 
           <div className="ml-auto flex items-center px-3 gap-2">

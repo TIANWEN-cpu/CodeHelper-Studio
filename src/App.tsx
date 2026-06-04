@@ -66,6 +66,8 @@ function App() {
         })
       }
     })
+    // 读回布局偏好（AI 面板 / 侧边栏折叠 / 底部面板 / 标签换行）。
+    useAppStore.getState().hydrateLayout()
     return () => {
       cancelled = true
       unwatch()

@@ -46,6 +46,17 @@ export function SettingsView() {
   const theme = useAppStore((s) => s.theme)
   const setTheme = useAppStore((s) => s.setTheme)
 
+  // 布局偏好同样由全局 store 管理：此处开关写的是"启动默认值"并持久化，
+  // 侧边栏折叠键 / 工作区底部面板等运行时控件读同一份 store 状态。
+  const showAITutor = useAppStore((s) => s.showAITutor)
+  const setShowAITutor = useAppStore((s) => s.setShowAITutor)
+  const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed)
+  const setSidebarCollapsed = useAppStore((s) => s.setSidebarCollapsed)
+  const bottomPanelCollapsed = useAppStore((s) => s.bottomPanelCollapsed)
+  const setBottomPanelCollapsed = useAppStore((s) => s.setBottomPanelCollapsed)
+  const doubleLineTabs = useAppStore((s) => s.doubleLineTabs)
+  const setDoubleLineTabs = useAppStore((s) => s.setDoubleLineTabs)
+
   const [activeTab, setActiveTab] = React.useState('appearance')
   const [loaded, setLoaded] = React.useState(false)
 
@@ -185,6 +196,11 @@ export function SettingsView() {
     setGlassEffect(true)
     setHighContrast(false)
     setReduceMotion(false)
+    // 布局默认值（同步 store + 持久化）
+    setShowAITutor(false)
+    setBottomPanelCollapsed(false)
+    setSidebarCollapsed(false) // 内部持久化 compact_sidebar
+    setDoubleLineTabs(true)
 
     const defaults: Record<string, string> = {
       theme_mode: 'dark',
@@ -195,6 +211,10 @@ export function SettingsView() {
       glass_effect: 'true',
       high_contrast: 'false',
       reduce_motion: 'false',
+      show_ai_panel: 'false',
+      show_bottom_panel: 'true',
+      compact_sidebar: 'false',
+      double_line_tabs: 'true',
     }
     Object.entries(defaults).forEach(([k, v]) => save(k, v))
     // 立即把默认外观应用到 DOM
@@ -238,6 +258,48 @@ export function SettingsView() {
       key: 'reduce_motion',
       value: reduceMotion,
       setter: setReduceMotion,
+    },
+  ]
+
+  // 布局开关：直接读写全局 store（运行时控件与之同步），并把"启动默认"持久化到数据库。
+  const layoutSettings = [
+    {
+      title: '显示右侧 AI 面板',
+      desc: '启动时自动展开 AI 辅导面板',
+      active: showAITutor,
+      onToggle: () => {
+        const next = !showAITutor
+        setShowAITutor(next)
+        save('show_ai_panel', String(next))
+      },
+    },
+    {
+      title: '显示底部面板',
+      desc: '进入工作区时默认展开运行输出面板',
+      active: !bottomPanelCollapsed,
+      onToggle: () => {
+        // active 表示"显示"；当前折叠 ⇒ 切换为显示。
+        const nextShown = bottomPanelCollapsed
+        setBottomPanelCollapsed(!nextShown)
+        save('show_bottom_panel', String(nextShown))
+      },
+    },
+    {
+      title: '紧凑侧边栏',
+      desc: '默认收起左侧导航栏，仅显示图标',
+      active: sidebarCollapsed,
+      // setSidebarCollapsed 内部已持久化 compact_sidebar。
+      onToggle: () => setSidebarCollapsed(!sidebarCollapsed),
+    },
+    {
+      title: '标签页双行显示',
+      desc: '编辑器标签分两行显示文件名与语言信息',
+      active: doubleLineTabs,
+      onToggle: () => {
+        const next = !doubleLineTabs
+        setDoubleLineTabs(next)
+        save('double_line_tabs', String(next))
+      },
     },
   ]
 
@@ -449,6 +511,26 @@ export function SettingsView() {
                           active={setting.value}
                           onToggle={() => handleToggle(setting.key, setting.value, setting.setter)}
                         />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
+                  <h3 className="font-semibold text-white text-[15px] mb-1">布局设置</h3>
+                  <p className="text-xs text-[var(--color-text-muted)] mb-4">
+                    控制启动时的界面布局；侧边栏折叠键与工作区面板会与此同步
+                  </p>
+                  <div className="space-y-4">
+                    {layoutSettings.map((setting) => (
+                      <div key={setting.title} className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-white">{setting.title}</p>
+                          <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                            {setting.desc}
+                          </p>
+                        </div>
+                        <ToggleSwitch active={setting.active} onToggle={setting.onToggle} />
                       </div>
                     ))}
                   </div>

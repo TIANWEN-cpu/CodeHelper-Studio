@@ -22,9 +22,16 @@ import type { HomeOverview } from '@/services/homeService'
 import type { ViewType } from '@/types'
 
 export function Sidebar() {
-  const { currentView, setCurrentView, showAITutor, toggleAITutor, theme, toggleTheme } =
-    useAppStore()
-  const [collapsed, setCollapsed] = useState(false)
+  const {
+    currentView,
+    setCurrentView,
+    showAITutor,
+    toggleAITutor,
+    theme,
+    toggleTheme,
+    sidebarCollapsed: collapsed,
+    toggleSidebar,
+  } = useAppStore()
   const [overview, setOverview] = useState<HomeOverview | null>(null)
 
   useEffect(() => {
@@ -286,7 +293,7 @@ export function Sidebar() {
             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </button>
           <button
-            onClick={() => setCollapsed(!collapsed)}
+            onClick={toggleSidebar}
             className="p-1.5 hover:text-white hover:bg-[var(--color-bg-hover)] rounded-md transition-colors"
             title={collapsed ? '展开侧边栏' : '收起侧边栏'}
           >
