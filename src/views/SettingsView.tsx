@@ -1,16 +1,5 @@
 import React from 'react'
-import {
-  Monitor,
-  Type,
-  Palette,
-  Check,
-  RotateCcw,
-  Settings,
-  Download,
-  Upload,
-  Info,
-  Keyboard,
-} from 'lucide-react'
+import { Monitor, Palette, Check, RotateCcw, Settings, Download, Upload, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSettingsData } from '../hooks/useSettingsData'
 import { useAppStore } from '../store'
@@ -155,9 +144,7 @@ export function SettingsView() {
   // ---- Constants ----
   const tabs = [
     { id: 'appearance', label: '外观', icon: Palette },
-    { id: 'editor', label: '编辑器', icon: Type },
     { id: 'ai', label: 'AI 模型', icon: Settings },
-    { id: 'shortcuts', label: '快捷键', icon: Keyboard },
     { id: 'data', label: '数据与同步', icon: Download },
     { id: 'about', label: '关于', icon: Info },
   ]
@@ -705,31 +692,9 @@ export function SettingsView() {
           </div>
         )}
 
-        {activeTab === 'editor' && (
-          <div className="space-y-6 pb-24">
-            <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
-              <h3 className="font-semibold text-white text-[15px] mb-4">编辑器设置</h3>
-              <p className="text-sm text-[var(--color-text-muted)]">
-                编辑器相关配置将在后续版本中提供。
-              </p>
-            </div>
-          </div>
-        )}
-
         {activeTab === 'ai' && (
           <div className="space-y-6 pb-24">
             <AIModelSettings />
-          </div>
-        )}
-
-        {activeTab === 'shortcuts' && (
-          <div className="space-y-6 pb-24">
-            <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
-              <h3 className="font-semibold text-white text-[15px] mb-4">快捷键设置</h3>
-              <p className="text-sm text-[var(--color-text-muted)]">
-                快捷键自定义功能将在后续版本中提供。
-              </p>
-            </div>
           </div>
         )}
 
