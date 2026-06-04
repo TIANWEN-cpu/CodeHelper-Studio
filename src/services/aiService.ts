@@ -3,6 +3,8 @@
 // Provides AI chat functionality with streaming support.
 // ============================================================
 
+import { track } from './analyticsService'
+
 // --------------- Types ---------------
 
 export interface ChatSession {
@@ -84,6 +86,8 @@ export async function sendMessage(
   configId?: number,
 ): Promise<void> {
   const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  // 埋点：向 AI 发送了一条提问。
+  track('ai_chat_sent', {})
   return invoke<void>('ai-chat', {
     messages: [{ role: 'user' as const, content }],
     configId,

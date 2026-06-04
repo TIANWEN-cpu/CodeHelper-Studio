@@ -1,4 +1,5 @@
 import { invoke } from './ipc'
+import { track } from './analyticsService'
 
 export interface Track {
   id: string
@@ -51,7 +52,8 @@ export async function markLessonOpened(lessonId: string, trackId: string): Promi
 }
 
 export async function markLessonCompleted(lessonId: string, trackId: string): Promise<void> {
-  return invoke<void>('lessons-mark-completed', lessonId, trackId)
+  await invoke<void>('lessons-mark-completed', lessonId, trackId)
+  track('lesson_completed', { lessonId, trackId })
 }
 
 export async function getLessonNote(lessonId: string): Promise<string> {

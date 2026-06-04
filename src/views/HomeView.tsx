@@ -95,35 +95,44 @@ function weekdayLabel(rowIndex: number, weekStart: WeekStart): string {
   return DAY_MAP[dayIdx]
 }
 
+// 活动映射按真实埋点事件类型键控（problem_solved/lesson_completed/code_run/ai_chat_sent）。
 const ACTIVITY_ICON_MAP: Record<string, typeof BookOpen> = {
-  lesson: BookOpen,
-  problem: FileCode,
-  review: RotateCcw,
-  workspace: FolderCode,
+  problem_solved: FileCode,
+  lesson_completed: BookOpen,
+  code_run: FolderCode,
+  ai_chat_sent: Sparkles,
 }
 
 const ACTIVITY_ICON_COLOR: Record<string, string> = {
-  lesson: 'text-[var(--color-accent-purple)]',
-  problem: 'text-[#10B981]',
-  review: 'text-[#F59E0B]',
-  workspace: 'text-[#3B82F6]',
+  problem_solved: 'text-[#10B981]',
+  lesson_completed: 'text-[var(--color-accent-purple)]',
+  code_run: 'text-[#3B82F6]',
+  ai_chat_sent: 'text-[#F59E0B]',
 }
 
 const ACTIVITY_ICON_BG: Record<string, string> = {
-  lesson: 'bg-[var(--color-accent-purple)]/10',
-  problem: 'bg-[#10B981]/10',
-  review: 'bg-[#F59E0B]/10',
-  workspace: 'bg-[#3B82F6]/10',
+  problem_solved: 'bg-[#10B981]/10',
+  lesson_completed: 'bg-[var(--color-accent-purple)]/10',
+  code_run: 'bg-[#3B82F6]/10',
+  ai_chat_sent: 'bg-[#F59E0B]/10',
 }
 
 const ACTIVITY_STATUS: Record<string, { label: string; bg: string }> = {
-  lesson: {
+  problem_solved: { label: '解答通过', bg: 'bg-[#10B981]/20 text-[#10B981]' },
+  lesson_completed: {
     label: '课程',
     bg: 'bg-[var(--color-accent-purple)]/20 text-[var(--color-accent-purple)]',
   },
-  problem_success: { label: '解答成功', bg: 'bg-[#10B981]/20 text-[#10B981]' },
-  problem_fail: { label: '解答失败', bg: 'bg-[#EF4444]/20 text-[#EF4444]' },
-  review: { label: '复习', bg: 'bg-[#F59E0B]/20 text-[#F59E0B]' },
+  code_run: { label: '运行', bg: 'bg-[#3B82F6]/20 text-[#3B82F6]' },
+  ai_chat_sent: { label: 'AI', bg: 'bg-[#F59E0B]/20 text-[#F59E0B]' },
+}
+
+// 活动项点击跳转的目标视图。
+const ACTIVITY_VIEW: Record<string, ViewType> = {
+  problem_solved: 'practice',
+  lesson_completed: 'learn',
+  code_run: 'workspace',
+  ai_chat_sent: 'home',
 }
 
 function getTimeAgo(timestamp: string): string {
@@ -591,13 +600,7 @@ export function HomeView() {
                     bg: 'bg-[var(--color-bg-hover)] text-[var(--color-text-secondary)]',
                   }
                   const timeAgo = getTimeAgo(item.timestamp)
-                  const activityView: ViewType = item.type.startsWith('problem')
-                    ? 'practice'
-                    : item.type.startsWith('review')
-                      ? 'review'
-                      : item.type.startsWith('workspace')
-                        ? 'workspace'
-                        : 'learn'
+                  const activityView: ViewType = ACTIVITY_VIEW[item.type] ?? 'home'
                   return (
                     <div
                       key={item.id}
@@ -627,11 +630,11 @@ export function HomeView() {
                             {status.label}
                           </span>
                         </div>
-                        <p className="text-[12px] text-[var(--color-text-muted)] truncate">
-                          {item.description.includes(':')
-                            ? item.description.split(':').slice(1).join(':').trim()
-                            : item.description}
-                        </p>
+                        {item.description.includes(':') && (
+                          <p className="text-[12px] text-[var(--color-text-muted)] truncate">
+                            {item.description.split(':').slice(1).join(':').trim()}
+                          </p>
+                        )}
                       </div>
                       <div className="flex flex-col items-end gap-1">
                         <span className="text-[11px] font-medium text-[var(--color-text-secondary)] whitespace-nowrap group-hover:text-white transition-colors">

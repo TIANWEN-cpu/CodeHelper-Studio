@@ -13,14 +13,6 @@ export interface DailyTask {
   done: boolean
 }
 
-export interface QuickLink {
-  id: string
-  title: string
-  description: string
-  icon: string
-  view: string
-}
-
 export interface ActivityItem {
   id: string
   type: string
@@ -127,47 +119,35 @@ export async function getDailyTasks(): Promise<DailyTask[]> {
   return [...lessonTasks, ...reviewTasks]
 }
 
-export function getQuickLinks(): QuickLink[] {
-  return [
-    {
-      id: 'learn',
-      title: 'Start Learning',
-      description: 'Continue your current lesson',
-      icon: 'BookOpen',
-      view: 'learn',
-    },
-    {
-      id: 'practice',
-      title: 'Practice',
-      description: 'Test your skills with exercises',
-      icon: 'Code',
-      view: 'practice',
-    },
-    {
-      id: 'review',
-      title: 'Review',
-      description: 'Review items due for spaced repetition',
-      icon: 'RotateCcw',
-      view: 'review',
-    },
-    {
-      id: 'ai-tutor',
-      title: 'AI Tutor',
-      description: 'Ask questions and get explanations',
-      icon: 'Bot',
-      view: 'ai-tutor',
-    },
-  ]
+// 真实事件类型 → 中文动作标签（与 HomeView 的图标/状态映射同源）。
+const ACTIVITY_LABELS: Record<string, string> = {
+  problem_solved: '解答通过',
+  lesson_completed: '完成课程',
+  code_run: '运行代码',
+  ai_chat_sent: 'AI 辅导',
 }
 
 export async function getRecentActivity(): Promise<ActivityItem[]> {
   const events = await invoke<RawAnalyticsEvent[]>('analytics-get-events')
-  return (events || []).slice(0, 10).map((e) => ({
-    id: String(e.id),
-    type: e.event_type,
-    description: e.event_type,
-    timestamp: e.timestamp,
-  }))
+  return (events || []).slice(0, 10).map((e) => {
+    const label = ACTIVITY_LABELS[e.event_type] ?? e.event_type
+    let detail = ''
+    try {
+      const data = e.event_data ? (JSON.parse(e.event_data) as Record<string, unknown>) : {}
+      if (e.event_type === 'code_run' && typeof data.language === 'string') {
+        detail = data.language.toUpperCase()
+      }
+    } catch {
+      /* event_data 非 JSON 时忽略细节 */
+    }
+    return {
+      id: String(e.id),
+      type: e.event_type,
+      // 形如 "运行代码: PYTHON"；无细节时仅动作标签。HomeView 以 ':' 拆分标题/详情。
+      description: detail ? `${label}: ${detail}` : label,
+      timestamp: e.timestamp,
+    }
+  })
 }
 
 export async function getReviewReminders(): Promise<ReviewItem[]> {
@@ -187,10 +167,6 @@ export async function getHeatmapData(): Promise<HeatmapItem[]> {
     dailyCounts: Array<{ date: string; count: number }>
   }>('analytics-get-summary', 90)
   return (summary.dailyCounts || []).map((d) => ({ date: d.date, count: d.count }))
-}
-
-export async function trackEvent(type: string, data?: unknown): Promise<void> {
-  return invoke<void>('analytics-track', type, data || {})
 }
 
 // ---- 活动汇总（供个人主页使用）----

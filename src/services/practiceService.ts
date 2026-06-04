@@ -1,4 +1,5 @@
 import { invoke } from './ipc'
+import { track } from './analyticsService'
 
 // ============================================================
 // Practice Service
@@ -55,7 +56,12 @@ export async function submitCode(
   code: string,
   _language: string,
 ): Promise<SubmitResult> {
-  return invoke<SubmitResult>('exercises-evaluate', { exerciseId, code })
+  const result = await invoke<SubmitResult>('exercises-evaluate', { exerciseId, code })
+  if (result?.passed) {
+    // 练习通过算作"解答通过一道题"。
+    track('problem_solved', { exerciseId })
+  }
+  return result
 }
 
 // --------------- Drafts ---------------
