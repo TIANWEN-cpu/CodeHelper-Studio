@@ -2,15 +2,10 @@ import React, { useState, useEffect } from 'react'
 import {
   Play,
   Save,
-  Settings2,
   FileCode2,
   ChevronDown,
-  ChevronRight,
   Check,
   X,
-  Maximize2,
-  LayoutPanelLeft,
-  Clock,
   PanelLeftClose,
   PanelLeft,
 } from 'lucide-react'
@@ -171,56 +166,31 @@ export function WorkspaceView({
                     >
                       <PanelLeftClose size={14} />
                     </button>
-                    <button className="hover:text-white text-[var(--color-text-muted)] transition-colors p-1">
-                      <Settings2 size={14} />
-                    </button>
                   </div>
                 </div>
                 <div className="flex-1 overflow-y-auto px-2 pb-4 space-y-0.5">
-                  <div className="text-xs p-1.5 hover:bg-[var(--color-bg-hover)] rounded text-[var(--color-text-primary)] font-medium flex items-center gap-2 cursor-pointer">
+                  <div className="text-xs p-1.5 rounded text-[var(--color-text-primary)] font-medium flex items-center gap-2">
                     <ChevronDown size={14} className="text-[var(--color-text-muted)]" /> WORKSPACE
                   </div>
                   <div className="pl-6 space-y-0.5">
-                    <div className="text-xs p-1.5 hover:bg-[var(--color-bg-hover)] rounded text-[var(--color-text-primary)] flex items-center gap-2 cursor-pointer">
+                    <div className="text-xs p-1.5 rounded text-[var(--color-text-primary)] flex items-center gap-2">
                       <ChevronDown size={14} className="text-[var(--color-text-muted)]" /> src
                     </div>
                     <div className="pl-6 space-y-0.5">
-                      <div className="text-xs p-1.5 bg-[var(--color-accent-primary)]/10 text-[var(--color-accent-primary)] rounded flex items-center gap-2 cursor-pointer border border-[var(--color-accent-primary)]/20">
+                      <div className="text-xs p-1.5 bg-[var(--color-accent-primary)]/10 text-[var(--color-accent-primary)] rounded flex items-center gap-2 border border-[var(--color-accent-primary)]/20">
                         <FileCode2 size={14} /> {fileName}
                       </div>
-                      <div className="text-xs p-1.5 hover:bg-[var(--color-bg-hover)] rounded text-[var(--color-text-secondary)] flex items-center gap-2 cursor-pointer">
-                        <FileCode2 size={14} /> utils.py
-                      </div>
-                      <div className="text-xs p-1.5 hover:bg-[var(--color-bg-hover)] rounded text-[var(--color-text-secondary)] flex items-center gap-2 cursor-pointer">
-                        <FileCode2 size={14} /> __init__.py
-                      </div>
-                    </div>
-
-                    <div className="text-xs p-1.5 pt-2 hover:bg-[var(--color-bg-hover)] rounded text-[var(--color-text-primary)] flex items-center gap-2 cursor-pointer">
-                      <ChevronDown size={14} className="text-[var(--color-text-muted)]" /> tests
-                    </div>
-                    <div className="pl-6 space-y-0.5">
-                      <div className="text-xs p-1.5 hover:bg-[var(--color-bg-hover)] rounded text-[var(--color-text-secondary)] flex items-center gap-2 cursor-pointer">
-                        <FileCode2 size={14} /> test_{fileBaseName}.py
-                      </div>
                     </div>
                   </div>
+                  <p className="px-2 pt-3 text-[10px] leading-relaxed text-[var(--color-text-muted)]">
+                    单文件运行环境：当前仅编辑并运行此文件。
+                  </p>
                 </div>
 
-                {/* Settings at bottom of explorer */}
-                <div className="p-3 border-t border-[var(--color-border-subtle)] text-xs text-[var(--color-text-muted)] flex flex-col gap-2 shrink-0">
-                  <div className="flex items-center justify-between hover:text-white cursor-pointer group">
-                    <div className="flex items-center gap-2">
-                      <Settings2 size={14} /> 大纲
-                    </div>
-                    <ChevronRight size={12} className="opacity-0 group-hover:opacity-100" />
-                  </div>
-                  <div className="flex items-center justify-between hover:text-white cursor-pointer group">
-                    <div className="flex items-center gap-2">
-                      <Clock size={14} /> 时间线
-                    </div>
-                    <ChevronRight size={12} className="opacity-0 group-hover:opacity-100" />
-                  </div>
+                {/* Run target hint at bottom of explorer */}
+                <div className="p-3 border-t border-[var(--color-border-subtle)] text-[10px] text-[var(--color-text-muted)] flex items-center gap-2 shrink-0">
+                  <FileCode2 size={12} />
+                  <span className="truncate">运行入口 src/{fileName}</span>
                 </div>
               </div>
             </motion.div>
@@ -233,30 +203,17 @@ export function WorkspaceView({
         {/* Editor Tabs ... */}
         <div className="flex items-center bg-[var(--color-bg-panel)] overflow-x-auto hide-scrollbar border-b border-[#2A2F45]">
           <div className="flex items-center px-4 py-2 bg-[#0F111A] text-[#E5E7EB] border-t-2 border-[var(--color-accent-primary)] text-xs font-medium min-w-max gap-2 rounded-t-md mx-1 border-r border-l border-[#2A2F45]">
-            <FileCode2 size={14} className="text-[#38BDF8]" /> {fileName}{' '}
-            <X
-              size={14}
-              className="text-[var(--color-text-muted)] hover:text-white cursor-pointer"
-            />
-          </div>
-          <div className="flex items-center px-4 py-2 text-[var(--color-text-muted)] hover:bg-[#1C2030] hover:text-white text-xs font-medium cursor-pointer min-w-max gap-2 transition-colors">
-            <FileCode2 size={14} className="text-[#38BDF8]" /> test_{fileBaseName}.py{' '}
-            <X size={14} className="opacity-0 hover:opacity-100" />
-          </div>
-          <div className="flex items-center px-4 py-2 text-[var(--color-text-muted)] hover:bg-[#1C2030] hover:text-white text-xs font-medium cursor-pointer min-w-max gap-2 transition-colors">
-            <FileCode2 size={14} className="text-[#A3E635]" /> README.md{' '}
-            <X size={14} className="opacity-0 hover:opacity-100" />
+            <FileCode2 size={14} className="text-[#38BDF8]" /> {fileName}
           </div>
 
           <div className="ml-auto flex items-center px-3 gap-2">
-            <button className="text-[var(--color-text-muted)] hover:text-white p-1">
+            <button
+              onClick={handleRun}
+              disabled={isRunning || !code.trim()}
+              title="运行 (Ctrl Enter)"
+              className="text-[var(--color-text-muted)] hover:text-white p-1 disabled:opacity-40 disabled:pointer-events-none"
+            >
               <Play size={14} fill="currentColor" className="text-[#10B981]" />
-            </button>
-            <button className="text-[var(--color-text-muted)] hover:text-white p-1">
-              <LayoutPanelLeft size={14} />
-            </button>
-            <button className="text-[var(--color-text-muted)] hover:text-white p-1">
-              <Maximize2 size={14} />
             </button>
           </div>
         </div>
@@ -305,21 +262,9 @@ export function WorkspaceView({
               <div className="border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] flex flex-col shadow-lg h-[256px]">
                 <div className="flex items-center px-4 pt-2 gap-4 border-b border-[var(--color-border-subtle)] justify-between">
                   <div className="flex gap-4">
-                    <button className="text-xs text-white pb-2 border-b-2 border-[var(--color-accent-primary)] font-medium">
-                      终端
-                    </button>
-                    <button className="text-xs text-[var(--color-text-muted)] pb-2 font-medium hover:text-white">
-                      输出
-                    </button>
-                    <button className="text-xs text-[var(--color-text-muted)] pb-2 font-medium hover:text-white flex items-center gap-1">
-                      问题{' '}
-                      <span className="bg-[#EF4444]/20 text-[#EF4444] rounded-full px-1.5 py-0.5 text-[9px]">
-                        2
-                      </span>
-                    </button>
-                    <button className="text-xs text-[var(--color-text-muted)] pb-2 font-medium hover:text-white">
-                      控制台
-                    </button>
+                    <span className="text-xs text-white pb-2 border-b-2 border-[var(--color-accent-primary)] font-medium">
+                      运行输出
+                    </span>
                   </div>
                   <button
                     onClick={() => setTerminalCollapsed(true)}
@@ -580,9 +525,7 @@ export function WorkspaceView({
           </div>
           <div className="flex items-center gap-4">
             <span>{fileName}</span>
-            <span>Spaces: 4</span>
-            <span>UTF-8</span>
-            <span>Python 3.10.8 (venv)</span>
+            <span>{code.split('\n').length} 行</span>
           </div>
         </div>
       </div>

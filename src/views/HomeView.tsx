@@ -99,6 +99,22 @@ function getTimeAgo(timestamp: string): string {
   return `${days} 天前`
 }
 
+const REVIEW_PRIORITY: Record<string, { label: string; bar: string }> = {
+  high: { label: '高优先级', bar: 'bg-[#EF4444]' },
+  medium: { label: '中优先级', bar: 'bg-[#F59E0B]' },
+  low: { label: '低优先级', bar: 'bg-[#10B981]' },
+}
+
+/** 把 SM-2 的 next_review 时间转成到期描述（过去=已到期，未来=N 天后）。 */
+function formatDue(due: string): string {
+  const d = new Date(due)
+  if (isNaN(d.getTime())) return '待复习'
+  const diff = d.getTime() - Date.now()
+  if (diff <= 0) return '已到期'
+  const days = Math.ceil(diff / 86400000)
+  return days <= 1 ? '今天到期' : `${days} 天后`
+}
+
 /** 能力成长面积图：先用 ResizeObserver 测得容器宽度，再以固定像素尺寸渲染。
  *  仅在测得宽度 > 0 时才挂载 AreaChart，从根本上规避 ResponsiveContainer 在
  *  flex 布局下首帧 width(-1) 既刷警告又导致图表整块不渲染的问题。 */
@@ -604,26 +620,67 @@ export function HomeView() {
                   {reviewReminders.length} 道待复习
                 </span>
               </h3>
-              <div className="flex flex-col items-center justify-center py-6">
-                <div className="w-24 h-24 mb-4 relative opacity-80">
-                  <div className="absolute inset-0 bg-[var(--color-accent-primary)]/20 rounded-full blur-xl animate-pulse"></div>
-                  <div className="relative w-full h-full bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] rounded-full flex items-center justify-center shadow-inner">
-                    <Sparkles size={32} className="text-[var(--color-accent-primary)] opacity-80" />
+              {reviewReminders.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-6">
+                  <div className="w-24 h-24 mb-4 relative opacity-80">
+                    <div className="absolute inset-0 bg-[var(--color-accent-primary)]/20 rounded-full blur-xl animate-pulse"></div>
+                    <div className="relative w-full h-full bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] rounded-full flex items-center justify-center shadow-inner">
+                      <Sparkles
+                        size={32}
+                        className="text-[var(--color-accent-primary)] opacity-80"
+                      />
+                    </div>
                   </div>
+                  <p className="text-sm font-medium text-white mb-1">暂无待复习错题</p>
+                  <p className="text-[12px] text-[var(--color-text-muted)] text-center max-w-[200px]">
+                    继续保持良好的学习状态，遇到难题随时记录。
+                  </p>
+                  <button
+                    onClick={() => setCurrentView('practice')}
+                    className="mt-4 px-4 py-1.5 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] hover:bg-[var(--color-bg-hover)] text-xs text-[var(--color-text-primary)] font-medium transition-colors cursor-pointer group"
+                  >
+                    <span className="group-hover:text-[var(--color-accent-primary)] transition-colors">
+                      去刷几道新题
+                    </span>
+                  </button>
                 </div>
-                <p className="text-sm font-medium text-white mb-1">今天还没有错题</p>
-                <p className="text-[12px] text-[var(--color-text-muted)] text-center max-w-[200px]">
-                  继续保持良好的学习状态，遇到难题随时记录。
-                </p>
-                <button
-                  onClick={() => setCurrentView('practice')}
-                  className="mt-4 px-4 py-1.5 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] hover:bg-[var(--color-bg-hover)] text-xs text-[var(--color-text-primary)] font-medium transition-colors cursor-pointer group"
-                >
-                  <span className="group-hover:text-[var(--color-accent-primary)] transition-colors">
-                    去刷几道新题
-                  </span>
-                </button>
-              </div>
+              ) : (
+                <div className="space-y-2">
+                  {reviewReminders.slice(0, 5).map((item) => {
+                    const pr = REVIEW_PRIORITY[item.priority] || REVIEW_PRIORITY.low
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setCurrentView('review')}
+                        className="w-full flex items-center gap-3 p-2.5 rounded-xl bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] hover:border-[var(--color-border-default)] transition-all text-left group"
+                      >
+                        <span className={cn('w-1.5 h-8 rounded-full shrink-0', pr.bar)} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-white truncate group-hover:text-[var(--color-accent-primary)] transition-colors">
+                            {item.title}
+                          </p>
+                          <p className="text-[11px] text-[var(--color-text-muted)]">
+                            {pr.label}
+                            {item.dueDate ? ` · ${formatDue(item.dueDate)}` : ''}
+                          </p>
+                        </div>
+                        <ChevronRight
+                          size={14}
+                          className="text-[var(--color-text-muted)] group-hover:text-[var(--color-accent-primary)] transition-colors shrink-0"
+                        />
+                      </button>
+                    )
+                  })}
+                  {reviewReminders.length > 5 && (
+                    <button
+                      onClick={() => setCurrentView('review')}
+                      className="w-full text-xs text-[var(--color-accent-primary)] hover:text-[#4F46E5] font-medium transition-colors py-1 flex items-center justify-center gap-1"
+                    >
+                      查看全部 {reviewReminders.length} 道 <ChevronRight size={12} />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Heatmap (Simplified visualization) */}

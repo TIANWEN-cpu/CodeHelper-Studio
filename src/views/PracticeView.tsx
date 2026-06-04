@@ -68,6 +68,7 @@ export function PracticeView() {
   const [viewMode, setViewMode] = useState<'list' | 'detail'>('list')
   const [searchQuery, setSearchQuery] = useState('')
   const [difficultyFilter, setDifficultyFilter] = useState<string | undefined>(undefined)
+  const [detailTab, setDetailTab] = useState<'desc' | 'hints'>('desc')
 
   const {
     exercises,
@@ -89,6 +90,7 @@ export function PracticeView() {
   // When exercise is selected, switch to detail view
   const handleSelectExercise = async (id: string) => {
     await selectExercise(id)
+    setDetailTab('desc')
     setViewMode('detail')
   }
 
@@ -270,31 +272,43 @@ export function PracticeView() {
 
                         {/* Tab bar */}
                         <div className="flex items-center gap-4 border-b border-[var(--color-border-subtle)] pb-2 mb-6">
-                          <button className="text-sm font-medium text-white border-b-2 border-white pb-2 -mb-[9px]">
+                          <button
+                            onClick={() => setDetailTab('desc')}
+                            className={cn(
+                              'text-sm font-medium pb-2 -mb-[9px] transition-colors',
+                              detailTab === 'desc'
+                                ? 'text-white border-b-2 border-white'
+                                : 'text-[var(--color-text-muted)] hover:text-white',
+                            )}
+                          >
                             题目描述
                           </button>
                           {currentExercise.hints && currentExercise.hints.length > 0 && (
-                            <button className="text-sm font-medium text-[var(--color-text-muted)] hover:text-white transition-colors">
+                            <button
+                              onClick={() => setDetailTab('hints')}
+                              className={cn(
+                                'text-sm font-medium pb-2 -mb-[9px] transition-colors',
+                                detailTab === 'hints'
+                                  ? 'text-white border-b-2 border-white'
+                                  : 'text-[var(--color-text-muted)] hover:text-white',
+                              )}
+                            >
                               提示 ({currentExercise.hints.length})
                             </button>
                           )}
                         </div>
 
-                        {/* Problem description from real data */}
-                        <div className="prose prose-invert prose-sm text-[var(--color-text-secondary)] whitespace-pre-wrap leading-relaxed">
-                          {currentExercise.prompt}
-                        </div>
-
-                        {/* Hints section */}
-                        {currentExercise.hints && currentExercise.hints.length > 0 && (
-                          <div className="mt-6">
-                            <h4 className="text-white text-sm font-medium mb-2">提示</h4>
-                            <ul className="text-sm space-y-1 text-[var(--color-text-muted)] marker:text-[var(--color-border-subtle)] pl-4 list-disc">
-                              {currentExercise.hints.map((hint, i) => (
-                                <li key={i}>{hint}</li>
-                              ))}
-                            </ul>
+                        {/* Tab content: real description / hints switch */}
+                        {detailTab === 'desc' || !currentExercise.hints?.length ? (
+                          <div className="prose prose-invert prose-sm text-[var(--color-text-secondary)] whitespace-pre-wrap leading-relaxed">
+                            {currentExercise.prompt}
                           </div>
+                        ) : (
+                          <ul className="text-sm space-y-2 text-[var(--color-text-secondary)] marker:text-[var(--color-border-subtle)] pl-4 list-disc leading-relaxed">
+                            {currentExercise.hints.map((hint, i) => (
+                              <li key={i}>{hint}</li>
+                            ))}
+                          </ul>
                         )}
                       </>
                     ) : (

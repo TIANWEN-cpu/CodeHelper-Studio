@@ -173,6 +173,15 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
     [presets],
   )
 
+  // 输入以 / 开头时，把输入框变成快捷操作选择器（真实复用 quickActions，不臆造命令）。
+  const slashActive = inputValue.startsWith('/')
+  const slashMatches = useMemo(() => {
+    if (!slashActive) return []
+    const q = inputValue.slice(1).trim().toLowerCase()
+    if (!q) return quickActions
+    return quickActions.filter((a) => a.label.toLowerCase().includes(q))
+  }, [slashActive, inputValue, quickActions])
+
   return (
     <motion.div
       initial={{ width: 0, opacity: 0, x: 24 }}
@@ -467,16 +476,46 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
         {/* Input Area */}
         <div className="p-4 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] shrink-0">
           <div className="relative flex items-end gap-2 bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl focus-within:border-[var(--color-accent-purple)] focus-within:ring-1 focus-within:ring-[var(--color-accent-purple)] transition-all p-2">
+            {slashActive && slashMatches.length > 0 && (
+              <div className="absolute bottom-full left-0 right-0 mb-2 max-h-48 overflow-y-auto bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl shadow-2xl py-1 z-30 custom-scrollbar">
+                {slashMatches.map((action, i) => (
+                  <button
+                    key={action.id}
+                    onClick={() => {
+                      setInputValue('')
+                      handleQuickAction(action.prompt)
+                    }}
+                    className={cn(
+                      'w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors',
+                      i === 0
+                        ? 'bg-[var(--color-bg-hover)] text-white'
+                        : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-white',
+                    )}
+                  >
+                    <action.icon size={14} style={{ color: action.color }} className="shrink-0" />
+                    <span className="truncate">{action.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <textarea
               ref={textareaRef}
               rows={1}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              placeholder="向 AI 提问，或使用 / 选择操作"
+              placeholder="向 AI 提问，或输入 / 选择快捷操作"
               className="flex-1 max-h-32 min-h-[24px] bg-transparent text-sm text-white resize-none outline-none placeholder-[var(--color-text-muted)] py-1 px-1 custom-scrollbar"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
+                  if (slashActive) {
+                    const target = slashMatches[0]
+                    if (target) {
+                      setInputValue('')
+                      handleQuickAction(target.prompt)
+                    }
+                    return
+                  }
                   handleSend()
                 }
               }}
