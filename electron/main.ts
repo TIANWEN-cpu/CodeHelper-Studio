@@ -20,6 +20,7 @@ import { registerIpcHandler, rateLimitMiddleware } from './utils/middleware'
 import { buildContentSecurityPolicy } from './utils/contentSecurityPolicy'
 import { getPreloadScriptPath } from './utils/runtimePaths'
 import { arch, release } from 'os'
+import { join } from 'path'
 
 // ---------------------------------------------------------------------------
 // Diagnostic startup timer
