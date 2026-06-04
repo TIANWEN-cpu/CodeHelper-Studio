@@ -18,9 +18,11 @@ import { motion, AnimatePresence } from 'motion/react'
 import { cn } from '@/lib/utils'
 import { useReviewData } from '@/hooks/useReviewData'
 import { useAppStore } from '@/store'
+import { formatDate } from '@/lib/locale'
 
 export function ReviewView() {
   const setCurrentView = useAppStore((s) => s.setCurrentView)
+  const dateRegion = useAppStore((s) => s.dateRegion)
   const {
     mistakes,
     filteredMistakes,
@@ -281,7 +283,16 @@ export function ReviewView() {
       <div className="space-y-4">
         <h3 className="font-semibold text-white text-[15px]">历史记录</h3>
         <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-4 text-sm text-[var(--color-text-secondary)]">
-          <p>创建时间：{new Date(selected.created_at).toLocaleString('zh-CN')}</p>
+          <p>
+            创建时间：
+            {formatDate(selected.created_at, dateRegion, {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </p>
           <p className="mt-2">题目 ID：{selected.problem_id}</p>
           <p className="mt-2">
             错误类型：{selected.error_types.length > 0 ? selected.error_types.join('、') : '未分类'}
@@ -457,7 +468,7 @@ export function ReviewView() {
                       const isActive = currentMistake?.id === item.id
                       const isDue = dueReviews.some((r) => r.exercise_id === item.problem_id)
                       const statusLabel = isDue ? '待复习' : '已掌握'
-                      const formattedDate = new Date(item.created_at).toLocaleDateString('zh-CN', {
+                      const formattedDate = formatDate(item.created_at, dateRegion, {
                         month: 'short',
                         day: 'numeric',
                       })
@@ -570,7 +581,7 @@ export function ReviewView() {
                 <span className="ml-2 flex items-center gap-1">
                   <Clock size={12} />{' '}
                   {selected
-                    ? `最后复习: ${new Date(selected.created_at).toLocaleDateString('zh-CN')}`
+                    ? `最后复习: ${formatDate(selected.created_at, dateRegion, { year: 'numeric', month: 'short', day: 'numeric' })}`
                     : '--'}
                 </span>
                 <span className="flex items-center gap-1">
@@ -758,7 +769,7 @@ export function ReviewView() {
                                 {item.label}
                               </span>
                               <span className="text-[var(--color-text-muted)] font-mono">
-                                {new Date(item.date).toLocaleDateString('zh-CN', {
+                                {formatDate(item.date, dateRegion, {
                                   month: 'short',
                                   day: 'numeric',
                                 })}{' '}

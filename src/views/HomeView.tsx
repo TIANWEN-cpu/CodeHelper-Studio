@@ -18,6 +18,8 @@ import { cn } from '@/lib/utils'
 import { motion } from 'motion/react'
 import { useHomeData } from '../hooks/useHomeData'
 import { useAppStore } from '../store'
+import type { WeekStart } from '../store'
+import { formatDate } from '../lib/locale'
 import type { ViewType } from '../types'
 
 const DAY_MAP = ['日', '一', '二', '三', '四', '五', '六']
@@ -31,30 +33,66 @@ function getGreeting(): string {
   return '晚上好'
 }
 
-function getHeatmapCell(
-  index: number,
+// 学习热力图：约 90 天 ≈ 13 周。
+const HEATMAP_WEEKS = 13
+
+function dateKey(d: Date): string {
+  const m = d.getMonth() + 1
+  const day = d.getDate()
+  return `${d.getFullYear()}-${m < 10 ? `0${m}` : m}-${day < 10 ? `0${day}` : day}`
+}
+
+type HeatCell = { key: string; date: Date; count: number; future: boolean }
+
+/**
+ * 把稀疏的 dailyCounts 零填充并按"周"切成列；每列 7 天按 weekStart 排序，
+ * 最右列含今天，今天之后的日期标记 future（渲染为占位空格）。
+ * 这样 weekStart（周一/周日）真实决定网格首行与对齐方式。
+ */
+function buildHeatmapWeeks(
   heatmapData: { date: string; count: number }[],
-  maxCount: number,
-) {
-  if (index < heatmapData.length) {
-    const item = heatmapData[index]
-    const ratio = maxCount > 0 ? item.count / maxCount : 0
-    let bgClass = 'bg-[#2A2F45]'
-    if (item.count > 0) {
-      if (ratio > 0.66) bgClass = 'bg-[#10B981]'
-      else if (ratio > 0.33) bgClass = 'bg-[#10B981]/70'
-      else bgClass = 'bg-[#10B981]/40'
+  weekStart: WeekStart,
+): HeatCell[][] {
+  const counts = new Map(heatmapData.map((d) => [d.date, d.count]))
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const dow = today.getDay() // 0=周日..6=周六
+  const offsetInWeek = weekStart === 'mon' ? (dow + 6) % 7 : dow
+  const start = new Date(today)
+  start.setDate(start.getDate() - offsetInWeek - (HEATMAP_WEEKS - 1) * 7)
+
+  const cols: HeatCell[][] = []
+  for (let c = 0; c < HEATMAP_WEEKS; c++) {
+    const col: HeatCell[] = []
+    for (let r = 0; r < 7; r++) {
+      const d = new Date(start)
+      d.setDate(start.getDate() + c * 7 + r)
+      const key = dateKey(d)
+      col.push({
+        key,
+        date: d,
+        count: counts.get(key) ?? 0,
+        future: d.getTime() > today.getTime(),
+      })
     }
-    const date = new Date(item.date)
-    const dateString = date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
-    return {
-      bgClass,
-      label: item.count === 0 ? '未学习' : `学习了 ${item.count} 次`,
-      dateString,
-      hasTooltip: true,
-    }
+    cols.push(col)
   }
-  return { bgClass: 'bg-[var(--color-bg-base)]', label: '', dateString: '', hasTooltip: false }
+  return cols
+}
+
+/** 根据当日次数与最大值映射到绿色梯度。 */
+function heatColor(count: number, max: number): string {
+  if (count <= 0) return 'bg-[#2A2F45]'
+  const ratio = max > 0 ? count / max : 0
+  if (ratio > 0.66) return 'bg-[#10B981]'
+  if (ratio > 0.33) return 'bg-[#10B981]/70'
+  return 'bg-[#10B981]/40'
+}
+
+/** 行索引 → 星期标签（按 weekStart）。 */
+function weekdayLabel(rowIndex: number, weekStart: WeekStart): string {
+  const dayIdx = weekStart === 'mon' ? (rowIndex + 1) % 7 : rowIndex
+  return DAY_MAP[dayIdx]
 }
 
 const ACTIVITY_ICON_MAP: Record<string, typeof BookOpen> = {
@@ -204,8 +242,11 @@ export function HomeView() {
     error,
   } = useHomeData()
   const setCurrentView = useAppStore((s) => s.setCurrentView)
+  const dateRegion = useAppStore((s) => s.dateRegion)
+  const weekStart = useAppStore((s) => s.weekStart)
   const [activityFilter, setActivityFilter] = useState<'all' | 'lesson' | 'problem'>('all')
   const maxHeatmapCount = heatmapData.reduce((max, item) => Math.max(max, item.count), 0)
+  const heatmapWeeks = buildHeatmapWeeks(heatmapData, weekStart)
 
   // 能力成长图表数据：无周统计时用最近 7 天 0 分占位，保证坐标轴与基线可见，避免整块空白。
   const chartData =
@@ -683,39 +724,68 @@ export function HomeView() {
               )}
             </div>
 
-            {/* Heatmap (Simplified visualization) */}
+            {/* 学习热力图：真实日期零填充 + 按星期对齐（首行由"每周起始日"决定） */}
             <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-2xl p-6 shadow-sm">
-              <h3 className="font-semibold text-white text-[15px] mb-4">学习热力图</h3>
-              <div className="grid grid-cols-12 gap-1.5 opacity-80 pl-2">
-                {Array.from({ length: 48 }).map((_, i) => {
-                  const cell = getHeatmapCell(i, heatmapData, maxHeatmapCount)
-                  return (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.5 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.3, delay: i * 0.015 }}
-                      key={i}
-                      className={cn(
-                        'w-full pt-[100%] rounded-[3px] relative group cursor-pointer hover:ring-2 hover:ring-white/50 transition-all',
-                        cell.bgClass,
-                      )}
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-white text-[15px]">学习热力图</h3>
+                <span className="text-xs text-[var(--color-text-muted)]">
+                  最近 {HEATMAP_WEEKS} 周
+                </span>
+              </div>
+              <div className="flex gap-1 overflow-x-auto hide-scrollbar">
+                {/* 星期标签列 */}
+                <div className="flex flex-col gap-1 pr-1 shrink-0">
+                  {Array.from({ length: 7 }).map((_, r) => (
+                    <div
+                      key={r}
+                      className="h-2.5 text-[9px] leading-[10px] text-[var(--color-text-muted)] flex items-center"
                     >
-                      {cell.hasTooltip && (
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-[var(--color-bg-panel)] text-white text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 flex flex-col items-center border border-[var(--color-border-subtle)]">
-                          <span className="font-semibold text-white/90">{cell.label}</span>
-                          <span className="text-[var(--color-text-muted)] mt-0.5">
-                            {cell.dateString}
-                          </span>
+                      {weekdayLabel(r, weekStart)}
+                    </div>
+                  ))}
+                </div>
+                {/* 周列 */}
+                {heatmapWeeks.map((col, ci) => (
+                  <div key={ci} className="flex flex-col gap-1 shrink-0">
+                    {col.map((cell) =>
+                      cell.future ? (
+                        <div key={cell.key} className="w-2.5 h-2.5 rounded-[2px] bg-transparent" />
+                      ) : (
+                        <div
+                          key={cell.key}
+                          className={cn(
+                            'w-2.5 h-2.5 rounded-[2px] relative group cursor-pointer hover:ring-2 hover:ring-white/50 transition-all',
+                            heatColor(cell.count, maxHeatmapCount),
+                          )}
+                        >
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-[var(--color-bg-panel)] text-white text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 flex flex-col items-center border border-[var(--color-border-subtle)]">
+                            <span className="font-semibold text-white/90">
+                              {cell.count === 0 ? '未学习' : `学习了 ${cell.count} 次`}
+                            </span>
+                            <span className="text-[var(--color-text-muted)] mt-0.5">
+                              {formatDate(cell.date, dateRegion, {
+                                month: 'short',
+                                day: 'numeric',
+                              })}
+                            </span>
+                          </div>
                         </div>
-                      )}
-                    </motion.div>
-                  )
-                })}
+                      ),
+                    )}
+                  </div>
+                ))}
               </div>
               <div className="flex items-center justify-between mt-4 text-xs">
                 <span className="text-[var(--color-text-muted)] flex items-center gap-1">
                   <Flame size={14} className="text-[#F59E0B]" /> 持续学习很棒！
                 </span>
+                <div className="flex items-center gap-1 text-[10px] text-[var(--color-text-muted)]">
+                  少
+                  <span className="w-2.5 h-2.5 rounded-[2px] bg-[#2A2F45]" />
+                  <span className="w-2.5 h-2.5 rounded-[2px] bg-[#10B981]/40" />
+                  <span className="w-2.5 h-2.5 rounded-[2px] bg-[#10B981]/70" />
+                  <span className="w-2.5 h-2.5 rounded-[2px] bg-[#10B981]" />多
+                </div>
               </div>
             </div>
           </div>

@@ -15,6 +15,7 @@ import {
   type ThemeMode,
 } from '../lib/appearance'
 import { AIModelSettings } from './settings/AIModelSettings'
+import { REGION_OPTIONS } from '../lib/locale'
 
 // ---- Helper: Toggle Switch ----
 
@@ -56,6 +57,10 @@ export function SettingsView() {
   const setBottomPanelCollapsed = useAppStore((s) => s.setBottomPanelCollapsed)
   const doubleLineTabs = useAppStore((s) => s.doubleLineTabs)
   const setDoubleLineTabs = useAppStore((s) => s.setDoubleLineTabs)
+  const dateRegion = useAppStore((s) => s.dateRegion)
+  const setDateRegion = useAppStore((s) => s.setDateRegion)
+  const weekStart = useAppStore((s) => s.weekStart)
+  const setWeekStart = useAppStore((s) => s.setWeekStart)
 
   const [activeTab, setActiveTab] = React.useState('appearance')
   const [loaded, setLoaded] = React.useState(false)
@@ -201,6 +206,8 @@ export function SettingsView() {
     setBottomPanelCollapsed(false)
     setSidebarCollapsed(false) // 内部持久化 compact_sidebar
     setDoubleLineTabs(true)
+    setDateRegion('zh-CN') // 内部持久化 region_format
+    setWeekStart('mon') // 内部持久化 week_start
 
     const defaults: Record<string, string> = {
       theme_mode: 'dark',
@@ -405,6 +412,60 @@ export function SettingsView() {
                     </div>
                     <ToggleSwitch active={followSystem} onToggle={handleFollowSystem} />
                   </div>
+                </div>
+
+                <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
+                  <h3 className="font-semibold text-white text-[15px] mb-1">语言与区域</h3>
+                  <p className="text-xs text-[var(--color-text-muted)] mb-4">
+                    界面语言为中文；可调整日期显示格式与每周起始日
+                  </p>
+
+                  <p className="text-sm font-medium text-white mb-2">区域格式</p>
+                  <div className="flex flex-col gap-2 mb-5">
+                    {REGION_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setDateRegion(opt.value)}
+                        className={cn(
+                          'flex items-center justify-between px-3 py-2 rounded-lg border text-sm transition-colors',
+                          dateRegion === opt.value
+                            ? 'border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/10 text-white'
+                            : 'border-[var(--color-border-subtle)] text-[var(--color-text-secondary)] hover:text-white',
+                        )}
+                      >
+                        <span>{opt.label}</span>
+                        <span className="text-xs text-[var(--color-text-muted)] font-mono">
+                          {opt.sample}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <p className="text-sm font-medium text-white mb-2">每周起始日</p>
+                  <div className="flex bg-[var(--color-bg-panel)] rounded-lg p-1 border border-[var(--color-border-subtle)]">
+                    {(
+                      [
+                        ['mon', '周一'],
+                        ['sun', '周日'],
+                      ] as const
+                    ).map(([val, label]) => (
+                      <button
+                        key={val}
+                        onClick={() => setWeekStart(val)}
+                        className={cn(
+                          'flex-1 py-1.5 text-xs font-medium rounded-md transition-colors',
+                          weekStart === val
+                            ? 'bg-[var(--color-accent-purple)] text-white shadow-sm'
+                            : 'text-[var(--color-text-muted)] hover:text-white',
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-[var(--color-text-muted)] mt-2">
+                    影响首页学习热力图的星期排列
+                  </p>
                 </div>
               </div>
 
