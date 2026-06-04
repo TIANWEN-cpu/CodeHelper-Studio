@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef } from 'react'
 import {
   Search,
-  ChevronDown,
   LayoutGrid,
   List,
   Plus,
@@ -9,10 +8,12 @@ import {
   FileText,
   Code2,
   Video,
-  Star,
   Trash2,
   PanelLeftClose,
   PanelLeft,
+  Info,
+  Upload,
+  Eye,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'motion/react'
@@ -44,7 +45,7 @@ function getDocMeta(fileType: string) {
       iconBg: 'bg-[#10B981]',
     }
   }
-  if (ft.includes('note') || ft.includes('笔记')) {
+  if (ft.includes('note') || ft.includes('笔记') || ft.includes('md')) {
     return {
       type: '笔记',
       typeColor: 'text-[#10B981] bg-[#10B981]/10 border-[#10B981]/20',
@@ -61,89 +62,138 @@ function getDocMeta(fileType: string) {
   }
 }
 
+type SortMode = 'recent' | 'name' | 'chunks'
+type ViewMode = 'grid' | 'list'
+
+interface KnowledgeDisplayItem {
+  id: number
+  title: string
+  desc: string
+  type: string
+  typeColor: string
+  fileType: string
+  icon: React.ComponentType<{ size?: number; className?: string }>
+  iconBg: string
+  tags: string[]
+  time: string
+  chunkCount?: number
+  score?: number
+  chunkIndex?: number
+  source: 'document' | 'search'
+}
+
+function formatScore(score?: number): string | null {
+  if (typeof score !== 'number' || Number.isNaN(score)) return null
+  return `${Math.round(score * 100)}% 匹配`
+}
+
 export function KnowledgeView() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [query, setQuery] = useState('')
+  const [typeFilter, setTypeFilter] = useState('all')
+  const [sortMode, setSortMode] = useState<SortMode>('recent')
+  const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [selectedItem, setSelectedItem] = useState<KnowledgeDisplayItem | null>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { documents, searchResults, loading, uploading, error, search, upload, deleteDocument } =
     useKnowledgeData()
 
-  // --- 搜索防抖 ---
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value
       setQuery(value)
       if (searchTimer.current) clearTimeout(searchTimer.current)
       searchTimer.current = setTimeout(() => {
-        search(value)
+        void search(value)
       }, 300)
     },
     [search],
   )
 
-  // --- 根据文件类型聚合分类 ---
+  const typeOptions = useMemo(() => {
+    const values = Array.from(new Set(documents.map((doc) => doc.file_type || '其他')))
+    return values.sort((a, b) => a.localeCompare(b))
+  }, [documents])
+
   const categories = useMemo(() => {
     const map = new Map<string, number>()
     for (const doc of documents) {
       const ft = doc.file_type || '其他'
       map.set(ft, (map.get(ft) || 0) + 1)
     }
-    const cats = [{ name: '全部知识', count: documents.length, active: true }]
-    for (const [ft, count] of map) {
-      cats.push({ name: ft, count })
-    }
-    return cats
+    return [{ name: '全部知识', value: 'all', count: documents.length }].concat(
+      Array.from(map.entries()).map(([name, count]) => ({ name, value: name, count })),
+    )
   }, [documents])
 
-  // --- 搜索结果或全部文档 ---
-  const displayItems = useMemo(() => {
-    if (query.trim() && searchResults.length > 0) {
-      return searchResults.map((r) => {
-        const meta = getDocMeta('文档')
-        return {
-          id: r.doc_id,
-          title: r.filename,
-          desc: r.content,
-          type: meta.type,
-          typeColor: meta.typeColor,
-          icon: meta.icon,
-          iconBg: meta.iconBg,
-          tags: [],
-          time: '',
-          starred: false,
-        }
-      })
-    }
-    return documents.map((doc) => {
-      const meta = getDocMeta(doc.file_type)
-      return {
-        id: doc.id,
-        title: doc.filename,
-        desc: `${doc.chunk_count} 个知识片段`,
-        type: meta.type,
-        typeColor: meta.typeColor,
-        icon: meta.icon,
-        iconBg: meta.iconBg,
-        tags: [doc.file_type],
-        time: doc.created_at,
-        starred: false,
-      }
+  const displayItems = useMemo<KnowledgeDisplayItem[]>(() => {
+    const items = query.trim()
+      ? searchResults.map((result) => {
+          const sourceDoc = documents.find((doc) => doc.id === result.doc_id)
+          const fileType = sourceDoc?.file_type || '文档'
+          const meta = getDocMeta(fileType)
+          return {
+            id: result.doc_id,
+            title: result.filename,
+            desc: result.content,
+            type: meta.type,
+            typeColor: meta.typeColor,
+            fileType,
+            icon: meta.icon,
+            iconBg: meta.iconBg,
+            tags: [fileType, `片段 #${result.chunk_index + 1}`],
+            time: sourceDoc?.created_at ?? '',
+            chunkCount: sourceDoc?.chunk_count,
+            score: result.score,
+            chunkIndex: result.chunk_index,
+            source: 'search' as const,
+          }
+        })
+      : documents.map((doc) => {
+          const meta = getDocMeta(doc.file_type)
+          return {
+            id: doc.id,
+            title: doc.filename,
+            desc: `${doc.chunk_count} 个知识片段`,
+            type: meta.type,
+            typeColor: meta.typeColor,
+            fileType: doc.file_type || '其他',
+            icon: meta.icon,
+            iconBg: meta.iconBg,
+            tags: [doc.file_type || '其他'],
+            time: doc.created_at,
+            chunkCount: doc.chunk_count,
+            source: 'document' as const,
+          }
+        })
+
+    const filtered =
+      typeFilter === 'all' ? items : items.filter((item) => item.fileType === typeFilter)
+
+    return filtered.slice().sort((a, b) => {
+      if (sortMode === 'name') return a.title.localeCompare(b.title)
+      if (sortMode === 'chunks') return (b.chunkCount ?? 0) - (a.chunkCount ?? 0)
+      return new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime()
     })
-  }, [documents, searchResults, query])
+  }, [documents, query, searchResults, sortMode, typeFilter])
+
+  const handleDelete = async (item: KnowledgeDisplayItem) => {
+    if (!confirm(`确定要删除知识文档「${item.title}」吗？`)) return
+    await deleteDocument(item.id)
+    if (selectedItem?.id === item.id) setSelectedItem(null)
+  }
 
   return (
     <div className="h-full flex flex-col bg-[var(--color-bg-base)] overflow-hidden">
       <div className="max-w-[1400px] w-full mx-auto p-6 flex flex-col h-full space-y-6">
-        {/* Header */}
         <div className="flex-shrink-0">
           <h1 className="text-2xl font-bold text-white tracking-tight mb-2">知识库</h1>
           <p className="text-sm text-[var(--color-text-muted)]">
-            管理和浏览你的学习资料、笔记与文档，构建专属知识体系。
+            管理、检索和删除已导入的学习资料。当前检索使用真实知识库关键词匹配；向量语义、自动标签和概念图谱未接入前不在页面伪装展示。
           </p>
         </div>
 
-        {/* Toolbar */}
         <div className="flex items-center gap-4 flex-shrink-0">
           <div className="relative flex-1 max-w-sm">
             <Search
@@ -152,7 +202,7 @@ export function KnowledgeView() {
             />
             <input
               type="text"
-              placeholder="搜索知识库..."
+              placeholder="按关键词搜索知识库..."
               value={query}
               onChange={handleSearchChange}
               className="w-full bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent-purple)]"
@@ -160,32 +210,58 @@ export function KnowledgeView() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-text-secondary)] bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-lg hover:text-white transition-colors">
-              <span>全部类型</span>
-              <ChevronDown size={14} />
-            </button>
-            <button className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-text-secondary)] bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-lg hover:text-white transition-colors">
-              <span>全部标签</span>
-              <ChevronDown size={14} />
-            </button>
-            <button className="flex items-center gap-2 px-3 py-2 text-sm text-[var(--color-text-secondary)] bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-lg hover:text-white transition-colors">
-              <span>最近更新</span>
-              <ChevronDown size={14} />
-            </button>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="px-3 py-2 text-sm text-[var(--color-text-secondary)] bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-lg outline-none focus:border-[var(--color-accent-primary)]"
+            >
+              <option value="all">全部类型</option>
+              {typeOptions.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+            <select
+              value={sortMode}
+              onChange={(e) => setSortMode(e.target.value as SortMode)}
+              className="px-3 py-2 text-sm text-[var(--color-text-secondary)] bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-lg outline-none focus:border-[var(--color-accent-primary)]"
+            >
+              <option value="recent">最近导入</option>
+              <option value="name">文件名</option>
+              <option value="chunks">片段数量</option>
+            </select>
           </div>
 
           <div className="flex items-center gap-1 bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-lg p-1 ml-auto">
-            <button className="p-1.5 text-white bg-[var(--color-border-subtle)] rounded shadow-sm">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={cn(
+                'p-1.5 rounded transition-colors',
+                viewMode === 'grid'
+                  ? 'text-white bg-[var(--color-border-subtle)] shadow-sm'
+                  : 'text-[var(--color-text-muted)] hover:text-white',
+              )}
+              title="卡片视图"
+            >
               <LayoutGrid size={16} />
             </button>
-            <button className="p-1.5 text-[var(--color-text-muted)] hover:text-white transition-colors">
+            <button
+              onClick={() => setViewMode('list')}
+              className={cn(
+                'p-1.5 rounded transition-colors',
+                viewMode === 'list'
+                  ? 'text-white bg-[var(--color-border-subtle)] shadow-sm'
+                  : 'text-[var(--color-text-muted)] hover:text-white',
+              )}
+              title="列表视图"
+            >
               <List size={16} />
             </button>
           </div>
         </div>
 
         <div className="flex-1 flex gap-6 min-h-0 relative">
-          {/* Left Sidebar (Categories) */}
           <AnimatePresence initial={false}>
             {!sidebarCollapsed && (
               <motion.div
@@ -196,26 +272,22 @@ export function KnowledgeView() {
               >
                 <div className="p-4 border-b border-[var(--color-border-subtle)] flex items-center justify-between">
                   <span className="font-semibold text-white text-sm">知识库分类</span>
-                  <div className="flex gap-2 text-[var(--color-text-muted)]">
-                    <button className="hover:text-white transition-colors">
-                      <Plus size={16} />
-                    </button>
-                    <button
-                      onClick={() => setSidebarCollapsed(true)}
-                      className="hover:text-white transition-colors"
-                      title="收起分类栏"
-                    >
-                      <PanelLeftClose size={16} />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => setSidebarCollapsed(true)}
+                    className="text-[var(--color-text-muted)] hover:text-white transition-colors"
+                    title="收起分类栏"
+                  >
+                    <PanelLeftClose size={16} />
+                  </button>
                 </div>
                 <div className="flex-1 overflow-y-auto hide-scrollbar p-2 space-y-1">
-                  {categories.map((cat, i) => (
+                  {categories.map((cat) => (
                     <button
-                      key={i}
+                      key={cat.value}
+                      onClick={() => setTypeFilter(cat.value)}
                       className={cn(
                         'w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors',
-                        cat.active
+                        typeFilter === cat.value
                           ? 'bg-[var(--color-accent-purple)]/10 text-[var(--color-accent-purple)]'
                           : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-white',
                       )}
@@ -224,7 +296,7 @@ export function KnowledgeView() {
                         <Folder
                           size={16}
                           className={
-                            cat.active
+                            typeFilter === cat.value
                               ? 'fill-[var(--color-accent-purple)]/20'
                               : 'text-[var(--color-text-muted)]'
                           }
@@ -234,7 +306,7 @@ export function KnowledgeView() {
                       <span
                         className={cn(
                           'text-xs font-mono',
-                          cat.active
+                          typeFilter === cat.value
                             ? 'text-[var(--color-accent-purple)]'
                             : 'text-[var(--color-text-muted)]',
                         )}
@@ -244,13 +316,8 @@ export function KnowledgeView() {
                     </button>
                   ))}
                 </div>
-                <div className="p-3 border-t border-[var(--color-border-subtle)]">
-                  <button className="w-full flex items-center justify-between px-3 py-2 text-sm text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors">
-                    <span className="flex items-center gap-2">
-                      <Trash2 size={16} /> 回收站
-                    </span>
-                    <span className="text-xs font-mono">8</span>
-                  </button>
+                <div className="p-3 border-t border-[var(--color-border-subtle)] text-[11px] text-[var(--color-text-muted)] leading-relaxed">
+                  文件上传、列表、关键词检索、删除均连接本地知识库 IPC。
                 </div>
               </motion.div>
             )}
@@ -268,14 +335,27 @@ export function KnowledgeView() {
             </div>
           )}
 
-          {/* Main Content Area */}
           <div className="flex-1 flex flex-col min-h-0 bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl overflow-hidden">
             <div className="p-4 border-b border-[var(--color-border-subtle)] flex items-center justify-between">
-              <span className="font-medium text-white text-sm">
-                {query.trim()
-                  ? `搜索结果 (${displayItems.length})`
-                  : `全部知识 (${documents.length})`}
-              </span>
+              <div>
+                <span className="font-medium text-white text-sm">
+                  {query.trim()
+                    ? `关键词检索结果 (${displayItems.length})`
+                    : `全部知识 (${displayItems.length})`}
+                </span>
+                {query.trim() && (
+                  <p className="text-[11px] text-[var(--color-text-muted)] mt-1">
+                    结果来自 knowledge-search 关键词匹配，不伪装为向量语义结果。
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => void upload()}
+                disabled={uploading}
+                className="bg-[var(--color-accent-purple)] hover:bg-[#7C3AED] text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 disabled:opacity-50"
+              >
+                <Upload size={14} /> {uploading ? '上传中...' : '上传文档'}
+              </button>
             </div>
 
             {error && (
@@ -284,25 +364,38 @@ export function KnowledgeView() {
               </div>
             )}
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div
+              className={cn(
+                'flex-1 overflow-y-auto p-4 gap-3',
+                viewMode === 'grid'
+                  ? 'grid grid-cols-1 xl:grid-cols-2 content-start'
+                  : 'flex flex-col',
+              )}
+            >
               {loading && displayItems.length === 0 && (
                 <div className="flex items-center justify-center h-32 text-sm text-[var(--color-text-muted)]">
                   加载中...
                 </div>
               )}
               {!loading && displayItems.length === 0 && (
-                <div className="flex flex-col items-center justify-center h-32 text-sm text-[var(--color-text-muted)]">
+                <div className="flex flex-col items-center justify-center h-32 text-sm text-[var(--color-text-muted)] col-span-full">
                   <FileText size={32} className="mb-2 opacity-40" />
-                  {query.trim() ? '未找到匹配的知识文档' : '暂无文档，点击右上角「新建」上传'}
+                  {query.trim() ? '未找到匹配的知识文档' : '暂无文档，点击「上传文档」导入资料'}
                 </div>
               )}
               {displayItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="group flex flex-col gap-3 p-4 bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl hover:border-[var(--color-accent-purple)]/50 transition-all cursor-pointer"
+                <button
+                  key={`${item.source}-${item.id}-${item.chunkIndex ?? 'doc'}`}
+                  onClick={() => setSelectedItem(item)}
+                  className={cn(
+                    'group flex flex-col gap-3 p-4 bg-[var(--color-bg-card)] border rounded-xl hover:border-[var(--color-accent-purple)]/50 transition-all text-left',
+                    selectedItem?.id === item.id && selectedItem?.chunkIndex === item.chunkIndex
+                      ? 'border-[var(--color-accent-purple)]/70'
+                      : 'border-[var(--color-border-subtle)]',
+                  )}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <div
                         className={cn(
                           'w-10 h-10 rounded-lg flex items-center justify-center text-white shrink-0',
@@ -311,50 +404,53 @@ export function KnowledgeView() {
                       >
                         <item.icon size={20} />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="text-[15px] font-medium text-white group-hover:text-[var(--color-accent-purple)] transition-colors">
+                          <h3 className="text-[15px] font-medium text-white group-hover:text-[var(--color-accent-purple)] transition-colors truncate">
                             {item.title}
                           </h3>
                           <span
                             className={cn(
-                              'text-[10px] px-1.5 py-0.5 rounded border font-medium',
+                              'text-[10px] px-1.5 py-0.5 rounded border font-medium shrink-0',
                               item.typeColor,
                             )}
                           >
                             {item.type}
                           </span>
                         </div>
-                        <p className="text-xs text-[var(--color-text-muted)] line-clamp-1">
+                        <p className="text-xs text-[var(--color-text-muted)] line-clamp-2">
                           {item.desc}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {item.starred && <Star size={16} className="text-[#F59E0B] fill-[#F59E0B]" />}
-                      {!item.starred && (
-                        <Star
-                          size={16}
-                          className="text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity"
-                        />
-                      )}
-                      <button
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Eye size={15} className="text-[var(--color-text-muted)]" />
+                      <span className="text-[10px] text-[var(--color-text-muted)]">
+                        {item.source === 'search' ? '片段' : '详情'}
+                      </span>
+                      <span
+                        role="button"
+                        tabIndex={0}
                         onClick={(e) => {
                           e.stopPropagation()
-                          if (confirm('确定要删除该文档吗？')) {
-                            deleteDocument(item.id)
-                          }
+                          void handleDelete(item)
                         }}
-                        className="text-[var(--color-text-muted)] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-1"
-                        title="删除"
+                        onKeyDown={(e) => {
+                          if (e.key !== 'Enter' && e.key !== ' ') return
+                          e.preventDefault()
+                          e.stopPropagation()
+                          void handleDelete(item)
+                        }}
+                        className="text-[var(--color-text-muted)] hover:text-red-400 p-1 ml-1 cursor-pointer"
+                        title="删除文档"
                       >
                         <Trash2 size={14} />
-                      </button>
+                      </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between mt-1 pl-13">
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between mt-1">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {item.tags.map((tag) => (
                         <span
                           key={tag}
@@ -364,27 +460,21 @@ export function KnowledgeView() {
                         </span>
                       ))}
                     </div>
-                    <div className="flex items-center gap-4 text-xs font-mono text-[var(--color-text-muted)]">
-                      {item.time && <span className="flex items-center gap-1">⏱ {item.time}</span>}
+                    <div className="flex items-center gap-3 text-xs font-mono text-[var(--color-text-muted)]">
+                      {formatScore(item.score) && <span>{formatScore(item.score)}</span>}
+                      {item.time && <span>⏱ {item.time}</span>}
                     </div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </div>
 
-          {/* Right Info Panel */}
           <div className="w-64 flex-shrink-0 flex flex-col min-h-0 gap-6">
             <div className="bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl p-4">
               <div className="flex items-center justify-between mb-4">
                 <span className="font-semibold text-white text-sm">知识库概览</span>
-                <button
-                  onClick={() => upload()}
-                  disabled={uploading}
-                  className="bg-[var(--color-accent-purple)] hover:bg-[#7C3AED] text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 disabled:opacity-50"
-                >
-                  <Plus size={14} /> {uploading ? '上传中...' : '新建'}
-                </button>
+                <Plus size={14} className="text-[var(--color-text-muted)]" />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-lg p-3">
@@ -432,69 +522,65 @@ export function KnowledgeView() {
               </div>
             </div>
 
-            <div className="bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl p-4 flex-1 overflow-auto">
+            <div className="bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl p-4">
               <div className="flex items-center justify-between mb-4">
-                <span className="font-semibold text-white text-sm">常用标签</span>
-                <button className="text-xs text-[var(--color-accent-primary)] hover:text-[#4F46E5] transition-colors">
-                  管理
-                </button>
+                <span className="font-semibold text-white text-sm">类型筛选</span>
+                <Info size={14} className="text-[var(--color-text-muted)]" />
               </div>
               <div className="space-y-2">
-                {(() => {
-                  const tagMap = new Map<string, number>()
-                  for (const doc of documents) {
-                    const ft = doc.file_type || '其他'
-                    tagMap.set(ft, (tagMap.get(ft) || 0) + 1)
-                  }
-                  return Array.from(tagMap.entries())
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 8)
-                    .map(([name, count]) => (
-                      <div
-                        key={name}
-                        className="flex items-center justify-between text-sm hover:bg-[var(--color-bg-card)] px-2 py-1 rounded transition-colors cursor-pointer"
-                      >
-                        <span className="text-[var(--color-text-secondary)]">{name}</span>
-                        <span className="text-xs font-mono text-[var(--color-text-muted)]">
-                          {count}
-                        </span>
-                      </div>
-                    ))
-                })()}
+                {typeOptions.length === 0 && (
+                  <span className="text-xs text-[var(--color-text-muted)]">暂无类型</span>
+                )}
+                {typeOptions.slice(0, 8).map((name) => {
+                  const count = documents.filter((doc) => (doc.file_type || '其他') === name).length
+                  return (
+                    <button
+                      key={name}
+                      onClick={() => setTypeFilter(name)}
+                      className="w-full flex items-center justify-between text-sm hover:bg-[var(--color-bg-card)] px-2 py-1 rounded transition-colors text-left"
+                    >
+                      <span className="text-[var(--color-text-secondary)]">{name}</span>
+                      <span className="text-xs font-mono text-[var(--color-text-muted)]">
+                        {count}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
-            <div className="bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl p-4">
+            <div className="bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl p-4 flex-1 overflow-auto">
               <div className="flex items-center justify-between mb-3">
-                <span className="font-semibold text-white text-sm">最近访问</span>
-                <button className="text-xs text-[var(--color-accent-primary)] hover:text-[#4F46E5] transition-colors">
-                  清空
-                </button>
+                <span className="font-semibold text-white text-sm">
+                  {selectedItem?.source === 'search' ? '检索片段详情' : '文档详情'}
+                </span>
               </div>
-              <div className="space-y-3">
-                {documents
-                  .slice()
-                  .sort(
-                    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-                  )
-                  .slice(0, 5)
-                  .map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="flex items-center justify-between group cursor-pointer"
-                    >
-                      <span className="text-xs text-[var(--color-text-secondary)] group-hover:text-white truncate max-w-[150px] transition-colors">
-                        {doc.filename}
-                      </span>
-                      <span className="text-[10px] text-[var(--color-text-muted)]">
-                        {doc.created_at}
-                      </span>
-                    </div>
-                  ))}
-                {documents.length === 0 && (
-                  <span className="text-xs text-[var(--color-text-muted)]">暂无记录</span>
-                )}
-              </div>
+              {selectedItem ? (
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm text-white font-medium break-words">
+                      {selectedItem.title}
+                    </p>
+                    <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                      {selectedItem.fileType} · {selectedItem.chunkCount ?? 0} 个片段
+                    </p>
+                  </div>
+                  <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-lg p-3 text-xs text-[var(--color-text-secondary)] leading-relaxed whitespace-pre-wrap max-h-64 overflow-auto custom-scrollbar">
+                    {selectedItem.source === 'search'
+                      ? selectedItem.desc
+                      : '该文档已导入本地知识库，可通过关键词搜索定位相关片段；文档全文读取接口尚未开放，因此这里只展示已知元数据。'}
+                  </div>
+                  {selectedItem.time && (
+                    <p className="text-[11px] text-[var(--color-text-muted)]">
+                      导入时间：{selectedItem.time}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="text-xs text-[var(--color-text-muted)] leading-relaxed">
+                  点击任一文档或检索片段可在此查看真实元数据与匹配片段。未提供后端全文接口前，不伪造文档详情内容。
+                </div>
+              )}
             </div>
           </div>
         </div>
