@@ -36,11 +36,11 @@
     "programming-practice",
     "leetcode"
   ],
-  "author": "TIANWEN-cpu",
+  "author": "SuLi <3508137206@qq.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/TIANWEN-cpu/CodeHelper.git"
+    "url": "https://github.com/TIANWEN-cpu/CodeHelper-Studio.git"
   },
   "type": "commonjs",
   "dependencies": {
