@@ -157,22 +157,27 @@ export async function getPresets(): Promise<PromptPreset[]> {
 export async function quickAsk(prompt: string): Promise<string> {
   const session = await createSession('Quick Ask')
 
-  return new Promise<string>((resolve, reject) => {
-    const cleanupDone = onDone((fullContent) => {
-      cleanupChunk()
-      cleanupDone()
-      resolve(fullContent)
-    })
+  try {
+    return await new Promise<string>((resolve, reject) => {
+      const cleanupDone = onDone((fullContent) => {
+        cleanupChunk()
+        cleanupDone()
+        resolve(fullContent)
+      })
 
-    // Also listen for errors reported via chunks (optional safeguard)
-    const cleanupChunk = onChunk(() => {
-      // Chunks are consumed by onDone; nothing extra required here.
-    })
+      // Also listen for errors reported via chunks (optional safeguard)
+      const cleanupChunk = onChunk(() => {
+        // Chunks are consumed by onDone; nothing extra required here.
+      })
 
-    sendMessage(session.id, prompt).catch((err) => {
-      cleanupChunk()
-      cleanupDone()
-      reject(err)
+      sendMessage(session.id, prompt).catch((err) => {
+        cleanupChunk()
+        cleanupDone()
+        reject(err)
+      })
     })
-  })
+  } finally {
+    // 清理临时会话，避免污染会话列表（错题分析/报错诊断会频繁调用）。
+    deleteSession(session.id).catch(() => {})
+  }
 }

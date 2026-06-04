@@ -7,6 +7,18 @@ import { DEFAULT_CODE_THEME } from './lib/codeThemes'
 
 export type WeekStart = 'mon' | 'sun'
 
+/**
+ * AI 上下文快照：由各视图写入"当前正在处理的对象"（题目/练习/错题/课程），
+ * AI 面板据此把代码与题面组装进提问，使对话真正结合上下文而非孤立聊天。
+ */
+export interface AIContextSnapshot {
+  kind: 'problem' | 'exercise' | 'mistake' | 'lesson'
+  title: string
+  language?: string
+  code?: string
+  detail?: string
+}
+
 interface AppState {
   currentView: ViewType
   showAITutor: boolean
@@ -19,6 +31,10 @@ interface AppState {
   weekStart: WeekStart
   /** 代码主题 id：驱动工作区 CodeMirror 编辑器语法高亮配色。 */
   codeTheme: string
+  /** 当前 AI 上下文（正在处理的题目/练习/错题/课程），供 AI 面板组装提问。 */
+  aiContext: AIContextSnapshot | null
+  /** 待 AI 面板消费的一次性对话请求：display 入气泡，send 实际发给模型（如运行报错诊断）。 */
+  pendingAIPrompt: { display: string; send: string } | null
   theme: ThemeMode
   setCurrentView: (view: ViewType) => void
   toggleAITutor: () => void
@@ -36,6 +52,12 @@ interface AppState {
   setWeekStart: (w: WeekStart) => void
   /** 设置代码主题并持久化 code_theme。 */
   setCodeTheme: (id: string) => void
+  /** 写入/清空当前 AI 上下文（视图挂载时设置、卸载时传 null）。 */
+  setAIContext: (ctx: AIContextSnapshot | null) => void
+  /** 请求 AI 对话：打开面板并投递一次性消息，由 AI 面板消费发送。 */
+  requestAIChat: (display: string, send: string) => void
+  /** AI 面板取走待发送请求后清空。 */
+  consumeAIPrompt: () => void
   /** 设置主题：写 DOM + 持久化 + 更新状态；手动选主题时关闭"跟随系统"。 */
   setTheme: (theme: ThemeMode) => void
   toggleTheme: () => void
@@ -54,6 +76,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   dateRegion: 'zh-CN',
   weekStart: 'mon',
   codeTheme: DEFAULT_CODE_THEME,
+  aiContext: null,
+  pendingAIPrompt: null,
   theme: 'dark',
   setCurrentView: (view) => set({ currentView: view }),
   toggleAITutor: () => set((state) => ({ showAITutor: !state.showAITutor })),
@@ -82,6 +106,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     persistAppearance('code_theme', id)
     set({ codeTheme: id })
   },
+  setAIContext: (ctx) => set({ aiContext: ctx }),
+  requestAIChat: (display, send) => set({ pendingAIPrompt: { display, send }, showAITutor: true }),
+  consumeAIPrompt: () => set({ pendingAIPrompt: null }),
   setTheme: (theme) => {
     applyTheme(theme)
     set({ theme })

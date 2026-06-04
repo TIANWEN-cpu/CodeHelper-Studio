@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils'
 import { useReviewData } from '@/hooks/useReviewData'
 import { useAppStore } from '@/store'
 import { formatDate } from '@/lib/locale'
+import { quickAsk } from '@/services/aiService'
 
 export function ReviewView() {
   const setCurrentView = useAppStore((s) => s.setCurrentView)
@@ -50,6 +51,8 @@ export function ReviewView() {
   const [isMaximized, setIsMaximized] = React.useState(false)
   const [showCorrectCode, setShowCorrectCode] = React.useState(false)
   const [sortMode, setSortMode] = React.useState<'recent' | 'oldest' | 'errors'>('recent')
+  const [aiAnalyzing, setAiAnalyzing] = React.useState(false)
+  const setAIContext = useAppStore((s) => s.setAIContext)
 
   // Auto-select first item when list loads
   React.useEffect(() => {
@@ -113,6 +116,19 @@ export function ReviewView() {
     new Set(mistakes.flatMap((m) => m.error_types).filter(Boolean)),
   )
 
+  // 选中错题时写入 AI 上下文，使 AI 面板提问自动带入错误代码与类型；离开页面清空。
+  React.useEffect(() => {
+    if (selected) {
+      setAIContext({
+        kind: 'mistake',
+        title: selected.problem_title,
+        code: selected.last_wrong_code,
+        detail: selected.error_types.join('、') || undefined,
+      })
+    }
+  }, [selected, setAIContext])
+  React.useEffect(() => () => setAIContext(null), [setAIContext])
+
   const generateLocalAnalysis = () => {
     if (!selected) return ''
     const errorTypes =
@@ -153,12 +169,39 @@ export function ReviewView() {
     }
   }
 
+  // 组装错题分析提示词：题面 + 错误类型 + 知识点 + 错误代码（含参考正确代码）。
+  const buildMistakePrompt = () => {
+    if (!selected) return ''
+    const parts = [
+      '你是编程错题复盘助手。请用简洁中文针对这道做错的题给出复盘：1) 错误根因；2) 修正思路；3) 举一反三的注意点。不超过 300 字。',
+      `【题目】${selected.problem_title}`,
+      `【错误类型】${selected.error_types.join('、') || '未分类'}`,
+      `【相关知识点】${selected.tags.join('、') || '无'}`,
+    ]
+    if (selected.last_wrong_code?.trim())
+      parts.push(`【我的错误代码】\n${selected.last_wrong_code}`)
+    if (selected.correct_code?.trim()) parts.push(`【参考正确代码】\n${selected.correct_code}`)
+    return parts.join('\n')
+  }
+
   const handleAiAnalysis = async () => {
-    if (!selected) return
+    if (!selected || aiAnalyzing) return
+    setAiAnalyzing(true)
     try {
-      await updateAnalysis(selected.id, generateLocalAnalysis())
-    } catch {
-      /* error handled by hook */
+      let text: string
+      try {
+        // 真·AI 复盘：调用已配置的 AI 模型，结合错误代码生成分析。
+        const ai = (await quickAsk(buildMistakePrompt())).trim()
+        text = ai || generateLocalAnalysis()
+      } catch {
+        // 未配置 AI 模型或调用失败时，诚实回退到本地规则复盘并标注。
+        text =
+          generateLocalAnalysis() +
+          '\n\n（以上为本地规则复盘；在设置中配置 AI 模型后，可获得结合代码的 AI 深度分析。）'
+      }
+      await updateAnalysis(selected.id, text)
+    } finally {
+      setAiAnalyzing(false)
     }
   }
 
@@ -684,10 +727,10 @@ export function ReviewView() {
                 </button>
                 <button
                   onClick={handleAiAnalysis}
-                  disabled={!selected}
+                  disabled={!selected || aiAnalyzing}
                   className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[var(--color-accent-primary)]/10 to-[var(--color-accent-purple)]/10 border border-[var(--color-accent-purple)]/30 text-[var(--color-accent-purple)] hover:bg-[var(--color-accent-purple)]/20 rounded-lg text-sm font-medium transition-colors disabled:opacity-40"
                 >
-                  <Sparkles size={14} /> 生成复盘建议
+                  <Sparkles size={14} /> {aiAnalyzing ? '分析中…' : '生成复盘建议'}
                 </button>
                 <button
                   onClick={() => {

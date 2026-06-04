@@ -17,7 +17,7 @@ import {
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'motion/react'
 import { useAIChat } from '@/hooks/useAIChat'
-import { useAppStore } from '@/store'
+import { useAppStore, type AIContextSnapshot } from '@/store'
 import type { ViewType } from '@/types'
 
 // 当前页面 -> 中文上下文标签（与 Sidebar 导航保持一致）。
@@ -40,6 +40,24 @@ const FALLBACK_QUICK_ACTIONS = [
   { icon: MessageSquare, color: '#10B981', label: '总结知识点' },
 ] as const
 
+const KIND_LABELS: Record<AIContextSnapshot['kind'], string> = {
+  problem: '题目',
+  exercise: '练习',
+  mistake: '错题',
+  lesson: '课程',
+}
+
+// 把当前 AI 上下文（题目/代码/错题）组装为提问前缀，让对话结合上下文而非孤立聊天。
+function buildContextPrefix(ctx: AIContextSnapshot | null): string {
+  if (!ctx) return ''
+  const lines = [`【当前${KIND_LABELS[ctx.kind]}】${ctx.title}`]
+  if (ctx.detail) lines.push(`【${ctx.kind === 'mistake' ? '错误类型' : '说明'}】${ctx.detail}`)
+  if (ctx.code && ctx.code.trim()) {
+    lines.push(`【相关代码${ctx.language ? ` (${ctx.language})` : ''}】\n${ctx.code.trim()}`)
+  }
+  return lines.join('\n') + '\n\n---\n请结合以上上下文回答下面的问题：\n'
+}
+
 export function AITutorPanel({ onClose }: { onClose?: () => void }) {
   const {
     sessions,
@@ -59,6 +77,11 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
   // 真实当前上下文：读取全局 currentView。
   const currentView = useAppStore((s) => s.currentView)
   const contextLabel = VIEW_LABELS[currentView] ?? 'CodeHelper'
+
+  // 学习态上下文（题目/练习/错题代码等），由各视图写入 store。
+  const aiContext = useAppStore((s) => s.aiContext)
+  const pendingAIPrompt = useAppStore((s) => s.pendingAIPrompt)
+  const consumeAIPrompt = useAppStore((s) => s.consumeAIPrompt)
 
   const [inputValue, setInputValue] = useState('')
   const [activeTab, setActiveTab] = useState<'chat' | 'actions'>('chat')
@@ -93,34 +116,40 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [sessionMenuOpen])
 
+  // 把当前学习态上下文组装为发送前缀（显示仍为原始问题）。
+  const withContext = useCallback(
+    (text: string) => {
+      const prefix = buildContextPrefix(aiContext)
+      return prefix ? prefix + text : undefined
+    },
+    [aiContext],
+  )
+
   const handleSend = useCallback(async () => {
     const content = inputValue.trim()
     if (!content || streaming) return
     setInputValue('')
-
-    // If no session exists, create one first.
-    if (!currentSession) {
-      const title = content.length > 20 ? content.slice(0, 20) + '...' : content
-      await createSession(title)
-    }
-
-    sendMessage(content)
-  }, [inputValue, streaming, currentSession, createSession, sendMessage])
+    // 会话由 sendMessage 内部按需创建；发送内容带上下文，显示/入库用原文。
+    sendMessage(content, undefined, withContext(content))
+  }, [inputValue, streaming, sendMessage, withContext])
 
   const handleQuickAction = useCallback(
     async (prompt: string) => {
       if (streaming) return
-
-      if (!currentSession) {
-        const title = prompt.length > 20 ? prompt.slice(0, 20) + '...' : prompt
-        await createSession(title)
-      }
-
-      sendMessage(prompt)
+      sendMessage(prompt, undefined, withContext(prompt))
       setActiveTab('chat')
     },
-    [streaming, currentSession, createSession, sendMessage],
+    [streaming, sendMessage, withContext],
   )
+
+  // 消费来自其他视图的一次性 AI 请求（如工作区"让 AI 诊断报错"）。
+  useEffect(() => {
+    if (!pendingAIPrompt) return
+    const { display, send } = pendingAIPrompt
+    consumeAIPrompt()
+    setActiveTab('chat')
+    sendMessage(display, undefined, send)
+  }, [pendingAIPrompt, consumeAIPrompt, sendMessage])
 
   // 新建对话：清空当前会话，由下一条消息触发真正创建（与 handleSend 一致）。
   const handleNewSession = useCallback(async () => {
@@ -313,12 +342,27 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
                   <FileCode size={16} />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{contextLabel}</p>
-                  <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                    {currentSession
-                      ? `会话：${currentSession.title || '未命名会话'}`
-                      : '正在浏览此页面'}
-                  </p>
+                  {aiContext ? (
+                    <>
+                      <p className="text-sm font-medium text-white truncate">
+                        {KIND_LABELS[aiContext.kind]}：{aiContext.title}
+                      </p>
+                      <p className="text-xs text-[var(--color-text-muted)] mt-1 truncate">
+                        {aiContext.code && aiContext.code.trim()
+                          ? `提问将带入代码 ${aiContext.code.trim().split('\n').length} 行${aiContext.language ? ` · ${aiContext.language}` : ''}`
+                          : aiContext.detail || '提问时将带入此上下文'}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-medium text-white truncate">{contextLabel}</p>
+                      <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                        {currentSession
+                          ? `会话：${currentSession.title || '未命名会话'}`
+                          : '正在浏览此页面'}
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

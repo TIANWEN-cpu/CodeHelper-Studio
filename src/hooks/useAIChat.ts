@@ -43,7 +43,7 @@ export interface UseAIChatReturn {
   deleteSession: (id: string) => Promise<void>
 
   // Messaging
-  sendMessage: (content: string, configId?: number) => Promise<void>
+  sendMessage: (content: string, configId?: number, sendOverride?: string) => Promise<void>
 
   // Quick ask (one-shot, returns the full answer)
   quickAsk: (prompt: string) => Promise<string>
@@ -172,22 +172,30 @@ export function useAIChat(): UseAIChatReturn {
   // ---------- Send message with streaming ----------
 
   const sendMessage = useCallback(
-    async (content: string, configId?: number) => {
-      if (!currentSession) {
-        setError('请先选择或创建一个会话')
-        return
-      }
-
-      const sessionId = currentSession.id
-
+    async (content: string, configId?: number, sendOverride?: string) => {
+      if (streaming) return
       setError(null)
+
+      // 确保有会话；使用 createSession 的返回值，避免 setState 异步导致的 stale 闭包。
+      let session = currentSession
+      if (!session) {
+        const title = content.length > 20 ? content.slice(0, 20) + '...' : content || '新对话'
+        try {
+          session = await createSession(title)
+        } catch {
+          // createSession 已设置错误信息。
+          return
+        }
+      }
+      const sessionId = session.id
+
       setStreaming(true)
       setStreamingContent('')
 
       // Tear down any leftover listeners from a previous stream.
       teardownStream()
 
-      // Optimistically append the user message to the local list.
+      // 乐观显示用户消息，始终为原始问题（不含上下文前缀）。
       const userMsg: ChatMessage = {
         id: `temp-user-${Date.now()}`,
         role: 'user',
@@ -197,8 +205,8 @@ export function useAIChat(): UseAIChatReturn {
       setMessages((prev) => [...prev, userMsg])
 
       try {
-        // Kick off the IPC call (returns immediately; response streams via events).
-        await sendMessageApi(sessionId, content, configId)
+        // 实际发给模型的内容可带上下文前缀（sendOverride）；显示与入库仍用原始 content。
+        await sendMessageApi(sessionId, sendOverride ?? content, configId)
 
         // Subscribe to chunk events.
         const unsubC = onChunk((chunk) => {
@@ -245,7 +253,7 @@ export function useAIChat(): UseAIChatReturn {
         setError(err instanceof Error ? err.message : '发送消息失败')
       }
     },
-    [currentSession, teardownStream],
+    [currentSession, createSession, teardownStream, streaming],
   )
 
   // ---------- Quick ask ----------

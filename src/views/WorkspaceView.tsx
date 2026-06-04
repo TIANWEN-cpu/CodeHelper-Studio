@@ -8,6 +8,7 @@ import {
   X,
   PanelLeftClose,
   PanelLeft,
+  Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'motion/react'
@@ -113,6 +114,8 @@ export function WorkspaceView({
   const bottomPanelCollapsed = useAppStore((s) => s.bottomPanelCollapsed)
   const doubleLineTabs = useAppStore((s) => s.doubleLineTabs)
   const codeTheme = useAppStore((s) => s.codeTheme)
+  const setAIContext = useAppStore((s) => s.setAIContext)
+  const requestAIChat = useAppStore((s) => s.requestAIChat)
   const [explorerCollapsed, setExplorerCollapsed] = useState(false)
   const [terminalCollapsed, setTerminalCollapsed] = useState(bottomPanelCollapsed)
   const [problemId, setProblemId] = useState<string>('')
@@ -149,6 +152,25 @@ export function WorkspaceView({
     }
     if (!problemId) return
     await submitToProblem(problemId, code, language)
+  }
+
+  // 把当前题目/练习与编辑器代码写入 AI 上下文，使 AI 面板提问时自动带入。
+  useEffect(() => {
+    const title = isExerciseMode
+      ? (exerciseContext?.title ?? '练习')
+      : workspaceFileBaseName || '工作区代码'
+    setAIContext({ kind: isExerciseMode ? 'exercise' : 'problem', title, language, code })
+  }, [isExerciseMode, exerciseContext?.title, workspaceFileBaseName, language, code, setAIContext])
+  useEffect(() => () => setAIContext(null), [setAIContext])
+
+  // 运行/提交报错时，一键把代码与报错交给 AI 诊断（打开 AI 面板并发送）。
+  const runStderr = runResult && runResult.exitCode !== 0 ? runResult.stderr : ''
+  const diagnosable = Boolean(runStderr || error)
+  const handleDiagnose = () => {
+    const detail = (runStderr || error || '').trim()
+    if (!detail) return
+    const send = `我运行下面这段 ${language} 代码时报错了，请帮我诊断原因并给出修复建议（用中文，简明扼要）：\n\n【代码】\n${code}\n\n【报错信息】\n${detail}`
+    requestAIChat('帮我诊断这个运行错误', send)
   }
 
   return (
@@ -309,6 +331,15 @@ export function WorkspaceView({
                       <span className="text-[#F59E0B]">&gt;</span> {languageMeta(language).cmd} src/
                       {fileName}
                     </div>
+
+                    {diagnosable && (
+                      <button
+                        onClick={handleDiagnose}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--color-accent-purple)]/10 border border-[var(--color-accent-purple)]/30 text-[var(--color-accent-purple)] hover:bg-[var(--color-accent-purple)]/20 text-[11px] font-medium transition-colors"
+                      >
+                        <Sparkles size={12} /> 让 AI 诊断此错误
+                      </button>
+                    )}
 
                     {isRunning ? (
                       <div className="text-[var(--color-text-muted)] animate-pulse pt-2">
