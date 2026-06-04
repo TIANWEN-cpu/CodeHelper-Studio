@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, Menu, dialog } from 'electron'
+import { app, BrowserWindow, shell, Menu, dialog, nativeImage } from 'electron'
 import { readFileSync } from 'fs'
 import { registerRunnerIPC } from './ipc/runner'
 import { registerDatabaseIPC } from './ipc/database'
@@ -48,6 +48,12 @@ console.log('[STARTUP] Platform:', process.platform, '| Arch:', arch(), '| OS re
 console.log('[STARTUP] app.isPackaged:', app.isPackaged)
 console.log('[STARTUP] CWD:', process.cwd())
 console.log('[STARTUP] __dirname:', __dirname)
+
+app.setName('CodeHelper')
+
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.codehelper.app')
+}
 
 // ---------------------------------------------------------------------------
 // Global error handlers — prevent silent crashes in the main process
@@ -108,6 +114,14 @@ function getPlatformInfo(): {
     chromeVersion: process.versions.chrome ?? '',
     nodeVersion: process.versions.node ?? '',
   }
+}
+
+function getApplicationIconPath(): string {
+  if (app.isPackaged) {
+    return join(process.resourcesPath, 'icons', 'icon.ico')
+  }
+
+  return join(__dirname, '../../resources/icons/icon.ico')
 }
 
 function setupApplicationMenu(): void {
@@ -236,7 +250,17 @@ function createWindowContextMenu(
 function createWindow(): void {
   startupLog('Window creation starting')
   const preloadPath = getPreloadScriptPath(__dirname)
+  const iconPath = getApplicationIconPath()
+  const applicationIcon = nativeImage.createFromPath(iconPath)
   console.log('[STARTUP] Preload script path:', preloadPath)
+  console.log(
+    '[STARTUP] Application icon path:',
+    iconPath,
+    '| loaded:',
+    !applicationIcon.isEmpty(),
+    '| size:',
+    applicationIcon.getSize(),
+  )
 
   let mainWindow: BrowserWindow
   try {
@@ -246,6 +270,7 @@ function createWindow(): void {
       minWidth: 900,
       minHeight: 600,
       backgroundColor: '#1e1e2e',
+      icon: applicationIcon,
       show: false,
       webPreferences: {
         preload: preloadPath,
@@ -255,6 +280,7 @@ function createWindow(): void {
         navigateOnDragDrop: false,
       },
     })
+    mainWindow.setIcon(applicationIcon)
     startupLog('BrowserWindow created')
   } catch (err) {
     startupError('BrowserWindow creation failed', err)

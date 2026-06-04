@@ -5,6 +5,7 @@ import {
   MessageSquare,
   Zap,
   BookOpen,
+  BrainCircuit,
   FileCode,
   Send,
   Loader2,
@@ -13,6 +14,13 @@ import {
   History,
   ChevronDown,
   Bug,
+  GraduationCap,
+  Lightbulb,
+  Mic,
+  RotateCcw,
+  ScrollText,
+  ShieldCheck,
+  Target,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'motion/react'
@@ -30,15 +38,265 @@ const VIEW_LABELS: Record<ViewType, string> = {
   review: '复习与错题',
   knowledge: '知识库',
   settings: '设置',
+  profile: '个人主页',
 }
 
-// 通用快捷操作回退项（presets 为空时使用）。不再与具体题目硬耦合。
-const FALLBACK_QUICK_ACTIONS = [
-  { icon: FileCode, color: '#6366F1', label: '解释这段代码' },
-  { icon: Bug, color: '#EF4444', label: '帮我调试' },
-  { icon: BookOpen, color: '#F59E0B', label: '出一道练习题' },
-  { icon: MessageSquare, color: '#10B981', label: '总结知识点' },
-] as const
+type QuickAction = {
+  id: string
+  label: string
+  prompt: string
+  icon: typeof Sparkles
+  color: string
+}
+
+type TutorMode = 'socratic' | 'explain' | 'interview' | 'review' | 'codeReview'
+
+const TUTOR_MODES: Record<
+  TutorMode,
+  { label: string; shortLabel: string; instruction: string; icon: typeof Sparkles }
+> = {
+  socratic: {
+    label: '苏格拉底模式',
+    shortLabel: '提示',
+    icon: Lightbulb,
+    instruction:
+      '请使用苏格拉底式教学：先给 1-3 个逐步提示和追问，尽量不直接给完整答案，除非用户明确要求。',
+  },
+  explain: {
+    label: '讲解模式',
+    shortLabel: '讲解',
+    icon: GraduationCap,
+    instruction: '请用清晰、循序渐进的方式详细讲解，必要时给出小例子和关键概念对照。',
+  },
+  interview: {
+    label: '面试官模式',
+    shortLabel: '面试',
+    icon: Mic,
+    instruction:
+      '请像技术面试官一样回应：追问复杂度、边界情况、权衡和可证明性，不要只停留在答案本身。',
+  },
+  review: {
+    label: '复盘模式',
+    shortLabel: '复盘',
+    icon: RotateCcw,
+    instruction: '请聚焦学习复盘：指出错误根因、知识漏洞、下次复习动作和同类题训练建议。',
+  },
+  codeReview: {
+    label: '代码审查模式',
+    shortLabel: '审查',
+    icon: ShieldCheck,
+    instruction:
+      '请做代码审查：优先指出 bug、边界条件、可读性、复杂度和测试缺口，给出可执行修改建议。',
+  },
+}
+
+const PAGE_QUICK_ACTIONS: Partial<Record<ViewType, QuickAction[]>> = {
+  home: [
+    {
+      id: 'home-plan',
+      label: '规划今天',
+      prompt: '请根据当前学习状态，帮我制定今天的学习顺序和时间分配。',
+      icon: Target,
+      color: '#F59E0B',
+    },
+    {
+      id: 'home-review',
+      label: '找薄弱点',
+      prompt: '请帮我从最近学习记录中归纳可能的薄弱点，并给出下一步行动。',
+      icon: BrainCircuit,
+      color: '#3B82F6',
+    },
+    {
+      id: 'home-summary',
+      label: '总结今日',
+      prompt: '请帮我生成一份今日学习总结模板，包含课程、练习、错题和待复习项。',
+      icon: ScrollText,
+      color: '#10B981',
+    },
+    {
+      id: 'home-motivate',
+      label: '降低选择',
+      prompt: '请只告诉我接下来 15 分钟最应该做的一件事，并说明原因。',
+      icon: Lightbulb,
+      color: '#8B5CF6',
+    },
+  ],
+  learn: [
+    {
+      id: 'learn-explain',
+      label: '解释这一节',
+      prompt: '请解释当前课程这一节的核心知识点，并指出最容易误解的地方。',
+      icon: BookOpen,
+      color: '#8B5CF6',
+    },
+    {
+      id: 'learn-practice',
+      label: '生成练习题',
+      prompt: '请基于当前课程内容生成 3 道递进式小练习，不要直接给答案。',
+      icon: FileCode,
+      color: '#10B981',
+    },
+    {
+      id: 'learn-summary',
+      label: '总结知识点',
+      prompt: '请把当前课程内容整理成适合复习的知识点卡片。',
+      icon: ScrollText,
+      color: '#3B82F6',
+    },
+    {
+      id: 'learn-check',
+      label: '检查理解',
+      prompt: '请用 5 个问题检查我是否理解当前课程内容，并逐步追问。',
+      icon: Lightbulb,
+      color: '#F59E0B',
+    },
+  ],
+  practice: [
+    {
+      id: 'practice-hint',
+      label: '给我提示',
+      prompt: '请针对当前题目给我一个不剧透完整解法的分阶段提示。',
+      icon: Lightbulb,
+      color: '#F59E0B',
+    },
+    {
+      id: 'practice-complexity',
+      label: '分析复杂度',
+      prompt: '请分析当前解法可能的时间复杂度和空间复杂度，并提示如何优化。',
+      icon: BrainCircuit,
+      color: '#3B82F6',
+    },
+    {
+      id: 'practice-debug',
+      label: '找出错误',
+      prompt: '请检查当前代码可能失败的边界情况，并给出最小反例。',
+      icon: Bug,
+      color: '#EF4444',
+    },
+    {
+      id: 'practice-tests',
+      label: '生成测试用例',
+      prompt: '请为当前题目生成覆盖常规、边界和反例的测试用例。',
+      icon: FileCode,
+      color: '#10B981',
+    },
+  ],
+  review: [
+    {
+      id: 'review-cause',
+      label: '分析错误原因',
+      prompt: '请分析当前错题的错误根因，并指出我应该补的知识点。',
+      icon: Bug,
+      color: '#EF4444',
+    },
+    {
+      id: 'review-similar',
+      label: '生成同类题',
+      prompt: '请根据当前错题生成 3 道同类训练题，难度逐步增加。',
+      icon: FileCode,
+      color: '#10B981',
+    },
+    {
+      id: 'review-plan',
+      label: '制定复习计划',
+      prompt: '请基于当前错题给我制定 7 天复习计划。',
+      icon: RotateCcw,
+      color: '#F59E0B',
+    },
+    {
+      id: 'review-compare',
+      label: '对比正确解法',
+      prompt: '请对比我的错误代码和正确思路，指出关键差异。',
+      icon: ScrollText,
+      color: '#8B5CF6',
+    },
+  ],
+  workspace: [
+    {
+      id: 'workspace-file',
+      label: '解释当前文件',
+      prompt: '请解释当前文件的结构、核心逻辑和关键函数。',
+      icon: FileCode,
+      color: '#6366F1',
+    },
+    {
+      id: 'workspace-optimize',
+      label: '优化当前函数',
+      prompt: '请优化当前代码的可读性、性能和边界处理，并说明改动原因。',
+      icon: Sparkles,
+      color: '#8B5CF6',
+    },
+    {
+      id: 'workspace-bugs',
+      label: '查找潜在 bug',
+      prompt: '请审查当前代码，优先找出潜在 bug、边界条件和异常路径。',
+      icon: Bug,
+      color: '#EF4444',
+    },
+    {
+      id: 'workspace-tests',
+      label: '生成单元测试',
+      prompt: '请为当前代码生成单元测试，覆盖正常输入、边界输入和失败路径。',
+      icon: ShieldCheck,
+      color: '#10B981',
+    },
+  ],
+  knowledge: [
+    {
+      id: 'knowledge-card',
+      label: '生成知识卡',
+      prompt: '请把当前知识内容整理成一张复习卡片，包含概念、例子和易错点。',
+      icon: ScrollText,
+      color: '#8B5CF6',
+    },
+    {
+      id: 'knowledge-map',
+      label: '梳理图谱',
+      prompt: '请把当前知识点和相关前置/后续知识整理成文字版知识图谱。',
+      icon: BrainCircuit,
+      color: '#3B82F6',
+    },
+    {
+      id: 'knowledge-quiz',
+      label: '生成自测',
+      prompt: '请根据当前知识库内容生成 5 个自测问题。',
+      icon: Lightbulb,
+      color: '#F59E0B',
+    },
+    {
+      id: 'knowledge-note',
+      label: '整理笔记',
+      prompt: '请把我接下来提供的材料整理成结构化学习笔记。',
+      icon: BookOpen,
+      color: '#10B981',
+    },
+  ],
+}
+
+const DEFAULT_QUICK_ACTIONS: QuickAction[] = [
+  {
+    id: 'fallback-code',
+    icon: FileCode,
+    color: '#6366F1',
+    label: '解释这段代码',
+    prompt: '解释这段代码',
+  },
+  { id: 'fallback-debug', icon: Bug, color: '#EF4444', label: '帮我调试', prompt: '帮我调试' },
+  {
+    id: 'fallback-practice',
+    icon: BookOpen,
+    color: '#F59E0B',
+    label: '出一道练习题',
+    prompt: '出一道练习题',
+  },
+  {
+    id: 'fallback-summary',
+    icon: MessageSquare,
+    color: '#10B981',
+    label: '总结知识点',
+    prompt: '总结知识点',
+  },
+]
 
 const KIND_LABELS: Record<AIContextSnapshot['kind'], string> = {
   problem: '题目',
@@ -47,10 +305,17 @@ const KIND_LABELS: Record<AIContextSnapshot['kind'], string> = {
   lesson: '课程',
 }
 
-// 把当前 AI 上下文（题目/代码/错题）组装为提问前缀，让对话结合上下文而非孤立聊天。
-function buildContextPrefix(ctx: AIContextSnapshot | null): string {
-  if (!ctx) return ''
-  const lines = [`【当前${KIND_LABELS[ctx.kind]}】${ctx.title}`]
+// 把教学模式 + 当前 AI 上下文（题目/代码/错题）组装为提问前缀，让对话结合上下文而非孤立聊天。
+function buildContextPrefix(
+  ctx: AIContextSnapshot | null,
+  tutorMode: TutorMode,
+  currentView: ViewType,
+): string {
+  const mode = TUTOR_MODES[tutorMode]
+  const lines = [`【教学模式】${mode.label}`, `【模式要求】${mode.instruction}`]
+  lines.push(`【当前页面】${VIEW_LABELS[currentView] ?? 'CodeHelper'}`)
+  if (!ctx) return lines.join('\n') + '\n\n---\n请结合以上要求回答下面的问题：\n'
+  lines.push(`【当前${KIND_LABELS[ctx.kind]}】${ctx.title}`)
   if (ctx.detail) lines.push(`【${ctx.kind === 'mistake' ? '错误类型' : '说明'}】${ctx.detail}`)
   if (ctx.code && ctx.code.trim()) {
     lines.push(`【相关代码${ctx.language ? ` (${ctx.language})` : ''}】\n${ctx.code.trim()}`)
@@ -86,9 +351,12 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
   const [inputValue, setInputValue] = useState('')
   const [activeTab, setActiveTab] = useState<'chat' | 'actions'>('chat')
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false)
+  const [tutorMode, setTutorMode] = useState<TutorMode>('explain')
   const chatEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const sessionMenuRef = useRef<HTMLDivElement>(null)
+  const activeMode = TUTOR_MODES[tutorMode]
+  const ActiveModeIcon = activeMode.icon
 
   // Auto-scroll to bottom when messages or streaming content change.
   useEffect(() => {
@@ -119,10 +387,10 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
   // 把当前学习态上下文组装为发送前缀（显示仍为原始问题）。
   const withContext = useCallback(
     (text: string) => {
-      const prefix = buildContextPrefix(aiContext)
-      return prefix ? prefix + text : undefined
+      const prefix = buildContextPrefix(aiContext, tutorMode, currentView)
+      return prefix + text
     },
-    [aiContext],
+    [aiContext, currentView, tutorMode],
   )
 
   const handleSend = useCallback(async () => {
@@ -181,26 +449,18 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
     [deleteSession],
   )
 
-  // 快捷操作：优先使用后端 presets，为空时回退到通用项。
-  const quickActions = useMemo(
-    () =>
-      presets.length > 0
-        ? presets.map((p) => ({
-            id: String(p.id),
-            label: p.name,
-            prompt: p.prompt,
-            icon: Zap,
-            color: '#8B5CF6',
-          }))
-        : FALLBACK_QUICK_ACTIONS.map((a) => ({
-            id: a.label,
-            label: a.label,
-            prompt: a.label,
-            icon: a.icon,
-            color: a.color,
-          })),
-    [presets],
-  )
+  // 快捷操作：当前页面动作优先，后端 presets 作为可扩展补充。
+  const quickActions = useMemo(() => {
+    const pageActions = PAGE_QUICK_ACTIONS[currentView] ?? DEFAULT_QUICK_ACTIONS
+    const presetActions = presets.slice(0, 2).map((p) => ({
+      id: String(p.id),
+      label: p.name,
+      prompt: p.prompt,
+      icon: Zap,
+      color: '#8B5CF6',
+    }))
+    return [...pageActions, ...presetActions]
+  }, [currentView, presets])
 
   // 输入以 / 开头时，把输入框变成快捷操作选择器（真实复用 quickActions，不臆造命令）。
   const slashActive = inputValue.startsWith('/')
@@ -333,9 +593,12 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
         <div className="flex-1 overflow-y-auto flex flex-col">
           {/* Context Area —— 真实当前页面上下文 */}
           <div className="p-4 border-b border-[var(--color-border-subtle)]/50">
-            <p className="text-xs font-medium text-[var(--color-text-secondary)] mb-3">
-              当前上下文
-            </p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-medium text-[var(--color-text-secondary)]">当前上下文</p>
+              <span className="text-[10px] text-[var(--color-text-muted)] border border-[var(--color-border-subtle)] rounded-md px-1.5 py-0.5">
+                {contextLabel}
+              </span>
+            </div>
             <div className="bg-[var(--color-bg-card)] rounded-lg border border-[var(--color-border-subtle)] p-3">
               <div className="flex items-center gap-3">
                 <div className="p-1.5 bg-[var(--color-accent-purple)]/10 text-[var(--color-accent-purple)] rounded-md">
@@ -364,6 +627,40 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
                     </>
                   )}
                 </div>
+              </div>
+            </div>
+
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-[var(--color-text-secondary)]">教学模式</p>
+                <div className="flex items-center gap-1 text-[10px] text-[var(--color-accent-purple)]">
+                  <ActiveModeIcon size={12} />
+                  {activeMode.label}
+                </div>
+              </div>
+              <div className="grid grid-cols-5 gap-1.5">
+                {(
+                  Object.entries(TUTOR_MODES) as Array<[TutorMode, (typeof TUTOR_MODES)[TutorMode]]>
+                ).map(([mode, meta]) => {
+                  const ModeIcon = meta.icon
+                  const active = tutorMode === mode
+                  return (
+                    <button
+                      key={mode}
+                      onClick={() => setTutorMode(mode)}
+                      className={cn(
+                        'h-9 rounded-lg border flex flex-col items-center justify-center gap-0.5 transition-colors',
+                        active
+                          ? 'border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/15 text-white'
+                          : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] text-[var(--color-text-muted)] hover:text-white hover:border-[var(--color-border-default)]',
+                      )}
+                      title={meta.label}
+                    >
+                      <ModeIcon size={13} />
+                      <span className="text-[9px] leading-none">{meta.shortLabel}</span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </div>

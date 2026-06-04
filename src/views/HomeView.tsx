@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip } from 'recharts'
 import {
   BookOpen,
+  BrainCircuit,
   FileCode,
   FolderCode,
   RotateCcw,
@@ -13,6 +14,8 @@ import {
   MessageSquare,
   Rocket,
   Loader2,
+  Route,
+  Target,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion } from 'motion/react'
@@ -162,6 +165,15 @@ function formatDue(due: string): string {
   return days <= 1 ? '今天到期' : `${days} 天后`
 }
 
+type LearningPathStep = {
+  title: string
+  subtitle: string
+  view: ViewType
+  icon: typeof BookOpen
+  done: boolean
+  tone: string
+}
+
 /** 能力成长面积图：先用 ResizeObserver 测得容器宽度，再以固定像素尺寸渲染。
  *  仅在测得宽度 > 0 时才挂载 AreaChart，从根本上规避 ResponsiveContainer 在
  *  flex 布局下首帧 width(-1) 既刷警告又导致图表整块不渲染的问题。 */
@@ -268,6 +280,110 @@ export function HomeView() {
     return item.type.startsWith(activityFilter)
   })
 
+  const todayKey = dateKey(new Date())
+  const todayActivities = recentActivity.filter((item) => {
+    const d = new Date(item.timestamp)
+    return !isNaN(d.getTime()) && dateKey(d) === todayKey
+  })
+  const hasTodayLesson = todayActivities.some((item) => item.type === 'lesson_completed')
+  const hasTodayPractice = todayActivities.some((item) => item.type === 'problem_solved')
+  const hasTodayAi = todayActivities.some((item) => item.type === 'ai_chat_sent')
+  const unfinishedTasks = dailyTasks.filter((task) => !task.done)
+  const remainingProblems = overview
+    ? Math.max(0, overview.totalProblems - overview.solvedProblems)
+    : 0
+  const nextActionView: ViewType =
+    reviewReminders.length > 0 ? 'review' : overview?.suggestedLesson ? 'learn' : 'practice'
+  const nextActionLabel =
+    reviewReminders.length > 0
+      ? '开始复习错题'
+      : overview?.suggestedLesson
+        ? '继续学习'
+        : '去做练习'
+  const nextActionTitle =
+    reviewReminders.length > 0
+      ? `先复习 ${reviewReminders.length} 道错题`
+      : overview?.suggestedLesson
+        ? `继续学习《${overview.suggestedLesson.title}》`
+        : '从一道练习开始热身'
+  const nextActionSubtitle =
+    reviewReminders.length > 0
+      ? '先处理到期复习，再进入新课和练习，记忆负担会轻很多。'
+      : overview?.suggestedLesson
+        ? overview.suggestedLesson.moduleTitle
+        : '还没有明确的下一课时，先用题目把状态启动起来。'
+
+  const learningPath: LearningPathStep[] = [
+    {
+      title: '复习错题',
+      subtitle:
+        reviewReminders.length > 0
+          ? `${reviewReminders.length} 道待复习，优先清掉薄弱点`
+          : '暂无到期错题，保持节奏',
+      view: 'review',
+      icon: RotateCcw,
+      done: reviewReminders.length === 0,
+      tone: 'text-[#F59E0B] bg-[#F59E0B]/10 border-[#F59E0B]/20',
+    },
+    {
+      title: '学新课',
+      subtitle: overview?.suggestedLesson
+        ? `继续《${overview.suggestedLesson.title}》`
+        : '打开课程目录选择下一课',
+      view: 'learn',
+      icon: BookOpen,
+      done:
+        hasTodayLesson ||
+        Boolean(
+          overview &&
+          overview.totalLessons > 0 &&
+          overview.completedLessons >= overview.totalLessons,
+        ),
+      tone: 'text-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/10 border-[var(--color-accent-purple)]/20',
+    },
+    {
+      title: '做练习',
+      subtitle:
+        remainingProblems > 0
+          ? `还有 ${remainingProblems} 道题可练，今天先做 1 道`
+          : '题库已完成，去工作区巩固',
+      view: 'practice',
+      icon: FileCode,
+      done: hasTodayPractice,
+      tone: 'text-[#10B981] bg-[#10B981]/10 border-[#10B981]/20',
+    },
+    {
+      title: '总结知识点',
+      subtitle: hasTodayAi ? '已经和 AI 互动过，补一条笔记更稳' : '让 AI 总结今天的概念和错误',
+      view: 'knowledge',
+      icon: BrainCircuit,
+      done: hasTodayAi,
+      tone: 'text-[#3B82F6] bg-[#3B82F6]/10 border-[#3B82F6]/20',
+    },
+  ]
+
+  const weakSignals = [
+    reviewReminders.length > 0
+      ? `${reviewReminders.length} 道错题已经进入复习窗口，建议先复盘错误原因。`
+      : null,
+    reviewReminders.some((item) => item.priority === 'high')
+      ? '存在高优先级错题，说明近期记忆稳定性偏弱。'
+      : null,
+    unfinishedTasks.length > 0 ? `${unfinishedTasks.length} 个今日任务还没完成。` : null,
+    overview &&
+    overview.totalProblems > 0 &&
+    overview.solvedProblems / overview.totalProblems < 0.25
+      ? '练习推进偏少，建议用 1 道简单题启动手感。'
+      : null,
+    todayActivities.length === 0 ? '今天还没有学习记录，可以先从 15 分钟任务开始。' : null,
+  ].filter((item): item is string => Boolean(item))
+
+  const aiAdvice =
+    weakSignals[0] ??
+    (overview?.suggestedLesson
+      ? `下一步最适合继续 ${overview.suggestedLesson.moduleTitle}，完成后做一道关联练习。`
+      : '今天状态不错，可以把刚学的内容沉淀成一张知识卡片。')
+
   if (loading) {
     return (
       <div className="h-full flex flex-col bg-[var(--color-bg-base)] overflow-y-auto">
@@ -312,50 +428,86 @@ export function HomeView() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-start">
           {/* Main Hero Card (Large) */}
-          <div className="lg:col-span-2 xl:col-span-2 min-h-[320px] bg-gradient-to-br from-[#1E243A] to-[var(--color-bg-card)] rounded-2xl border border-[var(--color-border-subtle)] hover:border-[var(--color-accent-primary)]/40 p-6 relative overflow-hidden shadow-sm hover:shadow-[0_8px_30px_rgba(99,102,241,0.15)] transition-all group">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--color-accent-primary)] rounded-full blur-[100px] opacity-20 group-hover:opacity-30 transition-opacity duration-700 -translate-y-1/2 translate-x-1/3"></div>
-            <div className="absolute bottom-0 left-0 w-48 h-48 bg-[var(--color-accent-purple)] rounded-full blur-[80px] opacity-10 group-hover:opacity-20 transition-opacity duration-700 translate-y-1/3 -translate-x-1/4"></div>
+          <div className="lg:col-span-2 xl:col-span-2 min-h-[320px] bg-gradient-to-br from-[#141A2D] via-[#151923] to-[var(--color-bg-card)] rounded-2xl border border-[var(--color-border-subtle)] hover:border-[var(--color-accent-primary)]/40 p-6 relative overflow-hidden shadow-sm hover:shadow-[0_8px_30px_rgba(99,102,241,0.15)] transition-all group">
+            <div className="absolute inset-0 opacity-[0.08] bg-[linear-gradient(135deg,transparent_0,transparent_24px,rgba(255,255,255,0.8)_25px,transparent_26px)] bg-[length:36px_36px] pointer-events-none"></div>
 
-            <div className="relative z-10 flex flex-col h-full justify-between">
-              <div>
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F59E0B]/10 text-[#F59E0B] text-xs font-medium mb-3 border border-[#F59E0B]/20">
-                  <Sparkles size={12} />
-                  <span>今日建议</span>
+            <div className="relative z-10 flex flex-col h-full">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F59E0B]/10 text-[#F59E0B] text-xs font-medium mb-3 border border-[#F59E0B]/20">
+                    <Target size={12} />
+                    <span>今日优先行动</span>
+                  </div>
+                  <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">
+                    {nextActionTitle}
+                  </h2>
+                  <p className="text-[var(--color-text-secondary)] text-sm leading-relaxed max-w-xl">
+                    {nextActionSubtitle}
+                  </p>
                 </div>
-                <h2 className="text-2xl font-bold text-white mb-2 tracking-tight group-hover:translate-x-1 transition-transform duration-300">
-                  {overview?.suggestedLesson
-                    ? `继续学习《${overview.suggestedLesson.title}》`
-                    : '开始你的第一课'}
-                </h2>
-                <p className="text-[var(--color-text-secondary)] text-sm mb-6 flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300 delay-75">
-                  <span>
-                    {overview?.suggestedLesson
-                      ? overview.suggestedLesson.moduleTitle
-                      : '选择一门课程，踏上你的编程之旅'}
-                  </span>
-                </p>
+                <div className="hidden sm:flex w-16 h-16 rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]/70 items-center justify-center shrink-0">
+                  <Route
+                    size={34}
+                    className="text-[var(--color-accent-purple)] drop-shadow-[0_0_14px_rgba(139,92,246,0.35)]"
+                    strokeWidth={1.5}
+                  />
+                </div>
               </div>
 
-              <div className="flex items-center justify-between mt-4">
+              <div className="grid grid-cols-2 gap-3 mt-6">
+                {learningPath.map((step, index) => {
+                  const Icon = step.icon
+                  return (
+                    <button
+                      key={step.title}
+                      onClick={() => setCurrentView(step.view)}
+                      className="flex items-center gap-3 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]/70 p-3 text-left hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-hover)] transition-colors group/step"
+                    >
+                      <div
+                        className={cn(
+                          'w-9 h-9 rounded-lg border flex items-center justify-center shrink-0',
+                          step.tone,
+                        )}
+                      >
+                        <Icon size={17} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-mono text-[var(--color-text-muted)]">
+                            {index + 1}
+                          </span>
+                          <span className="text-sm font-semibold text-white truncate">
+                            {step.title}
+                          </span>
+                          {step.done && <CheckCircle2 size={13} className="text-[#10B981]" />}
+                        </div>
+                        <p className="text-[11px] text-[var(--color-text-muted)] truncate mt-0.5">
+                          {step.subtitle}
+                        </p>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="flex items-center justify-between mt-auto pt-6">
                 <button
-                  onClick={() => setCurrentView('learn')}
+                  onClick={() => setCurrentView(nextActionView)}
                   className="relative overflow-hidden bg-gradient-to-r from-[var(--color-accent-primary)] to-[var(--color-accent-purple)] hover:from-[#4F46E5] hover:to-[#7C3AED] text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-all shadow-md flex items-center gap-2 hover:gap-3 group/btn hover:shadow-[0_0_15px_rgba(139,92,246,0.4)] hover:scale-105 active:scale-95"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:animate-shimmer z-0 pointer-events-none"></div>
-                  <span className="relative z-10">继续学习</span>
+                  <span className="relative z-10">{nextActionLabel}</span>
                   <ChevronRight
                     size={16}
                     className="relative z-10 text-white/70 group-hover/btn:text-white transition-colors"
                   />
                 </button>
 
-                <div className="hidden sm:block transform group-hover:scale-110 group-hover:-translate-y-2 group-hover:rotate-12 transition-all duration-700 ease-out">
-                  <Rocket
-                    size={64}
-                    className="text-[var(--color-accent-purple)]/50 drop-shadow-[0_0_15px_rgba(139,92,246,0.3)] animate-pulse"
-                    strokeWidth={1}
-                  />
-                </div>
+                <span className="text-xs text-[var(--color-text-muted)]">
+                  {todayActivities.length > 0
+                    ? `今天已有 ${todayActivities.length} 条学习记录`
+                    : '建议先完成一个 15 分钟学习单元'}
+                </span>
               </div>
             </div>
           </div>
@@ -404,41 +556,85 @@ export function HomeView() {
           </div>
 
           {/* AI Suggestion / Goals */}
-          <div className="bg-[var(--color-bg-card)] rounded-2xl border border-[var(--color-border-subtle)] p-6 min-h-[320px] shadow-sm">
+          <div className="bg-[var(--color-bg-card)] rounded-2xl border border-[var(--color-border-subtle)] p-6 min-h-[320px] shadow-sm flex flex-col">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-white text-[15px]">今日任务</h3>
+              <h3 className="font-semibold text-white text-[15px] flex items-center gap-2">
+                <Sparkles size={15} className="text-[var(--color-accent-purple)]" />
+                AI 今日建议
+              </h3>
+              <span className="text-[10px] text-[var(--color-text-muted)] border border-[var(--color-border-subtle)] rounded-md px-1.5 py-0.5">
+                进度驱动
+              </span>
             </div>
 
-            <div className="space-y-3 max-h-[240px] overflow-y-auto pr-2 -mr-2">
-              {dailyTasks.length === 0 && (
-                <p className="text-sm text-[var(--color-text-muted)] py-2">暂无任务</p>
-              )}
-              {dailyTasks.map((task) => (
-                <div key={task.id} className="flex items-center gap-3">
-                  <div className={task.done ? 'text-[#10B981]' : 'text-[var(--color-text-muted)]'}>
-                    {task.done ? <CheckCircle2 size={18} /> : <Circle size={18} />}
-                  </div>
-                  <div
-                    className={cn(
-                      'flex-1 text-sm',
-                      task.done ? 'text-white' : 'text-[var(--color-text-secondary)]',
-                    )}
-                  >
-                    {task.title}
-                  </div>
-                  <div className="text-xs font-mono text-[var(--color-text-muted)] bg-[var(--color-bg-base)] px-2 py-0.5 rounded border border-[var(--color-border-subtle)]">
-                    {task.done ? '1/1' : '0/1'}
-                  </div>
-                </div>
-              ))}
+            <div className="rounded-xl border border-[var(--color-accent-purple)]/20 bg-[var(--color-accent-purple)]/10 p-3 mb-4">
+              <p className="text-sm text-white leading-relaxed">{aiAdvice}</p>
             </div>
 
-            <button
-              onClick={() => setCurrentView('learn')}
-              className="w-full mt-5 text-xs text-[var(--color-accent-primary)] hover:text-[#4F46E5] font-medium transition-colors text-left flex items-center gap-1"
-            >
-              查看全部任务 <ChevronRight size={12} />
-            </button>
+            <div className="mb-4">
+              <div className="text-xs font-semibold text-[var(--color-text-secondary)] mb-2 flex items-center gap-1.5">
+                <BrainCircuit size={13} className="text-[#3B82F6]" />
+                学习状态判断
+              </div>
+              <div className="space-y-2">
+                {weakSignals.length === 0 ? (
+                  <div className="flex items-start gap-2 text-xs text-[var(--color-text-muted)] leading-relaxed">
+                    <CheckCircle2 size={14} className="text-[#10B981] mt-0.5 shrink-0" />
+                    当前没有明显阻塞点，可以继续推进新课并做一次总结。
+                  </div>
+                ) : (
+                  weakSignals.slice(0, 3).map((signal) => (
+                    <div
+                      key={signal}
+                      className="flex items-start gap-2 text-xs text-[var(--color-text-muted)] leading-relaxed"
+                    >
+                      <Circle size={12} className="text-[#F59E0B] mt-0.5 shrink-0" />
+                      <span>{signal}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="mt-auto border-t border-[var(--color-border-subtle)] pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold text-[var(--color-text-secondary)]">
+                  今日任务
+                </span>
+                <span className="text-[11px] text-[var(--color-text-muted)]">
+                  {Math.max(0, dailyTasks.length - unfinishedTasks.length)}/{dailyTasks.length}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {dailyTasks.length === 0 ? (
+                  <p className="text-xs text-[var(--color-text-muted)]">暂无任务</p>
+                ) : (
+                  dailyTasks.slice(0, 3).map((task) => (
+                    <div key={task.id} className="flex items-center gap-2">
+                      <div
+                        className={task.done ? 'text-[#10B981]' : 'text-[var(--color-text-muted)]'}
+                      >
+                        {task.done ? <CheckCircle2 size={14} /> : <Circle size={14} />}
+                      </div>
+                      <span
+                        className={cn(
+                          'flex-1 truncate text-xs',
+                          task.done ? 'text-white' : 'text-[var(--color-text-secondary)]',
+                        )}
+                      >
+                        {task.title}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+              <button
+                onClick={() => setCurrentView(nextActionView)}
+                className="w-full mt-4 text-xs text-[var(--color-accent-primary)] hover:text-[#4F46E5] font-medium transition-colors text-left flex items-center gap-1"
+              >
+                执行建议动作 <ChevronRight size={12} />
+              </button>
+            </div>
           </div>
         </div>
 
