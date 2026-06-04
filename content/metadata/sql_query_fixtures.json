@@ -1,0 +1,212 @@
+{
+  "db-select-active": {
+    "setup": "\n            CREATE TABLE users(name TEXT, status TEXT);\n            INSERT INTO users(name, status) VALUES\n                ('Ada', 'active'),\n                ('Ben', 'inactive'),\n                ('Mina', 'active');\n        ",
+    "expected_rows": [["Ada"], ["Mina"]],
+    "ordered": true
+  },
+  "db-order-count": {
+    "setup": "\n            CREATE TABLE orders(user_id INTEGER, amount REAL);\n            INSERT INTO orders(user_id, amount) VALUES\n                (1, 12.0),\n                (1, 18.5),\n                (2, 20.0),\n                (3, 7.5);\n        ",
+    "expected_rows": [
+      [1, 2],
+      [2, 1],
+      [3, 1]
+    ],
+    "ordered": true
+  },
+  "db-join-user-order": {
+    "setup": "\n            CREATE TABLE users(id INTEGER, name TEXT);\n            CREATE TABLE orders(user_id INTEGER, amount REAL);\n            INSERT INTO users(id, name) VALUES (1, 'Ada'), (2, 'Ben');\n            INSERT INTO orders(user_id, amount) VALUES (1, 20.0), (2, 35.5), (1, 9.9);\n        ",
+    "expected_rows": [
+      ["Ada", 20.0],
+      ["Ada", 9.9],
+      ["Ben", 35.5]
+    ],
+    "ordered": false
+  },
+  "db-subquery-high-score": {
+    "setup": "\n            CREATE TABLE scores(student TEXT, score INTEGER);\n            INSERT INTO scores(student, score) VALUES\n                ('Ada', 90),\n                ('Ben', 70),\n                ('Cici', 95),\n                ('Dora', 65);\n        ",
+    "expected_rows": [["Ada"], ["Cici"]],
+    "ordered": true
+  },
+  "db-left-join-users-orders": {
+    "setup": "\n            CREATE TABLE users(id INTEGER, name TEXT);\n            CREATE TABLE orders(user_id INTEGER, amount REAL);\n            INSERT INTO users(id, name) VALUES (1, 'Ada'), (2, 'Ben'), (3, 'Cici');\n            INSERT INTO orders(user_id, amount) VALUES (1, 20.0), (1, 15.0), (2, 35.0);\n        ",
+    "expected_rows": [
+      ["Ada", 15.0],
+      ["Ada", 20.0],
+      ["Ben", 35.0],
+      ["Cici", null]
+    ],
+    "ordered": false
+  },
+  "db-coalesce-phone": {
+    "setup": "\n            CREATE TABLE users(name TEXT, phone TEXT);\n            INSERT INTO users(name, phone) VALUES\n                ('Ada', '13800000000'),\n                ('Ben', NULL),\n                ('Cici', '13900000000');\n        ",
+    "expected_rows": [["13800000000"], ["unknown"], ["13900000000"]],
+    "ordered": true
+  },
+  "db-rank-scores": {
+    "setup": "\n            CREATE TABLE students(name TEXT, score INTEGER);\n            INSERT INTO students(name, score) VALUES\n                ('Ada', 95),\n                ('Ben', 88),\n                ('Cici', 95),\n                ('Dora', 72);\n        ",
+    "expected_rows": [
+      ["Ada", 95, 1],
+      ["Cici", 95, 1],
+      ["Ben", 88, 3],
+      ["Dora", 72, 4]
+    ],
+    "ordered": true
+  },
+  "db-with-sales-cte": {
+    "setup": "\n            CREATE TABLE orders(amount REAL);\n            INSERT INTO orders(amount) VALUES (10.0), (15.5), (24.5);\n        ",
+    "expected_rows": [[50.0]],
+    "ordered": true
+  },
+  "db-case-report": {
+    "setup": "\n            CREATE TABLE orders(amount REAL);\n            INSERT INTO orders(amount) VALUES (20.0), (45.0), (70.0), (120.0), (95.0);\n        ",
+    "expected_rows": [
+      ["high", 1],
+      ["low", 2],
+      ["medium", 2]
+    ],
+    "ordered": false
+  },
+  "db-group-having-order": {
+    "setup": "\n            CREATE TABLE orders(user_id INTEGER, amount REAL);\n            INSERT INTO orders(user_id, amount) VALUES\n                (1, 20.0),\n                (1, 22.0),\n                (1, 35.0),\n                (2, 15.0),\n                (2, 18.0),\n                (3, 40.0);\n        ",
+    "expected_rows": [
+      [1, 3],
+      [2, 2]
+    ],
+    "ordered": true
+  },
+  "db-transfer-transaction": {
+    "setup": "\n            CREATE TABLE accounts(id INTEGER PRIMARY KEY, balance INTEGER);\n            INSERT INTO accounts(id, balance) VALUES (1, 100), (2, 80);\n        ",
+    "mode": "script",
+    "check_sql": "SELECT id, balance FROM accounts ORDER BY id;",
+    "expected_rows": [
+      [1, 70],
+      [2, 110]
+    ],
+    "ordered": true
+  },
+  "db-insert-daily-report": {
+    "setup": "\n            CREATE TABLE reports(day TEXT, total INTEGER);\n        ",
+    "mode": "script",
+    "check_sql": "SELECT day, total FROM reports ORDER BY day;",
+    "expected_rows": [["2026-04-01", 8]],
+    "ordered": true
+  },
+  "db-update-null-phone": {
+    "setup": "\n            CREATE TABLE users(name TEXT, phone TEXT);\n            INSERT INTO users(name, phone) VALUES\n                ('Ada', NULL),\n                ('Ben', '13900000000');\n        ",
+    "mode": "script",
+    "check_sql": "SELECT name, phone FROM users ORDER BY name;",
+    "expected_rows": [
+      ["Ada", "unknown"],
+      ["Ben", "13900000000"]
+    ],
+    "ordered": true
+  },
+  "db-delete-cancelled-orders": {
+    "setup": "\n            CREATE TABLE orders(id INTEGER PRIMARY KEY, status TEXT);\n            INSERT INTO orders(id, status) VALUES\n                (1, 'paid'),\n                (2, 'cancelled'),\n                (3, 'paid'),\n                (4, 'cancelled');\n        ",
+    "mode": "script",
+    "check_sql": "SELECT id, status FROM orders ORDER BY id;",
+    "expected_rows": [
+      [1, "paid"],
+      [3, "paid"]
+    ],
+    "ordered": true
+  },
+  "db-window-running-total": {
+    "setup": "\n            CREATE TABLE sales(day TEXT, amount INTEGER);\n            INSERT INTO sales(day, amount) VALUES\n                ('2026-04-01', 10),\n                ('2026-04-02', 20),\n                ('2026-04-03', 15);\n        ",
+    "expected_rows": [
+      ["2026-04-01", 10, 10],
+      ["2026-04-02", 20, 30],
+      ["2026-04-03", 15, 45]
+    ],
+    "ordered": true
+  },
+  "db-exists-high-value-users": {
+    "setup": "\n            CREATE TABLE users(id INTEGER PRIMARY KEY, name TEXT);\n            CREATE TABLE orders(user_id INTEGER, amount INTEGER);\n            INSERT INTO users(id, name) VALUES (1, 'Ada'), (2, 'Ben'), (3, 'Cici');\n            INSERT INTO orders(user_id, amount) VALUES (1, 20), (1, 120), (2, 45), (3, 150);\n        ",
+    "expected_rows": [["Ada"], ["Cici"]],
+    "ordered": true
+  },
+  "db-upsert-daily-kpi": {
+    "setup": "\n            CREATE TABLE kpi(day TEXT PRIMARY KEY, total INTEGER);\n            INSERT INTO kpi(day, total) VALUES ('2026-04-01', 3);\n        ",
+    "mode": "script",
+    "check_sql": "SELECT day, total FROM kpi ORDER BY day;",
+    "expected_rows": [["2026-04-01", 8]],
+    "ordered": true
+  },
+  "db-cte-top-users": {
+    "setup": "\n            CREATE TABLE orders(user_id INTEGER, amount INTEGER);\n            INSERT INTO orders(user_id, amount) VALUES\n                (1, 40), (1, 60), (2, 100), (3, 30), (3, 20), (3, 70);\n        ",
+    "expected_rows": [
+      [1, 100],
+      [2, 100],
+      [3, 120]
+    ],
+    "ordered": true
+  },
+  "db-row-number-latest-log": {
+    "setup": "\n            CREATE TABLE logs(user_id INTEGER, ts TEXT, score INTEGER);\n            INSERT INTO logs(user_id, ts, score) VALUES\n                (1, '2026-04-01 09:00:00', 10),\n                (1, '2026-04-01 12:00:00', 20),\n                (2, '2026-04-02 10:00:00', 30),\n                (2, '2026-04-02 10:05:00', 35);\n        ",
+    "expected_rows": [
+      [1, "2026-04-01 12:00:00", 20],
+      [2, "2026-04-02 10:05:00", 35]
+    ],
+    "ordered": true
+  },
+  "db-join-course-enrollment-count": {
+    "setup": "\n            CREATE TABLE courses(id INTEGER PRIMARY KEY, title TEXT);\n            CREATE TABLE enrollments(course_id INTEGER, student_id INTEGER);\n            INSERT INTO courses(id, title) VALUES (1, 'Python'), (2, 'SQL'), (3, 'C#');\n            INSERT INTO enrollments(course_id, student_id) VALUES\n                (1, 101), (1, 102), (2, 103), (2, 104), (2, 105);\n        ",
+    "expected_rows": [
+      ["Python", 2],
+      ["SQL", 3],
+      ["C#", 0]
+    ],
+    "ordered": false
+  },
+  "db-subquery-above-course-average": {
+    "setup": "\n            CREATE TABLE scores(course TEXT, student TEXT, score INTEGER);\n            INSERT INTO scores(course, student, score) VALUES\n                ('Python', 'Ada', 90),\n                ('Python', 'Ben', 70),\n                ('Python', 'Cici', 95),\n                ('SQL', 'Dora', 88),\n                ('SQL', 'Eric', 76);\n        ",
+    "expected_rows": [["Ada"], ["Cici"], ["Dora"]],
+    "ordered": true
+  },
+  "db-explain-users-query": {
+    "setup": "\n            CREATE TABLE users(id INTEGER PRIMARY KEY, email TEXT);\n            INSERT INTO users(email) VALUES ('a@example.com'), ('b@example.com');\n        ",
+    "mode": "explain"
+  },
+  "db-exists-active-users": {
+    "setup": "\n            CREATE TABLE users(id INTEGER PRIMARY KEY, name TEXT);\n            CREATE TABLE sessions(user_id INTEGER, status TEXT);\n            INSERT INTO users(id, name) VALUES (1, 'Ada'), (2, 'Ben'), (3, 'Cici');\n            INSERT INTO sessions(user_id, status) VALUES\n                (1, 'active'),\n                (1, 'expired'),\n                (2, 'expired');\n        ",
+    "expected_rows": [["Ada"]],
+    "ordered": true
+  },
+  "db-create-user-view": {
+    "setup": "\n            CREATE TABLE users(id INTEGER PRIMARY KEY, name TEXT, status TEXT);\n            INSERT INTO users(name, status) VALUES\n                ('Ada', 'active'),\n                ('Ben', 'inactive');\n        ",
+    "mode": "script",
+    "check_sql": "SELECT name, status FROM active_users ORDER BY name;",
+    "expected_rows": [["Ada", "active"]],
+    "ordered": true
+  },
+  "db-create-covering-index-report": {
+    "setup": "\n            CREATE TABLE reports(id INTEGER PRIMARY KEY, created_at TEXT, status TEXT, owner_id INTEGER);\n        ",
+    "mode": "ddl"
+  },
+  "db-add-status-column-users": {
+    "setup": "\n            CREATE TABLE users(id INTEGER PRIMARY KEY, name TEXT);\n        ",
+    "mode": "ddl"
+  },
+  "db-create-enrollment-foreign-key": {
+    "setup": "\n            CREATE TABLE students(id INTEGER PRIMARY KEY, name TEXT);\n            CREATE TABLE courses(id INTEGER PRIMARY KEY, title TEXT);\n        ",
+    "mode": "ddl"
+  },
+  "db-left-join-course-report": {
+    "setup": "\n            CREATE TABLE courses(id INTEGER PRIMARY KEY, title TEXT);\n            CREATE TABLE enrollments(course_id INTEGER, student_id INTEGER);\n            INSERT INTO courses(id, title) VALUES (1, 'Python'), (2, 'SQL'), (3, 'C#');\n            INSERT INTO enrollments(course_id, student_id) VALUES\n                (1, 101), (1, 102), (2, 201);\n        ",
+    "expected_rows": [
+      ["C#", 0],
+      ["Python", 2],
+      ["SQL", 1]
+    ],
+    "ordered": false
+  },
+  "db-coalesce-city-label": {
+    "setup": "\n            CREATE TABLE users(name TEXT, city TEXT);\n            INSERT INTO users(name, city) VALUES\n                ('Ada', 'Shanghai'),\n                ('Ben', NULL),\n                ('Cici', 'Shenzhen');\n        ",
+    "expected_rows": [
+      ["Ada", "Shanghai"],
+      ["Ben", "未知城市"],
+      ["Cici", "Shenzhen"]
+    ],
+    "ordered": true
+  }
+}

@@ -1,5 +1,4 @@
 import { app, BrowserWindow, shell, Menu, dialog } from 'electron'
-import { join } from 'path'
 import { readFileSync } from 'fs'
 import { registerRunnerIPC } from './ipc/runner'
 import { registerDatabaseIPC } from './ipc/database'
@@ -11,11 +10,17 @@ import { registerChatIPC } from './ipc/chat'
 import { registerAnalyticsIPC } from './ipc/analytics'
 import { registerDemoDataIPC } from './ipc/demoData'
 import { registerExportIPC } from './ipc/export'
+import { registerExercisesIPC } from './ipc/exercises'
+import { registerLessonsIPC } from './ipc/lessons'
+import { registerAchievementsIPC } from './ipc/achievements'
+import { registerReviewIPC } from './ipc/review'
+import { registerHomeHandlers } from './ipc/home'
 import { logIpcStatsSummary, getIpcStats } from './utils/perfMonitor'
 import { registerIpcHandler, rateLimitMiddleware } from './utils/middleware'
 import { buildContentSecurityPolicy } from './utils/contentSecurityPolicy'
 import { getPreloadScriptPath } from './utils/runtimePaths'
 import { arch, release } from 'os'
+import { join } from 'path'
 
 // ---------------------------------------------------------------------------
 // Diagnostic startup timer
@@ -280,6 +285,12 @@ function createWindow(): void {
     startupLog('Renderer did-finish-load')
   })
 
+  // Forward renderer console to main process
+  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    const prefix = ['VERBOSE', 'INFO', 'WARNING', 'ERROR'][level] || 'LOG'
+    console.log(`[RENDERER ${prefix}] ${message} (${sourceId}:${line})`)
+  })
+
   mainWindow.webContents.on(
     'did-fail-load',
     (_event, errorCode, errorDescription, validatedURL) => {
@@ -382,6 +393,36 @@ function registerDeferredIPC(): void {
     console.log('[IPC] Registered: export/import handlers')
   } catch (e) {
     startupError('registerExportIPC', e)
+  }
+  try {
+    registerExercisesIPC()
+    console.log('[IPC] Registered: exercises handlers')
+  } catch (e) {
+    startupError('registerExercisesIPC', e)
+  }
+  try {
+    registerLessonsIPC()
+    console.log('[IPC] Registered: lessons handlers')
+  } catch (e) {
+    startupError('registerLessonsIPC', e)
+  }
+  try {
+    registerAchievementsIPC()
+    console.log('[IPC] Registered: achievements handlers')
+  } catch (e) {
+    startupError('registerAchievementsIPC', e)
+  }
+  try {
+    registerReviewIPC()
+    console.log('[IPC] Registered: review handlers')
+  } catch (e) {
+    startupError('registerReviewIPC', e)
+  }
+  try {
+    registerHomeHandlers()
+    console.log('[IPC] Registered: home handlers')
+  } catch (e) {
+    startupError('registerHomeHandlers', e)
   }
   startupLog('All deferred IPC handlers registered')
 }

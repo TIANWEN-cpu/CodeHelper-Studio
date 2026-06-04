@@ -52,6 +52,7 @@ const allowedInvokeChannels = new Set([
   'analytics-track',
   'analytics-get-events',
   'analytics-get-summary',
+  'analytics-get-streak',
   'analytics-get-weekly-report',
   'analytics-clear',
   // Demo data
@@ -64,6 +65,34 @@ const allowedInvokeChannels = new Set([
   'export-get-counts',
   // Performance
   'perf-get-ipc-stats',
+  // Lessons
+  'lessons-list',
+  'lessons-get',
+  'lessons-progress',
+  'lessons-mark-opened',
+  'lessons-mark-completed',
+  'lessons-notes-get',
+  'lessons-notes-save',
+  'lessons-search',
+  'lesson-get-progress',
+  // Achievements
+  'achievements-list',
+  'achievements-check',
+  'achievements-seed',
+  // Review (spaced repetition)
+  'review-due',
+  'review-update',
+  'review-stats',
+  'review-schedule',
+  // Home overview
+  'home-get-overview',
+  // Exercises
+  'exercises-list',
+  'exercises-get',
+  'exercises-draft-get',
+  'exercises-draft-save',
+  'exercises-draft-clear',
+  'exercises-evaluate',
 ])
 
 const allowedEventChannels = new Set(['ai-chat-chunk', 'ai-chat-done'])

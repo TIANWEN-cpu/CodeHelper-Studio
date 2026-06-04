@@ -1,0 +1,2381 @@
+{
+  "tracks": [
+    {
+      "id": "cplusplus",
+      "title": "C++ 路线",
+      "icon": "🚀",
+      "summary": "从基础语法到现代 C++，从 STL 到并发编程，系统掌握 C++ 的工程级开发能力。",
+      "modules": [
+        {
+          "id": "cplusplus-foundations",
+          "title": "基础模块 · 语法与核心概念",
+          "summary": "搭建 C++ 开发环境，掌握基础语法、指针、内存管理和函数式编程思维。",
+          "lessons": [
+            {
+              "id": "cpp-thinking-setup",
+              "title": "C++ 学习地图与环境准备",
+              "summary": "理解 C++ 编译流程、工具链和正确的学习路径，避免一开始就被环境劝退。",
+              "path": "cpp/cpp_thinking_setup.md",
+              "difficulty": "基础",
+              "estimated_minutes": 30,
+              "tags": ["g++", "编译", "入门"],
+              "prerequisites": [],
+              "outcomes": [
+                "理解 C++ 编译为可执行文件的完整过程",
+                "会用 g++ 编译并运行简单程序",
+                "知道 C++ 与 Python 的核心差异"
+              ]
+            },
+            {
+              "id": "cpp-syntax-functions",
+              "title": "基础语法与函数入门",
+              "summary": "掌握 C++ 的基本语法结构、控制流、函数定义和参数传递机制。",
+              "path": "cpp/cpp_syntax_functions.md",
+              "difficulty": "基础",
+              "estimated_minutes": 45,
+              "tags": ["语法", "函数", "控制流"],
+              "prerequisites": ["cpp-thinking-setup"],
+              "outcomes": [
+                "会写完整的 main 函数程序",
+                "掌握 if/for/while/switch 的基本用法",
+                "能定义和调用自定义函数",
+                "理解值传递和返回值的机制"
+              ]
+            },
+            {
+              "id": "cpp-references-const",
+              "title": "引用与 const 的正确使用",
+              "summary": "理解 C++ 引用的本质，掌握 const 修饰符的各种用法，建立正确的参数传递习惯。",
+              "path": "cpp/cpp_references_const.md",
+              "difficulty": "基础",
+              "estimated_minutes": 45,
+              "tags": ["引用", "const", "参数传递"],
+              "prerequisites": ["cpp-syntax-functions"],
+              "outcomes": [
+                "理解引用和指针的本质区别",
+                "能正确使用 const 修饰变量、参数和返回值",
+                "会写 const 引用参数避免不必要的拷贝",
+                "建立参数传递的最佳实践"
+              ]
+            },
+            {
+              "id": "cpp-pointers-memory",
+              "title": "指针与内存管理基础",
+              "summary": "深入理解指针的本质、内存布局、栈与堆的区别，以及手动内存管理的基本方法。",
+              "path": "cpp/cpp_pointers_memory.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 50,
+              "tags": ["指针", "内存", "栈与堆"],
+              "prerequisites": ["cpp-references-const"],
+              "outcomes": [
+                "理解指针就是地址的本质",
+                "会进行指针算术运算和数组指针操作",
+                "理解栈内存和堆内存的区别",
+                "能用 new/delete 进行动态内存管理"
+              ]
+            },
+            {
+              "id": "cpp-arrays-strings",
+              "title": "数组与字符串处理",
+              "summary": "掌握 C 风格数组和字符串的底层操作，理解与现代 C++ 容器的差异和取舍。",
+              "path": "cpp/cpp_arrays_strings.md",
+              "difficulty": "基础",
+              "estimated_minutes": 40,
+              "tags": ["数组", "字符串", "C 风格"],
+              "prerequisites": ["cpp-pointers-memory"],
+              "outcomes": [
+                "理解数组在内存中的连续存储",
+                "会操作 C 风格字符串和 string.h 函数",
+                "知道数组退化为指针的陷阱",
+                "理解为什么现代 C++ 优先使用 vector 和 string"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "cplusplus-oop",
+          "title": "面向对象模块 · 类与对象",
+          "summary": "掌握 C++ 面向对象编程的核心概念，从类的定义到多态、从继承到抽象设计。",
+          "lessons": [
+            {
+              "id": "cpp-oop-classes",
+              "title": "类与对象入门",
+              "summary": "学习 C++ 类的定义、构造函数、成员函数和访问控制，建立面向对象的第一印象。",
+              "path": "cpp/cpp_oop_classes.md",
+              "difficulty": "基础",
+              "estimated_minutes": 45,
+              "tags": ["类", "封装", "OOP"],
+              "prerequisites": ["cpp-arrays-strings"],
+              "outcomes": [
+                "会定义类和创建对象",
+                "理解 public/private/protected 访问控制",
+                "能写构造函数和成员函数",
+                "理解 this 指针的作用"
+              ]
+            },
+            {
+              "id": "cpp-constructor-destructor",
+              "title": "构造函数与析构函数",
+              "summary": "深入理解对象的生命周期，掌握构造、拷贝构造、移动构造和析构的完整体系。",
+              "path": "cpp/cpp_constructor_destructor.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 50,
+              "tags": ["构造", "析构", "生命周期"],
+              "prerequisites": ["cpp-oop-classes"],
+              "outcomes": [
+                "理解对象创建和销毁的完整流程",
+                "会写拷贝构造函数避免浅拷贝",
+                "理解初始化列表的必要性和语法",
+                "掌握析构函数的作用和调用时机"
+              ]
+            },
+            {
+              "id": "cpp-inheritance",
+              "title": "继承与访问控制",
+              "summary": "学习类的继承机制，理解 public/protected/private 继承的差异和 is-a 关系。",
+              "path": "cpp/cpp_inheritance.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["继承", "派生", "is-a"],
+              "prerequisites": ["cpp-constructor-destructor"],
+              "outcomes": [
+                "理解继承的代码复用价值",
+                "会写派生类的构造函数",
+                "理解三种继承方式的区别",
+                "知道何时使用组合而非继承"
+              ]
+            },
+            {
+              "id": "cpp-polymorphism-virtual",
+              "title": "虚函数与多态",
+              "summary": "掌握 C++ 运行时多态的核心机制，理解虚函数表、动态绑定和接口设计。",
+              "path": "cpp/cpp_polymorphism_virtual.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 50,
+              "tags": ["虚函数", "多态", "动态绑定"],
+              "prerequisites": ["cpp-inheritance"],
+              "outcomes": [
+                "理解虚函数和动态绑定的机制",
+                "会设计基于虚函数的多态接口",
+                "理解虚函数表的底层实现",
+                "知道纯虚函数和抽象类的作用"
+              ]
+            },
+            {
+              "id": "cpp-abstract-interfaces",
+              "title": "抽象类与设计原则",
+              "summary": "学习抽象类的设计方法，理解接口隔离、依赖倒置等面向对象设计原则。",
+              "path": "cpp/cpp_abstract_interfaces.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["抽象类", "接口", "设计原则"],
+              "prerequisites": ["cpp-polymorphism-virtual"],
+              "outcomes": [
+                "会设计纯虚函数接口",
+                "理解面向接口编程的价值",
+                "知道 SOLID 原则在 C++ 中的应用",
+                "能识别糟糕的继承设计"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "cplusplus-stl",
+          "title": "STL 标准库模块 · 容器与算法",
+          "summary": "系统学习 C++ 标准模板库，掌握容器、迭代器、算法和函数式编程工具。",
+          "lessons": [
+            {
+              "id": "cpp-string-vector",
+              "title": "string 与 vector 的基础操作",
+              "summary": "掌握 std::string 和 std::vector 的创建、访问、添加和遍历操作，建立容器使用的第一印象。",
+              "path": "cpp/cpp_string_vector.md",
+              "difficulty": "基础",
+              "estimated_minutes": 40,
+              "tags": ["string", "vector", "容器"],
+              "prerequisites": ["cpp-abstract-interfaces"],
+              "outcomes": [
+                "熟练使用 string 的各种操作",
+                "掌握 vector 的 push_back、resize、capacity",
+                "能用范围 for 遍历容器",
+                "理解 capacity 和 size 的区别"
+              ]
+            },
+            {
+              "id": "cpp-iterators-loops",
+              "title": "迭代器与范围 for 循环",
+              "summary": "理解迭代器的概念和分类，掌握 begin/end 迭代器和范围 for 循环的用法。",
+              "path": "cpp/cpp_iterators_loops.md",
+              "difficulty": "基础",
+              "estimated_minutes": 40,
+              "tags": ["迭代器", "范围 for", "遍历"],
+              "prerequisites": ["cpp-string-vector"],
+              "outcomes": [
+                "理解迭代器的五个分类",
+                "会用 begin/end 获取迭代器",
+                "能区分范围 for 和传统 for 的适用场景",
+                "理解迭代器失效的常见场景"
+              ]
+            },
+            {
+              "id": "cpp-map-set",
+              "title": "map、set 与关联容器",
+              "summary": "学习关联容器的使用，掌握 map、set、unordered_map 的适用场景和性能差异。",
+              "path": "cpp/cpp_map_set.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["map", "set", "哈希表"],
+              "prerequisites": ["cpp-iterators-loops"],
+              "outcomes": [
+                "理解红黑树和哈希表的性能差异",
+                "会用 map 做键值对存储",
+                "知道 set 用于去重和排序",
+                "能根据场景选择合适的关联容器"
+              ]
+            },
+            {
+              "id": "cpp-stl-algorithms",
+              "title": "sort、find 等 STL 算法",
+              "summary": "学习常用的 STL 算法库，掌握排序、查找、变换、累积等算法的使用方法和组合技巧。",
+              "path": "cpp/cpp_stl_algorithms.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 50,
+              "tags": ["sort", "find", "algorithm"],
+              "prerequisites": ["cpp-iterators-loops"],
+              "outcomes": [
+                "会用 sort/find/transform/accumulate 等常用算法",
+                "理解算法与容器的解耦设计",
+                "能根据迭代器类型选择合适算法",
+                "知道算法的时间复杂度"
+              ]
+            },
+            {
+              "id": "cpp-lambda-functional",
+              "title": "Lambda 表达式与函数式编程",
+              "summary": "掌握 Lambda 表达式的语法和捕获机制，学习函数式编程风格在 C++ 中的应用。",
+              "path": "cpp/cpp_lambda_functional.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["lambda", "函数式", "闭包"],
+              "prerequisites": ["cpp-stl-algorithms"],
+              "outcomes": [
+                "会写 Lambda 表达式",
+                "理解值捕获和引用捕获的区别",
+                "能用 Lambda 配合 STL 算法写出简洁代码",
+                "理解 std::function 的作用"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "cplusplus-modern",
+          "title": "现代 C++ 模块 · 高级特性",
+          "summary": "掌握 C++11/14/17 的现代特性，从 RAII 到移动语义、从模板到并发编程。",
+          "lessons": [
+            {
+              "id": "cpp-raii-smart-pointers",
+              "title": "RAII 与智能指针",
+              "summary": "理解 C++ 的 RAII 资源管理理念，学会使用 unique_ptr、shared_ptr 替代手动内存管理。",
+              "path": "cpp/cpp_raii_smart_pointers.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 50,
+              "tags": ["RAII", "unique_ptr", "内存管理"],
+              "prerequisites": ["cpp-lambda-functional"],
+              "outcomes": [
+                "深刻理解 RAII 的核心理念",
+                "会用 unique_ptr 管理独占资源",
+                "理解 shared_ptr 的引用计数机制",
+                "不再手动使用 new/delete"
+              ]
+            },
+            {
+              "id": "cpp-move-semantics",
+              "title": "移动语义与右值引用",
+              "summary": "理解右值引用、移动构造和完美转发，掌握 C++ 性能优化的关键工具。",
+              "path": "cpp/cpp_move_semantics.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 50,
+              "tags": ["move", "右值引用", "完美转发"],
+              "prerequisites": ["cpp-raii-smart-pointers"],
+              "outcomes": [
+                "理解左值和右值的区别",
+                "会写移动构造函数",
+                "理解 std::move 的真实含义",
+                "知道完美转发的应用场景"
+              ]
+            },
+            {
+              "id": "cpp-templates-intro",
+              "title": "模板编程入门",
+              "summary": "理解函数模板和类模板的概念，学会编写泛型代码，理解 STL 的底层实现原理。",
+              "path": "cpp/cpp_templates_intro.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 50,
+              "tags": ["template", "泛型", "typename"],
+              "prerequisites": ["cpp-raii-smart-pointers"],
+              "outcomes": [
+                "理解模板的价值和编译期实例化",
+                "会写函数模板和类模板",
+                "理解模板特化和偏特化",
+                "能读懂 STL 容器的模板结构"
+              ]
+            },
+            {
+              "id": "cpp-concurrency",
+              "title": "多线程与并发编程",
+              "summary": "学习 C++ 标准库的多线程编程，掌握 thread、mutex、future 和异步编程模式。",
+              "path": "cpp/cpp_concurrency.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 55,
+              "tags": ["thread", "mutex", "并发"],
+              "prerequisites": ["cpp-raii-smart-pointers"],
+              "outcomes": [
+                "会用 std::thread 创建和管理线程",
+                "理解 mutex 和 lock_guard 的用法",
+                "会用 future/promise 获取异步结果",
+                "知道数据竞争和死锁的预防措施"
+              ]
+            },
+            {
+              "id": "cpp-templates-advanced",
+              "title": "模板进阶与类型萃取",
+              "summary": "深入学习模板元编程、SFINAE、类型萃取和 constexpr，掌握编译期计算的能力。",
+              "path": "cpp/cpp_templates_advanced.md",
+              "difficulty": "综合",
+              "estimated_minutes": 55,
+              "tags": ["SFINAE", "constexpr", "类型萃取"],
+              "prerequisites": ["cpp-templates-intro"],
+              "outcomes": [
+                "理解 SFINAE 和 enable_if 的原理",
+                "会用 type_traits 做类型判断",
+                "理解 constexpr 编译期计算",
+                "能写简单的模板元程序"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "cplusplus-practice",
+          "title": "进阶与实战模块 · 工程实践",
+          "summary": "将所学知识融会贯通，掌握文件 IO、异常处理、构建工具链和完整项目开发流程。",
+          "lessons": [
+            {
+              "id": "cpp-file-io-basics",
+              "title": "fstream 文件读写基础",
+              "summary": "学会使用 ifstream、ofstream 和 fstream 进行文本和二进制文件的读写操作。",
+              "path": "cpp/cpp_file_io_basics.md",
+              "difficulty": "基础",
+              "estimated_minutes": 40,
+              "tags": ["fstream", "文件", "IO"],
+              "prerequisites": ["cpp-string-vector"],
+              "outcomes": [
+                "会用 ifstream 读取文本文件",
+                "会用 ofstream 写入和追加数据",
+                "理解二进制文件读写的注意事项",
+                "能结合 string/vector 处理文件数据"
+              ]
+            },
+            {
+              "id": "cpp-exception-error",
+              "title": "异常处理与错误管理",
+              "summary": "掌握 C++ 异常机制，学会设计合理的错误处理策略，理解异常安全保证级别。",
+              "path": "cpp/cpp_exception_error.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["异常", "try-catch", "错误处理"],
+              "prerequisites": ["cpp-oop-classes"],
+              "outcomes": [
+                "会写 try/catch/throw 异常处理",
+                "理解异常安全性的三个级别",
+                "知道何时用异常何时用错误码",
+                "能设计合理的错误处理策略"
+              ]
+            },
+            {
+              "id": "cpp-build-debug-workflow",
+              "title": "构建与调试工作流",
+              "summary": "掌握 g++/CMake 构建系统，学会阅读编译警告、使用调试工具和性能分析工具。",
+              "path": "cpp/cpp_build_debug_workflow.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["g++", "CMake", "调试"],
+              "prerequisites": ["cpp-thinking-setup"],
+              "outcomes": [
+                "会写 CMakeLists.txt 构建项目",
+                "能读懂编译 warning 并逐一修复",
+                "会用 gdb 进行断点调试",
+                "了解 Valgrind 检测内存泄漏"
+              ]
+            },
+            {
+              "id": "cpp-design-patterns",
+              "title": "C++ 常见设计模式",
+              "summary": "学习单例、工厂、观察者、策略等常用设计模式在 C++ 中的实现方式和最佳实践。",
+              "path": "cpp/cpp_design_patterns.md",
+              "difficulty": "综合",
+              "estimated_minutes": 55,
+              "tags": ["设计模式", "单例", "工厂"],
+              "prerequisites": ["cpp-polymorphism-virtual"],
+              "outcomes": [
+                "理解常见设计模式的价值",
+                "会实现单例和工厂模式",
+                "能用策略模式替代大段 if/else",
+                "知道何时该用何时不该用设计模式"
+              ]
+            },
+            {
+              "id": "cpp-project-complete",
+              "title": "综合实战项目",
+              "summary": "综合运用所学知识，从零开始设计并实现一个完整的 C++ 项目，包括构建、测试和文档。",
+              "path": "cpp/cpp_project_complete.md",
+              "difficulty": "综合",
+              "estimated_minutes": 90,
+              "tags": ["项目", "实战", "综合"],
+              "prerequisites": ["cpp-build-debug-workflow"],
+              "outcomes": [
+                "能独立设计并实现一个 C++ 项目",
+                "会组织项目目录结构和模块划分",
+                "掌握基本的单元测试编写",
+                "具备完整的项目交付能力"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "python",
+      "title": "Python 主线",
+      "icon": "🐍",
+      "summary": "从基础语法到 Web 后端开发，系统掌握 Python 工程能力。",
+      "modules": [
+        {
+          "id": "python-foundations",
+          "title": "基础模块 · 语法与表达",
+          "summary": "建立对变量、流程控制、函数和数据容器的第一性理解。",
+          "lessons": [
+            {
+              "id": "py-thinking",
+              "title": "Python 学习地图与环境准备",
+              "summary": "理解解释器、脚本、运行环境和学习顺序。",
+              "path": "python/py_thinking.md",
+              "difficulty": "基础",
+              "estimated_minutes": 25,
+              "tags": ["环境", "解释器", "入门"],
+              "prerequisites": [],
+              "outcomes": [
+                "能解释解释器、脚本和第三方库的区别",
+                "能在终端运行一个 Python 文件",
+                "知道为什么先学语言再学数据库和项目"
+              ]
+            },
+            {
+              "id": "py-data-types",
+              "title": "变量、类型与表达式",
+              "summary": "理解数据类型、运算符和表达式求值。",
+              "path": "python/py_data_types.md",
+              "difficulty": "基础",
+              "estimated_minutes": 35,
+              "tags": ["变量", "类型", "表达式"],
+              "prerequisites": ["py-thinking"],
+              "outcomes": [
+                "能区分常见基础类型",
+                "知道赋值和重新赋值的含义",
+                "能写出正确的算术和逻辑表达式"
+              ]
+            },
+            {
+              "id": "py-control-flow",
+              "title": "流程控制与循环",
+              "summary": "理解 if/for/while 如何决定程序走向。",
+              "path": "python/py_control_flow.md",
+              "difficulty": "基础",
+              "estimated_minutes": 35,
+              "tags": ["if", "for", "while"],
+              "prerequisites": ["py-data-types"],
+              "outcomes": [
+                "能用 if/elif/else 做分支判断",
+                "掌握 for 和 while 循环的使用场景",
+                "理解 break/continue/pass 的作用"
+              ]
+            },
+            {
+              "id": "py-functions",
+              "title": "函数与模块化",
+              "summary": "理解参数、返回值、作用域和模块导入。",
+              "path": "python/py_functions.md",
+              "difficulty": "基础",
+              "estimated_minutes": 40,
+              "tags": ["函数", "参数", "模块"],
+              "prerequisites": ["py-control-flow"],
+              "outcomes": [
+                "能定义和调用函数",
+                "理解位置参数、关键字参数和默认参数",
+                "知道如何导入和使用模块"
+              ]
+            },
+            {
+              "id": "py-exceptions-files",
+              "title": "异常处理与文件 I/O",
+              "summary": "学会处理程序运行时的错误，以及读写文件数据。",
+              "path": "python/py_exceptions_files.md",
+              "difficulty": "基础",
+              "estimated_minutes": 40,
+              "tags": ["异常", "文件", "I/O"],
+              "prerequisites": ["py-functions"],
+              "outcomes": [
+                "会用 try/except/finally 处理异常",
+                "能读写文本和二进制文件",
+                "理解上下文管理器 with 的作用"
+              ]
+            },
+            {
+              "id": "py-strings-collections",
+              "title": "字符串与集合操作",
+              "summary": "掌握字符串的常用方法和集合操作。",
+              "path": "python/py_strings_collections.md",
+              "difficulty": "基础",
+              "estimated_minutes": 35,
+              "tags": ["字符串", "集合", "方法"],
+              "prerequisites": ["py-data-types"],
+              "outcomes": [
+                "熟练使用字符串方法",
+                "理解集合的去重和运算",
+                "掌握字符串格式化的多种方式"
+              ]
+            },
+            {
+              "id": "py-recursion-patterns",
+              "title": "递归思维与模式",
+              "summary": "理解递归的本质，学会识别和实现常见的递归模式。",
+              "path": "python/py_recursion_patterns.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 40,
+              "tags": ["递归", "分治", "回溯"],
+              "prerequisites": ["py-functions"],
+              "outcomes": [
+                "理解递归调用栈的执行过程",
+                "掌握分治和回溯两种递归模式",
+                "知道何时用递归何时用迭代"
+              ]
+            },
+            {
+              "id": "py-error-handling-patterns",
+              "title": "错误处理进阶模式",
+              "summary": "学习异常链、自定义异常和防御性编程的高级模式。",
+              "path": "python/py_error_handling_patterns.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 35,
+              "tags": ["异常", "自定义异常", "防御"],
+              "prerequisites": ["py-exceptions-files"],
+              "outcomes": [
+                "会定义自定义异常类",
+                "理解异常链的 from 语法",
+                "掌握断言和日志在错误处理中的角色"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "python-data-containers",
+          "title": "核心模块 · 数据容器与迭代",
+          "summary": "掌握 Python 的核心数据结构，理解迭代器、生成器和上下文管理器。",
+          "lessons": [
+            {
+              "id": "py-lists-tuples",
+              "title": "列表、元组与序列操作",
+              "summary": "列表和元组是最常用的序列类型。",
+              "path": "python/py_lists_tuples.md",
+              "difficulty": "基础",
+              "estimated_minutes": 40,
+              "tags": ["list", "tuple", "序列"],
+              "prerequisites": ["py-exceptions-files"],
+              "outcomes": ["熟练使用列表的增删改查", "理解元组的不可变性", "掌握切片和列表推导式"]
+            },
+            {
+              "id": "py-dicts-sets",
+              "title": "字典、集合与映射",
+              "summary": "字典和集合基于哈希表实现。",
+              "path": "python/py_dicts_sets.md",
+              "difficulty": "基础",
+              "estimated_minutes": 35,
+              "tags": ["dict", "set", "哈希"],
+              "prerequisites": ["py-lists-tuples"],
+              "outcomes": [
+                "熟练使用字典的增删改查",
+                "理解集合的去重和集合运算",
+                "知道字典推导式的用法"
+              ]
+            },
+            {
+              "id": "py-iterators-generators",
+              "title": "迭代器、生成器与上下文管理器",
+              "summary": "理解 Python 的迭代协议和生成器。",
+              "path": "python/py_iterators_generators.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["迭代器", "生成器", "with"],
+              "prerequisites": ["py-dicts-sets"],
+              "outcomes": [
+                "理解 __iter__ 和 __next__ 协议",
+                "会用 yield 写生成器",
+                "能实现自定义上下文管理器"
+              ]
+            },
+            {
+              "id": "py-comprehensions",
+              "title": "推导式与函数式工具",
+              "summary": "掌握推导式和 functools/itertools 工具。",
+              "path": "python/py_comprehensions.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 40,
+              "tags": ["推导式", "functools", "itertools"],
+              "prerequisites": ["py-iterators-generators"],
+              "outcomes": ["会写各种推导式", "理解 map/filter/reduce", "知道 itertools 的常用函数"]
+            },
+            {
+              "id": "py-context-managers",
+              "title": "上下文管理器深入",
+              "summary": "理解 with 语句的协议，学会实现自定义上下文管理器。",
+              "path": "python/py_context_managers.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 35,
+              "tags": ["with", "contextmanager", "资源管理"],
+              "prerequisites": ["py-iterators-generators"],
+              "outcomes": [
+                "理解 __enter__ 和 __exit__ 协议",
+                "会用 contextlib.contextmanager 装饰器",
+                "知道上下文管理器在数据库连接中的应用"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "python-oop",
+          "title": "进阶模块 · 面向对象与类型系统",
+          "summary": "掌握面向对象编程，理解描述符、魔术方法和 typing 类型系统。",
+          "lessons": [
+            {
+              "id": "py-oop-basics",
+              "title": "类、对象与继承",
+              "summary": "学习 class 定义、实例方法、继承和多态。",
+              "path": "python/py_oop_basics.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["class", "继承", "多态"],
+              "prerequisites": ["py-comprehensions"],
+              "outcomes": ["会定义类和创建对象", "理解继承和方法重写", "知道组合优先于继承的原则"]
+            },
+            {
+              "id": "py-magic-methods",
+              "title": "魔术方法与描述符",
+              "summary": "理解魔术方法、property 和描述符协议。",
+              "path": "python/py_magic_methods.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["魔术方法", "property", "描述符"],
+              "prerequisites": ["py-oop-basics"],
+              "outcomes": [
+                "会实现常用的魔术方法",
+                "理解 property 的工作原理",
+                "知道描述符协议的应用场景"
+              ]
+            },
+            {
+              "id": "py-typing",
+              "title": "类型注解与静态分析",
+              "summary": "学习 typing 体系（PEP 484）和静态类型检查。",
+              "path": "python/py_typing.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 40,
+              "tags": ["typing", "类型注解", "mypy"],
+              "prerequisites": ["py-oop-basics"],
+              "outcomes": [
+                "会写类型注解",
+                "理解 Optional/Union/Generic",
+                "能用 mypy 做静态类型检查"
+              ]
+            },
+            {
+              "id": "py-dataclass",
+              "title": "dataclass 与工程化实践",
+              "summary": "学习 dataclass 和 PEP 8 编码规范。",
+              "path": "python/py_dataclass.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 35,
+              "tags": ["dataclass", "PEP 8", "工程化"],
+              "prerequisites": ["py-typing"],
+              "outcomes": [
+                "会用 dataclass 定义数据类",
+                "理解 PEP 8 编码规范",
+                "知道工程化项目的基本结构"
+              ]
+            },
+            {
+              "id": "py-decorators-basics",
+              "title": "装饰器入门",
+              "summary": "理解装饰器的本质（高阶函数），学会实现和使用自定义装饰器。",
+              "path": "python/py_decorators_basics.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 40,
+              "tags": ["装饰器", "高阶函数", "闭包"],
+              "prerequisites": ["py-magic-methods"],
+              "outcomes": [
+                "理解装饰器是函数的函数",
+                "会实现带参数的装饰器",
+                "知道 functools.wraps 的作用"
+              ]
+            },
+            {
+              "id": "py-type-hints-dataclasses",
+              "title": "类型提示与 dataclass 进阶",
+              "summary": "学习 typing 模块的高级用法和 dataclass 的高级特性。",
+              "path": "python/py_type_hints_dataclasses.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 40,
+              "tags": ["typing", "dataclass", "Protocol"],
+              "prerequisites": ["py-typing", "py-dataclass"],
+              "outcomes": [
+                "会用 Protocol 做结构化类型检查",
+                "理解 TypeVar 和泛型的用法",
+                "掌握 dataclass 的 field() 高级配置"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "python-concurrency",
+          "title": "高级模块 · 并发编程与性能",
+          "summary": "理解 GIL 与并发模型，掌握 threading、asyncio 和 multiprocessing。",
+          "lessons": [
+            {
+              "id": "py-concurrency-concepts",
+              "title": "并发 vs 并行与 GIL",
+              "summary": "理解并发和并行的区别，认识 GIL 的影响。",
+              "path": "python/py_concurrency_concepts.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 40,
+              "tags": ["并发", "GIL", "并行"],
+              "prerequisites": ["py-dataclass"],
+              "outcomes": ["理解并发和并行的区别", "知道 GIL 的影响", "能选择合适的并发模型"]
+            },
+            {
+              "id": "py-threading-multiprocessing",
+              "title": "线程池与进程池",
+              "summary": "学习 concurrent.futures 的高级接口。",
+              "path": "python/py_threading_multiprocessing.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["threading", "multiprocessing", "futures"],
+              "prerequisites": ["py-concurrency-concepts"],
+              "outcomes": [
+                "会用 ThreadPoolExecutor",
+                "会用 ProcessPoolExecutor",
+                "理解 I/O 密集和 CPU 密集的区别"
+              ]
+            },
+            {
+              "id": "py-asyncio",
+              "title": "asyncio 异步编程",
+              "summary": "理解事件循环、协程、任务和异步 I/O。",
+              "path": "python/py_asyncio.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 50,
+              "tags": ["asyncio", "协程", "事件循环"],
+              "prerequisites": ["py-concurrency-concepts"],
+              "outcomes": ["理解 async/await 语法", "会创建和管理任务", "理解异步 I/O 的优势"]
+            },
+            {
+              "id": "py-performance",
+              "title": "性能剖析与优化策略",
+              "summary": "学习 cProfile 定位瓶颈，理解优化策略。",
+              "path": "python/py_performance.md",
+              "difficulty": "综合",
+              "estimated_minutes": 45,
+              "tags": ["性能", "cProfile", "优化"],
+              "prerequisites": ["py-asyncio"],
+              "outcomes": ["会用 cProfile 定位瓶颈", "理解优化的优先级", "知道何时该用 C 扩展"]
+            }
+          ]
+        },
+        {
+          "id": "python-frameworks",
+          "title": "实战模块 · 框架与项目",
+          "summary": "学习 FastAPI/Flask 框架，掌握 Web 后端开发的完整链路。",
+          "lessons": [
+            {
+              "id": "py-web-basics",
+              "title": "Web API 与 FastAPI 入门",
+              "summary": "理解 HTTP 协议，用 FastAPI 快速搭建 Web 服务。",
+              "path": "python/py_web_basics.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["FastAPI", "HTTP", "API"],
+              "prerequisites": ["py-asyncio"],
+              "outcomes": ["理解 HTTP 协议基础", "会用 FastAPI 写 API", "知道 Pydantic 数据校验"]
+            },
+            {
+              "id": "py-web-engineering",
+              "title": "Web 工程实践",
+              "summary": "学习依赖注入、配置管理、日志、测试和部署。",
+              "path": "python/py_web_engineering.md",
+              "difficulty": "综合",
+              "estimated_minutes": 50,
+              "tags": ["工程化", "测试", "部署"],
+              "prerequisites": ["py-web-basics"],
+              "outcomes": ["会组织 Web 项目结构", "理解依赖注入", "能写单元测试"]
+            },
+            {
+              "id": "py-web-database",
+              "title": "数据库集成与 ORM",
+              "summary": "学习 SQLAlchemy 和 Alembic，掌握 ORM 操作。",
+              "path": "python/py_web_database.md",
+              "difficulty": "综合",
+              "estimated_minutes": 45,
+              "tags": ["SQLAlchemy", "ORM", "迁移"],
+              "prerequisites": ["py-web-engineering"],
+              "outcomes": ["会用 SQLAlchemy 操作数据库", "理解 Alembic 迁移", "知道连接池的作用"]
+            },
+            {
+              "id": "py-project-complete",
+              "title": "综合实战项目",
+              "summary": "从零开始设计并实现一个完整的 Python Web 项目。",
+              "path": "python/py_project_complete.md",
+              "difficulty": "综合",
+              "estimated_minutes": 90,
+              "tags": ["项目", "实战", "综合"],
+              "prerequisites": ["py-web-database"],
+              "outcomes": [
+                "能独立设计并实现一个 Python 项目",
+                "会组织项目目录结构和模块划分",
+                "掌握基本的单元测试编写",
+                "具备完整的项目交付能力"
+              ]
+            },
+            {
+              "id": "py-automation-scripts",
+              "title": "自动化脚本实践",
+              "summary": "学习用 Python 编写自动化脚本，涵盖文件操作、系统命令和网络请求。",
+              "path": "python/py_automation_scripts.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["自动化", "脚本", "subprocess"],
+              "prerequisites": ["py-exceptions-files"],
+              "outcomes": [
+                "会用 subprocess 调用系统命令",
+                "能编写文件批量处理脚本",
+                "了解 schedule 和 cron 定时任务"
+              ]
+            },
+            {
+              "id": "py-cli-argparse",
+              "title": "命令行工具开发",
+              "summary": "学习用 argparse 和 click 库开发专业的命令行工具。",
+              "path": "python/py_cli_argparse.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 40,
+              "tags": ["CLI", "argparse", "click"],
+              "prerequisites": ["py-functions"],
+              "outcomes": [
+                "会用 argparse 定义命令行参数",
+                "能实现子命令结构",
+                "了解 click 库的简洁 API"
+              ]
+            },
+            {
+              "id": "py-json-pathlib",
+              "title": "JSON 与 pathlib 文件处理",
+              "summary": "掌握 JSON 数据处理和 pathlib 现代文件路径操作。",
+              "path": "python/py_json_pathlib.md",
+              "difficulty": "基础",
+              "estimated_minutes": 35,
+              "tags": ["JSON", "pathlib", "文件"],
+              "prerequisites": ["py-exceptions-files"],
+              "outcomes": [
+                "会用 json 序列化和反序列化",
+                "掌握 pathlib 的路径操作 API",
+                "能读写 JSON 配置文件"
+              ]
+            },
+            {
+              "id": "py-logging-debugging",
+              "title": "日志与调试",
+              "summary": "学习 logging 模块和 Python 调试技巧。",
+              "path": "python/py_logging_debugging.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 35,
+              "tags": ["logging", "debugger", "pdb"],
+              "prerequisites": ["py-error-handling-patterns"],
+              "outcomes": [
+                "会配置 logging 模块",
+                "能用 pdb/pdb++ 调试程序",
+                "知道 print 调试的局限性"
+              ]
+            },
+            {
+              "id": "py-unit-testing-workflow",
+              "title": "单元测试工作流",
+              "summary": "学习 unittest 和 pytest 框架，掌握测试驱动开发的基本流程。",
+              "path": "python/py_unit_testing_workflow.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["pytest", "unittest", "TDD"],
+              "prerequisites": ["py-dataclass"],
+              "outcomes": [
+                "会用 pytest 编写测试",
+                "理解 fixtures 和参数化测试",
+                "知道测试覆盖率的意义"
+              ]
+            },
+            {
+              "id": "py-asyncio-basics",
+              "title": "asyncio 基础",
+              "summary": "理解 asyncio 事件循环和协程的基础概念。",
+              "path": "python/py_asyncio_basics.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 40,
+              "tags": ["asyncio", "协程", "事件循环"],
+              "prerequisites": ["py-asyncio"],
+              "outcomes": [
+                "理解事件循环的执行模型",
+                "会用 aiohttp 进行异步 HTTP 请求",
+                "知道常见异步陷阱"
+              ]
+            },
+            {
+              "id": "py-http-api",
+              "title": "HTTP 与 API 调用",
+              "summary": "学习用 requests/httpx 调用 REST API 和处理响应。",
+              "path": "python/py_http_api.md",
+              "difficulty": "基础",
+              "estimated_minutes": 35,
+              "tags": ["HTTP", "REST", "requests"],
+              "prerequisites": ["py-exceptions-files"],
+              "outcomes": [
+                "会用 requests 发起 GET/POST 请求",
+                "能处理 JSON 响应和错误码",
+                "了解认证和请求头的设置"
+              ]
+            },
+            {
+              "id": "py-project-structure",
+              "title": "Python 项目结构",
+              "summary": "学习如何组织一个专业的 Python 项目，包括包结构、配置和依赖管理。",
+              "path": "python/py_project_structure.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 35,
+              "tags": ["项目结构", "打包", "poetry"],
+              "prerequisites": ["py-modules-imports"],
+              "outcomes": [
+                "理解 src layout 和 flat layout 的区别",
+                "会用 pyproject.toml 管理项目",
+                "知道虚拟环境和依赖管理"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "c",
+      "title": "C 语言路线",
+      "icon": "⚙️",
+      "summary": "从语法到系统编程，理解计算机底层运行机制。",
+      "modules": [
+        {
+          "id": "c-foundations",
+          "title": "基础模块 · 语法与编译",
+          "summary": "掌握 C 语言基础语法、编译流程和指针基础。",
+          "lessons": [
+            {
+              "id": "c-thinking-setup",
+              "title": "C 语言学习地图与环境准备",
+              "summary": "理解 C 语言的定位、编译流程和开发环境搭建。",
+              "path": "c/c_thinking_setup.md",
+              "difficulty": "基础",
+              "estimated_minutes": 25,
+              "tags": ["环境", "编译", "入门"],
+              "prerequisites": [],
+              "outcomes": ["理解 C 语言的应用场景", "会搭建 C 开发环境", "知道编译到链接的完整流程"]
+            },
+            {
+              "id": "c-syntax-basics",
+              "title": "基础语法与控制流",
+              "summary": "掌握变量、运算符、条件语句和循环。",
+              "path": "c/c_syntax_basics.md",
+              "difficulty": "基础",
+              "estimated_minutes": 40,
+              "tags": ["语法", "控制流", "循环"],
+              "prerequisites": ["c-thinking-setup"],
+              "outcomes": ["会写完整的 C 程序", "掌握 if/for/while/switch", "理解函数定义和调用"]
+            },
+            {
+              "id": "c-arrays-strings",
+              "title": "数组与字符串",
+              "summary": "理解数组的内存布局和 C 风格字符串操作。",
+              "path": "c/c_arrays_strings.md",
+              "difficulty": "基础",
+              "estimated_minutes": 40,
+              "tags": ["数组", "字符串", "内存"],
+              "prerequisites": ["c-syntax-basics"],
+              "outcomes": [
+                "理解数组在内存中的连续存储",
+                "会操作 C 风格字符串",
+                "知道字符串函数的用法"
+              ]
+            },
+            {
+              "id": "c-pointers",
+              "title": "指针基础",
+              "summary": "理解指针的本质、指针算术和指针与数组的关系。",
+              "path": "c/c_pointers.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 50,
+              "tags": ["指针", "地址", "算术"],
+              "prerequisites": ["c-arrays-strings"],
+              "outcomes": ["理解指针就是地址", "会进行指针算术运算", "理解指针和数组的关系"]
+            },
+            {
+              "id": "c-functions-scope",
+              "title": "函数、作用域与存储类",
+              "summary": "理解函数调用栈、作用域规则和 static/extern 关键字。",
+              "path": "c/c_functions_scope.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 40,
+              "tags": ["函数", "作用域", "static"],
+              "prerequisites": ["c-pointers"],
+              "outcomes": ["理解函数调用栈帧", "知道 static 和 extern 的区别", "理解递归的工作原理"]
+            }
+          ]
+        },
+        {
+          "id": "c-memory",
+          "title": "核心模块 · 内存与数据结构",
+          "summary": "掌握动态内存管理、结构体、联合体和常见数据结构。",
+          "lessons": [
+            {
+              "id": "c-dynamic-memory",
+              "title": "动态内存管理",
+              "summary": "学习 malloc/calloc/realloc/free，理解内存泄漏和悬垂指针。",
+              "path": "c/c_dynamic_memory.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["malloc", "free", "内存泄漏"],
+              "prerequisites": ["c-functions-scope"],
+              "outcomes": [
+                "会正确使用 malloc 和 free",
+                "能识别和避免内存泄漏",
+                "理解悬垂指针的危害"
+              ]
+            },
+            {
+              "id": "c-structs-unions",
+              "title": "结构体、联合体与位段",
+              "summary": "学习 struct/union/enum，理解内存对齐和位段。",
+              "path": "c/c_structs_unions.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["struct", "union", "对齐"],
+              "prerequisites": ["c-dynamic-memory"],
+              "outcomes": ["会定义和使用结构体", "理解联合体的内存共享", "知道结构体对齐规则"]
+            },
+            {
+              "id": "c-linked-lists",
+              "title": "链表与树结构",
+              "summary": "用 C 实现单向链表、双向链表和二叉树。",
+              "path": "c/c_linked_lists.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 50,
+              "tags": ["链表", "树", "数据结构"],
+              "prerequisites": ["c-structs-unions"],
+              "outcomes": ["会实现单向链表", "会实现二叉树", "理解指针在数据结构中的应用"]
+            },
+            {
+              "id": "c-file-io",
+              "title": "文件 I/O 与标准库",
+              "summary": "学习 FILE 指针、fopen/fread/fwrite 和常用标准库函数。",
+              "path": "c/c_file_io.md",
+              "difficulty": "基础",
+              "estimated_minutes": 40,
+              "tags": ["FILE", "fopen", "标准库"],
+              "prerequisites": ["c-dynamic-memory"],
+              "outcomes": ["会用 FILE 指针读写文件", "理解文本和二进制模式", "知道常用标准库函数"]
+            }
+          ]
+        },
+        {
+          "id": "c-advanced",
+          "title": "进阶模块 · 系统编程与底层",
+          "summary": "理解 POSIX 接口、进程/线程、信号和系统调用。",
+          "lessons": [
+            {
+              "id": "c-preprocessor",
+              "title": "预处理器与宏",
+              "summary": "学习 #define、条件编译、宏函数和 #pragma。",
+              "path": "c/c_preprocessor.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 35,
+              "tags": ["宏", "预处理", "#define"],
+              "prerequisites": ["c-file-io"],
+              "outcomes": ["会写宏定义和宏函数", "理解条件编译", "知道 #pragma 的用法"]
+            },
+            {
+              "id": "c-undefined-behavior",
+              "title": "未定义行为与安全编程",
+              "summary": "理解 UB、整数溢出、缓冲区溢出和防御性编程。",
+              "path": "c/c_undefined_behavior.md",
+              "difficulty": "综合",
+              "estimated_minutes": 45,
+              "tags": ["UB", "安全", "防御"],
+              "prerequisites": ["c-dynamic-memory"],
+              "outcomes": ["理解什么是未定义行为", "能识别常见的 UB 模式", "会写防御性代码"]
+            },
+            {
+              "id": "c-posix-basics",
+              "title": "POSIX 系统接口入门",
+              "summary": "学习文件描述符、进程、信号和管道等 POSIX 接口。",
+              "path": "c/c_posix_basics.md",
+              "difficulty": "综合",
+              "estimated_minutes": 50,
+              "tags": ["POSIX", "进程", "信号"],
+              "prerequisites": ["c-file-io"],
+              "outcomes": ["理解文件描述符", "会用 fork/exec 创建进程", "知道信号处理的基本方法"]
+            },
+            {
+              "id": "c-debugging-tools",
+              "title": "调试工具与内存检测",
+              "summary": "学习 gdb 调试、Valgrind 内存检测和 AddressSanitizer。",
+              "path": "c/c_debugging_tools.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["gdb", "Valgrind", "ASan"],
+              "prerequisites": ["c-dynamic-memory"],
+              "outcomes": [
+                "会用 gdb 调试 C 程序",
+                "会用 Valgrind 检测内存泄漏",
+                "知道 AddressSanitizer 的用法"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "c-projects",
+          "title": "实战模块 · 项目与工程",
+          "summary": "综合运用 C 语言知识，实现完整的系统级项目。",
+          "lessons": [
+            {
+              "id": "c-make-build",
+              "title": "Make 与构建系统",
+              "summary": "学习 Makefile 编写和构建系统管理。",
+              "path": "c/c_make_build.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 40,
+              "tags": ["Make", "构建", "工程"],
+              "prerequisites": ["c-thinking-setup"],
+              "outcomes": ["会写 Makefile", "理解依赖关系", "知道多文件项目的构建流程"]
+            },
+            {
+              "id": "c-mini-libc",
+              "title": "迷你 libc 工具集",
+              "summary": "实现一组常用的字符串和 I/O 工具函数。",
+              "path": "c/c_mini_libc.md",
+              "difficulty": "综合",
+              "estimated_minutes": 60,
+              "tags": ["项目", "字符串", "I/O"],
+              "prerequisites": ["c-make-build"],
+              "outcomes": ["能实现自己的字符串函数", "理解错误码处理", "建立安全编程习惯"]
+            },
+            {
+              "id": "c-memory-pool",
+              "title": "内存池与分配器",
+              "summary": "实现一个简单的内存池和自定义分配器。",
+              "path": "c/c_memory_pool.md",
+              "difficulty": "综合",
+              "estimated_minutes": 60,
+              "tags": ["分配器", "内存池", "性能"],
+              "prerequisites": ["c-dynamic-memory"],
+              "outcomes": ["理解内存分配的原理", "会实现简单的内存池", "知道分配器性能优化的方向"]
+            },
+            {
+              "id": "c-project-complete",
+              "title": "综合实战项目",
+              "summary": "从零开始实现一个完整的 C 语言项目（如迷你 Shell）。",
+              "path": "c/c_project_complete.md",
+              "difficulty": "综合",
+              "estimated_minutes": 90,
+              "tags": ["项目", "Shell", "综合"],
+              "prerequisites": ["c-posix-basics"],
+              "outcomes": [
+                "能独立设计并实现一个 C 项目",
+                "会组织多文件项目结构",
+                "掌握基本的调试和测试方法",
+                "具备完整的项目交付能力"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "csharp",
+      "title": "C# 路线",
+      "icon": "💎",
+      "summary": "从 .NET 基础到企业级后端开发，掌握现代 C# 编程。",
+      "modules": [
+        {
+          "id": "csharp-foundations",
+          "title": "基础模块 · 语法与 .NET 生态",
+          "summary": "掌握 C# 基础语法、类型系统和 .NET 项目结构。",
+          "lessons": [
+            {
+              "id": "cs-thinking-setup",
+              "title": "C# 学习地图与 .NET 环境",
+              "summary": "理解 .NET SDK、运行时和项目结构。",
+              "path": "csharp/cs_thinking_setup.md",
+              "difficulty": "基础",
+              "estimated_minutes": 25,
+              "tags": [".NET", "SDK", "入门"],
+              "prerequisites": [],
+              "outcomes": [
+                "理解 .NET 生态系统的组成",
+                "会创建和运行 .NET 项目",
+                "知道语言版本与目标框架的关系"
+              ]
+            },
+            {
+              "id": "cs-syntax-basics",
+              "title": "基础语法与控制流",
+              "summary": "掌握变量、类型、运算符、条件语句和循环。",
+              "path": "csharp/cs_syntax_basics.md",
+              "difficulty": "基础",
+              "estimated_minutes": 40,
+              "tags": ["语法", "控制流", "类型"],
+              "prerequisites": ["cs-thinking-setup"],
+              "outcomes": [
+                "会写完整的 C# 程序",
+                "掌握值类型和引用类型的区别",
+                "理解 if/for/foreach/switch 的用法"
+              ]
+            },
+            {
+              "id": "cs-methods-params",
+              "title": "方法与参数传递",
+              "summary": "理解方法定义、参数传递（值/ref/out/in）和重载。",
+              "path": "csharp/cs_methods_params.md",
+              "difficulty": "基础",
+              "estimated_minutes": 40,
+              "tags": ["方法", "参数", "重载"],
+              "prerequisites": ["cs-syntax-basics"],
+              "outcomes": ["会定义和调用方法", "理解 ref/out/in 参数的区别", "知道方法重载的规则"]
+            },
+            {
+              "id": "cs-collections",
+              "title": "集合与泛型基础",
+              "summary": "学习 List、Dictionary 等泛型集合。",
+              "path": "csharp/cs_collections.md",
+              "difficulty": "基础",
+              "estimated_minutes": 40,
+              "tags": ["集合", "泛型", "List"],
+              "prerequisites": ["cs-methods-params"],
+              "outcomes": ["熟练使用 List和 Dictionary", "理解泛型的好处", "知道集合的性能特点"]
+            }
+          ]
+        },
+        {
+          "id": "csharp-oop",
+          "title": "核心模块 · 面向对象与高级特性",
+          "summary": "掌握类、接口、泛型、委托、事件和 LINQ。",
+          "lessons": [
+            {
+              "id": "cs-oop-basics",
+              "title": "类、继承与多态",
+              "summary": "学习类定义、继承、接口实现和多态。",
+              "path": "csharp/cs_oop_basics.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["类", "继承", "接口"],
+              "prerequisites": ["cs-collections"],
+              "outcomes": ["会定义类和接口", "理解继承和实现的区别", "掌握多态的应用"]
+            },
+            {
+              "id": "cs-generics-delegates",
+              "title": "泛型、委托与事件",
+              "summary": "深入理解泛型约束、委托类型和事件模式。",
+              "path": "csharp/cs_generics_delegates.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["泛型", "委托", "事件"],
+              "prerequisites": ["cs-oop-basics"],
+              "outcomes": [
+                "会写泛型类和方法",
+                "理解委托和事件的区别",
+                "知道 Action/Func/Predicate 的用法"
+              ]
+            },
+            {
+              "id": "cs-linq",
+              "title": "LINQ 查询与表达式树",
+              "summary": "掌握 LINQ 查询语法和方法语法，理解表达式树。",
+              "path": "csharp/cs_linq.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 50,
+              "tags": ["LINQ", "查询", "表达式树"],
+              "prerequisites": ["cs-generics-delegates"],
+              "outcomes": [
+                "熟练使用 LINQ 查询数据",
+                "理解 IQueryable 和 IEnumerable 的区别",
+                "知道表达式树的应用场景"
+              ]
+            },
+            {
+              "id": "cs-async",
+              "title": "异步编程与 TAP 模式",
+              "summary": "理解 async/await，掌握 TAP 异步设计模式。",
+              "path": "csharp/cs_async.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 50,
+              "tags": ["async", "await", "TAP"],
+              "prerequisites": ["cs-generics-delegates"],
+              "outcomes": ["理解 async/await 的工作原理", "会写异步方法", "理解取消令牌和超时处理"]
+            }
+          ]
+        },
+        {
+          "id": "csharp-backend",
+          "title": "进阶模块 · 企业级后端开发",
+          "summary": "学习 Minimal API、EF Core、认证授权和部署。",
+          "lessons": [
+            {
+              "id": "cs-minimal-api",
+              "title": "Minimal API 入门",
+              "summary": "用 Minimal API 快速搭建 Web 服务，理解中间件和路由。",
+              "path": "csharp/cs_minimal_api.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["Minimal API", "中间件", "路由"],
+              "prerequisites": ["cs-async"],
+              "outcomes": ["会用 Minimal API 创建 Web 服务", "理解中间件管道", "知道路由和参数绑定"]
+            },
+            {
+              "id": "cs-ef-core",
+              "title": "EF Core 与数据库访问",
+              "summary": "学习 Entity Framework Core，掌握 Code First 迁移和 LINQ 查询。",
+              "path": "csharp/cs_ef_core.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 50,
+              "tags": ["EF Core", "ORM", "迁移"],
+              "prerequisites": ["cs-minimal-api"],
+              "outcomes": [
+                "会用 EF Core 操作数据库",
+                "理解 Code First 迁移",
+                "知道 LINQ 到 SQL 的翻译边界"
+              ]
+            },
+            {
+              "id": "cs-auth-security",
+              "title": "认证授权与安全",
+              "summary": "学习 JWT 认证、角色授权和 OWASP 安全最佳实践。",
+              "path": "csharp/cs_auth_security.md",
+              "difficulty": "综合",
+              "estimated_minutes": 45,
+              "tags": ["JWT", "认证", "安全"],
+              "prerequisites": ["cs-ef-core"],
+              "outcomes": ["会实现 JWT 认证", "理解角色和策略授权", "知道常见的 Web 安全漏洞"]
+            },
+            {
+              "id": "cs-deployment",
+              "title": "测试、监控与部署",
+              "summary": "学习 xUnit 单元测试、日志监控和 Docker 部署。",
+              "path": "csharp/cs_deployment.md",
+              "difficulty": "综合",
+              "estimated_minutes": 45,
+              "tags": ["测试", "监控", "Docker"],
+              "prerequisites": ["cs-auth-security"],
+              "outcomes": ["会写 xUnit 单元测试", "理解结构化日志", "知道 Docker 部署的基本流程"]
+            }
+          ]
+        },
+        {
+          "id": "csharp-advanced",
+          "title": "高级模块 · 底层原理与性能",
+          "summary": "理解 CLR、GC、值类型语义和性能优化。",
+          "lessons": [
+            {
+              "id": "cs-clr-gc",
+              "title": "CLR 与垃圾回收",
+              "summary": "理解 CLR 运行时、GC 工作原理和性能影响。",
+              "path": "csharp/cs_clr_gc.md",
+              "difficulty": "综合",
+              "estimated_minutes": 50,
+              "tags": ["CLR", "GC", "运行时"],
+              "prerequisites": ["cs-deployment"],
+              "outcomes": ["理解 CLR 的基本架构", "知道 GC 的工作原理", "能识别 GC 性能问题"]
+            },
+            {
+              "id": "cs-value-types",
+              "title": "值类型语义与装箱拆箱",
+              "summary": "深入理解 struct、record struct 和装箱拆箱的性能影响。",
+              "path": "csharp/cs_value_types.md",
+              "difficulty": "综合",
+              "estimated_minutes": 45,
+              "tags": ["struct", "装箱", "性能"],
+              "prerequisites": ["cs-clr-gc"],
+              "outcomes": [
+                "理解值类型和引用类型的内存差异",
+                "知道装箱拆箱的性能代价",
+                "会用 record struct 简化代码"
+              ]
+            },
+            {
+              "id": "cs-reflection",
+              "title": "反射、特性与依赖注入",
+              "summary": "学习运行时类型发现、自定义特性和 DI 容器。",
+              "path": "csharp/cs_reflection.md",
+              "difficulty": "综合",
+              "estimated_minutes": 45,
+              "tags": ["反射", "特性", "DI"],
+              "prerequisites": ["cs-clr-gc"],
+              "outcomes": ["会用反射获取类型信息", "理解自定义特性的应用", "知道 DI 容器的原理"]
+            },
+            {
+              "id": "cs-project-complete",
+              "title": "综合实战项目",
+              "summary": "从零开始构建一个完整的 C# Web API 项目。",
+              "path": "csharp/cs_project_complete.md",
+              "difficulty": "综合",
+              "estimated_minutes": 90,
+              "tags": ["项目", "Web API", "综合"],
+              "prerequisites": ["cs-deployment"],
+              "outcomes": [
+                "能独立设计并实现一个 C# Web API",
+                "会组织分层架构",
+                "掌握完整的开发到部署流程"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "database",
+      "title": "数据库路线",
+      "icon": "🗄️",
+      "summary": "从 SQL 基础到 DBMS 内核，系统掌握数据库理论与工程实践。",
+      "modules": [
+        {
+          "id": "db-foundations",
+          "title": "基础模块 · 关系模型与 SQL",
+          "summary": "理解关系模型、范式理论和基础 SQL 查询。",
+          "lessons": [
+            {
+              "id": "db-thinking",
+              "title": "数据库学习地图与核心概念",
+              "summary": "理解数据库的定位、关系模型和 ER 图设计。",
+              "path": "database/db_thinking.md",
+              "difficulty": "基础",
+              "estimated_minutes": 25,
+              "tags": ["关系模型", "ER 图", "入门"],
+              "prerequisites": [],
+              "outcomes": [
+                "理解关系模型的基本概念",
+                "会画 ER 图并转换为表结构",
+                "知道数据库的应用场景"
+              ]
+            },
+            {
+              "id": "db-sql-basics",
+              "title": "SQL 基础查询与 DML",
+              "summary": "掌握 SELECT/INSERT/UPDATE/DELETE 和 WHERE 条件。",
+              "path": "database/db_sql_basics.md",
+              "difficulty": "基础",
+              "estimated_minutes": 40,
+              "tags": ["SELECT", "INSERT", "DML"],
+              "prerequisites": ["db-thinking"],
+              "outcomes": [
+                "会写基本的 SELECT 查询",
+                "掌握 INSERT/UPDATE/DELETE",
+                "理解 WHERE 条件的写法"
+              ]
+            },
+            {
+              "id": "db-joins",
+              "title": "多表连接与子查询",
+              "summary": "理解 INNER/LEFT/RIGHT/FULL JOIN 和子查询。",
+              "path": "database/db_joins.md",
+              "difficulty": "基础",
+              "estimated_minutes": 45,
+              "tags": ["JOIN", "子查询", "多表"],
+              "prerequisites": ["db-sql-basics"],
+              "outcomes": ["理解各种 JOIN 的区别", "会写子查询", "知道 EXISTS 和 IN 的应用场景"]
+            },
+            {
+              "id": "db-aggregation",
+              "title": "聚合函数与 GROUP BY",
+              "summary": "掌握 GROUP BY、HAVING 和常用聚合函数。",
+              "path": "database/db_aggregation.md",
+              "difficulty": "基础",
+              "estimated_minutes": 40,
+              "tags": ["GROUP BY", "聚合", "HAVING"],
+              "prerequisites": ["db-joins"],
+              "outcomes": [
+                "会用 GROUP BY 做分组统计",
+                "理解 HAVING 和 WHERE 的区别",
+                "掌握 COUNT/SUM/AVG/MAX/MIN"
+              ]
+            },
+            {
+              "id": "db-normalization",
+              "title": "范式理论与数据库设计",
+              "summary": "理解 1NF/2NF/3NF/BCNF，学会规范化数据库设计。",
+              "path": "database/db_normalization.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["范式", "设计", "规范化"],
+              "prerequisites": ["db-thinking"],
+              "outcomes": ["理解各范式的定义", "会做数据库规范化设计", "知道何时反规范化"]
+            }
+          ]
+        },
+        {
+          "id": "db-advanced",
+          "title": "核心模块 · 高级 SQL 与索引",
+          "summary": "掌握窗口函数、CTE、索引结构和执行计划分析。",
+          "lessons": [
+            {
+              "id": "db-window-functions",
+              "title": "窗口函数与 CTE",
+              "summary": "学习 ROW_NUMBER/RANK/LEAD/LAG 和 WITH 子句。",
+              "path": "database/db_window_functions.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 50,
+              "tags": ["窗口函数", "CTE", "分析"],
+              "prerequisites": ["db-aggregation"],
+              "outcomes": [
+                "会用窗口函数做排名和移动平均",
+                "理解 CTE 和递归 CTE",
+                "知道窗口函数的性能特点"
+              ]
+            },
+            {
+              "id": "db-indexes",
+              "title": "索引原理与 B+ 树",
+              "summary": "理解 B+ 树索引的结构、覆盖索引和组合索引。",
+              "path": "database/db_indexes.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 50,
+              "tags": ["B+ 树", "索引", "性能"],
+              "prerequisites": ["db-normalization"],
+              "outcomes": ["理解 B+ 树的工作原理", "会选择合适的索引", "知道覆盖索引的优势"]
+            },
+            {
+              "id": "db-explain",
+              "title": "执行计划与查询优化",
+              "summary": "学会阅读 EXPLAIN 输出，理解查询优化器的基本策略。",
+              "path": "database/db_explain.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["EXPLAIN", "优化", "执行计划"],
+              "prerequisites": ["db-indexes"],
+              "outcomes": [
+                "会阅读 EXPLAIN 输出",
+                "能识别全表扫描和索引扫描",
+                "知道基本的 SQL 改写技巧"
+              ]
+            },
+            {
+              "id": "db-transactions",
+              "title": "事务与隔离级别",
+              "summary": "理解 ACID 特性、四种隔离级别和 MVCC 原理。",
+              "path": "database/db_transactions.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 50,
+              "tags": ["ACID", "隔离", "MVCC"],
+              "prerequisites": ["db-sql-basics"],
+              "outcomes": ["理解 ACID 的四个特性", "知道四种隔离级别的区别", "理解 MVCC 的基本原理"]
+            }
+          ]
+        },
+        {
+          "id": "db-engines",
+          "title": "进阶模块 · 引擎与 NoSQL",
+          "summary": "对比 PostgreSQL 和 MySQL，理解 NoSQL 数据库。",
+          "lessons": [
+            {
+              "id": "db-postgresql",
+              "title": "PostgreSQL 深入",
+              "summary": "学习 PG 的高级特性：JSONB、全文搜索、扩展。",
+              "path": "database/db_postgresql.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["PostgreSQL", "JSONB", "扩展"],
+              "prerequisites": ["db-transactions"],
+              "outcomes": ["会用 PG 的 JSONB 类型", "知道全文搜索的基本用法", "了解 PG 的扩展生态"]
+            },
+            {
+              "id": "db-mysql",
+              "title": "MySQL InnoDB 深入",
+              "summary": "理解 InnoDB 的存储结构、锁机制和默认隔离级别。",
+              "path": "database/db_mysql.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["MySQL", "InnoDB", "锁"],
+              "prerequisites": ["db-transactions"],
+              "outcomes": [
+                "理解 InnoDB 的存储结构",
+                "知道行锁和表锁的区别",
+                "理解 MySQL 默认的 REPEATABLE READ"
+              ]
+            },
+            {
+              "id": "db-nosql",
+              "title": "NoSQL 数据库概览",
+              "summary": "了解文档数据库、键值存储、列族数据库和图数据库。",
+              "path": "database/db_nosql.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 40,
+              "tags": ["NoSQL", "MongoDB", "Redis"],
+              "prerequisites": ["db-normalization"],
+              "outcomes": [
+                "理解 NoSQL 的分类和适用场景",
+                "知道 MongoDB 和 Redis 的基本用法",
+                "能根据场景选择合适的数据库类型"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "db-projects",
+          "title": "实战模块 · 调优与项目",
+          "summary": "掌握慢查询诊断、并发控制和完整的数据库项目实践。",
+          "lessons": [
+            {
+              "id": "db-tuning",
+              "title": "慢查询诊断与性能调优",
+              "summary": "学习慢查询日志、索引优化和 SQL 改写策略。",
+              "path": "database/db_tuning.md",
+              "difficulty": "综合",
+              "estimated_minutes": 50,
+              "tags": ["慢查询", "调优", "性能"],
+              "prerequisites": ["db-explain"],
+              "outcomes": [
+                "会开启和分析慢查询日志",
+                "能通过索引优化查询",
+                "知道常见的 SQL 性能陷阱"
+              ]
+            },
+            {
+              "id": "db-connection-pool",
+              "title": "连接池与高并发处理",
+              "summary": "理解连接池的原理、配置和高并发场景下的数据库优化。",
+              "path": "database/db_connection_pool.md",
+              "difficulty": "综合",
+              "estimated_minutes": 45,
+              "tags": ["连接池", "高并发", "优化"],
+              "prerequisites": ["db-transactions"],
+              "outcomes": [
+                "理解连接池的工作原理",
+                "会配置合理的连接池参数",
+                "知道高并发下的数据库优化策略"
+              ]
+            },
+            {
+              "id": "db-backup-recovery",
+              "title": "备份、恢复与高可用",
+              "summary": "学习数据库备份策略、恢复方法和主从复制。",
+              "path": "database/db_backup_recovery.md",
+              "difficulty": "综合",
+              "estimated_minutes": 45,
+              "tags": ["备份", "恢复", "主从"],
+              "prerequisites": ["db-transactions"],
+              "outcomes": [
+                "会制定合理的备份策略",
+                "理解 WAL 和时间点恢复",
+                "知道主从复制的基本原理"
+              ]
+            },
+            {
+              "id": "db-project-complete",
+              "title": "综合实战项目",
+              "summary": "从零开始设计并实现一个完整的数据库项目。",
+              "path": "database/db_project_complete.md",
+              "difficulty": "综合",
+              "estimated_minutes": 90,
+              "tags": ["项目", "实战", "综合"],
+              "prerequisites": ["db-tuning"],
+              "outcomes": [
+                "能独立设计并实现一个数据库项目",
+                "会做完整的性能调优",
+                "掌握备份恢复和监控方案",
+                "具备完整的数据库运维能力"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "algorithms",
+      "title": "算法 / 数据结构路线",
+      "icon": "🧠",
+      "summary": "从基础数据结构到经典算法，系统提升编程思维和竞赛能力。",
+      "modules": [
+        {
+          "id": "algo-foundations",
+          "title": "基础模块 · 数据结构基础",
+          "summary": "掌握数组、链表、栈、队列、哈希表等基础数据结构。",
+          "lessons": [
+            {
+              "id": "algo-complexity",
+              "title": "时间复杂度与空间复杂度",
+              "summary": "理解 Big-O 表示法，学会分析算法的性能。",
+              "path": "algorithms/algo_complexity.md",
+              "difficulty": "基础",
+              "estimated_minutes": 30,
+              "tags": ["Big-O", "复杂度", "分析"],
+              "prerequisites": [],
+              "outcomes": [
+                "理解 Big-O 的含义",
+                "能分析简单代码的时间复杂度",
+                "知道时间和空间的权衡"
+              ]
+            },
+            {
+              "id": "algo-arrays-strings",
+              "title": "数组与字符串算法",
+              "summary": "掌握数组和字符串的常见算法模式。",
+              "path": "algorithms/algo_arrays_strings.md",
+              "difficulty": "基础",
+              "estimated_minutes": 40,
+              "tags": ["数组", "字符串", "双指针"],
+              "prerequisites": ["algo-complexity"],
+              "outcomes": ["会用双指针解决数组问题", "掌握滑动窗口技巧", "理解前缀和的应用"]
+            },
+            {
+              "id": "algo-linked-lists",
+              "title": "链表操作与常见题型",
+              "summary": "学习单向链表、双向链表和环形链表的操作。",
+              "path": "algorithms/algo_linked_lists.md",
+              "difficulty": "基础",
+              "estimated_minutes": 40,
+              "tags": ["链表", "指针", "环"],
+              "prerequisites": ["algo-complexity"],
+              "outcomes": ["会实现链表的增删改查", "掌握快慢指针技巧", "能解决环形链表问题"]
+            },
+            {
+              "id": "algo-stacks-queues",
+              "title": "栈、队列与双端队列",
+              "summary": "理解栈、队列的特性和应用场景。",
+              "path": "algorithms/algo_stacks_queues.md",
+              "difficulty": "基础",
+              "estimated_minutes": 40,
+              "tags": ["栈", "队列", "双端队列"],
+              "prerequisites": ["algo-complexity"],
+              "outcomes": [
+                "理解 LIFO 和 FIFO 的区别",
+                "会用栈解决括号匹配问题",
+                "知道双端队列的应用"
+              ]
+            },
+            {
+              "id": "algo-hash-tables",
+              "title": "哈希表与字典",
+              "summary": "理解哈希函数、冲突解决和哈希表的应用。",
+              "path": "algorithms/algo_hash_tables.md",
+              "difficulty": "基础",
+              "estimated_minutes": 40,
+              "tags": ["哈希", "字典", "冲突"],
+              "prerequisites": ["algo-complexity"],
+              "outcomes": [
+                "理解哈希表的工作原理",
+                "会用哈希表做去重和频率统计",
+                "知道哈希冲突的解决方案"
+              ]
+            },
+            {
+              "id": "algo-complexity-basics",
+              "title": "时间与空间复杂度入门",
+              "summary": "理解 Big-O 表示法，学会分析代码的时间和空间复杂度。",
+              "path": "algorithms/algo_complexity_basics.md",
+              "difficulty": "基础",
+              "estimated_minutes": 30,
+              "tags": ["Big-O", "复杂度", "分析"],
+              "prerequisites": [],
+              "outcomes": [
+                "理解 O(1)/O(n)/O(n^2)/O(log n) 的含义",
+                "能分析简单代码的时间复杂度",
+                "知道常见数据结构操作的复杂度"
+              ]
+            },
+            {
+              "id": "algo-thinking-map",
+              "title": "算法解题思维地图",
+              "summary": "建立系统化的算法解题框架，学会识别题型并选择正确的算法策略。",
+              "path": "algorithms/algo_thinking_map.md",
+              "difficulty": "基础",
+              "estimated_minutes": 25,
+              "tags": ["思维", "策略", "框架"],
+              "prerequisites": ["algo-complexity-basics"],
+              "outcomes": [
+                "能识别常见的算法题型分类",
+                "知道何时用贪心、何时用动态规划",
+                "建立系统化的解题思维"
+              ]
+            },
+            {
+              "id": "algo-two-pointers",
+              "title": "双指针技巧",
+              "summary": "掌握双指针的两种模式（对撞指针和快慢指针），解决数组和链表相关问题。",
+              "path": "algorithms/algo_two_pointers.md",
+              "difficulty": "基础",
+              "estimated_minutes": 40,
+              "tags": ["双指针", "数组", "链表"],
+              "prerequisites": ["algo-arrays-strings"],
+              "outcomes": [
+                "掌握对撞指针和快慢指针两种模式",
+                "能用双指针解决回文判断、反转等问题",
+                "理解双指针在有序数组中的优势"
+              ]
+            },
+            {
+              "id": "algo-prefix-sum-window",
+              "title": "前缀和与滑动窗口",
+              "summary": "学习两种高效的数组处理技巧：前缀和用于快速区间求和，滑动窗口用于子数组问题。",
+              "path": "algorithms/algo_prefix_sum_window.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["前缀和", "滑动窗口", "子数组"],
+              "prerequisites": ["algo-arrays-strings"],
+              "outcomes": [
+                "理解前缀和的预处理思想",
+                "掌握滑动窗口的模板代码",
+                "能用两种技巧解决区间求和与子数组问题"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "algo-trees-graphs",
+          "title": "核心模块 · 树与图",
+          "summary": "掌握二叉树、BST、堆、图的遍历和最短路径算法。",
+          "lessons": [
+            {
+              "id": "algo-binary-trees",
+              "title": "二叉树遍历与操作",
+              "summary": "学习前序、中序、后序和层序遍历。",
+              "path": "algorithms/algo_binary_trees.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 50,
+              "tags": ["二叉树", "遍历", "递归"],
+              "prerequisites": ["algo-linked-lists"],
+              "outcomes": ["会写递归和迭代遍历", "理解二叉树的性质", "能解决常见的二叉树题"]
+            },
+            {
+              "id": "algo-bst",
+              "title": "二叉搜索树",
+              "summary": "理解 BST 的性质、插入、删除和查找。",
+              "path": "algorithms/algo_bst.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["BST", "搜索", "平衡"],
+              "prerequisites": ["algo-binary-trees"],
+              "outcomes": ["理解 BST 的有序性", "会实现 BST 的插入和删除", "知道平衡树的必要性"]
+            },
+            {
+              "id": "algo-heaps",
+              "title": "堆与优先队列",
+              "summary": "学习二叉堆的实现和应用。",
+              "path": "algorithms/algo_heaps.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["堆", "优先队列", "Top-K"],
+              "prerequisites": ["algo-binary-trees"],
+              "outcomes": ["理解堆的性质", "会用堆解决 Top-K 问题", "知道堆排序的原理"]
+            },
+            {
+              "id": "algo-graphs",
+              "title": "图的表示与遍历",
+              "summary": "学习邻接矩阵、邻接表、BFS 和 DFS。",
+              "path": "algorithms/algo_graphs.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 50,
+              "tags": ["图", "BFS", "DFS"],
+              "prerequisites": ["algo-stacks-queues"],
+              "outcomes": ["会用邻接表表示图", "会写 BFS 和 DFS", "能解决图的连通性问题"]
+            },
+            {
+              "id": "algo-tree-bfs-dfs",
+              "title": "树的 BFS 与 DFS",
+              "summary": "掌握二叉树的层序遍历（BFS）和前/中/后序遍历（DFS），理解递归和迭代两种实现。",
+              "path": "algorithms/algo_tree_bfs_dfs.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["BFS", "DFS", "遍历"],
+              "prerequisites": ["algo-binary-trees"],
+              "outcomes": [
+                "能实现 BFS 层序遍历",
+                "掌握递归和迭代两种 DFS 实现",
+                "理解 BFS/DFS 的时间和空间复杂度"
+              ]
+            },
+            {
+              "id": "algo-graph-shortest-path",
+              "title": "图的最短路径算法",
+              "summary": "学习 Dijkstra 和 BFS 最短路径算法，理解加权图和无权图的区别。",
+              "path": "algorithms/algo_graph_shortest_path.md",
+              "difficulty": "综合",
+              "estimated_minutes": 55,
+              "tags": ["Dijkstra", "BFS", "最短路径"],
+              "prerequisites": ["algo-graphs"],
+              "outcomes": [
+                "理解 Dijkstra 算法的贪心策略",
+                "能用 BFS 求无权图最短路径",
+                "知道优先队列在最短路径中的作用"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "algo-classic",
+          "title": "高级模块 · 经典算法",
+          "summary": "掌握排序、查找、动态规划、贪心和回溯算法。",
+          "lessons": [
+            {
+              "id": "algo-sorting",
+              "title": "排序算法全解析",
+              "summary": "学习快速排序、归并排序、堆排序和基数排序。",
+              "path": "algorithms/algo_sorting.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 50,
+              "tags": ["排序", "快排", "归并"],
+              "prerequisites": ["algo-complexity"],
+              "outcomes": ["理解各种排序的复杂度", "会实现快排和归并", "知道什么场景用什么排序"]
+            },
+            {
+              "id": "algo-binary-search",
+              "title": "二分查找与变体",
+              "summary": "掌握二分查找的模板和常见变体。",
+              "path": "algorithms/algo_binary_search.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 40,
+              "tags": ["二分", "查找", "边界"],
+              "prerequisites": ["algo-complexity"],
+              "outcomes": ["会写标准二分查找", "理解左边界和右边界", "能识别二分的适用场景"]
+            },
+            {
+              "id": "algo-dp",
+              "title": "动态规划入门",
+              "summary": "理解状态转移、记忆化搜索和自底向上 DP。",
+              "path": "algorithms/algo_dp.md",
+              "difficulty": "综合",
+              "estimated_minutes": 60,
+              "tags": ["DP", "状态转移", "记忆化"],
+              "prerequisites": ["algo-binary-trees"],
+              "outcomes": ["理解重叠子问题和最优子结构", "会写经典的 DP 题", "知道空间优化的方法"]
+            },
+            {
+              "id": "algo-greedy-backtrack",
+              "title": "贪心与回溯算法",
+              "summary": "学习贪心策略的适用条件和回溯搜索模板。",
+              "path": "algorithms/algo_greedy_backtrack.md",
+              "difficulty": "综合",
+              "estimated_minutes": 50,
+              "tags": ["贪心", "回溯", "搜索"],
+              "prerequisites": ["algo-binary-trees"],
+              "outcomes": ["理解贪心的适用条件", "会写回溯搜索模板", "能解决组合和排列问题"]
+            },
+            {
+              "id": "algo-dynamic-programming-intuition",
+              "title": "动态规划直觉训练",
+              "summary": "建立动态规划的直觉，从暴力递归到记忆化搜索再到自底向上 DP 的转化过程。",
+              "path": "algorithms/algo_dynamic_programming_intuition.md",
+              "difficulty": "综合",
+              "estimated_minutes": 55,
+              "tags": ["DP", "递归", "状态转移"],
+              "prerequisites": ["algo-dp"],
+              "outcomes": [
+                "理解 DP 的三要素：状态、转移方程、边界",
+                "能从暴力递归推导出 DP 解法",
+                "掌握空间优化的滚动数组技巧"
+              ]
+            },
+            {
+              "id": "algo-binary-search-greedy",
+              "title": "二分搜索与贪心综合",
+              "summary": "学习二分搜索的高级应用（答案二分）和贪心算法的证明方法。",
+              "path": "algorithms/algo_binary_search_greedy.md",
+              "difficulty": "综合",
+              "estimated_minutes": 50,
+              "tags": ["二分", "贪心", "证明"],
+              "prerequisites": ["algo-binary-search", "algo-greedy-backtrack"],
+              "outcomes": [
+                "掌握答案二分的模板",
+                "理解贪心选择性质的证明方法",
+                "能综合运用二分和贪心解决复杂问题"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "integration",
+      "title": "融合项目路线",
+      "icon": "🔗",
+      "summary": "跨技术栈综合实战，将所学知识融会贯通。",
+      "modules": [
+        {
+          "id": "int-fullstack",
+          "title": "全栈开发模块",
+          "summary": "学习前后端分离架构、API 设计和部署。",
+          "lessons": [
+            {
+              "id": "int-api-design",
+              "title": "RESTful API 设计与实现",
+              "summary": "理解 REST 原则，学会设计清晰的 API 接口。",
+              "path": "integration/int_api_design.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["REST", "API", "设计"],
+              "prerequisites": [],
+              "outcomes": [
+                "理解 REST 的六个约束",
+                "会设计清晰的 API 接口",
+                "知道版本控制和错误处理"
+              ]
+            },
+            {
+              "id": "int-frontend-basics",
+              "title": "前端基础与数据交互",
+              "summary": "学习 HTML/CSS/JS 基础，理解与后端的数据交互。",
+              "path": "integration/int_frontend_basics.md",
+              "difficulty": "基础",
+              "estimated_minutes": 40,
+              "tags": ["HTML", "CSS", "JavaScript"],
+              "prerequisites": [],
+              "outcomes": [
+                "理解前后端分离的价值",
+                "会写简单的前端页面",
+                "知道如何调用 API 并处理响应"
+              ]
+            },
+            {
+              "id": "int-docker",
+              "title": "Docker 容器化部署",
+              "summary": "学习 Docker 基础、Dockerfile 和 docker-compose。",
+              "path": "integration/int_docker.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["Docker", "容器", "部署"],
+              "prerequisites": [],
+              "outcomes": ["理解容器化的价值", "会写 Dockerfile", "能用 docker-compose 部署多服务"]
+            },
+            {
+              "id": "int-ci-cd",
+              "title": "CI/CD 与自动化",
+              "summary": "学习 GitHub Actions 和自动化测试/部署流程。",
+              "path": "integration/int_ci_cd.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 40,
+              "tags": ["CI/CD", "GitHub Actions", "自动化"],
+              "prerequisites": ["int-docker"],
+              "outcomes": ["理解 CI/CD 的概念", "会配置 GitHub Actions", "知道自动化测试的流程"]
+            }
+          ]
+        },
+        {
+          "id": "int-embedded",
+          "title": "嵌入式与控制模块",
+          "summary": "从仿真到实物，学习嵌入式开发和控制系统。",
+          "lessons": [
+            {
+              "id": "int-wokwi-sim",
+              "title": "Wokwi 在线仿真入门",
+              "summary": "用 Wokwi 在线仿真 Arduino/ESP32/STM32 电路。",
+              "path": "integration/int_wokwi_sim.md",
+              "difficulty": "基础",
+              "estimated_minutes": 35,
+              "tags": ["Wokwi", "仿真", "Arduino"],
+              "prerequisites": [],
+              "outcomes": [
+                "会用 Wokwi 搭建电路仿真",
+                "理解 GPIO 和串口通信",
+                "能完成 LED 和按键实验"
+              ]
+            },
+            {
+              "id": "int-platformio",
+              "title": "PlatformIO 开发环境",
+              "summary": "学习在 VS Code 中用 PlatformIO 开发嵌入式项目。",
+              "path": "integration/int_platformio.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 40,
+              "tags": ["PlatformIO", "VS Code", "嵌入式"],
+              "prerequisites": ["int-wokwi-sim"],
+              "outcomes": ["会配置 PlatformIO 项目", "理解库管理和上传流程", "能开发多板子项目"]
+            },
+            {
+              "id": "int-simulink",
+              "title": "Simulink 控制仿真",
+              "summary": "学习 Simulink 建模和 PID 控制器设计。",
+              "path": "integration/int_simulink.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["Simulink", "PID", "控制"],
+              "prerequisites": [],
+              "outcomes": [
+                "会用 Simulink 建立系统模型",
+                "理解 PID 控制器的原理",
+                "能设计和调参 PID 控制器"
+              ]
+            },
+            {
+              "id": "int-robotics",
+              "title": "机器人与智能车入门",
+              "summary": "了解机器人操作系统和智能车竞赛的基础知识。",
+              "path": "integration/int_robotics.md",
+              "difficulty": "综合",
+              "estimated_minutes": 50,
+              "tags": ["机器人", "智能车", "ROS"],
+              "prerequisites": ["int-platformio"],
+              "outcomes": ["了解机器人的基本组成", "知道智能车竞赛的要求", "能完成基础的传感器集成"]
+            }
+          ]
+        },
+        {
+          "id": "int-competition",
+          "title": "竞赛与项目模块",
+          "summary": "针对蓝桥杯、电子设计竞赛等备赛指南。",
+          "lessons": [
+            {
+              "id": "int-lanqiao",
+              "title": "蓝桥杯备赛指南",
+              "summary": "了解蓝桥杯的考点、题型和备赛策略。",
+              "path": "integration/int_lanqiao.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 35,
+              "tags": ["蓝桥杯", "竞赛", "备赛"],
+              "prerequisites": [],
+              "outcomes": ["了解蓝桥杯的考点分布", "知道各语言组的题型特点", "有明确的备赛计划"]
+            },
+            {
+              "id": "int-electronic-design",
+              "title": "电子设计竞赛备赛",
+              "summary": "了解电赛的题目类型、工具链和团队协作。",
+              "path": "integration/int_electronic_design.md",
+              "difficulty": "综合",
+              "estimated_minutes": 40,
+              "tags": ["电赛", "嵌入式", "团队"],
+              "prerequisites": ["int-platformio"],
+              "outcomes": ["了解电赛的题目类型", "知道常用的开发工具", "有团队协作的意识"]
+            },
+            {
+              "id": "int-math-modeling",
+              "title": "数学建模入门",
+              "summary": "学习数学建模的基本方法和 Python/MATLAB 工具。",
+              "path": "integration/int_math_modeling.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 45,
+              "tags": ["数学建模", "Python", "MATLAB"],
+              "prerequisites": [],
+              "outcomes": [
+                "理解数学建模的基本流程",
+                "会用 Python 做数据分析和可视化",
+                "知道常见的建模方法"
+              ]
+            },
+            {
+              "id": "int-capstone",
+              "title": "综合毕设级项目",
+              "summary": "综合运用所学知识，完成一个跨技术栈的完整项目。",
+              "path": "integration/int_capstone.md",
+              "difficulty": "综合",
+              "estimated_minutes": 90,
+              "tags": ["项目", "综合", "毕设"],
+              "prerequisites": ["int-ci-cd"],
+              "outcomes": [
+                "能独立完成跨技术栈项目",
+                "会做需求分析和技术选型",
+                "掌握完整的项目管理流程",
+                "具备求职简历项目经验"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "projects",
+      "title": "实战项目集",
+      "icon": "🎯",
+      "summary": "综合运用各语言能力，完成 10 个由浅入深的真实项目。",
+      "modules": [
+        {
+          "id": "projects-beginner",
+          "title": "入门项目 · 命令行与数据处理",
+          "summary": "用 Python 完成 4 个基础项目，巩固语法、文件 I/O 和数据处理能力。",
+          "lessons": [
+            {
+              "id": "project-todo-cli",
+              "title": "Todo 命令行工具",
+              "summary": "实现通过命令行管理待办事项的工具，支持增删改查和 JSON 持久化。",
+              "path": "projects/p1_todo.md",
+              "difficulty": "基础",
+              "estimated_minutes": 120,
+              "tags": ["CLI", "JSON", "argparse"],
+              "prerequisites": [],
+              "outcomes": [
+                "能用 argparse 构建命令行工具",
+                "会用 json 模块做数据持久化",
+                "理解 try-except 处理文件异常"
+              ]
+            },
+            {
+              "id": "project-crawler",
+              "title": "多线程图片爬虫",
+              "summary": "实现一个多线程图片下载爬虫，掌握并发编程和网络请求。",
+              "path": "projects/p2_crawler.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 150,
+              "tags": ["爬虫", "多线程", "requests"],
+              "prerequisites": ["project-todo-cli"],
+              "outcomes": [
+                "能用 requests 库下载网络资源",
+                "理解多线程并发下载",
+                "会处理网络异常和重试"
+              ]
+            },
+            {
+              "id": "project-orm",
+              "title": "简易 ORM 框架",
+              "summary": "实现一个简化版 ORM，理解 SQLAlchemy 的设计思想。",
+              "path": "projects/p3_orm.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 180,
+              "tags": ["ORM", "SQLite", "元编程"],
+              "prerequisites": ["project-todo-cli"],
+              "outcomes": [
+                "理解 ORM 的映射原理",
+                "会用 Python 描述符做属性代理",
+                "知道 SQL 生成的基本方法"
+              ]
+            },
+            {
+              "id": "project-data-analysis",
+              "title": "数据分析与可视化",
+              "summary": "使用 pandas 和 matplotlib 完成数据分析与图表绘制。",
+              "path": "projects/p4_analyze.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 150,
+              "tags": ["pandas", "matplotlib", "数据分析"],
+              "prerequisites": ["project-todo-cli"],
+              "outcomes": [
+                "会用 pandas 读取和处理数据",
+                "能用 matplotlib 绘制常用图表",
+                "理解数据分析的基本流程"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "projects-intermediate",
+          "title": "中级项目 · Web 与后端",
+          "summary": "完成 4 个 Web 后端项目，掌握 API 设计、数据库集成和异步任务。",
+          "lessons": [
+            {
+              "id": "project-fastapi-ledger",
+              "title": "个人记账本 API",
+              "summary": "用 FastAPI 实现个人记账本的 RESTful API。",
+              "path": "projects/p5_fastapi.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 180,
+              "tags": ["FastAPI", "REST", "SQLite"],
+              "prerequisites": ["project-data-analysis"],
+              "outcomes": [
+                "会用 FastAPI 设计 RESTful API",
+                "能集成 SQLAlchemy 操作数据库",
+                "理解请求验证和错误处理"
+              ]
+            },
+            {
+              "id": "project-celery-redis",
+              "title": "Redis 缓存与 Celery 异步任务",
+              "summary": "使用 Redis 和 Celery 实现异步任务队列。",
+              "path": "projects/p6_celery.md",
+              "difficulty": "综合",
+              "estimated_minutes": 180,
+              "tags": ["Redis", "Celery", "异步"],
+              "prerequisites": ["project-fastapi-ledger"],
+              "outcomes": [
+                "理解消息队列的概念",
+                "会用 Celery 配置异步任务",
+                "知道 Redis 的缓存策略"
+              ]
+            },
+            {
+              "id": "project-django-blog",
+              "title": "Django 个人博客系统",
+              "summary": "用 Django 框架搭建一个完整的博客系统。",
+              "path": "projects/p7_django.md",
+              "difficulty": "综合",
+              "estimated_minutes": 240,
+              "tags": ["Django", "MVC", "模板"],
+              "prerequisites": ["project-fastapi-ledger"],
+              "outcomes": [
+                "会用 Django 搭建 Web 应用",
+                "理解 MTV 架构模式",
+                "能实现用户认证和权限管理"
+              ]
+            },
+            {
+              "id": "project-pyqt5-player",
+              "title": "PyQt5 音乐播放器",
+              "summary": "用 PyQt5 实现一个带界面的音乐播放器。",
+              "path": "projects/p8_player.md",
+              "difficulty": "综合",
+              "estimated_minutes": 200,
+              "tags": ["PyQt5", "GUI", "多媒体"],
+              "prerequisites": ["project-data-analysis"],
+              "outcomes": ["会用 PyQt5 构建桌面应用", "理解信号与槽机制", "能集成多媒体播放功能"]
+            }
+          ]
+        },
+        {
+          "id": "projects-advanced",
+          "title": "高级项目 · 测试与 AI",
+          "summary": "完成 2 个高级项目，掌握自动化测试和 AI 应用开发。",
+          "lessons": [
+            {
+              "id": "project-selenium-test",
+              "title": "Selenium 自动化测试助手",
+              "summary": "用 Selenium 实现 Web 自动化测试框架。",
+              "path": "projects/p9_selenium.md",
+              "difficulty": "综合",
+              "estimated_minutes": 180,
+              "tags": ["Selenium", "自动化测试", "WebDriver"],
+              "prerequisites": ["project-django-blog"],
+              "outcomes": [
+                "会用 Selenium 操作浏览器",
+                "能编写自动化测试脚本",
+                "理解 Page Object 设计模式"
+              ]
+            },
+            {
+              "id": "project-ai-chatbot",
+              "title": "Claude AI 智能对话助理",
+              "summary": "集成 Claude API 构建智能对话助理应用。",
+              "path": "projects/p10_ai.md",
+              "difficulty": "综合",
+              "estimated_minutes": 180,
+              "tags": ["AI", "Claude API", "对话系统"],
+              "prerequisites": ["project-fastapi-ledger"],
+              "outcomes": [
+                "会调用 Claude API 进行对话",
+                "理解 prompt 工程基础",
+                "能构建带上下文的对话系统"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
