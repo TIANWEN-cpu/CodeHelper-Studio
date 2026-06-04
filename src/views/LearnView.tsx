@@ -360,9 +360,6 @@ export function LearnView() {
                       placeholder="搜索课程、章节、知识点..."
                       className="w-full bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] rounded-lg pl-8 p-1.5 text-xs text-white placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent-purple)]"
                     />
-                    <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[var(--color-text-muted)] font-mono">
-                      Ctrl K
-                    </kbd>
                   </div>
                 </div>
 
