@@ -31,6 +31,7 @@ win:
   #   rfc3161TimeStampServer: http://timestamp.digicert.com
 
 nsis:
+  artifactName: '${productName}-Installer-${version}.${ext}'
   oneClick: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
@@ -95,6 +96,10 @@ extraResources:
     to: icons
   - from: resources/problems
     to: problems
+  - from: resources/demo
+    to: demo
+  - from: content
+    to: content
   - from: electron/db/schema.sql
     to: db/schema.sql
 

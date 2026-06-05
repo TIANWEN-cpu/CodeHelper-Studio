@@ -39,6 +39,10 @@ function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
   return window.api.invoke(channel, ...args) as Promise<T>
 }
 
+export function createAIRequestId(): string {
+  return `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
 // --------------- Session CRUD ---------------
 
 /** Fetch all chat sessions. */
@@ -84,17 +88,19 @@ export async function sendMessage(
   sessionId: string,
   content: string,
   configId?: number,
-): Promise<void> {
-  const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  requestId = createAIRequestId(),
+  includeMemories = true,
+): Promise<string> {
   // 埋点：向 AI 发送了一条提问。
   track('ai_chat_sent', {})
-  return invoke<void>('ai-chat', {
+  await invoke<void>('ai-chat', {
     messages: [{ role: 'user' as const, content }],
     sessionId,
     configId,
     requestId,
-    includeMemories: true,
+    includeMemories,
   })
+  return requestId
 }
 
 /**
@@ -116,12 +122,14 @@ export async function captureMemory(content: string, sessionId?: string): Promis
  * The backend sends `{ requestId, chunk }` objects.
  * Returns an unsubscribe function that removes the listener.
  */
-export function onChunk(callback: (chunk: string) => void): () => void {
+export function onChunk(callback: (chunk: string) => void, requestId?: string): () => void {
   // preload 的 on() 已剥离 event，回调首个参数即后端发送的 data。
   // on() 返回的就是取消订阅函数（preload 没有暴露 off）。
   return window.api.on('ai-chat-chunk', (...args: unknown[]) => {
     const data = args[0] as { requestId: string; chunk: string } | undefined
-    if (data && typeof data.chunk === 'string') callback(data.chunk)
+    if (data && typeof data.chunk === 'string' && (!requestId || data.requestId === requestId)) {
+      callback(data.chunk)
+    }
   })
 }
 
@@ -131,10 +139,12 @@ export function onChunk(callback: (chunk: string) => void): () => void {
  * The backend sends `{ requestId, content }` objects.
  * Returns an unsubscribe function.
  */
-export function onDone(callback: (fullContent: string) => void): () => void {
+export function onDone(callback: (fullContent: string) => void, requestId?: string): () => void {
   return window.api.on('ai-chat-done', (...args: unknown[]) => {
     const data = args[0] as { requestId: string; content: string } | undefined
-    if (data && typeof data.content === 'string') callback(data.content)
+    if (data && typeof data.content === 'string' && (!requestId || data.requestId === requestId)) {
+      callback(data.content)
+    }
   })
 }
 
@@ -159,18 +169,19 @@ export async function quickAsk(prompt: string): Promise<string> {
 
   try {
     return await new Promise<string>((resolve, reject) => {
+      const requestId = createAIRequestId()
       const cleanupDone = onDone((fullContent) => {
         cleanupChunk()
         cleanupDone()
         resolve(fullContent)
-      })
+      }, requestId)
 
       // Also listen for errors reported via chunks (optional safeguard)
       const cleanupChunk = onChunk(() => {
         // Chunks are consumed by onDone; nothing extra required here.
-      })
+      }, requestId)
 
-      sendMessage(session.id, prompt).catch((err) => {
+      sendMessage(session.id, prompt, undefined, requestId).catch((err) => {
         cleanupChunk()
         cleanupDone()
         reject(err)

@@ -2376,6 +2376,147 @@
           ]
         }
       ]
+    },
+    {
+      "id": "ai-tutor",
+      "title": "AI Tutor 高效学习路线",
+      "icon": "✨",
+      "summary": "学会把 AI 助手用成真正的学习伙伴：会提问、会拆解、会复盘、会验证输出。",
+      "modules": [
+        {
+          "id": "ai-tutor-foundation",
+          "title": "AI 学习基本功",
+          "summary": "建立清晰提问、上下文提供和输出校验的基本习惯。",
+          "lessons": [
+            {
+              "id": "ai-tutor-prompting-basics",
+              "title": "把问题问清楚：Prompt 的四段式",
+              "summary": "用目标、上下文、约束和期望输出四个部分，让 AI Tutor 更稳定地给出可执行反馈。",
+              "path": "ai_tutor/prompting_basics.md",
+              "difficulty": "基础",
+              "estimated_minutes": 35,
+              "tags": ["AI Tutor", "Prompt", "学习方法"],
+              "prerequisites": [],
+              "outcomes": [
+                "能写出结构化学习提问",
+                "能区分目标、上下文、约束和输出格式",
+                "能让 AI 先诊断再给答案"
+              ]
+            },
+            {
+              "id": "ai-tutor-debug-dialogue",
+              "title": "和 AI 一起调试：从报错到假设",
+              "summary": "把错误信息、复现步骤和当前假设交给 AI，形成可验证的调试循环。",
+              "path": "ai_tutor/debug_dialogue.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 40,
+              "tags": ["调试", "错误分析", "AI Tutor"],
+              "prerequisites": ["ai-tutor-prompting-basics"],
+              "outcomes": [
+                "能整理最小复现信息",
+                "能要求 AI 生成排查顺序",
+                "能验证 AI 给出的修复建议"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "ai-tutor-workflow",
+          "title": "AI 辅导工作流",
+          "summary": "把 AI 辅导接入预习、练习、复盘和题库扩展。",
+          "lessons": [
+            {
+              "id": "ai-tutor-study-plan",
+              "title": "生成一份不会崩的学习计划",
+              "summary": "将大目标拆成课程、练习、复盘和验收标准，避免计划只有热情没有闭环。",
+              "path": "ai_tutor/study_plan.md",
+              "difficulty": "基础",
+              "estimated_minutes": 35,
+              "tags": ["计划", "Roadmap", "复盘"],
+              "prerequisites": ["ai-tutor-prompting-basics"],
+              "outcomes": ["能设计一周学习节奏", "能给每个阶段配练习和验收", "能用 AI 生成复盘问题"]
+            },
+            {
+              "id": "ai-tutor-socratic-review",
+              "title": "苏格拉底式复盘：让 AI 少讲答案",
+              "summary": "让 AI 通过追问暴露知识盲点，再用错题和笔记沉淀成可复习材料。",
+              "path": "ai_tutor/socratic_review.md",
+              "difficulty": "综合",
+              "estimated_minutes": 45,
+              "tags": ["复盘", "错题", "知识卡片"],
+              "prerequisites": ["ai-tutor-debug-dialogue", "ai-tutor-study-plan"],
+              "outcomes": [
+                "能让 AI 用追问辅导而不是直接给答案",
+                "能把错题转换成知识卡片",
+                "能建立复盘清单"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "ai-tutor-agent-workflows",
+          "title": "Agent 与 Workflow 进阶",
+          "summary": "把 AI Tutor 的对话能力升级成可执行的 Agent 任务、工具审批和复盘工作流。",
+          "lessons": [
+            {
+              "id": "ai-agent-task-brief",
+              "title": "Agent 任务说明书：让目标可执行",
+              "summary": "学习把模糊需求整理成目标、上下文、约束和验收标准，让 Agent 能稳定执行。",
+              "path": "ai_tutor/agent_task_brief.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 35,
+              "tags": ["Agent", "任务拆解", "验收标准"],
+              "prerequisites": ["ai-tutor-prompting-basics"],
+              "outcomes": [
+                "能写出结构化 Agent 任务说明",
+                "能把目标拆成 3 到 6 个执行步骤",
+                "能为 Agent 输出设置验收标准"
+              ]
+            },
+            {
+              "id": "ai-tool-safety-checklist",
+              "title": "工具安全清单：让 AI 操作可控",
+              "summary": "识别 AI Tutor / Agent 调用工具时的风险等级，学会设置确认点和回滚方案。",
+              "path": "ai_tutor/tool_safety_checklist.md",
+              "difficulty": "进阶",
+              "estimated_minutes": 30,
+              "tags": ["工具安全", "审批", "回滚"],
+              "prerequisites": ["ai-agent-task-brief"],
+              "outcomes": [
+                "能区分低中高风险工具操作",
+                "能写出清晰确认文案",
+                "能为高风险动作准备回滚方案"
+              ]
+            },
+            {
+              "id": "ai-workflow-retrospective",
+              "title": "Workflow 复盘：把一次成功变成流程",
+              "summary": "把一次 AI 辅导或 Agent 执行过程沉淀成可复用 Workflow。",
+              "path": "ai_tutor/workflow_retrospective.md",
+              "difficulty": "综合",
+              "estimated_minutes": 40,
+              "tags": ["Workflow", "复盘", "模板"],
+              "prerequisites": ["ai-tutor-socratic-review", "ai-agent-task-brief"],
+              "outcomes": [
+                "能从执行记录提炼 Workflow",
+                "能标注人类确认节点",
+                "能持续优化 Workflow 模板"
+              ]
+            },
+            {
+              "id": "ai-learning-log-automation",
+              "title": "自动化学习日志：让 AI 帮你复利",
+              "summary": "把课程、练习、错题和下一步动作整理成可复盘的 Markdown 学习日志。",
+              "path": "ai_tutor/learning_log_automation.md",
+              "difficulty": "基础",
+              "estimated_minutes": 28,
+              "tags": ["学习日志", "自动化", "Markdown"],
+              "prerequisites": ["ai-tutor-study-plan"],
+              "outcomes": ["能生成结构化学习日志", "能用 AI 总结当天卡点", "能把日志转成下一步行动"]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

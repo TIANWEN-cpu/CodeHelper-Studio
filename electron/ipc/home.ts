@@ -10,7 +10,7 @@
 import { ipcMain } from 'electron'
 import { getDB } from '../db/index'
 import { readFileSync, existsSync } from 'fs'
-import { join, resolve } from 'path'
+import { join } from 'path'
 import { trackPerformance } from '../utils/perfMonitor'
 
 // ---------------------------------------------------------------------------
@@ -74,7 +74,11 @@ export interface HomeOverview {
 // Constants
 // ---------------------------------------------------------------------------
 
-const CONTENT_DIR = resolve(__dirname, '../../content')
+const CONTENT_DIR_CANDIDATES = [
+  join(process.resourcesPath, 'content'),
+  join(__dirname, '../../content'),
+  join(__dirname, '../../../content'),
+]
 
 // XP awarded per analytics event type.
 const XP_PER_EVENT: Record<string, number> = {
@@ -90,11 +94,24 @@ const XP_DEFAULT = 1
 // ---------------------------------------------------------------------------
 
 let cachedCourseMap: CourseMap | null = null
+let cachedContentDir: string | null = null
+
+function resolveContentDir(): string {
+  if (cachedContentDir) return cachedContentDir
+  for (const candidate of CONTENT_DIR_CANDIDATES) {
+    if (existsSync(join(candidate, 'metadata', 'course_map.json'))) {
+      cachedContentDir = candidate
+      console.log(`[IPC] Loaded home course map from: ${candidate}`)
+      return candidate
+    }
+  }
+  return CONTENT_DIR_CANDIDATES[0]
+}
 
 function loadCourseMap(): CourseMap {
   if (cachedCourseMap) return cachedCourseMap
 
-  const mapPath = join(CONTENT_DIR, 'metadata', 'course_map.json')
+  const mapPath = join(resolveContentDir(), 'metadata', 'course_map.json')
   if (!existsSync(mapPath)) {
     throw new Error(`课程索引文件不存在: ${mapPath}`)
   }

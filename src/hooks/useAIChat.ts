@@ -10,6 +10,7 @@ import {
   sendMessage as sendMessageApi,
   saveMessage,
   captureMemory,
+  createAIRequestId,
   onChunk,
   onDone,
   getPresets as getPresetsApi,
@@ -43,13 +44,31 @@ export interface UseAIChatReturn {
   deleteSession: (id: string) => Promise<void>
 
   // Messaging
-  sendMessage: (content: string, configId?: number, sendOverride?: string) => Promise<void>
+  sendMessage: (
+    content: string,
+    configId?: number,
+    sendOverride?: string,
+    includeMemories?: boolean,
+  ) => Promise<void>
 
   // Quick ask (one-shot, returns the full answer)
   quickAsk: (prompt: string) => Promise<string>
 
   // Presets
   loadPresets: () => Promise<void>
+}
+
+export function normalizeChatSessions(list: ChatSession[]): ChatSession[] {
+  const seen = new Set<string>()
+  const normalized: ChatSession[] = []
+
+  for (const session of list) {
+    if (!session.id || seen.has(session.id)) continue
+    seen.add(session.id)
+    normalized.push(session)
+  }
+
+  return normalized
 }
 
 // --------------- Hook ---------------
@@ -90,7 +109,7 @@ export function useAIChat(): UseAIChatReturn {
     setError(null)
     try {
       const list = await getSessions()
-      setSessions(list)
+      setSessions(normalizeChatSessions(list))
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载会话列表失败')
     } finally {
@@ -111,7 +130,7 @@ export function useAIChat(): UseAIChatReturn {
     try {
       const session = await createSessionApi(title)
       // Prepend the new session and switch to it immediately.
-      setSessions((prev) => [session, ...prev])
+      setSessions((prev) => normalizeChatSessions([session, ...prev]))
       setCurrentSession(session)
       setMessages([])
       return session
@@ -172,7 +191,7 @@ export function useAIChat(): UseAIChatReturn {
   // ---------- Send message with streaming ----------
 
   const sendMessage = useCallback(
-    async (content: string, configId?: number, sendOverride?: string) => {
+    async (content: string, configId?: number, sendOverride?: string, includeMemories = true) => {
       if (streaming) return
       setError(null)
 
@@ -204,17 +223,19 @@ export function useAIChat(): UseAIChatReturn {
       }
       setMessages((prev) => [...prev, userMsg])
 
+      let unsubC: (() => void) | null = null
+      let unsubD: (() => void) | null = null
+
       try {
         // 实际发给模型的内容可带上下文前缀（sendOverride）；显示与入库仍用原始 content。
-        await sendMessageApi(sessionId, sendOverride ?? content, configId)
-
+        const requestId = createAIRequestId()
         // Subscribe to chunk events.
-        const unsubC = onChunk((chunk) => {
+        unsubC = onChunk((chunk) => {
           setStreamingContent((prev) => prev + chunk)
-        })
+        }, requestId)
 
         // Subscribe to the done event.
-        const unsubD = onDone(async (fullContent) => {
+        unsubD = onDone(async (fullContent) => {
           // Replace streaming content with the final assistant message.
           const assistantMsg: ChatMessage = {
             id: `temp-assistant-${Date.now()}`,
@@ -227,8 +248,8 @@ export function useAIChat(): UseAIChatReturn {
           setStreaming(false)
 
           // Clean up this stream's listeners.
-          unsubC()
-          unsubD()
+          unsubC?.()
+          unsubD?.()
           unsubscribersRef.current = unsubscribersRef.current.filter(
             (u) => u !== unsubC && u !== unsubD,
           )
@@ -242,10 +263,22 @@ export function useAIChat(): UseAIChatReturn {
           } catch (saveErr) {
             console.warn('[useAIChat] Failed to persist messages:', saveErr)
           }
-        })
+        }, requestId)
 
-        unsubscribersRef.current.push(unsubC, unsubD)
+        if (unsubC && unsubD) unsubscribersRef.current.push(unsubC, unsubD)
+        await sendMessageApi(
+          sessionId,
+          sendOverride ?? content,
+          configId,
+          requestId,
+          includeMemories,
+        )
       } catch (err) {
+        unsubC?.()
+        unsubD?.()
+        unsubscribersRef.current = unsubscribersRef.current.filter(
+          (u) => u !== unsubC && u !== unsubD,
+        )
         setStreaming(false)
         setStreamingContent('')
         // Remove the optimistically added user message on failure.

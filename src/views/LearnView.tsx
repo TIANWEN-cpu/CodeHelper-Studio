@@ -11,13 +11,14 @@ import {
   PanelLeftClose,
   PanelLeft,
   X,
+  Layers3,
+  Timer,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'motion/react'
 import { useLearnData } from '@/hooks/useLearnData'
 import { getLessonProgress } from '@/services/learnService'
-
-import { marked } from 'marked'
+import { renderMarkdown } from '@/utils/markdown'
 
 /** Render a track icon: URL -> <img>, otherwise -> gradient placeholder with first char */
 function TrackIcon({ icon, size = 'large' }: { icon?: string; size?: 'large' | 'small' }) {
@@ -60,10 +61,10 @@ function LessonStatusIcon({ isActive, isCompleted }: { isActive: boolean; isComp
   return <Circle size={14} className="text-[var(--color-text-muted)]" />
 }
 
-/** Simple markdown renderer using marked */
+/** Safe markdown renderer for lesson content. */
 function MarkdownContent({ markdown }: { markdown: string }) {
   if (!markdown) return null
-  const html = marked.parse(markdown, { async: false })
+  const html = renderMarkdown(markdown)
 
   return <div className="learn-markdown" dangerouslySetInnerHTML={{ __html: html }} />
 }
@@ -153,6 +154,23 @@ export function LearnView() {
   })()
 
   const activeLesson = activeModule?.lessons.find((l) => l.id === selectedLessonId)
+
+  const handleSelectTrack = useCallback(
+    (trackId: string) => {
+      const track = tracks.find((item) => item.id === trackId)
+      const firstModule = track?.modules[0]
+      const firstLesson = firstModule?.lessons[0]
+      if (!track || !firstModule || !firstLesson) return
+
+      setCurrentTrackId(track.id)
+      setCurrentModuleId(firstModule.id)
+      setSelectedLessonId(firstLesson.id)
+      setExpandedModules(new Set([firstModule.id]))
+      selectLesson(firstLesson.id, track.id)
+      markOpened(firstLesson.id, track.id)
+    },
+    [markOpened, selectLesson, tracks],
+  )
 
   // ---- Load tracks on mount ----
   useEffect(() => {
@@ -299,7 +317,12 @@ export function LearnView() {
         .learn-markdown img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
       `}</style>
 
-      <div className="max-w-[1400px] w-full mx-auto p-6 flex h-full gap-6 transition-all duration-300">
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32, ease: 'easeOut' }}
+        className="max-w-[1440px] w-full mx-auto p-5 md:p-6 flex h-full gap-6 transition-all duration-300"
+      >
         {/* Left Sidebar (Course Navigation) */}
         <AnimatePresence initial={false}>
           {!navCollapsed && (
@@ -310,7 +333,7 @@ export function LearnView() {
               transition={{ duration: 0.3, ease: 'easeInOut' }}
               className="shrink-0 overflow-hidden"
             >
-              <div className="flex flex-col min-h-0 bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl overflow-hidden h-full w-[320px]">
+              <div className="surface-card flex flex-col min-h-0 bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl overflow-hidden h-full w-[320px]">
                 {/* Header */}
                 <div className="p-4 border-b border-[var(--color-border-subtle)] relative">
                   <div className="flex justify-between items-center mb-4">
@@ -343,6 +366,48 @@ export function LearnView() {
                           {courseProgress}% 完成
                         </span>
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="mb-4 grid grid-cols-2 gap-1.5">
+                    {tracks.map((track) => {
+                      const active = activeTrack?.id === track.id
+                      return (
+                        <button
+                          key={track.id}
+                          type="button"
+                          data-course-track-option={track.id}
+                          onClick={() => handleSelectTrack(track.id)}
+                          className={cn(
+                            'min-w-0 rounded-lg border px-2 py-1.5 text-left text-[11px] font-medium leading-snug transition-colors',
+                            active
+                              ? 'border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/15 text-white'
+                              : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] text-[var(--color-text-muted)] hover:border-[var(--color-accent-purple)]/60 hover:text-white',
+                          )}
+                          aria-pressed={active}
+                        >
+                          <span className="block truncate">{track.title}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    <div className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 py-2">
+                      <div className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)]">
+                        <Layers3 size={11} />
+                        模块
+                      </div>
+                      <div className="mt-1 text-sm font-semibold text-white">
+                        {activeTrack?.modules.length || 0}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 py-2">
+                      <div className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)]">
+                        <Timer size={11} />
+                        课时
+                      </div>
+                      <div className="mt-1 text-sm font-semibold text-white">{totalLessons}</div>
                     </div>
                   </div>
 
@@ -405,59 +470,70 @@ export function LearnView() {
                             </span>
                           </button>
 
-                          {isExpanded && (
-                            <div className="bg-[var(--color-bg-base)] py-1">
-                              {mod.lessons.map((lesson) => {
-                                const isActive = lesson.id === selectedLessonId
-                                const isCompleted = trackProgress.get(lesson.id)
+                          <AnimatePresence initial={false}>
+                            {isExpanded && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.22, ease: 'easeOut' }}
+                                className="overflow-hidden bg-[var(--color-bg-base)]"
+                              >
+                                <div className="py-1">
+                                  {mod.lessons.map((lesson) => {
+                                    const isActive = lesson.id === selectedLessonId
+                                    const isCompleted = trackProgress.get(lesson.id)
 
-                                return (
-                                  <button
-                                    key={lesson.id}
-                                    onClick={() =>
-                                      handleSelectLesson(lesson.id, mod.id, activeTrack.id)
-                                    }
-                                    className={cn(
-                                      'w-full flex items-center justify-between py-2 pl-8 pr-4 hover:bg-[var(--color-bg-hover)] transition-colors group',
-                                      isActive &&
-                                        'bg-gradient-to-r from-[var(--color-accent-primary)]/10 to-transparent border-l-2 border-[var(--color-accent-primary)]',
-                                    )}
-                                  >
-                                    <span
-                                      className={cn(
-                                        'text-sm flex items-center gap-2 transition-colors',
-                                        isActive
-                                          ? 'text-white font-medium'
-                                          : 'text-[var(--color-text-secondary)] group-hover:text-white',
-                                      )}
-                                    >
-                                      <LessonStatusIcon
-                                        isActive={isActive}
-                                        isCompleted={!!isCompleted}
-                                      />
-                                      {lesson.title}
-                                    </span>
-                                    <span
-                                      className={cn(
-                                        'text-xs font-mono',
-                                        isActive
-                                          ? 'text-[var(--color-accent-primary)]'
-                                          : 'text-[var(--color-text-muted)]',
-                                      )}
-                                    >
-                                      {lesson.estimated_minutes
-                                        ? `${lesson.estimated_minutes} min`
-                                        : isCompleted
-                                          ? '已完成'
-                                          : isActive
-                                            ? '学习中'
-                                            : '未学习'}
-                                    </span>
-                                  </button>
-                                )
-                              })}
-                            </div>
-                          )}
+                                    return (
+                                      <motion.button
+                                        layout
+                                        key={lesson.id}
+                                        onClick={() =>
+                                          handleSelectLesson(lesson.id, mod.id, activeTrack.id)
+                                        }
+                                        className={cn(
+                                          'w-full flex items-center justify-between py-2 pl-8 pr-4 hover:bg-[var(--color-bg-hover)] transition-colors group',
+                                          isActive &&
+                                            'bg-gradient-to-r from-[var(--color-accent-primary)]/10 to-transparent border-l-2 border-[var(--color-accent-primary)]',
+                                        )}
+                                      >
+                                        <span
+                                          className={cn(
+                                            'text-sm flex items-center gap-2 transition-colors',
+                                            isActive
+                                              ? 'text-white font-medium'
+                                              : 'text-[var(--color-text-secondary)] group-hover:text-white',
+                                          )}
+                                        >
+                                          <LessonStatusIcon
+                                            isActive={isActive}
+                                            isCompleted={!!isCompleted}
+                                          />
+                                          {lesson.title}
+                                        </span>
+                                        <span
+                                          className={cn(
+                                            'text-xs font-mono',
+                                            isActive
+                                              ? 'text-[var(--color-accent-primary)]'
+                                              : 'text-[var(--color-text-muted)]',
+                                          )}
+                                        >
+                                          {lesson.estimated_minutes
+                                            ? `${lesson.estimated_minutes} min`
+                                            : isCompleted
+                                              ? '已完成'
+                                              : isActive
+                                                ? '学习中'
+                                                : '未学习'}
+                                        </span>
+                                      </motion.button>
+                                    )
+                                  })}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </div>
                       )
                     })}
@@ -483,7 +559,7 @@ export function LearnView() {
         )}
 
         {/* Main Content (Reading Area) */}
-        <div className="flex-1 min-w-0 flex flex-col bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl overflow-hidden shadow-sm relative">
+        <div className="surface-card flex-1 min-w-0 flex flex-col bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl overflow-hidden shadow-sm relative">
           <div className="h-14 flex-shrink-0 flex items-center justify-between px-6 border-b border-[var(--color-border-subtle)]">
             <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
               <span>{breadcrumb?.track || '...'}</span>
@@ -535,12 +611,24 @@ export function LearnView() {
               {currentLesson && !loadingLesson && (
                 <>
                   {/* Title */}
-                  <div>
+                  <motion.div
+                    key={currentLesson.lessonId}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.28, ease: 'easeOut' }}
+                  >
                     <h1 className="text-3xl font-bold text-white mb-4">{currentLesson.title}</h1>
-                  </div>
+                  </motion.div>
 
                   {/* Lesson content (Markdown rendered) */}
-                  <MarkdownContent markdown={currentLesson.markdown} />
+                  <motion.div
+                    key={`${currentLesson.lessonId}-markdown`}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.34, delay: 0.04, ease: 'easeOut' }}
+                  >
+                    <MarkdownContent markdown={currentLesson.markdown} />
+                  </motion.div>
 
                   {/* Add-note callout */}
                   <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 flex gap-3 text-sm text-[var(--color-text-primary)] relative mt-4">
@@ -650,7 +738,7 @@ export function LearnView() {
             </AnimatePresence>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   )
 }

@@ -19,6 +19,42 @@ export interface PlatformInfo {
   appVersion: string
 }
 
+export type ExportCategory =
+  | 'problems'
+  | 'submissions'
+  | 'mistakes'
+  | 'chat_sessions'
+  | 'chat_history'
+  | 'knowledge_docs'
+  | 'knowledge_chunks'
+  | 'settings'
+  | 'memories'
+  | 'prompt_presets'
+
+export const DEFAULT_EXPORT_CATEGORIES: ExportCategory[] = [
+  'problems',
+  'submissions',
+  'mistakes',
+  'chat_sessions',
+  'chat_history',
+  'knowledge_docs',
+  'knowledge_chunks',
+  'settings',
+  'memories',
+  'prompt_presets',
+]
+
+interface ExportResult {
+  success: boolean
+  filePath?: string
+  error?: string
+}
+
+interface ImportResult {
+  success: boolean
+  errors?: string[]
+}
+
 export async function getSetting(key: string): Promise<string | null> {
   return invoke<string | null>('db-get-setting', key)
 }
@@ -51,10 +87,18 @@ export async function getPlatformInfo(): Promise<PlatformInfo> {
   return invoke<PlatformInfo>('platform-info')
 }
 
-export async function exportData(): Promise<void> {
-  return invoke<void>('export-data')
+export async function exportData(
+  categories: ExportCategory[] = DEFAULT_EXPORT_CATEGORIES,
+): Promise<void> {
+  const result = await invoke<ExportResult>('export-data', categories)
+  if (result && result.success === false) {
+    throw new Error(result.error || '导出数据失败')
+  }
 }
 
 export async function importData(): Promise<void> {
-  return invoke<void>('import-data')
+  const result = await invoke<ImportResult>('import-data')
+  if (result && result.success === false) {
+    throw new Error(result.errors?.join('；') || '导入数据失败')
+  }
 }

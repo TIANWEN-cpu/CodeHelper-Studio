@@ -16,6 +16,7 @@ import {
   Loader2,
   Route,
   Target,
+  WandSparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion } from 'motion/react'
@@ -24,6 +25,8 @@ import { useAppStore } from '../store'
 import type { WeekStart } from '../store'
 import { formatDate } from '../lib/locale'
 import type { ViewType } from '../types'
+import appIcon from '@/assets/app-icon.png'
+import aiPetFemale from '@/assets/mascot/ai-pet-female.png'
 
 const DAY_MAP = ['日', '一', '二', '三', '四', '五', '六']
 
@@ -174,6 +177,42 @@ type LearningPathStep = {
   tone: string
 }
 
+type HeroWorkbenchMode = 'tutor' | 'agent' | 'workflow' | 'practice'
+
+type HeroWorkbenchPanel = {
+  id: HeroWorkbenchMode
+  label: string
+  eyebrow: string
+  title: string
+  body: string
+  status: string
+  metric: string
+  progress: number
+  actionLabel: string
+  view: ViewType
+  icon: typeof BookOpen
+  lines: string[]
+}
+
+function heroModeFromView(view: ViewType): HeroWorkbenchMode {
+  if (view === 'practice') return 'practice'
+  if (view === 'workspace' || view === 'knowledge') return 'agent'
+  if (view === 'learn') return 'workflow'
+  return 'tutor'
+}
+
+const pageMotion = {
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.36, ease: 'easeOut' as const },
+}
+
+const cardMotion = {
+  initial: { opacity: 0, y: 14 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.42, ease: 'easeOut' as const },
+}
+
 /** 能力成长面积图：先用 ResizeObserver 测得容器宽度，再以固定像素尺寸渲染。
  *  仅在测得宽度 > 0 时才挂载 AreaChart，从根本上规避 ResponsiveContainer 在
  *  flex 布局下首帧 width(-1) 既刷警告又导致图表整块不渲染的问题。 */
@@ -266,6 +305,7 @@ export function HomeView() {
   const dateRegion = useAppStore((s) => s.dateRegion)
   const weekStart = useAppStore((s) => s.weekStart)
   const [activityFilter, setActivityFilter] = useState<'all' | 'lesson' | 'problem'>('all')
+  const [activeHeroMode, setActiveHeroMode] = useState<HeroWorkbenchMode>('tutor')
   const maxHeatmapCount = heatmapData.reduce((max, item) => Math.max(max, item.count), 0)
   const heatmapWeeks = buildHeatmapWeeks(heatmapData, weekStart)
 
@@ -312,6 +352,10 @@ export function HomeView() {
       : overview?.suggestedLesson
         ? overview.suggestedLesson.moduleTitle
         : '还没有明确的下一课时，先用题目把状态启动起来。'
+
+  useEffect(() => {
+    setActiveHeroMode(heroModeFromView(nextActionView))
+  }, [nextActionView])
 
   const learningPath: LearningPathStep[] = [
     {
@@ -384,6 +428,80 @@ export function HomeView() {
       ? `下一步最适合继续 ${overview.suggestedLesson.moduleTitle}，完成后做一道关联练习。`
       : '今天状态不错，可以把刚学的内容沉淀成一张知识卡片。')
 
+  const heroWorkbenchPanels: HeroWorkbenchPanel[] = [
+    {
+      id: 'tutor',
+      label: 'Tutor',
+      eyebrow: 'Guided Help',
+      title: reviewReminders.length > 0 ? '复盘优先队列' : 'AI Tutor 随时待命',
+      body: reviewReminders.length > 0 ? weakSignals[0] : aiAdvice,
+      status: reviewReminders.length > 0 ? 'Review window open' : 'Ready for context',
+      metric: `${reviewReminders.length} due`,
+      progress: reviewReminders.length > 0 ? 72 : 54,
+      actionLabel: '打开 AI Tutor',
+      view: 'ai-tutor',
+      icon: Sparkles,
+      lines:
+        reviewReminders.length > 0
+          ? reviewReminders.slice(0, 3).map((item) => item.title)
+          : ['诊断当前卡点', '生成追问提示', '沉淀学习笔记'],
+    },
+    {
+      id: 'agent',
+      label: 'Agent',
+      eyebrow: 'Task Runner',
+      title: '把目标拆成可执行任务',
+      body: '从问题、代码、课程上下文出发，生成计划、工具检查和执行回合。',
+      status: 'Awaiting goal',
+      metric: `${todayActivities.length} signals`,
+      progress: Math.min(92, 38 + todayActivities.length * 12),
+      actionLabel: '进入 Agent',
+      view: 'ai-tutor',
+      icon: BrainCircuit,
+      lines: ['理解上下文', '列出执行步骤', '等待工具审批'],
+    },
+    {
+      id: 'workflow',
+      label: 'Workflow',
+      eyebrow: 'Learning Loop',
+      title: overview?.suggestedLesson ? `继续 ${overview.suggestedLesson.title}` : nextActionTitle,
+      body: overview?.suggestedLesson
+        ? `当前模块：${overview.suggestedLesson.moduleTitle}`
+        : nextActionSubtitle,
+      status: 'Plan linked',
+      metric: `${learningPath.filter((step) => step.done).length}/${learningPath.length} done`,
+      progress: Math.round(
+        (learningPath.filter((step) => step.done).length / Math.max(learningPath.length, 1)) * 100,
+      ),
+      actionLabel: '查看学习流',
+      view: 'learn',
+      icon: Route,
+      lines: learningPath.map((step) => step.title),
+    },
+    {
+      id: 'practice',
+      label: '题库',
+      eyebrow: 'Practice Lab',
+      title: remainingProblems > 0 ? `还有 ${remainingProblems} 道题可练` : '题库已完成',
+      body:
+        remainingProblems > 0
+          ? '先从一道小题启动手感，再让 AI 总结薄弱点。'
+          : '可以进入错题复盘或项目实战巩固能力。',
+      status: hasTodayPractice ? 'Practiced today' : 'Warm-up ready',
+      metric: `${overview?.solvedProblems ?? 0}/${overview?.totalProblems ?? 0}`,
+      progress:
+        overview && overview.totalProblems > 0
+          ? Math.round((overview.solvedProblems / overview.totalProblems) * 100)
+          : 0,
+      actionLabel: '去刷题',
+      view: 'practice',
+      icon: FileCode,
+      lines: ['选择题型', '运行代码', '记录错因'],
+    },
+  ]
+  const activeHeroPanel =
+    heroWorkbenchPanels.find((panel) => panel.id === activeHeroMode) ?? heroWorkbenchPanels[0]
+
   if (loading) {
     return (
       <div className="h-full flex flex-col bg-[var(--color-bg-base)] overflow-y-auto">
@@ -413,107 +531,241 @@ export function HomeView() {
 
   return (
     <div className="h-full flex flex-col bg-[var(--color-bg-base)] overflow-y-auto">
-      <div className="max-w-[1200px] w-full mx-auto p-6 lg:p-8 space-y-6">
+      <motion.div
+        {...pageMotion}
+        className="max-w-[1320px] w-full mx-auto p-5 md:p-6 lg:p-8 space-y-6"
+      >
         {/* Greeting Section */}
-        <div className="flex items-end justify-between">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight flex items-center gap-2">
               {getGreeting()}，{overview?.greetingName || '同学'} 👋
             </h1>
             <p className="text-[var(--color-text-muted)] mt-1.5 flex items-center gap-2 text-sm">
               <span>保持专注，今天又是进步的一天！</span>
             </p>
           </div>
+          <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-3 py-1.5">
+              <WandSparkles size={13} className="text-[var(--color-accent-purple)]" />
+              视觉体验已升级
+            </span>
+            <span className="hidden sm:inline-flex rounded-full border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-3 py-1.5">
+              课程 + 练习联动
+            </span>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 items-start">
           {/* Main Hero Card (Large) */}
-          <div className="lg:col-span-2 xl:col-span-2 min-h-[320px] bg-gradient-to-br from-[#141A2D] via-[#151923] to-[var(--color-bg-card)] rounded-2xl border border-[var(--color-border-subtle)] hover:border-[var(--color-accent-primary)]/40 p-6 relative overflow-hidden shadow-sm hover:shadow-[0_8px_30px_rgba(99,102,241,0.15)] transition-all group">
-            <div className="absolute inset-0 opacity-[0.08] bg-[linear-gradient(135deg,transparent_0,transparent_24px,rgba(255,255,255,0.8)_25px,transparent_26px)] bg-[length:36px_36px] pointer-events-none"></div>
-
-            <div className="relative z-10 flex flex-col h-full">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F59E0B]/10 text-[#F59E0B] text-xs font-medium mb-3 border border-[#F59E0B]/20">
-                    <Target size={12} />
-                    <span>今日优先行动</span>
+          <motion.div
+            {...cardMotion}
+            data-home-interactive-hero
+            data-active-mode={activeHeroMode}
+            data-active-view={activeHeroPanel.view}
+            data-has-review={reviewReminders.length > 0}
+            className="home-hero-card lg:col-span-2 xl:col-span-4 min-h-[340px] rounded-2xl border border-[var(--color-border-subtle)] hover:border-[var(--color-accent-primary)]/40 p-5 md:p-6 relative overflow-hidden shadow-sm transition-all group"
+          >
+            <div className="absolute inset-0 opacity-[0.1] bg-[linear-gradient(135deg,transparent_0,transparent_24px,rgba(255,255,255,0.8)_25px,transparent_26px)] bg-[length:36px_36px] pointer-events-none"></div>
+            <div className="home-hero-scanline pointer-events-none"></div>
+            <div className="home-hero-layout relative z-10">
+              <div className="home-hero-copy flex flex-col min-w-0">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F59E0B]/10 text-[#F59E0B] text-xs font-medium mb-3 border border-[#F59E0B]/20">
+                      <Target size={12} />
+                      <span>今日优先行动</span>
+                    </div>
+                    <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">
+                      {nextActionTitle}
+                    </h2>
+                    <p className="text-[var(--color-text-secondary)] text-sm leading-relaxed max-w-xl">
+                      {nextActionSubtitle}
+                    </p>
                   </div>
-                  <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">
-                    {nextActionTitle}
-                  </h2>
-                  <p className="text-[var(--color-text-secondary)] text-sm leading-relaxed max-w-xl">
-                    {nextActionSubtitle}
-                  </p>
+                  <div className="hidden sm:flex w-16 h-16 rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]/70 items-center justify-center shrink-0">
+                    <Route
+                      size={34}
+                      className="text-[var(--color-accent-purple)] drop-shadow-[0_0_14px_rgba(139,92,246,0.35)]"
+                      strokeWidth={1.5}
+                    />
+                  </div>
                 </div>
-                <div className="hidden sm:flex w-16 h-16 rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]/70 items-center justify-center shrink-0">
-                  <Route
-                    size={34}
-                    className="text-[var(--color-accent-purple)] drop-shadow-[0_0_14px_rgba(139,92,246,0.35)]"
-                    strokeWidth={1.5}
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3 mt-6">
-                {learningPath.map((step, index) => {
-                  const Icon = step.icon
-                  return (
-                    <button
-                      key={step.title}
-                      onClick={() => setCurrentView(step.view)}
-                      className="flex items-center gap-3 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]/70 p-3 text-left hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-hover)] transition-colors group/step"
-                    >
-                      <div
-                        className={cn(
-                          'w-9 h-9 rounded-lg border flex items-center justify-center shrink-0',
-                          step.tone,
-                        )}
+                <div className="home-action-grid grid grid-cols-2 gap-3 mt-6">
+                  {learningPath.map((step, index) => {
+                    const Icon = step.icon
+                    return (
+                      <motion.button
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.05 * index, duration: 0.28 }}
+                        whileHover={{ y: -2 }}
+                        whileTap={{ scale: 0.98 }}
+                        key={step.title}
+                        data-home-hero-step={step.view}
+                        data-active={activeHeroMode === heroModeFromView(step.view)}
+                        data-done={step.done}
+                        aria-pressed={activeHeroMode === heroModeFromView(step.view)}
+                        onMouseEnter={() => setActiveHeroMode(heroModeFromView(step.view))}
+                        onFocus={() => setActiveHeroMode(heroModeFromView(step.view))}
+                        onMouseLeave={() => setActiveHeroMode(heroModeFromView(nextActionView))}
+                        onBlur={() => setActiveHeroMode(heroModeFromView(nextActionView))}
+                        onClick={() => setCurrentView(step.view)}
+                        className="home-action-step flex items-center gap-3 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]/70 p-3 text-left hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-hover)] transition-colors group/step"
                       >
-                        <Icon size={17} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-mono text-[var(--color-text-muted)]">
-                            {index + 1}
-                          </span>
-                          <span className="text-sm font-semibold text-white truncate">
-                            {step.title}
-                          </span>
-                          {step.done && <CheckCircle2 size={13} className="text-[#10B981]" />}
+                        <div
+                          className={cn(
+                            'w-9 h-9 rounded-lg border flex items-center justify-center shrink-0',
+                            step.tone,
+                          )}
+                        >
+                          <Icon size={17} />
                         </div>
-                        <p className="text-[11px] text-[var(--color-text-muted)] truncate mt-0.5">
-                          {step.subtitle}
-                        </p>
-                      </div>
-                    </button>
-                  )
-                })}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-mono text-[var(--color-text-muted)]">
+                              {index + 1}
+                            </span>
+                            <span className="text-sm font-semibold text-white truncate">
+                              {step.title}
+                            </span>
+                            {step.done && <CheckCircle2 size={13} className="text-[#10B981]" />}
+                          </div>
+                          <p className="text-[11px] text-[var(--color-text-muted)] truncate mt-0.5">
+                            {step.subtitle}
+                          </p>
+                        </div>
+                      </motion.button>
+                    )
+                  })}
+                </div>
+
+                <div className="home-hero-footer flex items-center justify-between mt-auto pt-6">
+                  <button
+                    onClick={() => setCurrentView(nextActionView)}
+                    className="relative overflow-hidden bg-gradient-to-r from-[var(--color-accent-primary)] to-[var(--color-accent-purple)] hover:from-[#4F46E5] hover:to-[#7C3AED] text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-all shadow-md flex items-center gap-2 hover:gap-3 group/btn hover:shadow-[0_0_15px_rgba(139,92,246,0.4)] hover:scale-105 active:scale-95"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:animate-shimmer z-0 pointer-events-none"></div>
+                    <span className="relative z-10">{nextActionLabel}</span>
+                    <ChevronRight
+                      size={16}
+                      className="relative z-10 text-white/70 group-hover/btn:text-white transition-colors"
+                    />
+                  </button>
+
+                  <span className="text-xs text-[var(--color-text-muted)]">
+                    {todayActivities.length > 0
+                      ? `今天已有 ${todayActivities.length} 条学习记录`
+                      : '建议先完成一个 15 分钟学习单元'}
+                  </span>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between mt-auto pt-6">
-                <button
-                  onClick={() => setCurrentView(nextActionView)}
-                  className="relative overflow-hidden bg-gradient-to-r from-[var(--color-accent-primary)] to-[var(--color-accent-purple)] hover:from-[#4F46E5] hover:to-[#7C3AED] text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-all shadow-md flex items-center gap-2 hover:gap-3 group/btn hover:shadow-[0_0_15px_rgba(139,92,246,0.4)] hover:scale-105 active:scale-95"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:animate-shimmer z-0 pointer-events-none"></div>
-                  <span className="relative z-10">{nextActionLabel}</span>
-                  <ChevronRight
-                    size={16}
-                    className="relative z-10 text-white/70 group-hover/btn:text-white transition-colors"
-                  />
-                </button>
+              <div
+                className="home-hero-visual home-hero-workbench hidden md:flex"
+                data-home-hero-preview
+                data-active-mode={activeHeroMode}
+              >
+                <div className="home-hero-workbench-shell">
+                  <div className="home-hero-workbench-topbar">
+                    <img
+                      src={appIcon}
+                      alt=""
+                      className="home-hero-workbench-icon"
+                      draggable={false}
+                    />
+                    <div className="min-w-0">
+                      <p className="home-hero-workbench-eyebrow">{activeHeroPanel.eyebrow}</p>
+                      <p className="home-hero-workbench-status">{activeHeroPanel.status}</p>
+                    </div>
+                    <span className="home-hero-workbench-metric">{activeHeroPanel.metric}</span>
+                  </div>
 
-                <span className="text-xs text-[var(--color-text-muted)]">
-                  {todayActivities.length > 0
-                    ? `今天已有 ${todayActivities.length} 条学习记录`
-                    : '建议先完成一个 15 分钟学习单元'}
-                </span>
+                  <div
+                    className="home-hero-workbench-tabs"
+                    role="tablist"
+                    aria-label="AI workbench mode"
+                  >
+                    {heroWorkbenchPanels.map((panel) => {
+                      const Icon = panel.icon
+                      const active = panel.id === activeHeroMode
+                      return (
+                        <button
+                          key={panel.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={active}
+                          data-home-hero-mode={panel.id}
+                          onClick={() => setActiveHeroMode(panel.id)}
+                          className={cn('home-hero-workbench-tab', active && 'is-active')}
+                        >
+                          <Icon size={13} />
+                          <span>{panel.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  <motion.div
+                    key={activeHeroPanel.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.24, ease: 'easeOut' }}
+                    className="home-hero-workbench-panel"
+                    data-home-hero-panel={activeHeroPanel.id}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="home-hero-workbench-avatar">
+                        <img src={aiPetFemale} alt="" draggable={false} />
+                      </div>
+                      <div className="min-w-0">
+                        <h3>{activeHeroPanel.title}</h3>
+                        <p>{activeHeroPanel.body}</p>
+                      </div>
+                    </div>
+
+                    <div className="home-hero-workbench-progress" aria-hidden="true">
+                      <span
+                        style={{
+                          width: `${Math.max(8, Math.min(100, activeHeroPanel.progress))}%`,
+                        }}
+                      />
+                    </div>
+
+                    <div className="home-hero-workbench-lines">
+                      {activeHeroPanel.lines.slice(0, 4).map((line, index) => (
+                        <div
+                          key={`${activeHeroPanel.id}-${line}`}
+                          className="home-hero-workbench-line"
+                        >
+                          <span>{index + 1}</span>
+                          <p>{line}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+
+                  <button
+                    type="button"
+                    data-home-hero-action
+                    onClick={() => setCurrentView(activeHeroPanel.view)}
+                    className="home-hero-workbench-action"
+                  >
+                    <span>{activeHeroPanel.actionLabel}</span>
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* Progress Card */}
-          <div className="bg-[var(--color-bg-card)] rounded-2xl border border-[var(--color-border-subtle)] p-6 flex flex-col min-h-[320px] shadow-sm">
+          <motion.div
+            {...cardMotion}
+            transition={{ ...cardMotion.transition, delay: 0.08 }}
+            className="surface-card xl:col-span-2 bg-[var(--color-bg-card)] rounded-2xl border border-[var(--color-border-subtle)] p-6 flex flex-col min-h-[320px] shadow-sm"
+          >
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-white text-[15px] flex items-center gap-2">
                 能力成长轨迹
@@ -553,10 +805,14 @@ export function HomeView() {
                 </span>
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* AI Suggestion / Goals */}
-          <div className="bg-[var(--color-bg-card)] rounded-2xl border border-[var(--color-border-subtle)] p-6 min-h-[320px] shadow-sm flex flex-col">
+          <motion.div
+            {...cardMotion}
+            transition={{ ...cardMotion.transition, delay: 0.14 }}
+            className="surface-card xl:col-span-2 bg-[var(--color-bg-card)] rounded-2xl border border-[var(--color-border-subtle)] p-6 min-h-[320px] shadow-sm flex flex-col"
+          >
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-white text-[15px] flex items-center gap-2">
                 <Sparkles size={15} className="text-[var(--color-accent-purple)]" />
@@ -635,11 +891,15 @@ export function HomeView() {
                 执行建议动作 <ChevronRight size={12} />
               </button>
             </div>
-          </div>
+          </motion.div>
         </div>
 
         {/* Quick Links Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <motion.div
+          {...cardMotion}
+          transition={{ ...cardMotion.transition, delay: 0.18 }}
+          className="grid grid-cols-2 md:grid-cols-4 gap-4"
+        >
           {(
             [
               {
@@ -686,7 +946,7 @@ export function HomeView() {
               key={i}
               onClick={() => setCurrentView(item.view)}
               className={cn(
-                'relative overflow-hidden rounded-2xl border border-[var(--color-border-subtle)] p-5 text-left group shadow-sm hover:shadow-[0_8px_30px_rgba(0,0,0,0.12)] transition-shadow',
+                'quick-action-card relative overflow-hidden rounded-2xl border border-[var(--color-border-subtle)] p-5 text-left group shadow-sm hover:shadow-[0_8px_30px_rgba(0,0,0,0.12)] transition-shadow',
                 item.bg,
                 item.color,
               )}
@@ -706,12 +966,16 @@ export function HomeView() {
               <p className={cn('text-xs opacity-80', item.textColor)}>{item.subtitle}</p>
             </motion.button>
           ))}
-        </div>
+        </motion.div>
 
         {/* Lower Section: Recent & Stats */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <motion.div
+          {...cardMotion}
+          transition={{ ...cardMotion.transition, delay: 0.24 }}
+          className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+        >
           {/* Recent Activity */}
-          <div className="lg:col-span-2 bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-2xl p-6 shadow-sm">
+          <div className="surface-card lg:col-span-2 bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-2xl p-6 shadow-sm">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-4">
                 <h3 className="font-semibold text-white text-[15px]">最近活动</h3>
@@ -853,7 +1117,7 @@ export function HomeView() {
           {/* Heatmap & Review Reminders */}
           <div className="space-y-6">
             {/* Review Reminders */}
-            <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-2xl p-6 shadow-sm">
+            <div className="surface-card bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-2xl p-6 shadow-sm">
               <h3 className="font-semibold text-white text-[15px] mb-4 flex items-center justify-between">
                 错题复习提醒{' '}
                 <span className="text-xs font-normal text-[var(--color-text-muted)]">
@@ -924,7 +1188,7 @@ export function HomeView() {
             </div>
 
             {/* 学习热力图：真实日期零填充 + 按星期对齐（首行由"每周起始日"决定） */}
-            <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-2xl p-6 shadow-sm">
+            <div className="surface-card bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-2xl p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-white text-[15px]">学习热力图</h3>
                 <span className="text-xs text-[var(--color-text-muted)]">
@@ -988,8 +1252,8 @@ export function HomeView() {
               </div>
             </div>
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </div>
   )
 }

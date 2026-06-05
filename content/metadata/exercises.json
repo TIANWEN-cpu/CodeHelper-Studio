@@ -134,7 +134,7 @@
       "tests": [
         {
           "expression": "safe_divide(10, 2)",
-          "expected": 5.0
+          "expected": 5
         },
         {
           "expression": "safe_divide(10, 0)",
@@ -3356,6 +3356,382 @@
       ],
       "required_keywords": [],
       "forbidden_keywords": []
+    },
+    {
+      "id": "ai-prompt-template-fill",
+      "title": "补全四段式 Prompt",
+      "track_id": "ai-tutor",
+      "difficulty": "基础",
+      "prompt": "实现 build_learning_prompt(topic, goal, stuck_at)，返回一个包含“目标/上下文/约束/期望输出”四个小标题的字符串。",
+      "lesson_id": "ai-tutor-prompting-basics",
+      "hints": ["可以用 f-string 拼接多行字符串", "输出中必须包含四个小标题"],
+      "starter_code": "def build_learning_prompt(topic, goal, stuck_at):\n    pass\n",
+      "expected_nodes": ["FunctionDef", "Return"],
+      "required_names": ["build_learning_prompt"],
+      "tests": [
+        {
+          "expression": "'目标' in build_learning_prompt('DP', '入门', '状态转移')",
+          "expected": true
+        },
+        {
+          "expression": "'状态转移' in build_learning_prompt('DP', '入门', '状态转移')",
+          "expected": true
+        }
+      ],
+      "required_keywords": [],
+      "forbidden_keywords": []
+    },
+    {
+      "id": "ai-debug-packet",
+      "title": "构造调试信息包",
+      "track_id": "ai-tutor",
+      "difficulty": "进阶",
+      "prompt": "实现 build_debug_packet(error, steps, expected)，返回字典，包含 error、steps、expected、hypotheses 四个字段，其中 hypotheses 初始为空列表。",
+      "lesson_id": "ai-tutor-debug-dialogue",
+      "hints": ["返回 dict", "hypotheses 使用 [] 初始化"],
+      "starter_code": "def build_debug_packet(error, steps, expected):\n    pass\n",
+      "expected_nodes": ["FunctionDef", "Return"],
+      "required_names": ["build_debug_packet"],
+      "tests": [
+        {
+          "expression": "build_debug_packet('ZeroDivisionError', ['run'], 'no crash')['error']",
+          "expected": "ZeroDivisionError"
+        },
+        {
+          "expression": "build_debug_packet('e', [], 'ok')['hypotheses']",
+          "expected": []
+        }
+      ],
+      "required_keywords": [],
+      "forbidden_keywords": []
+    },
+    {
+      "id": "ai-plan-day-card",
+      "title": "生成每日学习卡片",
+      "track_id": "ai-tutor",
+      "difficulty": "基础",
+      "prompt": "实现 make_day_plan(course, exercise, review)，返回包含 course、exercise、review、done(False) 的字典。",
+      "lesson_id": "ai-tutor-study-plan",
+      "hints": ["done 固定为 False", "字段名要和题目一致"],
+      "starter_code": "def make_day_plan(course, exercise, review):\n    pass\n",
+      "expected_nodes": ["FunctionDef", "Return"],
+      "required_names": ["make_day_plan"],
+      "tests": [
+        {
+          "expression": "make_day_plan('变量', '2题', '错因')['done']",
+          "expected": false
+        },
+        {
+          "expression": "make_day_plan('变量', '2题', '错因')['review']",
+          "expected": "错因"
+        }
+      ],
+      "required_keywords": [],
+      "forbidden_keywords": []
+    },
+    {
+      "id": "ai-review-card",
+      "title": "把错题变成复盘卡",
+      "track_id": "ai-tutor",
+      "difficulty": "综合",
+      "prompt": "实现 build_review_card(reason, signal, template)，返回一个 Markdown 字符串，包含“错因”“触发信号”“正确模板”三个标题。",
+      "lesson_id": "ai-tutor-socratic-review",
+      "hints": ["Markdown 标题可以用 ##", "把三个输入都放进返回字符串里"],
+      "starter_code": "def build_review_card(reason, signal, template):\n    pass\n",
+      "expected_nodes": ["FunctionDef", "Return"],
+      "required_names": ["build_review_card"],
+      "tests": [
+        {
+          "expression": "'错因' in build_review_card('边界', '空列表', '先判断')",
+          "expected": true
+        },
+        {
+          "expression": "'空列表' in build_review_card('边界', '空列表', '先判断')",
+          "expected": true
+        }
+      ],
+      "required_keywords": [],
+      "forbidden_keywords": []
+    },
+    {
+      "id": "ai-socratic-question",
+      "title": "生成一个追问问题",
+      "track_id": "ai-tutor",
+      "difficulty": "进阶",
+      "prompt": "实现 next_question(topic, misconception)，返回一句中文追问，必须同时包含 topic 和 misconception。",
+      "lesson_id": "ai-tutor-socratic-review",
+      "hints": ["这道题重点是组织字符串", "问题结尾可以用问号"],
+      "starter_code": "def next_question(topic, misconception):\n    pass\n",
+      "expected_nodes": ["FunctionDef", "Return"],
+      "required_names": ["next_question"],
+      "tests": [
+        {
+          "expression": "'递归' in next_question('递归', '出口条件')",
+          "expected": true
+        },
+        {
+          "expression": "'出口条件' in next_question('递归', '出口条件')",
+          "expected": true
+        }
+      ],
+      "required_keywords": [],
+      "forbidden_keywords": []
+    },
+    {
+      "id": "ai-validate-answer-table",
+      "title": "生成答案验证清单",
+      "track_id": "ai-tutor",
+      "difficulty": "进阶",
+      "prompt": "实现 validation_checklist(items)，接收字符串列表，返回一个 Markdown 有序列表，每项前面有序号。",
+      "lesson_id": "ai-tutor-debug-dialogue",
+      "hints": ["enumerate 可以生成序号", "返回字符串，不要直接 print"],
+      "starter_code": "def validation_checklist(items):\n    pass\n",
+      "expected_nodes": ["FunctionDef", "Return"],
+      "required_names": ["validation_checklist"],
+      "tests": [
+        {
+          "expression": "validation_checklist(['运行测试', '检查边界']).startswith('1. ')",
+          "expected": true
+        },
+        {
+          "expression": "'2. 检查边界' in validation_checklist(['运行测试', '检查边界'])",
+          "expected": true
+        }
+      ],
+      "required_keywords": [],
+      "forbidden_keywords": ["print"]
+    },
+    {
+      "id": "ai-rescue-plan",
+      "title": "生成 20 分钟补救计划",
+      "track_id": "ai-tutor",
+      "difficulty": "基础",
+      "prompt": "实现 rescue_plan(topic)，返回包含 3 个元素的列表：快速复习、做一道题、记录错因。每个元素都要包含 topic。",
+      "lesson_id": "ai-tutor-study-plan",
+      "hints": ["返回 list[str]", "三个步骤都带上 topic"],
+      "starter_code": "def rescue_plan(topic):\n    pass\n",
+      "expected_nodes": ["FunctionDef", "Return"],
+      "required_names": ["rescue_plan"],
+      "tests": [
+        {
+          "expression": "len(rescue_plan('哈希表'))",
+          "expected": 3
+        },
+        {
+          "expression": "all('哈希表' in item for item in rescue_plan('哈希表'))",
+          "expected": true
+        }
+      ],
+      "required_keywords": [],
+      "forbidden_keywords": []
+    },
+    {
+      "id": "ai-context-trim",
+      "title": "裁剪过长上下文",
+      "track_id": "ai-tutor",
+      "difficulty": "综合",
+      "prompt": "实现 trim_context(text, limit)，当 text 长度超过 limit 时返回前 limit 个字符加上“...”，否则原样返回。",
+      "lesson_id": "ai-tutor-prompting-basics",
+      "hints": ["用 len 判断长度", "切片 text[:limit]"],
+      "starter_code": "def trim_context(text, limit):\n    pass\n",
+      "expected_nodes": ["FunctionDef", "Return"],
+      "required_names": ["trim_context"],
+      "tests": [
+        {
+          "expression": "trim_context('abcdef', 3)",
+          "expected": "abc..."
+        },
+        {
+          "expression": "trim_context('abc', 5)",
+          "expected": "abc"
+        }
+      ],
+      "required_keywords": [],
+      "forbidden_keywords": []
+    },
+    {
+      "track_id": "ai-tutor",
+      "expected_nodes": ["FunctionDef", "Return"],
+      "forbidden_keywords": [],
+      "id": "ai-agent-brief-lines",
+      "title": "生成 Agent 任务说明",
+      "difficulty": "进阶",
+      "lesson_id": "ai-agent-task-brief",
+      "prompt": "实现 build_agent_brief(goal, context, constraint)，返回四行任务说明：目标、上下文、约束、验收。验收行固定为“验收: 输出可执行步骤”。",
+      "hints": ["可以用 f-string 拼接多行文本", "每一行都要清晰命名字段"],
+      "starter_code": "def build_agent_brief(goal, context, constraint):\n    pass\n",
+      "tests": [
+        {
+          "expression": "build_agent_brief('修复按钮', 'React 页面', '不要改接口')",
+          "expected": "目标: 修复按钮\n上下文: React 页面\n约束: 不要改接口\n验收: 输出可执行步骤"
+        }
+      ],
+      "required_names": ["build_agent_brief"],
+      "required_keywords": ["验收"]
+    },
+    {
+      "track_id": "ai-tutor",
+      "expected_nodes": ["FunctionDef", "Return"],
+      "forbidden_keywords": [],
+      "id": "ai-agent-step-count",
+      "title": "限制 Agent 执行步骤",
+      "difficulty": "进阶",
+      "lesson_id": "ai-agent-task-brief",
+      "prompt": "实现 clamp_steps(steps)，最多保留 6 个步骤；如果输入为空，返回 [\"澄清目标\"]。",
+      "hints": ["列表可以用切片限制长度", "空列表需要给出默认澄清动作"],
+      "starter_code": "def clamp_steps(steps):\n    pass\n",
+      "tests": [
+        {
+          "expression": "clamp_steps(['a','b','c','d','e','f','g'])",
+          "expected": ["a", "b", "c", "d", "e", "f"]
+        },
+        {
+          "expression": "clamp_steps([])",
+          "expected": ["澄清目标"]
+        }
+      ],
+      "required_names": ["clamp_steps"],
+      "required_keywords": []
+    },
+    {
+      "track_id": "ai-tutor",
+      "expected_nodes": ["FunctionDef", "Return"],
+      "forbidden_keywords": [],
+      "id": "ai-tool-risk-level",
+      "title": "判断工具操作风险",
+      "difficulty": "进阶",
+      "lesson_id": "ai-tool-safety-checklist",
+      "prompt": "实现 tool_risk(action)。action 包含 read 返回 low，包含 write 返回 medium，包含 delete 或 upload 返回 high，其他返回 medium。",
+      "hints": ["先把 action 转成小写", "delete 和 upload 都属于高风险"],
+      "starter_code": "def tool_risk(action):\n    pass\n",
+      "tests": [
+        {
+          "expression": "tool_risk('read file')",
+          "expected": "low"
+        },
+        {
+          "expression": "tool_risk('delete folder')",
+          "expected": "high"
+        },
+        {
+          "expression": "tool_risk('write config')",
+          "expected": "medium"
+        }
+      ],
+      "required_names": ["tool_risk"],
+      "required_keywords": []
+    },
+    {
+      "track_id": "ai-tutor",
+      "expected_nodes": ["FunctionDef", "Return"],
+      "forbidden_keywords": [],
+      "id": "ai-tool-confirmation-message",
+      "title": "生成工具确认文案",
+      "difficulty": "基础",
+      "lesson_id": "ai-tool-safety-checklist",
+      "prompt": "实现 confirmation_message(action, target)，返回格式：确认: <action> -> <target>。",
+      "hints": ["确认文案要包含动作", "target 也必须出现"],
+      "starter_code": "def confirmation_message(action, target):\n    pass\n",
+      "tests": [
+        {
+          "expression": "confirmation_message('写入文件', 'src/App.tsx')",
+          "expected": "确认: 写入文件 -> src/App.tsx"
+        }
+      ],
+      "required_names": ["confirmation_message"],
+      "required_keywords": []
+    },
+    {
+      "track_id": "ai-tutor",
+      "expected_nodes": ["FunctionDef", "Return"],
+      "forbidden_keywords": [],
+      "id": "ai-workflow-template",
+      "title": "生成 Workflow 模板",
+      "difficulty": "综合",
+      "lesson_id": "ai-workflow-retrospective",
+      "prompt": "实现 workflow_template(name)，返回 Markdown 模板：# <name>，以及 ## 目标、## 步骤、## 复盘 三个标题。",
+      "hints": ["输出多行 Markdown", "标题层级要稳定"],
+      "starter_code": "def workflow_template(name):\n    pass\n",
+      "tests": [
+        {
+          "expression": "workflow_template('调试流程')",
+          "expected": "# 调试流程\n## 目标\n## 步骤\n## 复盘"
+        }
+      ],
+      "required_names": ["workflow_template"],
+      "required_keywords": ["##"]
+    },
+    {
+      "track_id": "ai-tutor",
+      "expected_nodes": ["FunctionDef", "Return"],
+      "forbidden_keywords": [],
+      "id": "ai-workflow-needs-human",
+      "title": "识别 Workflow 人类确认点",
+      "difficulty": "进阶",
+      "lesson_id": "ai-workflow-retrospective",
+      "prompt": "实现 needs_human_review(status)。status 为 destructive、external、unclear 时返回 True，其他返回 False。",
+      "hints": ["使用集合判断更清晰", "注意返回布尔值"],
+      "starter_code": "def needs_human_review(status):\n    pass\n",
+      "tests": [
+        {
+          "expression": "needs_human_review('external')",
+          "expected": true
+        },
+        {
+          "expression": "needs_human_review('read_only')",
+          "expected": false
+        }
+      ],
+      "required_names": ["needs_human_review"],
+      "required_keywords": []
+    },
+    {
+      "track_id": "ai-tutor",
+      "expected_nodes": ["FunctionDef", "Return"],
+      "forbidden_keywords": [],
+      "id": "ai-learning-log-md",
+      "title": "生成 Markdown 学习日志",
+      "difficulty": "基础",
+      "lesson_id": "ai-learning-log-automation",
+      "prompt": "实现 build_learning_log(topic, done, stuck, next_step)，返回包含主题、完成、卡点、下一步四个 Markdown 二级标题的日志。",
+      "hints": ["使用 ## 标题", "按固定顺序拼接"],
+      "starter_code": "def build_learning_log(topic, done, stuck, next_step):\n    pass\n",
+      "tests": [
+        {
+          "expression": "build_learning_log('DP', '完成状态转移', '边界条件', '做一道背包题')",
+          "expected": "## 主题\nDP\n## 完成\n完成状态转移\n## 卡点\n边界条件\n## 下一步\n做一道背包题"
+        }
+      ],
+      "required_names": ["build_learning_log"],
+      "required_keywords": ["##"]
+    },
+    {
+      "track_id": "ai-tutor",
+      "expected_nodes": ["FunctionDef", "Return"],
+      "forbidden_keywords": [],
+      "id": "ai-next-action-picker",
+      "title": "选择下一步学习动作",
+      "difficulty": "基础",
+      "lesson_id": "ai-learning-log-automation",
+      "prompt": "实现 pick_next_action(stuck, mistakes)。如果 stuck 非空返回“先解决卡点”；否则 mistakes > 0 返回“复盘错题”；否则返回“继续新课”。",
+      "hints": ["先判断卡点", "再判断错题数量"],
+      "starter_code": "def pick_next_action(stuck, mistakes):\n    pass\n",
+      "tests": [
+        {
+          "expression": "pick_next_action('递归不懂', 0)",
+          "expected": "先解决卡点"
+        },
+        {
+          "expression": "pick_next_action('', 2)",
+          "expected": "复盘错题"
+        },
+        {
+          "expression": "pick_next_action('', 0)",
+          "expected": "继续新课"
+        }
+      ],
+      "required_names": ["pick_next_action"],
+      "required_keywords": []
     }
   ]
 }

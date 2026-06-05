@@ -1,0 +1,137 @@
+[
+  {
+    "title": "Prompt 四段式格式化",
+    "description": "输入主题、目标和卡点，输出四段式 Prompt。每段标题分别为 目标、上下文、约束、期望输出。",
+    "difficulty": "easy",
+    "tags": ["AI Tutor", "字符串", "Prompt"],
+    "languages": ["python"],
+    "examples": [
+      {
+        "input": "DP\n入门\n状态转移",
+        "output": "目标: 入门"
+      }
+    ],
+    "test_cases": [
+      {
+        "input": "DP\n入门\n状态转移",
+        "expected": "目标: 入门\n上下文: 我正在学习 DP，卡在 状态转移\n约束: 请先诊断再提示，不要直接给完整答案\n期望输出: 给出下一步练习"
+      }
+    ],
+    "starter_code": {
+      "python": "topic = input().strip()\ngoal = input().strip()\nstuck = input().strip()\n# 输出四段式 Prompt\n"
+    },
+    "hints": ["按固定格式输出四行", "注意中文冒号和换行"],
+    "tracks": ["ai-tutor"],
+    "platform": "CodeHelper",
+    "mode": "practice",
+    "estimated_time": 15
+  },
+  {
+    "title": "错题复盘卡生成器",
+    "description": "输入错因、触发信号和正确模板，输出三行 Markdown 知识卡。",
+    "difficulty": "medium",
+    "tags": ["AI Tutor", "Markdown", "复盘"],
+    "languages": ["python"],
+    "examples": [
+      {
+        "input": "边界遗漏\n空列表\n先判断长度",
+        "output": "## 错因"
+      }
+    ],
+    "test_cases": [
+      {
+        "input": "边界遗漏\n空列表\n先判断长度",
+        "expected": "## 错因\n边界遗漏\n## 触发信号\n空列表\n## 正确模板\n先判断长度"
+      }
+    ],
+    "starter_code": {
+      "python": "reason = input().strip()\nsignal = input().strip()\ntemplate = input().strip()\n# 输出 Markdown 复盘卡\n"
+    },
+    "hints": ["用 ## 作为 Markdown 标题", "保持输出顺序一致"],
+    "tracks": ["ai-tutor"],
+    "platform": "CodeHelper",
+    "mode": "practice",
+    "estimated_time": 20
+  },
+  {
+    "title": "学习计划补救版",
+    "description": "输入主题，输出三步 20 分钟补救计划，每步独占一行。",
+    "difficulty": "easy",
+    "tags": ["AI Tutor", "计划", "列表"],
+    "languages": ["python"],
+    "examples": [
+      {
+        "input": "哈希表",
+        "output": "1. 快速复习哈希表核心概念"
+      }
+    ],
+    "test_cases": [
+      {
+        "input": "哈希表",
+        "expected": "1. 快速复习哈希表核心概念\n2. 完成一道哈希表基础题\n3. 记录哈希表错因和触发信号"
+      }
+    ],
+    "starter_code": {
+      "python": "topic = input().strip()\n# 输出三步计划\n"
+    },
+    "hints": ["使用有序列表格式", "每一行都包含输入主题"],
+    "tracks": ["ai-tutor"],
+    "platform": "CodeHelper",
+    "mode": "practice",
+    "estimated_time": 12
+  },
+  {
+    "title": "Agent 任务说明书生成器",
+    "description": "输入目标、上下文和约束，输出结构化 Agent 任务说明。",
+    "difficulty": "medium",
+    "tags": ["AI Tutor", "Agent", "任务拆解"],
+    "languages": ["python"],
+    "examples": [
+      {
+        "input": "修复按钮\nReact 页面\n不要改接口",
+        "output": "目标: 修复按钮"
+      }
+    ],
+    "test_cases": [
+      {
+        "input": "修复按钮\nReact 页面\n不要改接口",
+        "expected": "目标: 修复按钮\n上下文: React 页面\n约束: 不要改接口\n验收: 输出可执行步骤"
+      }
+    ],
+    "starter_code": {
+      "python": "goal = input().strip()\ncontext = input().strip()\nconstraint = input().strip()\n# 输出 Agent 任务说明\n"
+    },
+    "hints": ["按固定字段输出", "验收标准必须清晰"],
+    "tracks": ["ai-tutor"],
+    "platform": "CodeHelper",
+    "mode": "practice",
+    "estimated_time": 18
+  },
+  {
+    "title": "Workflow 复盘模板生成器",
+    "description": "输入流程名称，输出包含目标、步骤和复盘的 Markdown 模板。",
+    "difficulty": "medium",
+    "tags": ["AI Tutor", "Workflow", "模板"],
+    "languages": ["python"],
+    "examples": [
+      {
+        "input": "调试流程",
+        "output": "# 调试流程"
+      }
+    ],
+    "test_cases": [
+      {
+        "input": "调试流程",
+        "expected": "# 调试流程\n## 目标\n## 步骤\n## 复盘"
+      }
+    ],
+    "starter_code": {
+      "python": "name = input().strip()\n# 输出 Workflow Markdown 模板\n"
+    },
+    "hints": ["使用 # 和 ## 标题", "保持标题顺序"],
+    "tracks": ["ai-tutor"],
+    "platform": "CodeHelper",
+    "mode": "practice",
+    "estimated_time": 16
+  }
+]

@@ -93,6 +93,11 @@ const allowedInvokeChannels = new Set([
   'exercises-draft-save',
   'exercises-draft-clear',
   'exercises-evaluate',
+  // Codex Pet desktop companions
+  'pets-list',
+  'pets-install-slug',
+  'pets-import-file',
+  'pets-import-directory',
 ])
 
 const allowedEventChannels = new Set(['ai-chat-chunk', 'ai-chat-done'])

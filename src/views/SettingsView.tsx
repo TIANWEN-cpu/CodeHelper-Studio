@@ -1,8 +1,32 @@
 import React from 'react'
-import { Palette, Check, RotateCcw, Settings, Download, Upload, Info } from 'lucide-react'
+import {
+  Palette,
+  Check,
+  RotateCcw,
+  Settings,
+  Download,
+  Upload,
+  Info,
+  Gauge,
+  Wallpaper,
+  Wand2,
+  Sparkles,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSettingsData } from '../hooks/useSettingsData'
 import { useAppStore } from '../store'
+import { CodexPetSprite } from '../components/CodexPetSprite'
+import {
+  BUILT_IN_FIREFLY_PET,
+  DEFAULT_PET_ID,
+  importPetFromFile,
+  installPetBySlug,
+  listInstalledPets,
+  persistPetSource,
+  readStoredPetSource,
+  selectPetDirectory,
+  type CodexPetDefinition,
+} from '../lib/pets'
 import {
   applyThemeColor,
   applyScale,
@@ -12,7 +36,10 @@ import {
   applyHighContrast,
   applyTheme,
   resolveTheme,
+  type AnimationLevel,
+  type BackgroundStyle,
   type ThemeMode,
+  type VisualTheme,
 } from '../lib/appearance'
 import { AIModelSettings } from './settings/AIModelSettings'
 import { REGION_OPTIONS } from '../lib/locale'
@@ -27,6 +54,51 @@ const CODE_THEME_PREVIEW = `def greet(name):
     return len(msg)
 
 greet("CodeHelper")`
+
+const VISUAL_THEMES: Array<{
+  id: VisualTheme
+  label: string
+  desc: string
+  swatches: string[]
+}> = [
+  {
+    id: 'codex',
+    label: 'Codex 深空',
+    desc: '默认靛紫科技感，适合长时间编码',
+    swatches: ['#6366F1', '#8B5CF6', '#22D3EE'],
+  },
+  {
+    id: 'aurora',
+    label: '极光晨雾',
+    desc: '青绿与蓝紫的柔和学习氛围',
+    swatches: ['#14B8A6', '#3B82F6', '#A78BFA'],
+  },
+  {
+    id: 'nebula',
+    label: '星云玫紫',
+    desc: '更鲜活的创作感，适合 AI 对话',
+    swatches: ['#EC4899', '#8B5CF6', '#F59E0B'],
+  },
+  {
+    id: 'graphite',
+    label: '石墨专业',
+    desc: '更收敛的工程师工作台风格',
+    swatches: ['#64748B', '#38BDF8', '#22C55E'],
+  },
+]
+
+const BACKGROUND_STYLES: Array<{ id: BackgroundStyle; label: string; desc: string }> = [
+  { id: 'soft', label: '柔光', desc: '低干扰的渐变层' },
+  { id: 'aurora', label: '极光', desc: '细腻流动的氛围光' },
+  { id: 'grid', label: '网格', desc: '轻量工程网格纹理' },
+  { id: 'none', label: '纯净', desc: '关闭装饰背景' },
+]
+
+const ANIMATION_LEVELS: Array<{ id: AnimationLevel; label: string; desc: string }> = [
+  { id: 'calm', label: '克制', desc: '减少装饰运动' },
+  { id: 'balanced', label: '均衡', desc: '流畅但不分心' },
+  { id: 'expressive', label: '灵动', desc: '桌宠与背景更活泼' },
+]
 
 // ---- Helper: Toggle Switch ----
 
@@ -46,6 +118,27 @@ function ToggleSwitch({ active, onToggle }: { active: boolean; onToggle: () => v
         )}
       />
     </button>
+  )
+}
+
+type DataActionStatus =
+  | { kind: 'idle'; message: '' }
+  | { kind: 'loading' | 'success' | 'error'; message: string }
+
+type PetActionStatus =
+  | { kind: 'idle'; message: '' }
+  | { kind: 'loading' | 'success' | 'error'; message: string }
+
+function getDataActionError(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback
+}
+
+function SparklesPreview() {
+  return (
+    <span className="relative inline-flex h-5 w-5 items-center justify-center">
+      <span className="absolute h-4 w-4 rounded-full bg-[var(--color-accent-purple)]/25" />
+      <span className="h-2 w-2 rounded-full bg-[var(--color-accent-purple)] shadow-[0_0_18px_var(--color-accent-purple)]" />
+    </span>
   )
 }
 
@@ -74,9 +167,30 @@ export function SettingsView() {
   const setWeekStart = useAppStore((s) => s.setWeekStart)
   const codeTheme = useAppStore((s) => s.codeTheme)
   const setCodeTheme = useAppStore((s) => s.setCodeTheme)
+  const visualTheme = useAppStore((s) => s.visualTheme)
+  const setVisualTheme = useAppStore((s) => s.setVisualTheme)
+  const backgroundStyle = useAppStore((s) => s.backgroundStyle)
+  const setBackgroundStyle = useAppStore((s) => s.setBackgroundStyle)
+  const animationLevel = useAppStore((s) => s.animationLevel)
+  const setAnimationLevel = useAppStore((s) => s.setAnimationLevel)
+  const aiPetEnabled = useAppStore((s) => s.aiPetEnabled)
+  const setAIPetEnabled = useAppStore((s) => s.setAIPetEnabled)
 
   const [activeTab, setActiveTab] = React.useState('appearance')
   const [loaded, setLoaded] = React.useState(false)
+  const [dataActionStatus, setDataActionStatus] = React.useState<DataActionStatus>({
+    kind: 'idle',
+    message: '',
+  })
+  const [availablePets, setAvailablePets] = React.useState<CodexPetDefinition[]>([
+    BUILT_IN_FIREFLY_PET,
+  ])
+  const [selectedPetId, setSelectedPetId] = React.useState(DEFAULT_PET_ID)
+  const [petSlug, setPetSlug] = React.useState('firefly')
+  const [petActionStatus, setPetActionStatus] = React.useState<PetActionStatus>({
+    kind: 'idle',
+    message: '',
+  })
 
   // ---- Appearance ----
   // 默认招牌靛色：与 @theme 的 --color-accent-primary 一致；选它时 applyThemeColor 回退原始靛→紫双色。
@@ -107,6 +221,10 @@ export function SettingsView() {
           'glass_effect',
           'high_contrast',
           'reduce_motion',
+          'visual_theme',
+          'background_style',
+          'animation_level',
+          'ai_pet_enabled',
         ]
 
         const results = await Promise.all(keys.map((k) => getSetting(k)))
@@ -125,6 +243,16 @@ export function SettingsView() {
         if (vals.glass_effect) setGlassEffect(vals.glass_effect === 'true')
         if (vals.high_contrast) setHighContrast(vals.high_contrast === 'true')
         if (vals.reduce_motion) setReduceMotion(vals.reduce_motion === 'true')
+        if (VISUAL_THEMES.some((item) => item.id === vals.visual_theme)) {
+          setVisualTheme(vals.visual_theme as VisualTheme)
+        }
+        if (BACKGROUND_STYLES.some((item) => item.id === vals.background_style)) {
+          setBackgroundStyle(vals.background_style as BackgroundStyle)
+        }
+        if (ANIMATION_LEVELS.some((item) => item.id === vals.animation_level)) {
+          setAnimationLevel(vals.animation_level as AnimationLevel)
+        }
+        if (vals.ai_pet_enabled != null) setAIPetEnabled(vals.ai_pet_enabled === 'true')
       } catch {
         // useDefaults
       } finally {
@@ -136,7 +264,18 @@ export function SettingsView() {
     return () => {
       cancelled = true
     }
-  }, [getSetting])
+  }, [getSetting, setAIPetEnabled, setAnimationLevel, setBackgroundStyle, setVisualTheme])
+
+  const refreshPets = React.useCallback(async () => {
+    const pets = await listInstalledPets()
+    const stored = readStoredPetSource()
+    setAvailablePets(pets)
+    setSelectedPetId(pets.some((pet) => pet.id === stored) ? stored : DEFAULT_PET_ID)
+  }, [])
+
+  React.useEffect(() => {
+    refreshPets().catch(() => {})
+  }, [refreshPets])
 
   // ---- Persist helper ----
   const save = React.useCallback(
@@ -214,6 +353,10 @@ export function SettingsView() {
     setGlassEffect(true)
     setHighContrast(false)
     setReduceMotion(false)
+    setVisualTheme('codex')
+    setBackgroundStyle('soft')
+    setAnimationLevel('balanced')
+    setAIPetEnabled(true)
     // 布局默认值（同步 store + 持久化）
     setShowAITutor(false)
     setBottomPanelCollapsed(false)
@@ -232,6 +375,10 @@ export function SettingsView() {
       glass_effect: 'true',
       high_contrast: 'false',
       reduce_motion: 'false',
+      visual_theme: 'codex',
+      background_style: 'soft',
+      animation_level: 'balanced',
+      ai_pet_enabled: 'true',
       show_ai_panel: 'false',
       show_bottom_panel: 'true',
       compact_sidebar: 'false',
@@ -256,7 +403,69 @@ export function SettingsView() {
     applyReduceMotion(reduceMotion)
     applyGlassEffect(glassEffect)
     applyHighContrast(highContrast)
+    setVisualTheme(visualTheme)
+    setBackgroundStyle(backgroundStyle)
+    setAnimationLevel(animationLevel)
+    setAIPetEnabled(aiPetEnabled)
   }
+
+  const handleSelectPet = (id: string) => {
+    setSelectedPetId(id)
+    persistPetSource(id)
+    window.dispatchEvent(new Event('codehelper:pet-changed'))
+  }
+
+  const handleInstallPetSlug = async () => {
+    const slug = petSlug.trim().toLowerCase()
+    if (!slug) return
+    setPetActionStatus({ kind: 'loading', message: `正在安装 ${slug}...` })
+    const result = await installPetBySlug(slug)
+    if (!result.ok || !result.pet) {
+      setPetActionStatus({ kind: 'error', message: result.error || '安装失败' })
+      return
+    }
+    await refreshPets()
+    handleSelectPet(result.pet.id)
+    setPetActionStatus({ kind: 'success', message: `已安装 ${result.pet.displayName}` })
+  }
+
+  const handleImportPet = async (mode: 'file' | 'directory') => {
+    setPetActionStatus({ kind: 'loading', message: '正在导入桌宠...' })
+    const result = mode === 'file' ? await importPetFromFile() : await selectPetDirectory()
+    if (!result.ok || !result.pet) {
+      setPetActionStatus({ kind: 'error', message: result.error || '导入失败' })
+      return
+    }
+    await refreshPets()
+    handleSelectPet(result.pet.id)
+    setPetActionStatus({ kind: 'success', message: `已导入 ${result.pet.displayName}` })
+  }
+
+  const handleExportData = React.useCallback(async () => {
+    setDataActionStatus({ kind: 'loading', message: '正在导出数据...' })
+    try {
+      await exportData()
+      setDataActionStatus({ kind: 'success', message: '数据导出完成。' })
+    } catch (error) {
+      setDataActionStatus({
+        kind: 'error',
+        message: getDataActionError(error, '导出数据失败。'),
+      })
+    }
+  }, [exportData])
+
+  const handleImportData = React.useCallback(async () => {
+    setDataActionStatus({ kind: 'loading', message: '正在导入数据...' })
+    try {
+      await importData()
+      setDataActionStatus({ kind: 'success', message: '数据导入完成。' })
+    } catch (error) {
+      setDataActionStatus({
+        kind: 'error',
+        message: getDataActionError(error, '导入数据失败。'),
+      })
+    }
+  }, [importData])
 
   const effectSettings = [
     {
@@ -275,7 +484,7 @@ export function SettingsView() {
     },
     {
       title: '减少动态效果',
-      desc: '减少不必要的动画，提升性能',
+      desc: '优先关闭背景和桌宠动效，提升性能',
       key: 'reduce_motion',
       value: reduceMotion,
       setter: setReduceMotion,
@@ -326,7 +535,7 @@ export function SettingsView() {
 
   // ---- Render ----
   return (
-    <div className="h-full flex flex-col bg-[var(--color-bg-base)] overflow-y-auto">
+    <div className="settings-view h-full flex flex-col bg-[var(--color-bg-base)] overflow-y-auto">
       <div className="max-w-[1000px] w-full mx-auto p-6 lg:p-8 space-y-6">
         {/* Header */}
         <div>
@@ -356,6 +565,233 @@ export function SettingsView() {
         {/* Settings Content */}
         {activeTab === 'appearance' && (
           <div className="space-y-6 pb-24">
+            <div className="overflow-hidden rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] shadow-sm">
+              <div className="relative p-5 lg:p-6">
+                <div className="pointer-events-none absolute inset-0 opacity-70 [background:radial-gradient(circle_at_12%_10%,rgba(139,92,246,0.18),transparent_34%),radial-gradient(circle_at_86%_12%,rgba(34,211,238,0.12),transparent_30%)]" />
+                <div className="relative flex flex-col gap-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 text-[var(--color-accent-purple)]">
+                        <Wand2 size={16} />
+                        <span className="text-xs font-semibold uppercase tracking-[0.18em]">
+                          主题设置
+                        </span>
+                      </div>
+                      <h3 className="mt-2 text-lg font-bold text-white">视觉体验中心</h3>
+                      <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+                        统一控制主题套装、背景氛围、动效强度和 AI 桌宠。
+                      </p>
+                    </div>
+                    <div className="hidden rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)]/80 px-3 py-2 text-xs text-[var(--color-text-secondary)] sm:flex sm:items-center sm:gap-2">
+                      <SparklesPreview />
+                      即时预览
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="mb-3 flex items-center gap-2">
+                      <Palette size={15} className="text-[var(--color-accent-purple)]" />
+                      <p className="text-sm font-semibold text-white">主题套装</p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      {VISUAL_THEMES.map((item) => (
+                        <button
+                          type="button"
+                          key={item.id}
+                          data-visual-theme-option={item.id}
+                          onClick={() => setVisualTheme(item.id)}
+                          className={cn(
+                            'rounded-xl border p-4 text-left transition-all hover:-translate-y-0.5',
+                            visualTheme === item.id
+                              ? 'border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/10 shadow-[0_12px_36px_rgba(139,92,246,0.18)]'
+                              : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)]/70 hover:border-[var(--color-border-default)]',
+                          )}
+                        >
+                          <div className="mb-4 flex items-center gap-1.5">
+                            {item.swatches.map((color) => (
+                              <span
+                                key={color}
+                                className="h-5 w-5 rounded-full border border-white/20"
+                                style={{ backgroundColor: color }}
+                              />
+                            ))}
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-semibold text-white">{item.label}</p>
+                            {visualTheme === item.id && (
+                              <Check size={15} className="text-[var(--color-accent-purple)]" />
+                            )}
+                          </div>
+                          <p className="mt-1 text-xs leading-relaxed text-[var(--color-text-muted)]">
+                            {item.desc}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+                    <div className="rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)]/70 p-4">
+                      <div className="mb-3 flex items-center gap-2">
+                        <Wallpaper size={15} className="text-[var(--color-accent-purple)]" />
+                        <p className="text-sm font-semibold text-white">背景氛围</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {BACKGROUND_STYLES.map((item) => (
+                          <button
+                            type="button"
+                            key={item.id}
+                            data-background-style-option={item.id}
+                            onClick={() => setBackgroundStyle(item.id)}
+                            className={cn(
+                              'rounded-lg border px-3 py-2 text-left transition-colors',
+                              backgroundStyle === item.id
+                                ? 'border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/10 text-white'
+                                : 'border-[var(--color-border-subtle)] text-[var(--color-text-secondary)] hover:text-white',
+                            )}
+                          >
+                            <p className="text-xs font-semibold">{item.label}</p>
+                            <p className="mt-0.5 text-[10px] text-[var(--color-text-muted)]">
+                              {item.desc}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)]/70 p-4">
+                      <div className="mb-3 flex items-center gap-2">
+                        <Gauge size={15} className="text-[var(--color-accent-purple)]" />
+                        <p className="text-sm font-semibold text-white">动画强度</p>
+                      </div>
+                      <div className="flex rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] p-1">
+                        {ANIMATION_LEVELS.map((item) => (
+                          <button
+                            type="button"
+                            key={item.id}
+                            data-animation-level-option={item.id}
+                            onClick={() => setAnimationLevel(item.id)}
+                            className={cn(
+                              'flex-1 rounded-md px-2 py-2 text-xs font-medium transition-colors',
+                              animationLevel === item.id
+                                ? 'bg-[var(--color-accent-purple)] text-white shadow-sm'
+                                : 'text-[var(--color-text-muted)] hover:text-white',
+                            )}
+                            title={item.desc}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="mt-2 text-[11px] text-[var(--color-text-muted)]">
+                        “减少动态效果”开启时会覆盖为最低动效。
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)]/70 p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <Sparkles size={15} className="text-[var(--color-accent-purple)]" />
+                            <p className="text-sm font-semibold text-white">AI 桌宠</p>
+                          </div>
+                          <p className="mt-1 text-xs leading-relaxed text-[var(--color-text-muted)]">
+                            默认使用流萤，兼容 Codex Pet 的 pet.json + spritesheet.webp。
+                          </p>
+                        </div>
+                        <ToggleSwitch
+                          active={aiPetEnabled}
+                          onToggle={() => setAIPetEnabled(!aiPetEnabled)}
+                        />
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-2 gap-2">
+                        {availablePets.slice(0, 4).map((pet) => (
+                          <button
+                            type="button"
+                            key={pet.id}
+                            data-pet-option={pet.id}
+                            onClick={() => handleSelectPet(pet.id)}
+                            className={cn(
+                              'flex items-center gap-2 rounded-lg border px-2 py-2 text-left transition-colors',
+                              selectedPetId === pet.id
+                                ? 'border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/10 text-white'
+                                : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] text-[var(--color-text-secondary)] hover:text-white',
+                            )}
+                          >
+                            <CodexPetSprite
+                              pet={pet}
+                              className="settings-pet-sprite codex-pet-sprite"
+                              label={`${pet.displayName} 预览`}
+                            />
+                            <span className="min-w-0">
+                              <span className="block truncate text-xs font-semibold">
+                                {pet.displayName}
+                              </span>
+                              <span className="block truncate text-[10px] text-[var(--color-text-muted)]">
+                                {pet.source === 'built-in' ? '内置' : '已导入'}
+                              </span>
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="mt-3 flex gap-2">
+                        <input
+                          value={petSlug}
+                          onChange={(event) => setPetSlug(event.target.value)}
+                          className="min-w-0 flex-1 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 py-2 text-xs text-white outline-none focus:border-[var(--color-accent-purple)]"
+                          placeholder="firefly"
+                          aria-label="Codex Pet slug"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleInstallPetSlug}
+                          disabled={petActionStatus.kind === 'loading'}
+                          className="rounded-lg bg-[var(--color-accent-purple)] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#7C3AED] disabled:opacity-60"
+                        >
+                          安装
+                        </button>
+                      </div>
+
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleImportPet('file')}
+                          disabled={petActionStatus.kind === 'loading'}
+                          className="rounded-lg border border-[var(--color-border-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)] transition-colors hover:text-white disabled:opacity-60"
+                        >
+                          导入包
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleImportPet('directory')}
+                          disabled={petActionStatus.kind === 'loading'}
+                          className="rounded-lg border border-[var(--color-border-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)] transition-colors hover:text-white disabled:opacity-60"
+                        >
+                          选文件夹
+                        </button>
+                      </div>
+                      {petActionStatus.kind !== 'idle' && (
+                        <p
+                          className={cn(
+                            'mt-2 text-[11px]',
+                            petActionStatus.kind === 'error'
+                              ? 'text-red-300'
+                              : petActionStatus.kind === 'success'
+                                ? 'text-emerald-300'
+                                : 'text-[var(--color-text-muted)]',
+                          )}
+                        >
+                          {petActionStatus.message}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Column 1 */}
               <div className="space-y-6">
@@ -670,10 +1106,29 @@ export function SettingsView() {
                 导出和导入你的学习数据与配置
               </p>
 
+              {dataActionStatus.kind !== 'idle' && (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className={cn(
+                    'mb-4 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs',
+                    dataActionStatus.kind === 'error'
+                      ? 'border-red-500/40 bg-red-500/10 text-red-200'
+                      : dataActionStatus.kind === 'success'
+                        ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                        : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] text-[var(--color-text-secondary)]',
+                  )}
+                >
+                  {dataActionStatus.kind === 'success' ? <Check size={14} /> : <Info size={14} />}
+                  <span>{dataActionStatus.message}</span>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <button
-                  onClick={() => exportData().catch(() => {})}
-                  className="flex items-center gap-3 p-4 rounded-lg border border-[var(--color-border-subtle)] hover:border-[var(--color-accent-purple)] transition-colors text-left"
+                  onClick={handleExportData}
+                  disabled={dataActionStatus.kind === 'loading'}
+                  className="flex items-center gap-3 p-4 rounded-lg border border-[var(--color-border-subtle)] hover:border-[var(--color-accent-purple)] transition-colors text-left disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <div className="w-10 h-10 rounded-lg bg-[var(--color-accent-purple)]/10 flex items-center justify-center">
                     <Download size={18} className="text-[var(--color-accent-purple)]" />
@@ -685,8 +1140,9 @@ export function SettingsView() {
                 </button>
 
                 <button
-                  onClick={() => importData().catch(() => {})}
-                  className="flex items-center gap-3 p-4 rounded-lg border border-[var(--color-border-subtle)] hover:border-[var(--color-accent-purple)] transition-colors text-left"
+                  onClick={handleImportData}
+                  disabled={dataActionStatus.kind === 'loading'}
+                  className="flex items-center gap-3 p-4 rounded-lg border border-[var(--color-border-subtle)] hover:border-[var(--color-accent-purple)] transition-colors text-left disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <div className="w-10 h-10 rounded-lg bg-[var(--color-accent-purple)]/10 flex items-center justify-center">
                     <Upload size={18} className="text-[var(--color-accent-purple)]" />

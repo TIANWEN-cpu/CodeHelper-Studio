@@ -16,6 +16,9 @@
 import { getSetting, setSetting } from '../services/settingsService'
 
 export type ThemeMode = 'dark' | 'light'
+export type VisualTheme = 'codex' | 'aurora' | 'nebula' | 'graphite'
+export type BackgroundStyle = 'soft' | 'aurora' | 'grid' | 'none'
+export type AnimationLevel = 'calm' | 'balanced' | 'expressive'
 
 export interface Appearance {
   theme: ThemeMode
@@ -26,6 +29,10 @@ export interface Appearance {
   reduceMotion: boolean
   glassEffect: boolean // 毛玻璃（backdrop-blur）开关，默认开
   highContrast: boolean // 高对比度，默认关
+  visualTheme: VisualTheme // 视觉主题套装：驱动语义色、背景氛围与组件质感
+  backgroundStyle: BackgroundStyle // 全局背景层：轻量 CSS，不加载大图
+  animationLevel: AnimationLevel // 动效强度：只影响装饰/桌宠，不改变核心交互
+  aiPetEnabled: boolean // AI 桌宠开关
 }
 
 export const DEFAULT_APPEARANCE: Appearance = {
@@ -37,6 +44,10 @@ export const DEFAULT_APPEARANCE: Appearance = {
   reduceMotion: false,
   glassEffect: true,
   highContrast: false,
+  visualTheme: 'codex',
+  backgroundStyle: 'soft',
+  animationLevel: 'balanced',
+  aiPetEnabled: true,
 }
 
 // ---- 颜色工具：按百分比提亮(正)/加深(负) ----
@@ -140,6 +151,26 @@ export function applyHighContrast(on: boolean): void {
   document.documentElement.setAttribute('data-contrast', on ? 'high' : 'normal')
 }
 
+export function applyVisualTheme(theme: VisualTheme): void {
+  if (typeof document === 'undefined') return
+  document.documentElement.setAttribute('data-visual-theme', theme)
+}
+
+export function applyBackgroundStyle(style: BackgroundStyle): void {
+  if (typeof document === 'undefined') return
+  document.documentElement.setAttribute('data-background-style', style)
+}
+
+export function applyAnimationLevel(level: AnimationLevel): void {
+  if (typeof document === 'undefined') return
+  document.documentElement.setAttribute('data-animation-level', level)
+}
+
+export function applyAIPetEnabled(on: boolean): void {
+  if (typeof document === 'undefined') return
+  document.documentElement.setAttribute('data-ai-pet', on ? 'on' : 'off')
+}
+
 /** 一次性应用整组外观设置（启动时与重置时用）。 */
 export function applyAll(a: Appearance): void {
   applyTheme(resolveTheme(a.theme, a.followSystem))
@@ -149,12 +180,41 @@ export function applyAll(a: Appearance): void {
   applyReduceMotion(a.reduceMotion)
   applyGlassEffect(a.glassEffect)
   applyHighContrast(a.highContrast)
+  applyVisualTheme(a.visualTheme)
+  applyBackgroundStyle(a.backgroundStyle)
+  applyAnimationLevel(a.animationLevel)
+  applyAIPetEnabled(a.aiPetEnabled)
+}
+
+function parseVisualTheme(value: string | null): VisualTheme {
+  return value === 'aurora' || value === 'nebula' || value === 'graphite' ? value : 'codex'
+}
+
+function parseBackgroundStyle(value: string | null): BackgroundStyle {
+  return value === 'aurora' || value === 'grid' || value === 'none' ? value : 'soft'
+}
+
+function parseAnimationLevel(value: string | null): AnimationLevel {
+  return value === 'calm' || value === 'expressive' ? value : 'balanced'
 }
 
 /** 从数据库读回已持久化的外观设置（失败回退默认值）。 */
 export async function loadAppearance(): Promise<Appearance> {
   try {
-    const [theme, follow, color, scale, font, rm, glass, contrast] = await Promise.all([
+    const [
+      theme,
+      follow,
+      color,
+      scale,
+      font,
+      rm,
+      glass,
+      contrast,
+      visualTheme,
+      backgroundStyle,
+      animationLevel,
+      aiPet,
+    ] = await Promise.all([
       getSetting('theme_mode'),
       getSetting('follow_system'),
       getSetting('theme_color'),
@@ -163,6 +223,10 @@ export async function loadAppearance(): Promise<Appearance> {
       getSetting('reduce_motion'),
       getSetting('glass_effect'),
       getSetting('high_contrast'),
+      getSetting('visual_theme'),
+      getSetting('background_style'),
+      getSetting('animation_level'),
+      getSetting('ai_pet_enabled'),
     ])
     const parsedFont = font ? parseInt(font, 10) : NaN
     return {
@@ -174,6 +238,10 @@ export async function loadAppearance(): Promise<Appearance> {
       reduceMotion: rm === 'true',
       glassEffect: glass == null ? DEFAULT_APPEARANCE.glassEffect : glass === 'true',
       highContrast: contrast === 'true',
+      visualTheme: parseVisualTheme(visualTheme),
+      backgroundStyle: parseBackgroundStyle(backgroundStyle),
+      animationLevel: parseAnimationLevel(animationLevel),
+      aiPetEnabled: aiPet == null ? DEFAULT_APPEARANCE.aiPetEnabled : aiPet === 'true',
     }
   } catch {
     return { ...DEFAULT_APPEARANCE }

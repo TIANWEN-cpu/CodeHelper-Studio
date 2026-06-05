@@ -7,15 +7,15 @@ describe('renderMarkdown', () => {
   // ---------------------------------------------------------------------------
   describe('headings', () => {
     it('converts # to <h2>', () => {
-      expect(renderMarkdown('# Title')).toBe('<p><h2>Title</h2></p>')
+      expect(renderMarkdown('# Title')).toBe('<h2>Title</h2>')
     })
 
     it('converts ## to <h3>', () => {
-      expect(renderMarkdown('## Section')).toBe('<p><h3>Section</h3></p>')
+      expect(renderMarkdown('## Section')).toBe('<h3>Section</h3>')
     })
 
     it('converts ### to <h4>', () => {
-      expect(renderMarkdown('### Sub')).toBe('<p><h4>Sub</h4></p>')
+      expect(renderMarkdown('### Sub')).toBe('<h4>Sub</h4>')
     })
 
     it('does not convert # without space', () => {
@@ -110,13 +110,19 @@ describe('renderMarkdown', () => {
   })
 
   // ---------------------------------------------------------------------------
-  // Links (not handled by this renderer -- plain text passthrough)
+  // Links
   // ---------------------------------------------------------------------------
   describe('links', () => {
-    it('does not produce <a> tags (no link support)', () => {
-      const result = renderMarkdown('[text](url)')
+    it('renders safe links', () => {
+      const result = renderMarkdown('[text](https://example.com)')
+      expect(result).toContain('<a href="https://example.com"')
+      expect(result).toContain('rel="noreferrer noopener"')
+    })
+
+    it('does not render javascript links', () => {
+      const result = renderMarkdown('[bad](javascript:alert(1))')
       expect(result).not.toContain('<a')
-      expect(result).toContain('[text](url)')
+      expect(result).toContain('[bad](javascript:alert(1))')
     })
   })
 
@@ -205,7 +211,7 @@ describe('renderMarkdown', () => {
 
     it('handles whitespace-only string', () => {
       const result = renderMarkdown('   ')
-      expect(result).toBe('<p>   </p>')
+      expect(result).toBe('')
     })
 
     it('handles very long string', () => {
@@ -244,7 +250,7 @@ describe('renderMarkdown', () => {
       expect(result).toContain('<em>italic</em>')
       expect(result).toContain('<code>code</code>')
       expect(result).toContain('<li>item</li>')
-      expect(result).toContain('</p><p>')
+      expect(result).toContain('<h2>Title</h2>')
     })
 
     it('handles consecutive bold and italic', () => {
@@ -257,6 +263,31 @@ describe('renderMarkdown', () => {
       // Single backtick pairs only
       const result = renderMarkdown('`code`')
       expect(result).toContain('<code>code</code>')
+    })
+
+    it('renders ordered lists', () => {
+      const result = renderMarkdown('1. first\n2. second')
+      expect(result).toContain('<ol>')
+      expect(result).toContain('<li>first</li>')
+      expect(result).toContain('<li>second</li>')
+    })
+
+    it('renders fenced code blocks', () => {
+      const result = renderMarkdown('```ts\nconst x = 1\n```')
+      expect(result).toContain('<pre><code class="language-ts">')
+      expect(result).toContain('const x = 1')
+    })
+
+    it('renders blockquotes', () => {
+      const result = renderMarkdown('> quoted')
+      expect(result).toContain('<blockquote>quoted</blockquote>')
+    })
+
+    it('renders tables', () => {
+      const result = renderMarkdown('| A | B |\n| --- | --- |\n| 1 | 2 |')
+      expect(result).toContain('<table>')
+      expect(result).toContain('<th>A</th>')
+      expect(result).toContain('<td>2</td>')
     })
   })
 })

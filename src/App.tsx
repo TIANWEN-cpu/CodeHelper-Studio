@@ -1,8 +1,9 @@
 import React, { Suspense, lazy, useEffect } from 'react'
-import { motion, AnimatePresence } from 'motion/react'
+import { motion } from 'motion/react'
 import { Sidebar } from './components/layout/Sidebar'
 import { Header } from './components/layout/Header'
 import { AITutorPanel } from './components/layout/AITutorPanel'
+import { AIPet } from './components/AIPet'
 import { useAppStore } from './store'
 import {
   loadAppearance,
@@ -37,6 +38,9 @@ const PracticeView = lazy(() =>
 const ProfileView = lazy(() =>
   import('./views/ProfileView').then((module) => ({ default: module.ProfileView })),
 )
+const AITutorView = lazy(() =>
+  import('./views/AITutorView').then((module) => ({ default: module.AITutorView })),
+)
 
 // Loading Fallback
 const ViewLoader = () => (
@@ -59,6 +63,12 @@ function App() {
       if (cancelled) return
       applyAll(a)
       useAppStore.getState().hydrateTheme(resolveTheme(a.theme, a.followSystem))
+      useAppStore.getState().hydrateAppearanceControls({
+        visualTheme: a.visualTheme,
+        backgroundStyle: a.backgroundStyle,
+        animationLevel: a.animationLevel,
+        aiPetEnabled: a.aiPetEnabled,
+      })
       if (a.followSystem) {
         unwatch = watchSystemTheme((sysTheme) => {
           applyTheme(sysTheme)
@@ -102,6 +112,9 @@ function App() {
       case 'profile':
         view = <ProfileView />
         break
+      case 'ai-tutor':
+        view = <AITutorView />
+        break
       default:
         view = <HomeView />
     }
@@ -111,30 +124,27 @@ function App() {
   const hideHeader = currentView === 'workspace' || currentView === 'practice'
 
   return (
-    <div className="flex h-screen w-full bg-[var(--color-bg-base)] text-[var(--color-text-primary)] overflow-hidden font-sans">
+    <div className="app-shell flex h-screen w-full bg-[var(--color-bg-base)] text-[var(--color-text-primary)] overflow-hidden font-sans">
+      <div className="app-ambient-layer" aria-hidden="true" />
       <Sidebar />
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="relative z-10 flex-1 flex flex-col min-w-0">
         {!hideHeader && <Header />}
         <main className="flex-1 overflow-hidden relative">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentView}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.15, ease: 'easeOut' }}
-              className="w-full h-full flex flex-col pt-1"
-            >
-              {renderView()}
-            </motion.div>
-          </AnimatePresence>
+          <motion.div
+            key={currentView}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+            className="w-full h-full flex flex-col pt-1"
+          >
+            {renderView()}
+          </motion.div>
         </main>
       </div>
 
-      <AnimatePresence>
-        {showAITutor && <AITutorPanel onClose={() => setShowAITutor(false)} />}
-      </AnimatePresence>
+      {showAITutor && <AITutorPanel onClose={() => setShowAITutor(false)} />}
+      <AIPet />
     </div>
   )
 }

@@ -68,7 +68,7 @@ export function Sidebar() {
       : 0
 
   const navItems: Array<{
-    id: ViewType | 'ai-tutor'
+    id: ViewType
     label: string
     icon: React.ComponentType<{ size?: number; className?: string }>
     color?: string
@@ -79,7 +79,7 @@ export function Sidebar() {
     { id: 'workspace', label: '编程工作区', icon: FolderCode },
     {
       id: 'ai-tutor',
-      label: 'AI Tutor',
+      label: 'AI 助手',
       icon: Sparkles,
       color: 'text-[var(--color-accent-purple)]',
     },
@@ -133,19 +133,12 @@ export function Sidebar() {
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = currentView === item.id
-          const showActiveIndicator =
-            (isActive && item.id !== 'ai-tutor') || (item.id === 'ai-tutor' && showAITutor)
+          const showActiveIndicator = isActive
 
           return (
             <button
               key={item.id}
-              onClick={() => {
-                if (item.id === 'ai-tutor') {
-                  toggleAITutor()
-                } else {
-                  setCurrentView(item.id)
-                }
-              }}
+              onClick={() => setCurrentView(item.id)}
               className={cn(
                 'w-full flex items-center rounded-lg text-sm font-medium transition-colors group relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg-panel)]',
                 collapsed ? 'justify-center py-3' : 'gap-3 px-3 py-2.5',
@@ -178,17 +171,6 @@ export function Sidebar() {
 
               {showActiveIndicator && collapsed && (
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 rounded-r-md bg-gradient-to-b from-[var(--color-accent-primary)] to-[var(--color-accent-purple)]"></div>
-              )}
-
-              {item.id === 'ai-tutor' && !showAITutor && (
-                <div
-                  className={cn(
-                    'absolute rounded-full bg-[var(--color-accent-purple)]',
-                    collapsed
-                      ? 'right-1.5 top-1.5 w-1.5 h-1.5'
-                      : 'right-3 top-1/2 -translate-y-1/2 w-2 h-2',
-                  )}
-                />
               )}
             </button>
           )
@@ -310,6 +292,25 @@ export function Sidebar() {
             <Settings size={16} />
           </button>
         </div>
+        <button
+          type="button"
+          data-ai-panel-sidebar-entry
+          onClick={toggleAITutor}
+          aria-pressed={showAITutor}
+          className={cn(
+            'group relative isolate mt-3 overflow-hidden rounded-xl border border-[var(--color-accent-purple)]/45 bg-gradient-to-r from-[var(--color-accent-primary)] to-[var(--color-accent-purple)] text-white shadow-lg shadow-[var(--color-accent-purple)]/20 transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(139,92,246,0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-purple)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg-panel)]',
+            collapsed
+              ? 'flex h-10 w-10 items-center justify-center'
+              : 'flex w-full items-center justify-center gap-2 px-3 py-2.5 text-sm font-semibold',
+            showAITutor &&
+              'ring-2 ring-[var(--color-accent-purple)]/60 ring-offset-2 ring-offset-[var(--color-bg-panel)]',
+          )}
+          title={showAITutor ? '关闭当前页 AI 面板' : '打开当前页 AI 面板'}
+        >
+          <span className="absolute inset-0 -z-10 bg-white/0 transition-colors group-hover:bg-white/10" />
+          <Sparkles size={collapsed ? 18 : 16} className="shrink-0" />
+          {!collapsed && <span className="whitespace-nowrap">当前页 AI</span>}
+        </button>
       </div>
     </motion.div>
   )

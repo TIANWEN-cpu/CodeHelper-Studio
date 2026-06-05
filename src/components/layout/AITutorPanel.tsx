@@ -25,7 +25,14 @@ import {
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'motion/react'
 import { useAIChat } from '@/hooks/useAIChat'
-import { useAppStore, type AIContextSnapshot } from '@/store'
+import {
+  AI_PANEL_DEFAULT_WIDTH,
+  AI_PANEL_MAX_WIDTH,
+  AI_PANEL_MIN_WIDTH,
+  useAppStore,
+  type AIContextSnapshot,
+} from '@/store'
+import { renderMarkdown } from '@/utils/markdown'
 import type { ViewType } from '@/types'
 
 // 当前页面 -> 中文上下文标签（与 Sidebar 导航保持一致）。
@@ -305,6 +312,12 @@ const KIND_LABELS: Record<AIContextSnapshot['kind'], string> = {
   lesson: '课程',
 }
 
+function AssistantMarkdown({ content }: { content: string }) {
+  return (
+    <div className="ai-markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }} />
+  )
+}
+
 // 把教学模式 + 当前 AI 上下文（题目/代码/错题）组装为提问前缀，让对话结合上下文而非孤立聊天。
 function buildContextPrefix(
   ctx: AIContextSnapshot | null,
@@ -347,16 +360,25 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
   const aiContext = useAppStore((s) => s.aiContext)
   const pendingAIPrompt = useAppStore((s) => s.pendingAIPrompt)
   const consumeAIPrompt = useAppStore((s) => s.consumeAIPrompt)
+  const aiPanelWidth = useAppStore((s) => s.aiPanelWidth)
+  const setAIPanelWidth = useAppStore((s) => s.setAIPanelWidth)
 
   const [inputValue, setInputValue] = useState('')
   const [activeTab, setActiveTab] = useState<'chat' | 'actions'>('chat')
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false)
   const [tutorMode, setTutorMode] = useState<TutorMode>('explain')
+  const [isResizing, setIsResizing] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const sessionMenuRef = useRef<HTMLDivElement>(null)
+  const latestPanelWidthRef = useRef(aiPanelWidth || AI_PANEL_DEFAULT_WIDTH)
+  const dragPanelWidthRef = useRef(aiPanelWidth || AI_PANEL_DEFAULT_WIDTH)
   const activeMode = TUTOR_MODES[tutorMode]
   const ActiveModeIcon = activeMode.icon
+
+  useEffect(() => {
+    latestPanelWidthRef.current = aiPanelWidth || AI_PANEL_DEFAULT_WIDTH
+  }, [aiPanelWidth])
 
   // Auto-scroll to bottom when messages or streaming content change.
   useEffect(() => {
@@ -383,6 +405,68 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [sessionMenuOpen])
+
+  const getWidthFromClientX = useCallback((clientX: number) => window.innerWidth - clientX - 16, [])
+
+  const handleResizeStart = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.currentTarget.focus()
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+    dragPanelWidthRef.current = latestPanelWidthRef.current
+    setIsResizing(true)
+  }, [])
+
+  const handleResizeKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      const step = event.shiftKey ? 80 : 40
+      let nextWidth: number | null = null
+
+      if (event.key === 'ArrowLeft') nextWidth = aiPanelWidth + step
+      else if (event.key === 'ArrowRight') nextWidth = aiPanelWidth - step
+      else if (event.key === 'Home') nextWidth = AI_PANEL_MIN_WIDTH
+      else if (event.key === 'End') nextWidth = AI_PANEL_MAX_WIDTH
+
+      if (nextWidth == null) return
+      event.preventDefault()
+      setAIPanelWidth(nextWidth)
+    },
+    [aiPanelWidth, setAIPanelWidth],
+  )
+
+  useEffect(() => {
+    if (!isResizing) return
+    const handleMove = (event: PointerEvent) => {
+      const next = getWidthFromClientX(event.clientX)
+      dragPanelWidthRef.current = next
+      setAIPanelWidth(next, { persist: false })
+    }
+    const handleEnd = () => {
+      setAIPanelWidth(dragPanelWidthRef.current)
+      setIsResizing(false)
+    }
+    const handleCancel = () => {
+      setAIPanelWidth(latestPanelWidthRef.current)
+      setIsResizing(false)
+    }
+
+    const previousCursor = document.body.style.cursor
+    const previousUserSelect = document.body.style.userSelect
+    const previousTouchAction = document.body.style.touchAction
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    document.body.style.touchAction = 'none'
+    window.addEventListener('pointermove', handleMove)
+    window.addEventListener('pointerup', handleEnd)
+    window.addEventListener('pointercancel', handleCancel)
+    return () => {
+      document.body.style.cursor = previousCursor
+      document.body.style.userSelect = previousUserSelect
+      document.body.style.touchAction = previousTouchAction
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', handleEnd)
+      window.removeEventListener('pointercancel', handleCancel)
+    }
+  }, [getWidthFromClientX, isResizing, setAIPanelWidth])
 
   // 把当前学习态上下文组装为发送前缀（显示仍为原始问题）。
   const withContext = useCallback(
@@ -473,13 +557,44 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
 
   return (
     <motion.div
-      initial={{ width: 0, opacity: 0, x: 24 }}
-      animate={{ width: 'auto', opacity: 1, x: 0 }}
-      exit={{ width: 0, opacity: 0, x: 24 }}
-      transition={{ duration: 0.22, ease: 'easeOut' }}
-      className="flex-shrink-0 h-full overflow-hidden z-20 relative flex"
+      initial={{ opacity: 0, x: 32 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 32 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      className="relative z-20 flex h-full flex-shrink-0 overflow-visible"
+      style={{
+        width: `min(${aiPanelWidth || AI_PANEL_DEFAULT_WIDTH}px, calc(100vw - 4.5rem))`,
+        maxWidth: `min(${AI_PANEL_MAX_WIDTH}px, calc(100vw - 4.5rem))`,
+        minWidth: `min(${AI_PANEL_MIN_WIDTH}px, calc(100vw - 4.5rem))`,
+      }}
     >
-      <div className="w-[320px] lg:w-[348px] flex-shrink-0 flex flex-col bg-[var(--color-bg-panel)] border-l border-[var(--color-border-subtle)] h-full overflow-hidden shadow-none">
+      <div
+        id="ai-tutor-panel"
+        className={cn(
+          'relative w-full flex flex-col bg-[var(--color-bg-panel)] border-l border-[var(--color-border-subtle)] h-full overflow-hidden shadow-2xl shadow-black/35',
+          isResizing &&
+            'border-l-[var(--color-accent-purple)] shadow-[0_0_0_1px_rgba(139,92,246,0.35),-20px_0_60px_rgba(0,0,0,0.45)]',
+        )}
+      >
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-controls="ai-tutor-panel"
+          aria-label="调整 AI 面板宽度"
+          aria-valuemin={AI_PANEL_MIN_WIDTH}
+          aria-valuemax={AI_PANEL_MAX_WIDTH}
+          aria-valuenow={Math.round(aiPanelWidth || AI_PANEL_DEFAULT_WIDTH)}
+          aria-valuetext={`${Math.round(aiPanelWidth || AI_PANEL_DEFAULT_WIDTH)} px`}
+          title="拖动调整 AI 面板宽度"
+          tabIndex={0}
+          onPointerDown={handleResizeStart}
+          onKeyDown={handleResizeKeyDown}
+          className={cn(
+            'hidden sm:flex absolute left-0 top-0 bottom-0 z-20 w-2 -translate-x-1 cursor-col-resize touch-none items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-purple)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg-panel)]',
+            'after:h-16 after:w-1 after:rounded-full after:bg-[var(--color-border-default)] after:opacity-60 after:transition-all hover:after:bg-[var(--color-accent-purple)] hover:after:opacity-100',
+            isResizing && 'after:bg-[var(--color-accent-purple)] after:opacity-100',
+          )}
+        />
         {/* Header */}
         <div className="h-14 flex items-center justify-between px-4 border-b border-[var(--color-border-subtle)] flex-shrink-0">
           <div className="flex items-center gap-2">
@@ -725,8 +840,8 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
                       {msg.content}
                     </div>
                   ) : (
-                    <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] text-[#E5E7EB] px-4 py-3.5 rounded-2xl rounded-tl-sm max-w-[90%] text-sm leading-relaxed shadow-sm whitespace-pre-wrap">
-                      {msg.content}
+                    <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] text-[#E5E7EB] px-4 py-3.5 rounded-2xl rounded-tl-sm max-w-[90%] text-sm leading-relaxed shadow-sm">
+                      <AssistantMarkdown content={msg.content} />
                     </div>
                   )}
                 </motion.div>
@@ -739,8 +854,8 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
                   animate={{ opacity: 1, y: 0 }}
                   className="flex justify-start"
                 >
-                  <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] text-[#E5E7EB] px-4 py-3.5 rounded-2xl rounded-tl-sm max-w-[90%] text-sm leading-relaxed shadow-sm whitespace-pre-wrap">
-                    {streamingContent}
+                  <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] text-[#E5E7EB] px-4 py-3.5 rounded-2xl rounded-tl-sm max-w-[90%] text-sm leading-relaxed shadow-sm">
+                    <AssistantMarkdown content={streamingContent} />
                     <span className="inline-block w-1.5 h-4 bg-[var(--color-accent-purple)] ml-0.5 animate-pulse rounded-sm align-text-bottom" />
                   </div>
                 </motion.div>

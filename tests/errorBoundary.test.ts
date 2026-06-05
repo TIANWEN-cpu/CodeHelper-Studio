@@ -1,17 +1,6 @@
-/**
- * ErrorBoundary component tests.
- *
- * Tests: error catching, error display, recovery, error reporting.
- *
- * Note: These tests use a minimal React-like approach since we're in
- * a node environment. We test the class logic (getDerivedStateFromError,
- * componentDidCatch) without a full DOM renderer.
- */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// We import the ErrorBoundary component logic for unit testing.
-// Since the project uses node environment for tests (not jsdom),
-// we test the static methods and class behavior directly.
+const FALLBACK_MESSAGE = '应用遇到了意外错误，请尝试重新加载页面。如果问题持续存在，请重启应用。'
 
 describe('ErrorBoundary', () => {
   let consoleSpy: ReturnType<typeof vi.spyOn>
@@ -22,246 +11,135 @@ describe('ErrorBoundary', () => {
 
   afterEach(() => {
     consoleSpy.mockRestore()
+    vi.unstubAllGlobals()
   })
 
-  describe('getDerivedStateFromError', () => {
-    it('returns hasError: true and the error object', async () => {
-      const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
-      const error = new Error('test crash')
-      const state = ErrorBoundary.getDerivedStateFromError(error)
+  it('derives error state from a thrown render error', async () => {
+    const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
+    const error = new Error('render crash')
 
-      expect(state.hasError).toBe(true)
-      expect(state.error).toBe(error)
-      expect(state.error?.message).toBe('test crash')
-    })
+    const state = ErrorBoundary.getDerivedStateFromError(error)
 
-    it('preserves the original error type', async () => {
-      const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
-      class CustomError extends Error {
-        code: string
-        constructor(msg: string, code: string) {
-          super(msg)
-          this.code = code
-        }
-      }
-      const error = new CustomError('custom crash', 'ERR_CUSTOM')
-      const state = ErrorBoundary.getDerivedStateFromError(error)
-
-      expect(state.hasError).toBe(true)
-      expect(state.error).toBeInstanceOf(CustomError)
-      expect((state.error as CustomError).code).toBe('ERR_CUSTOM')
-    })
-
-    it('handles errors with empty message', async () => {
-      const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
-      const error = new Error('')
-      const state = ErrorBoundary.getDerivedStateFromError(error)
-
-      expect(state.hasError).toBe(true)
-      expect(state.error?.message).toBe('')
-    })
-
-    it('handles errors with very long messages', async () => {
-      const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
-      const longMessage = 'x'.repeat(10000)
-      const error = new Error(longMessage)
-      const state = ErrorBoundary.getDerivedStateFromError(error)
-
-      expect(state.hasError).toBe(true)
-      expect(state.error?.message).toHaveLength(10000)
-    })
-
-    it('handles errors with Unicode messages', async () => {
-      const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
-      const error = new Error('发生了错误: 🚨 系统崩溃')
-      const state = ErrorBoundary.getDerivedStateFromError(error)
-
-      expect(state.hasError).toBe(true)
-      expect(state.error?.message).toContain('🚨')
-    })
+    expect(state).toEqual({ hasError: true, error })
   })
 
-  describe('componentDidCatch', () => {
-    it('logs error and errorInfo to console.error', async () => {
-      const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
-      // Create a minimal instance to test componentDidCatch
-      const instance = new ErrorBoundary({ children: null })
-      const error = new Error('render crash')
-      const errorInfo = { componentStack: '\n    at Component\n    at App' }
+  it('preserves custom error instances in derived state', async () => {
+    const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
+    class CustomError extends Error {
+      code = 'ERR_CUSTOM'
+    }
+    const error = new CustomError('custom crash')
 
-      instance.componentDidCatch(error, errorInfo)
+    const state = ErrorBoundary.getDerivedStateFromError(error)
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '[ErrorBoundary] ErrorBoundary caught:',
-        error,
-        errorInfo,
-      )
-    })
-
-    it('handles errorInfo with empty componentStack', async () => {
-      const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
-      const instance = new ErrorBoundary({ children: null })
-      const error = new Error('empty stack')
-      const errorInfo = { componentStack: '' }
-
-      // Should not throw
-      expect(() => instance.componentDidCatch(error, errorInfo)).not.toThrow()
-      expect(consoleSpy).toHaveBeenCalled()
-    })
+    expect(state.error).toBeInstanceOf(CustomError)
+    expect((state.error as CustomError).code).toBe('ERR_CUSTOM')
   })
 
-  describe('initial state', () => {
-    it('starts with hasError: false and error: null', async () => {
-      const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
-      const instance = new ErrorBoundary({ children: null })
+  it('handles empty and very long error messages', async () => {
+    const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
+    const emptyState = ErrorBoundary.getDerivedStateFromError(new Error(''))
+    const longState = ErrorBoundary.getDerivedStateFromError(new Error('x'.repeat(10000)))
 
-      expect(instance.state.hasError).toBe(false)
-      expect(instance.state.error).toBeNull()
-    })
+    expect(emptyState.error?.message).toBe('')
+    expect(longState.error?.message).toHaveLength(10000)
   })
 
-  describe('render behavior', () => {
-    it('returns children when no error', async () => {
-      const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
-      const instance = new ErrorBoundary({ children: 'child content' })
+  it('preserves Unicode error messages in state', async () => {
+    const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
+    const state = ErrorBoundary.getDerivedStateFromError(new Error('发生了错误 🚨'))
 
-      // render() should return children when hasError is false
-      const result = instance.render()
-      expect(result).toBe('child content')
-    })
-
-    it('returns error UI when hasError is true', async () => {
-      const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
-      const instance = new ErrorBoundary({ children: 'child content' })
-
-      // Simulate error state
-      instance.state = { hasError: true, error: new Error('boom') }
-
-      const result = instance.render()
-      // The result should be a React element (object with type, props, etc.)
-      // and should NOT be the children
-      expect(result).not.toBe('child content')
-      expect(result).toBeTruthy() // render() returns a JSX element when hasError is true
-      // It should be a JSX element (object with props)
-      if (typeof result === 'object' && result !== null && 'props' in result) {
-        const props = (result as { props: Record<string, unknown> }).props
-        expect(props).toBeTruthy() // JSX element has props
-        expect(props.style).toBeTruthy() // error UI has inline styles
-      }
-    })
-
-    it('error UI contains error message when error has message', async () => {
-      const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
-      const instance = new ErrorBoundary({ children: 'child' })
-      instance.state = { hasError: true, error: new Error('specific error') }
-
-      const result = instance.render()
-      // The ErrorBoundary renders a static Chinese message, not the raw error
-      if (typeof result === 'object' && result !== null && 'props' in result) {
-        const props = (result as { props: Record<string, unknown> }).props
-        const children = props.children as Array<{ props?: Record<string, unknown> }>
-        const pElement = children?.find(
-          (child: unknown) =>
-            typeof child === 'object' &&
-            child !== null &&
-            'props' in (child as Record<string, unknown>) &&
-            (child as { props?: { style?: { color?: string } } }).props?.style?.color === '#888',
-        )
-        if (pElement && typeof pElement === 'object' && 'props' in pElement) {
-          const pProps = (pElement as { props: Record<string, unknown> }).props
-          expect(pProps.children).toBe(
-            '应用遇到了意外错误，请尝试重新加载页面。如果问题持续存在，请尝试重启应用。',
-          )
-        }
-      }
-    })
-
-    it('error UI shows fallback message when error has no message', async () => {
-      const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
-      const instance = new ErrorBoundary({ children: 'child' })
-      instance.state = { hasError: true, error: null }
-
-      const result = instance.render()
-      if (typeof result === 'object' && result !== null && 'props' in result) {
-        const props = (result as { props: Record<string, unknown> }).props
-        const children = props.children as Array<{ props?: Record<string, unknown> }>
-        const pElement = children?.find(
-          (child: unknown) =>
-            typeof child === 'object' &&
-            child !== null &&
-            'props' in (child as Record<string, unknown>) &&
-            (child as { props?: { style?: { color?: string } } }).props?.style?.color === '#888',
-        )
-        if (pElement && typeof pElement === 'object' && 'props' in pElement) {
-          const pProps = (pElement as { props: Record<string, unknown> }).props
-          expect(pProps.children).toBe(
-            '应用遇到了意外错误，请尝试重新加载页面。如果问题持续存在，请尝试重启应用。',
-          )
-        }
-      }
-    })
+    expect(state.error?.message).toContain('🚨')
   })
 
-  describe('error recovery state transitions', () => {
-    it('getDerivedStateFromError followed by render produces error UI', async () => {
-      const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
-      const instance = new ErrorBoundary({ children: 'normal content' })
+  it('logs caught errors with component stack information', async () => {
+    const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
+    const instance = new ErrorBoundary({ children: null })
+    const error = new Error('render crash')
+    const errorInfo = { componentStack: '\n    at Component\n    at App' }
 
-      // Simulate the React lifecycle: getDerivedStateFromError -> render
-      const error = new Error('component crashed')
-      const newState = ErrorBoundary.getDerivedStateFromError(error)
-      instance.state = newState
+    instance.componentDidCatch(error, errorInfo)
 
-      expect(instance.state.hasError).toBe(true)
-      const rendered = instance.render()
-      expect(rendered).not.toBe('normal content')
-    })
-
-    it('multiple sequential errors update state correctly', async () => {
-      const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
-
-      const error1 = new Error('first error')
-      const state1 = ErrorBoundary.getDerivedStateFromError(error1)
-      expect(state1.error?.message).toBe('first error')
-
-      const error2 = new Error('second error')
-      const state2 = ErrorBoundary.getDerivedStateFromError(error2)
-      expect(state2.error?.message).toBe('second error')
-      // Each call produces independent state
-      expect(state1.error?.message).toBe('first error')
-    })
+    expect(consoleSpy).toHaveBeenCalledWith(
+      '[ErrorBoundary] ErrorBoundary caught:',
+      error,
+      errorInfo,
+    )
   })
 
-  describe('handleReload', () => {
-    it('calls window.location.reload', async () => {
-      const mockReload = vi.fn()
-      const originalLocation = globalThis.window?.location
+  it('does not throw when component stack information is empty', async () => {
+    const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
+    const instance = new ErrorBoundary({ children: null })
 
-      // Mock window.location.reload
-      Object.defineProperty(globalThis, 'window', {
-        value: {
-          location: { reload: mockReload },
-        },
-        writable: true,
-        configurable: true,
-      })
+    expect(() =>
+      instance.componentDidCatch(new Error('empty stack'), { componentStack: '' }),
+    ).not.toThrow()
+    expect(consoleSpy).toHaveBeenCalled()
+  })
 
-      const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
-      const instance = new ErrorBoundary({ children: null })
+  it('renders children before an error is captured', async () => {
+    const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
+    const instance = new ErrorBoundary({ children: 'child content' })
 
-      // Access the private method via prototype or direct call
-      ;(instance as unknown as { handleReload: () => void }).handleReload()
+    expect(instance.render()).toBe('child content')
+  })
 
-      expect(mockReload).toHaveBeenCalled()
+  it('starts with a non-error state', async () => {
+    const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
+    const instance = new ErrorBoundary({ children: null })
 
-      // Restore
-      if (originalLocation) {
-        Object.defineProperty(globalThis, 'window', {
-          value: { location: originalLocation },
-          writable: true,
-          configurable: true,
-        })
-      }
-    })
+    expect(instance.state).toEqual({ hasError: false, error: null })
+  })
+
+  it('renders a stable fallback without leaking raw error text', async () => {
+    const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
+    const instance = new ErrorBoundary({ children: 'child content' })
+    instance.state = { hasError: true, error: new Error('<script>alert(1)</script>') }
+
+    const result = instance.render()
+
+    expect(result).toBeTruthy()
+    expect(JSON.stringify(result)).toContain(FALLBACK_MESSAGE)
+    expect(JSON.stringify(result)).toContain('应用出错了')
+    expect(JSON.stringify(result)).toContain('重新加载')
+    expect(JSON.stringify(result)).not.toContain('<script>alert(1)</script>')
+  })
+
+  it('renders the same fallback when error details are unavailable', async () => {
+    const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
+    const instance = new ErrorBoundary({ children: 'child content' })
+    instance.state = { hasError: true, error: null }
+
+    expect(JSON.stringify(instance.render())).toContain(FALLBACK_MESSAGE)
+  })
+
+  it('renders fallback after applying derived error state', async () => {
+    const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
+    const instance = new ErrorBoundary({ children: 'normal content' })
+    instance.state = ErrorBoundary.getDerivedStateFromError(new Error('component crashed'))
+
+    expect(instance.render()).not.toBe('normal content')
+  })
+
+  it('updates derived state independently for sequential errors', async () => {
+    const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
+
+    const first = ErrorBoundary.getDerivedStateFromError(new Error('first error'))
+    const second = ErrorBoundary.getDerivedStateFromError(new Error('second error'))
+
+    expect(first.error?.message).toBe('first error')
+    expect(second.error?.message).toBe('second error')
+  })
+
+  it('offers a reload action from the fallback UI', async () => {
+    const reload = vi.fn()
+    vi.stubGlobal('window', { location: { reload } })
+
+    const { ErrorBoundary } = await import('../src/components/ErrorBoundary')
+    const instance = new ErrorBoundary({ children: null })
+
+    ;(instance as unknown as { handleReload: () => void }).handleReload()
+
+    expect(reload).toHaveBeenCalledTimes(1)
   })
 })

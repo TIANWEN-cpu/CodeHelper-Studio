@@ -5,6 +5,52 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8'))
+const DEFAULT_RENDERER_PORT = 5191
+const rendererPort =
+  Number(process.env.CODEHELPER_RENDERER_PORT || process.env.PORT || DEFAULT_RENDERER_PORT) ||
+  DEFAULT_RENDERER_PORT
+
+function rendererManualChunks(id: string): string | undefined {
+  const normalized = id.replace(/\\/g, '/')
+  if (!normalized.includes('/node_modules/')) return undefined
+
+  if (
+    normalized.includes('/node_modules/react/') ||
+    normalized.includes('/node_modules/react-dom/')
+  ) {
+    return 'vendor-react'
+  }
+  if (
+    normalized.includes('/node_modules/@uiw/react-codemirror/') ||
+    normalized.includes('/node_modules/style-mod/') ||
+    normalized.includes('/node_modules/w3c-keyname/') ||
+    normalized.includes('/node_modules/crelt/')
+  ) {
+    return 'vendor-codemirror-core'
+  }
+  if (normalized.includes('/node_modules/thememirror/')) {
+    return 'vendor-codemirror-themes'
+  }
+  if (
+    normalized.includes('/node_modules/@codemirror/lang-') ||
+    normalized.includes('/node_modules/@lezer/python/') ||
+    normalized.includes('/node_modules/@lezer/javascript/') ||
+    normalized.includes('/node_modules/@lezer/cpp/')
+  ) {
+    return 'vendor-codemirror-langs'
+  }
+  if (
+    normalized.includes('/node_modules/@codemirror/') ||
+    normalized.includes('/node_modules/@lezer/')
+  ) {
+    return 'vendor-codemirror-core'
+  }
+  if (normalized.includes('/node_modules/motion/')) return 'vendor-motion'
+  if (normalized.includes('/node_modules/recharts/')) return 'vendor-charts'
+  if (normalized.includes('/node_modules/lucide-react/')) return 'vendor-icons'
+  if (normalized.includes('/node_modules/zustand/')) return 'vendor-state'
+  return undefined
+}
 
 // Bundle analysis — enabled via `npm run build:analyze`
 function resolveVisualizerPlugin() {
@@ -49,6 +95,12 @@ export default defineConfig(async () => {
     },
     renderer: {
       root: 'src',
+      server: rendererPort
+        ? {
+            port: rendererPort,
+            strictPort: true,
+          }
+        : undefined,
       resolve: {
         alias: {
           '@': resolve(__dirname, 'src'),
@@ -58,19 +110,7 @@ export default defineConfig(async () => {
         rollupOptions: {
           input: resolve(__dirname, 'src/index.html'),
           output: {
-            // Chunk splitting strategy for optimal caching and lazy loading
-            manualChunks: {
-              // React core
-              'vendor-react': ['react', 'react-dom'],
-              // Animation library
-              'vendor-motion': ['motion'],
-              // Charts
-              'vendor-charts': ['recharts'],
-              // Icons (tree-shakeable named imports used across components)
-              'vendor-icons': ['lucide-react'],
-              // State management
-              'vendor-state': ['zustand'],
-            },
+            manualChunks: rendererManualChunks,
           },
         },
         // Enable tree-shaking (default in production, make it explicit)

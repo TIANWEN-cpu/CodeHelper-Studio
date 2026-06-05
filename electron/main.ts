@@ -15,6 +15,7 @@ import { registerLessonsIPC } from './ipc/lessons'
 import { registerAchievementsIPC } from './ipc/achievements'
 import { registerReviewIPC } from './ipc/review'
 import { registerHomeHandlers } from './ipc/home'
+import { registerPetsIPC } from './ipc/pets'
 import { logIpcStatsSummary, getIpcStats } from './utils/perfMonitor'
 import { registerIpcHandler, rateLimitMiddleware } from './utils/middleware'
 import { buildContentSecurityPolicy } from './utils/contentSecurityPolicy'
@@ -52,7 +53,7 @@ console.log('[STARTUP] __dirname:', __dirname)
 app.setName('CodeHelper')
 
 if (process.platform === 'win32') {
-  app.setAppUserModelId('com.codehelper.app')
+  app.setAppUserModelId(app.isPackaged ? 'com.codehelper.app' : 'com.codehelper.app.dev')
 }
 
 // ---------------------------------------------------------------------------
@@ -449,6 +450,12 @@ function registerDeferredIPC(): void {
     console.log('[IPC] Registered: home handlers')
   } catch (e) {
     startupError('registerHomeHandlers', e)
+  }
+  try {
+    registerPetsIPC()
+    console.log('[IPC] Registered: pets handlers')
+  } catch (e) {
+    startupError('registerPetsIPC', e)
   }
   startupLog('All deferred IPC handlers registered')
 }

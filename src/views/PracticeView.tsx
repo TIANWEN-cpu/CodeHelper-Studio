@@ -7,6 +7,9 @@ import {
   PanelLeftClose,
   PanelLeft,
   Loader2,
+  Layers3,
+  Target,
+  Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { WorkspaceView } from './WorkspaceView' // Reusing partially
@@ -19,6 +22,9 @@ const difficultyColor: Record<string, string> = {
   简单: '#10B981',
   中等: '#F59E0B',
   困难: '#EF4444',
+  基础: '#10B981',
+  进阶: '#F59E0B',
+  综合: '#8B5CF6',
   easy: '#10B981',
   medium: '#F59E0B',
   hard: '#EF4444',
@@ -29,6 +35,9 @@ function getDifficultyLabel(d: string): string {
   if (lower === 'easy' || lower === '简单') return '简单'
   if (lower === 'medium' || lower === '中等') return '中等'
   if (lower === 'hard' || lower === '困难') return '困难'
+  if (lower === '基础') return '基础'
+  if (lower === '进阶') return '进阶'
+  if (lower === '综合') return '综合'
   return d
 }
 
@@ -68,6 +77,7 @@ export function PracticeView() {
   const [viewMode, setViewMode] = useState<'list' | 'detail'>('list')
   const [searchQuery, setSearchQuery] = useState('')
   const [difficultyFilter, setDifficultyFilter] = useState<string | undefined>(undefined)
+  const [trackFilter, setTrackFilter] = useState<string | undefined>(undefined)
   const [detailTab, setDetailTab] = useState<'desc' | 'hints'>('desc')
 
   const {
@@ -95,11 +105,26 @@ export function PracticeView() {
   }
 
   // Filter exercises by search and difficulty
+  const trackOptions = Array.from(
+    new Set(exercises.map((ex) => ex.track_id).filter(Boolean)),
+  ).sort()
+  const difficultyOptions = Array.from(
+    new Set(exercises.map((ex) => ex.difficulty).filter(Boolean)),
+  ).sort((a, b) => {
+    const order = ['基础', '简单', 'easy', '进阶', '中等', 'medium', '综合', '困难', 'hard']
+    return order.indexOf(a) - order.indexOf(b)
+  })
+  const aiTutorExerciseCount = exercises.filter((ex) => ex.track_id === 'ai-tutor').length
   const filteredExercises = exercises.filter((ex) => {
-    const matchesSearch = ex.title.toLowerCase().includes(searchQuery.toLowerCase())
+    const query = searchQuery.toLowerCase()
+    const matchesSearch =
+      ex.title.toLowerCase().includes(query) ||
+      ex.prompt?.toLowerCase().includes(query) ||
+      ex.track_id.toLowerCase().includes(query)
     const matchesDifficulty =
       !difficultyFilter || ex.difficulty.toLowerCase() === difficultyFilter.toLowerCase()
-    return matchesSearch && matchesDifficulty
+    const matchesTrack = !trackFilter || ex.track_id === trackFilter
+    return matchesSearch && matchesDifficulty && matchesTrack
   })
 
   return (
@@ -119,7 +144,7 @@ export function PracticeView() {
                 /* ---------- Exercise List View ---------- */
                 <div className="flex flex-col h-full">
                   {/* Search & Filter Header */}
-                  <div className="p-4 border-b border-[var(--color-border-subtle)] space-y-3">
+                  <div className="p-4 border-b border-[var(--color-border-subtle)] space-y-3 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--color-bg-card)_92%,transparent),var(--color-bg-base))]">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-semibold text-white tracking-wide">练习题库</h3>
                       {loading && (
@@ -128,6 +153,35 @@ export function PracticeView() {
                           className="text-[var(--color-text-muted)] animate-spin"
                         />
                       )}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-3 py-2">
+                        <div className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)]">
+                          <Target size={11} />
+                          总题数
+                        </div>
+                        <div className="mt-1 text-sm font-semibold text-white">
+                          {exercises.length}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-3 py-2">
+                        <div className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)]">
+                          <FileCode2 size={11} />
+                          当前
+                        </div>
+                        <div className="mt-1 text-sm font-semibold text-white">
+                          {filteredExercises.length}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-3 py-2">
+                        <div className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)]">
+                          <Layers3 size={11} />
+                          路线
+                        </div>
+                        <div className="mt-1 text-sm font-semibold text-white">
+                          {trackOptions.length}
+                        </div>
+                      </div>
                     </div>
                     <div className="relative">
                       <Search
@@ -142,31 +196,59 @@ export function PracticeView() {
                         className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-white pl-9 pr-3 py-2 outline-none focus:border-[var(--color-accent-primary)] placeholder:text-[var(--color-text-muted)] transition-colors"
                       />
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <DiffBtn
                         label="全部"
                         active={!difficultyFilter}
                         color="#6366F1"
                         onClick={() => setDifficultyFilter(undefined)}
                       />
-                      <DiffBtn
-                        label="简单"
-                        active={difficultyFilter === 'easy'}
-                        color="#10B981"
-                        onClick={() => setDifficultyFilter('easy')}
-                      />
-                      <DiffBtn
-                        label="中等"
-                        active={difficultyFilter === 'medium'}
-                        color="#F59E0B"
-                        onClick={() => setDifficultyFilter('medium')}
-                      />
-                      <DiffBtn
-                        label="困难"
-                        active={difficultyFilter === 'hard'}
-                        color="#EF4444"
-                        onClick={() => setDifficultyFilter('hard')}
-                      />
+                      {difficultyOptions.slice(0, 6).map((difficulty) => (
+                        <DiffBtn
+                          key={difficulty}
+                          label={getDifficultyLabel(difficulty)}
+                          active={difficultyFilter === difficulty}
+                          color={difficultyColor[difficulty] ?? '#6366F1'}
+                          onClick={() => setDifficultyFilter(difficulty)}
+                        />
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {trackOptions.includes('ai-tutor') && (
+                        <button
+                          type="button"
+                          data-ai-tutor-practice-filter
+                          onClick={() =>
+                            setTrackFilter(trackFilter === 'ai-tutor' ? undefined : 'ai-tutor')
+                          }
+                          className={cn(
+                            'flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-all',
+                            trackFilter === 'ai-tutor'
+                              ? 'border-[var(--color-accent-purple)] bg-gradient-to-r from-[var(--color-accent-primary)] to-[var(--color-accent-purple)] text-white shadow-lg shadow-[var(--color-accent-purple)]/20'
+                              : 'border-[var(--color-accent-purple)]/40 bg-[var(--color-accent-purple)]/10 text-[var(--color-accent-purple)] hover:bg-[var(--color-accent-purple)]/16',
+                          )}
+                          aria-pressed={trackFilter === 'ai-tutor'}
+                          title="AI Tutor exercises"
+                        >
+                          <Sparkles size={13} />
+                          AI Tutor
+                          <span className="rounded-full bg-white/15 px-1.5 py-0.5 text-[10px]">
+                            {aiTutorExerciseCount}
+                          </span>
+                        </button>
+                      )}
+                      <select
+                        value={trackFilter ?? ''}
+                        onChange={(event) => setTrackFilter(event.target.value || undefined)}
+                        className="w-full rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-3 py-2 text-xs text-white outline-none transition-colors focus:border-[var(--color-accent-primary)]"
+                      >
+                        <option value="">全部路线</option>
+                        {trackOptions.map((track) => (
+                          <option key={track} value={track}>
+                            {track}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
@@ -183,52 +265,68 @@ export function PracticeView() {
                         <span>暂无匹配题目</span>
                       </div>
                     )}
-                    {filteredExercises.map((ex) => {
-                      const color = difficultyColor[ex.difficulty] ?? '#6366F1'
-                      return (
-                        <button
-                          key={ex.id}
-                          onClick={() => handleSelectExercise(ex.id)}
-                          className="w-full text-left p-3 rounded-lg hover:bg-[var(--color-bg-hover)] transition-colors group"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm text-white font-medium truncate group-hover:text-[#A5B4FC] transition-colors">
-                                {ex.title}
-                              </p>
-                              <div className="flex items-center gap-2 mt-1.5">
-                                <span
-                                  className="text-[10px] font-medium px-1.5 py-0.5 rounded border"
-                                  style={{
-                                    color,
-                                    borderColor: `${color}33`,
-                                    backgroundColor: `${color}15`,
-                                  }}
-                                >
-                                  {getDifficultyLabel(ex.difficulty)}
-                                </span>
-                                {ex.track_id && (
-                                  <span className="text-[10px] text-[var(--color-text-muted)] bg-[var(--color-bg-card)] px-1.5 py-0.5 rounded">
-                                    {ex.track_id}
+                    <AnimatePresence initial={false}>
+                      {filteredExercises.map((ex, index) => {
+                        const color = difficultyColor[ex.difficulty] ?? '#6366F1'
+                        return (
+                          <motion.button
+                            layout
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -6 }}
+                            transition={{ duration: 0.2, delay: Math.min(index, 8) * 0.015 }}
+                            key={ex.id}
+                            onClick={() => handleSelectExercise(ex.id)}
+                            className="w-full text-left p-3 rounded-lg border border-transparent hover:border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-hover)] transition-colors group"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-white font-medium truncate group-hover:text-[#A5B4FC] transition-colors">
+                                  {ex.title}
+                                </p>
+                                <div className="flex items-center gap-2 mt-1.5">
+                                  <span
+                                    className="text-[10px] font-medium px-1.5 py-0.5 rounded border"
+                                    style={{
+                                      color,
+                                      borderColor: `${color}33`,
+                                      backgroundColor: `${color}15`,
+                                    }}
+                                  >
+                                    {getDifficultyLabel(ex.difficulty)}
                                   </span>
-                                )}
+                                  {ex.track_id && (
+                                    <span className="text-[10px] text-[var(--color-text-muted)] bg-[var(--color-bg-card)] px-1.5 py-0.5 rounded">
+                                      {ex.track_id}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="mt-2 line-clamp-2 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
+                                  {ex.prompt}
+                                </p>
                               </div>
+                              <ChevronDown
+                                size={14}
+                                className="text-[var(--color-text-muted)] -rotate-90 opacity-0 group-hover:opacity-100 transition-opacity"
+                              />
                             </div>
-                            <ChevronDown
-                              size={14}
-                              className="text-[var(--color-text-muted)] -rotate-90 opacity-0 group-hover:opacity-100 transition-opacity"
-                            />
-                          </div>
-                        </button>
-                      )
-                    })}
+                          </motion.button>
+                        )
+                      })}
+                    </AnimatePresence>
                   </div>
                 </div>
               ) : (
                 /* ---------- Exercise Detail View ---------- */
                 <div className="flex flex-col h-full">
                   {/* Detail header with back button */}
-                  <div className="p-6 relative">
+                  <motion.div
+                    key={currentExercise?.id ?? 'empty-exercise'}
+                    initial={{ opacity: 0, x: 14 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.28, ease: 'easeOut' }}
+                    className="p-6 relative"
+                  >
                     <button
                       onClick={() => setPanelCollapsed(true)}
                       className="absolute right-4 top-4 p-1.5 hover:bg-[var(--color-bg-hover)] rounded-md text-[var(--color-text-muted)] hover:text-white transition-colors"
@@ -316,7 +414,7 @@ export function PracticeView() {
                         请从题库中选择一道题目
                       </div>
                     )}
-                  </div>
+                  </motion.div>
                 </div>
               )}
             </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Trash2, Check, Loader2, Star, Pencil, X, RefreshCw, Server } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSettingsData } from '../../hooks/useSettingsData'
@@ -26,6 +26,8 @@ export function AIModelSettings() {
   const [form, setForm] = useState<AIConfig>({ ...EMPTY_FORM })
   const [editingId, setEditingId] = useState<number | null>(null)
   const [models, setModels] = useState<string[]>([])
+  const [selectedModels, setSelectedModels] = useState<string[]>([])
+  const [modelFilter, setModelFilter] = useState('')
   const [fetchingModels, setFetchingModels] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -39,6 +41,8 @@ export function AIModelSettings() {
     setForm({ ...EMPTY_FORM })
     setEditingId(null)
     setModels([])
+    setSelectedModels([])
+    setModelFilter('')
     setError(null)
   }
 
@@ -53,6 +57,8 @@ export function AIModelSettings() {
       is_default: !!cfg.is_default,
     })
     setModels(cfg.model ? [cfg.model] : [])
+    setSelectedModels(cfg.model ? [cfg.model] : [])
+    setModelFilter('')
     setError(null)
     setNotice(null)
   }
@@ -62,6 +68,10 @@ export function AIModelSettings() {
       setError('请先填写 API 地址')
       return
     }
+    if (!(form.api_key ?? '').trim()) {
+      setError('请先填写 API Key')
+      return
+    }
     setFetchingModels(true)
     setError(null)
     setNotice(null)
@@ -69,6 +79,7 @@ export function AIModelSettings() {
       const list = await fetchModels(form.base_url.trim(), (form.api_key || '').trim())
       const arr = Array.isArray(list) ? list : []
       setModels(arr)
+      setSelectedModels(form.model && arr.includes(form.model) ? [form.model] : [])
       if (arr.length === 0) {
         setError('未获取到模型列表，可手动填写模型名')
       } else {
@@ -82,21 +93,105 @@ export function AIModelSettings() {
     }
   }
 
-  const canSave = Boolean(form.name.trim() && form.base_url.trim() && form.model.trim() && !saving)
+  const filteredModels = useMemo(() => {
+    const query = modelFilter.trim().toLowerCase()
+    if (!query) return models
+    return models.filter((model) => model.toLowerCase().includes(query))
+  }, [modelFilter, models])
+
+  const existingModelsForProvider = useMemo(() => {
+    const baseUrl = form.base_url.trim()
+    return new Set(
+      aiConfigs
+        .filter((cfg) => cfg.base_url.trim() === baseUrl && cfg.id !== editingId)
+        .map((cfg) => cfg.model.trim()),
+    )
+  }, [aiConfigs, editingId, form.base_url])
+
+  const selectedNewModels = useMemo(
+    () =>
+      selectedModels
+        .map((model) => model.trim())
+        .filter((model) => model && !existingModelsForProvider.has(model)),
+    [existingModelsForProvider, selectedModels],
+  )
+
+  const toggleModelSelection = (model: string) => {
+    setSelectedModels((current) => {
+      const exists = current.includes(model)
+      const next = exists ? current.filter((item) => item !== model) : [...current, model]
+      setForm((f) => ({ ...f, model: next[0] ?? f.model }))
+      return next
+    })
+  }
+
+  const selectVisibleModels = () => {
+    setSelectedModels((current) => {
+      const next = Array.from(new Set([...current, ...filteredModels]))
+      setForm((f) => ({ ...f, model: next[0] ?? f.model }))
+      return next
+    })
+  }
+
+  const clearSelectedModels = () => {
+    setSelectedModels([])
+  }
+
+  const canSave = Boolean(
+    form.name.trim() &&
+    form.base_url.trim() &&
+    (editingId != null || (form.api_key ?? '').trim()) &&
+    !saving &&
+    (editingId != null
+      ? form.model.trim()
+      : models.length > 0
+        ? selectedNewModels.length > 0
+        : form.model.trim()),
+  )
 
   const handleSave = async () => {
     if (!canSave) return
     setSaving(true)
     setError(null)
     try {
-      await saveAIConfig({
-        ...form,
-        name: form.name.trim(),
-        base_url: form.base_url.trim(),
-        model: form.model.trim(),
-        api_key: (form.api_key || '').trim() || undefined,
-      })
-      setNotice(editingId != null ? '已更新模型配置' : '已添加模型配置')
+      const baseName = form.name.trim()
+      const baseUrl = form.base_url.trim()
+      const apiKey = (form.api_key || '').trim()
+
+      if (editingId != null) {
+        await saveAIConfig({
+          ...form,
+          name: baseName,
+          base_url: baseUrl,
+          model: form.model.trim(),
+          api_key: apiKey,
+        })
+        setNotice('已更新模型配置')
+      } else if (models.length > 0) {
+        const skipped = selectedModels.length - selectedNewModels.length
+        for (const [index, model] of selectedNewModels.entries()) {
+          await saveAIConfig({
+            ...form,
+            name: selectedNewModels.length > 1 ? `${baseName} · ${model}` : baseName,
+            base_url: baseUrl,
+            model,
+            api_key: apiKey,
+            is_default: !!form.is_default && index === 0,
+          })
+        }
+        setNotice(
+          `已添加 ${selectedNewModels.length} 个模型${skipped > 0 ? `，跳过 ${skipped} 个重复模型` : ''}`,
+        )
+      } else {
+        await saveAIConfig({
+          ...form,
+          name: baseName,
+          base_url: baseUrl,
+          model: form.model.trim(),
+          api_key: apiKey,
+        })
+        setNotice('已添加模型配置')
+      }
       resetForm()
     } catch (e) {
       setError(e instanceof Error ? e.message : '保存失败')
@@ -234,7 +329,12 @@ export function AIModelSettings() {
             <label className={LABEL_CLS}>API 地址 (Base URL)</label>
             <input
               value={form.base_url}
-              onChange={(e) => setForm((f) => ({ ...f, base_url: e.target.value }))}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, base_url: e.target.value }))
+                setModels([])
+                setSelectedModels([])
+                setModelFilter('')
+              }}
               placeholder="https://api.openai.com/v1"
               className={INPUT_CLS}
             />
@@ -254,7 +354,7 @@ export function AIModelSettings() {
           <div>
             <label className={LABEL_CLS}>模型</label>
             <div className="flex gap-2">
-              {models.length > 0 ? (
+              {models.length > 0 && editingId != null ? (
                 <select
                   value={form.model}
                   onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
@@ -263,16 +363,26 @@ export function AIModelSettings() {
                   {form.model && !models.includes(form.model) && (
                     <option value={form.model}>{form.model}</option>
                   )}
-                  {models.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
+                  {models.map((model) => (
+                    <option key={model} value={model}>
+                      {model}
                     </option>
                   ))}
                 </select>
+              ) : models.length > 0 ? (
+                <input
+                  value={selectedModels.length > 0 ? `已选择 ${selectedModels.length} 个模型` : ''}
+                  readOnly
+                  placeholder="从下方列表选择一个或多个模型"
+                  className={cn(INPUT_CLS, 'flex-1')}
+                />
               ) : (
                 <input
                   value={form.model}
-                  onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
+                  onChange={(e) => {
+                    setForm((f) => ({ ...f, model: e.target.value }))
+                    setSelectedModels([])
+                  }}
                   placeholder="如：gpt-4o-mini"
                   className={cn(INPUT_CLS, 'flex-1')}
                 />
@@ -291,8 +401,81 @@ export function AIModelSettings() {
               </button>
             </div>
             <p className="text-[11px] text-[var(--color-text-muted)] mt-1.5">
-              填写地址与密钥后点"获取"自动拉取可用模型；也可手动输入模型名。
+              填写地址与密钥后点"获取"自动拉取可用模型；添加模式可一次选择多个模型。
             </p>
+
+            {models.length > 0 && editingId == null && (
+              <div className="mt-3 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] p-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <input
+                    value={modelFilter}
+                    onChange={(e) => setModelFilter(e.target.value)}
+                    placeholder="筛选模型..."
+                    className={cn(INPUT_CLS, 'sm:max-w-xs')}
+                  />
+                  <div className="flex items-center gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={selectVisibleModels}
+                      className="rounded-md border border-[var(--color-border-subtle)] px-2.5 py-1.5 text-[var(--color-text-secondary)] hover:text-white hover:bg-[var(--color-bg-hover)] transition-colors"
+                    >
+                      选择当前列表
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearSelectedModels}
+                      className="rounded-md border border-[var(--color-border-subtle)] px-2.5 py-1.5 text-[var(--color-text-secondary)] hover:text-white hover:bg-[var(--color-bg-hover)] transition-colors"
+                    >
+                      清空
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-3 max-h-52 space-y-1 overflow-y-auto pr-1">
+                  {filteredModels.length === 0 ? (
+                    <p className="px-2 py-4 text-center text-xs text-[var(--color-text-muted)]">
+                      没有匹配的模型
+                    </p>
+                  ) : (
+                    filteredModels.map((model) => {
+                      const duplicate = existingModelsForProvider.has(model)
+                      const checked = selectedModels.includes(model)
+                      return (
+                        <label
+                          key={model}
+                          className={cn(
+                            'flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm transition-colors',
+                            duplicate
+                              ? 'cursor-not-allowed opacity-50'
+                              : checked
+                                ? 'bg-[var(--color-accent-purple)]/12 text-white'
+                                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-white',
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={duplicate}
+                            onChange={() => toggleModelSelection(model)}
+                            className="h-4 w-4 accent-[var(--color-accent-purple)]"
+                          />
+                          <span className="min-w-0 flex-1 truncate">{model}</span>
+                          {duplicate && (
+                            <span className="shrink-0 text-[10px] text-[var(--color-text-muted)]">
+                              已添加
+                            </span>
+                          )}
+                        </label>
+                      )
+                    })
+                  )}
+                </div>
+
+                <p className="mt-2 text-[11px] text-[var(--color-text-muted)]">
+                  已选择 {selectedModels.length} 个，可新增 {selectedNewModels.length} 个。
+                </p>
+              </div>
+            )}
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer select-none">

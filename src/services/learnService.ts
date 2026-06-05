@@ -40,7 +40,15 @@ export async function getTracks(): Promise<Track[]> {
 export async function getLessonContent(
   lessonId: string,
 ): Promise<{ markdown: string; title: string }> {
-  return invoke<{ markdown: string; title: string }>('lessons-get', lessonId)
+  const lesson = await invoke<{
+    markdown?: string
+    content?: string
+    title: string
+  }>('lessons-get', lessonId)
+  return {
+    markdown: lesson.markdown ?? lesson.content ?? '',
+    title: lesson.title,
+  }
 }
 
 export async function getLessonProgress(trackId: string): Promise<LessonProgress[]> {
