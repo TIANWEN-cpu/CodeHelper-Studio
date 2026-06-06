@@ -202,6 +202,9 @@ describe('production fix coverage', () => {
     expect(source).toContain('data-ai-panel-sidebar-entry')
     expect(source).toContain('onClick={toggleAITutor}')
     expect(source).toContain('当前页 AI')
+    expect(source).toContain("'codehelper:learning-records-cleared'")
+    expect(source).toContain("'codehelper:profile-changed'")
+    expect(source).toContain("if (currentView === 'profile') refreshOverview()")
     expect(source.indexOf('title="设置"')).toBeLessThan(
       source.indexOf('data-ai-panel-sidebar-entry'),
     )
@@ -377,6 +380,9 @@ describe('production fix coverage', () => {
     expect(settingsSource).toContain("{ id: 'account', label: '账户'")
     expect(settingsSource).toContain('PROFILE_NAME_KEY')
     expect(settingsSource).toContain('PROFILE_AVATAR_KEY')
+    expect(settingsSource).not.toContain('PROFILE_AVATAR_PRESETS')
+    expect(settingsSource).toContain('选择图片')
+    expect(settingsSource).toContain('清除头像')
     expect(settingsSource).toContain('data-profile-avatar-preview')
     expect(settingsSource).toContain('data-profile-save-button')
     expect(settingsSource).toContain('data-clear-learning-records-button')

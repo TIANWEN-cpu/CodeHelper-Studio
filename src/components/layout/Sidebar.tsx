@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { motion } from 'motion/react'
 import {
   Home,
@@ -33,21 +33,39 @@ export function Sidebar() {
     toggleSidebar,
   } = useAppStore()
   const [overview, setOverview] = useState<HomeOverview | null>(null)
+  const mountedRef = useRef(false)
 
-  useEffect(() => {
-    let mounted = true
+  const refreshOverview = useCallback(() => {
     homeService
       .getOverview()
       .then((data) => {
-        if (mounted) setOverview(data)
+        if (mountedRef.current) setOverview(data)
       })
       .catch(() => {
         // 加载失败时保持骨架占位，不显示假数据
       })
-    return () => {
-      mounted = false
-    }
   }, [])
+
+  useEffect(() => {
+    mountedRef.current = true
+    refreshOverview()
+    return () => {
+      mountedRef.current = false
+    }
+  }, [refreshOverview])
+
+  useEffect(() => {
+    window.addEventListener('codehelper:profile-changed', refreshOverview)
+    window.addEventListener('codehelper:learning-records-cleared', refreshOverview)
+    return () => {
+      window.removeEventListener('codehelper:profile-changed', refreshOverview)
+      window.removeEventListener('codehelper:learning-records-cleared', refreshOverview)
+    }
+  }, [refreshOverview])
+
+  useEffect(() => {
+    if (currentView === 'profile') refreshOverview()
+  }, [currentView, refreshOverview])
 
   // 根据等级显示称号（替代写死的 Pro 徽章）
   const levelTitle =

@@ -540,6 +540,7 @@ export function SettingsView() {
       setProfileName(name)
       setProfileAvatar(avatar)
       setProfileActionStatus({ kind: 'success', message: '账户资料已保存。' })
+      clearIpcCache()
       window.dispatchEvent(new Event('codehelper:profile-changed'))
     } catch (error) {
       setProfileActionStatus({
@@ -852,21 +853,6 @@ export function SettingsView() {
                           data-profile-avatar-input
                         />
                         <div className="flex flex-wrap gap-2">
-                          {['同', '学', '码', 'AI', '✨'].map((avatar) => (
-                            <button
-                              key={avatar}
-                              type="button"
-                              onClick={() => setProfileAvatar(avatar)}
-                              className={cn(
-                                'h-9 min-w-9 rounded-lg border px-2 text-sm transition-colors',
-                                profileAvatar === avatar
-                                  ? 'settings-soft-selected border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/10 text-[var(--color-text-primary)]'
-                                  : 'border-[var(--color-border-subtle)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
-                              )}
-                            >
-                              {avatar}
-                            </button>
-                          ))}
                           <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--color-border-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]">
                             <ImagePlus size={14} />
                             选择图片
