@@ -77,9 +77,6 @@ linux:
     - target: deb
       arch:
         - x64
-    - target: rpm
-      arch:
-        - x64
   icon: resources/icons/icon.png
   category: Development
   synopsis: 'AI-powered desktop programming assistant'
