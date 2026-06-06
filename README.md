@@ -6,6 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/TIANWEN-cpu/CodeHelper-Studio/actions/workflows/ci.yml"><img src="https://github.com/TIANWEN-cpu/CodeHelper-Studio/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/github/v/release/TIANWEN-cpu/CodeHelper-Studio?label=release" alt="Release">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/TIANWEN-cpu/CodeHelper-Studio" alt="License"></a>
   <img src="https://img.shields.io/badge/Electron-41-47848F?logo=electron&logoColor=white" alt="Electron">
   <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React">
@@ -31,6 +32,10 @@
 ---
 
 ## 关于本版本
+
+**当前发布版：v2.2.1（2026-06-06）**
+
+v2.2.1 聚焦产品体验收口：浅色主题不再复用深色大块，首页学习工作台与个人主页横幅改为浅色专属视觉；账户设置支持自定义昵称与头像；学习记录支持一键清空；AI 桌宠、主题套装命名与外观选项进一步整理，并补齐资源包导入和回归测试。
 
 CodeHelper 由三个项目融合而成的一体化产品：
 
@@ -136,6 +141,9 @@ CodeHelper 由三个项目融合而成的一体化产品：
 
 - 代码主题、应用主题色（全色系跟随）、浅色/深色切换
 - 紧凑侧边栏、AI 面板、底部面板、双行标签等布局开关接通真实状态
+- 账户资料支持自定义昵称与头像，个人主页同步展示
+- 学习记录支持一键清空，保留题库、知识库、AI 配置、账户资料和课堂笔记
+- AI 桌宠支持内置与导入资源包，低动效模式下可关闭闲置动画
 - 日期区域格式与每周起始日真实影响日期显示与热力图对齐
 - 多模型管理，API Key 加密存储
 

@@ -1,40 +1,32 @@
-# CodeHelper v2.1.0 Release Notes
+# CodeHelper v2.2.1 Release Notes
+
+发布日期：2026-06-06
 
 ## 概览
 
-本次本地版本聚焦三件事：
+v2.2.1 聚焦桌面端真实使用体验：浅色主题视觉统一、账户资料可自定义、学习记录可一键清空，并补齐资源包导入和关键回归测试。
 
-1. **启动链路稳定性**：Electron main/preload/renderer 启动顺序更清晰，DB、schema、IPC 注册和 first-call 诊断信息可追踪。
-2. **知识库 / RAG 路径健壮性**：将知识库 DB 初始化改为延迟加载，不再阻塞主启动流程；读操作可优雅降级，写操作带超时保护。
-3. **前端可诊断性与安全边界**：App、Layout、main.tsx、index.html、preload、middleware、CSP、RAG tests 等关键路径进一步补齐日志与保护。
+## 亮点
 
-## 关键改进
+- **浅色主题重新打磨**：首页学习工作台、右侧 workbench 和个人主页横幅改为浅色专属面板，解决白色页面里嵌入深色大块的问题。
+- **账户设置可自定义**：设置页新增账户模式，支持自定义昵称和头像；个人主页与侧栏同步展示。
+- **学习记录一键清空**：支持清空提交、错题、学习进度、成就进度和活动事件，同时保留题库、知识库、AI 配置、账户资料和课堂笔记。
+- **AI 桌宠体验整理**：低动效模式下减少闲置动画，个人页自动缩小停靠，主题套装命名更协调，移除无效主题图片入口。
+- **资源包导入准备就绪**：新增 import-ready 资源包 IPC 与前端服务封装，为知识库和题库批量导入提供正式通道。
 
-### 启动与基础设施
+## 修复
 
-- 优化 Electron 启动日志，覆盖 DB 连接、schema 加载、schema 执行、ensureSchemaColumns 完成。
-- 在 renderer 启动流程中增加关键阶段日志，便于定位首次打开白屏问题。
-- preload 与 runtimePaths 做进一步对齐，减少路径/加载异常带来的静默失败。
+- 修复浅色 / 高对比主题下部分 `text-white`、透明文字和按钮文字可读性不足。
+- 修复个人页 AI 桌宠遮挡统计区域的问题。
+- 修复 Electron 实际设置与浏览器预览默认设置不一致时，旧浅色主题组合无法自动迁移的问题。
 
-### RAG / Knowledge
+## 验证
 
-- RAG 模块引入 deferred DB wrapper。
-- 读接口在 DB 未就绪时返回 graceful empty payload，而不是阻塞或崩溃。
-- 写接口（上传/删除等）使用带超时的 DB 获取路径，避免永久卡死。
-- 补充 RAG IPC 测试用例，增强关键行为回归覆盖。
+- `npm run typecheck`
+- `npx vitest run tests/productionFixes.test.ts tests/learningRecordsIpc.test.ts`
+- `npm run build`
+- 已通过 `@browser-use` 和 Electron 窗口检查浅色首页、个人页横幅与账户设置体验。
 
-### IPC 与性能观测
+## 升级说明
 
-- 在 database / problems / ai 等 IPC 注册路径增加 first-call 日志。
-- 便于确认 renderer 首次使用哪些 IPC、是否卡在特定通道。
-- 更容易区分“未调用”“首次调用失败”“重复调用异常”。
-
-### 前端
-
-- App / Layout / main.tsx / index.html 做进一步可读性与稳定性调整。
-- main.css 增加少量样式辅助，用于当前前端壳层优化。
-
-## 验证状态
-
-- Vitest 测试：1477 passed
-- 本次为本地发布笔记，用于记录当前工作区快照，不等价于云端 release 已发布。
+该版本会对旧的 `light + nebula + none + expressive` 外观组合做一次性迁移，自动切换到更协调的浅色默认组合。用户已有题库、知识库、AI 配置、账户资料和课堂笔记不会被学习记录清空功能删除。
