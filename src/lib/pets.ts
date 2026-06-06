@@ -48,6 +48,27 @@ export interface PetInstallResult {
   pet?: CodexPetDefinition
 }
 
+const DEFAULT_PET_ATLAS: NonNullable<CodexPetManifest['atlas']> = {
+  columns: 8,
+  rows: 9,
+  cell_width: 192,
+  cell_height: 208,
+  width: 1536,
+  height: 1872,
+}
+
+const DEFAULT_PET_ROWS: CodexPetRow[] = [
+  { state: 'idle', row: 0, frames: 6, purpose: 'calm resting, breathing, and blinking loop' },
+  { state: 'running-right', row: 1, frames: 8, purpose: 'rightward drag movement loop' },
+  { state: 'running-left', row: 2, frames: 8, purpose: 'leftward drag movement loop' },
+  { state: 'waving', row: 3, frames: 4, purpose: 'greeting or attention gesture' },
+  { state: 'jumping', row: 4, frames: 5, purpose: 'hover or playful jump' },
+  { state: 'failed', row: 5, frames: 8, purpose: 'blocked, failed, or cancelled reaction' },
+  { state: 'waiting', row: 6, frames: 6, purpose: 'waiting for approval, help, or user input' },
+  { state: 'running', row: 7, frames: 6, purpose: 'active task work or processing' },
+  { state: 'review', row: 8, frames: 6, purpose: 'ready or completed output review' },
+]
+
 export const FIREFLY_MANIFEST: CodexPetManifest = {
   id: 'firefly',
   pet_id: 'firefly',
@@ -57,25 +78,8 @@ export const FIREFLY_MANIFEST: CodexPetManifest = {
   description:
     'A chibi pet of Firefly (流萤), with silver-white short hair, bright green eyes, and a white-dark combat outfit with mechanical accents.',
   spritesheetPath: 'spritesheet.webp',
-  atlas: {
-    columns: 8,
-    rows: 9,
-    cell_width: 192,
-    cell_height: 208,
-    width: 1536,
-    height: 1872,
-  },
-  rows: [
-    { state: 'idle', row: 0, frames: 6, purpose: 'calm resting, breathing, and blinking loop' },
-    { state: 'running-right', row: 1, frames: 8, purpose: 'rightward drag movement loop' },
-    { state: 'running-left', row: 2, frames: 8, purpose: 'leftward drag movement loop' },
-    { state: 'waving', row: 3, frames: 4, purpose: 'greeting or attention gesture' },
-    { state: 'jumping', row: 4, frames: 5, purpose: 'hover or playful jump' },
-    { state: 'failed', row: 5, frames: 8, purpose: 'blocked, failed, or cancelled reaction' },
-    { state: 'waiting', row: 6, frames: 6, purpose: 'waiting for approval, help, or user input' },
-    { state: 'running', row: 7, frames: 6, purpose: 'active task work or processing' },
-    { state: 'review', row: 8, frames: 6, purpose: 'ready or completed output review' },
-  ],
+  atlas: DEFAULT_PET_ATLAS,
+  rows: DEFAULT_PET_ROWS,
 }
 
 function petIdFromManifest(manifest: CodexPetManifest, fallback = DEFAULT_PET_ID): string {
@@ -97,17 +101,29 @@ export const BUILT_IN_FIREFLY_PET: CodexPetDefinition = {
   spritesheetUrl: fireflySpritesheet,
 }
 
+function withFallbackAnimationMeta(manifest: CodexPetManifest): CodexPetManifest {
+  return {
+    ...manifest,
+    atlas: {
+      ...DEFAULT_PET_ATLAS,
+      ...manifest.atlas,
+    },
+    rows: manifest.rows?.length ? manifest.rows : DEFAULT_PET_ROWS,
+  }
+}
+
 function normalizePet(
   raw: Partial<CodexPetDefinition> | null | undefined,
 ): CodexPetDefinition | null {
   if (!raw?.manifest || !raw.spritesheetUrl) return null
-  const id = raw.id || petIdFromManifest(raw.manifest)
+  const manifest = withFallbackAnimationMeta(raw.manifest)
+  const id = raw.id || petIdFromManifest(manifest)
   return {
     id,
-    displayName: raw.displayName || petDisplayName(raw.manifest, id),
-    description: raw.description || raw.manifest.description || '',
+    displayName: raw.displayName || petDisplayName(manifest, id),
+    description: raw.description || manifest.description || '',
     source: raw.source || 'local',
-    manifest: raw.manifest,
+    manifest,
     spritesheetUrl: raw.spritesheetUrl,
     installPath: raw.installPath,
   }

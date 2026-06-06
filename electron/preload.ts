@@ -98,6 +98,10 @@ const allowedInvokeChannels = new Set([
   'pets-install-slug',
   'pets-import-file',
   'pets-import-directory',
+  // Import-ready external learning resource packs
+  'resource-pack-import',
+  // Learning records
+  'learning-records-clear',
 ])
 
 const allowedEventChannels = new Set(['ai-chat-chunk', 'ai-chat-done'])

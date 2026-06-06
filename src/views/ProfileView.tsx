@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
 import {
-  CircleUser,
   Flame,
   BookOpen,
   CheckCircle2,
@@ -21,6 +20,9 @@ import { cn } from '@/lib/utils'
 import { useAppStore } from '../store'
 import * as homeService from '@/services/homeService'
 import type { HomeOverview, AnalyticsSummary } from '@/services/homeService'
+import { getUserProfile, type UserProfileSettings } from '@/services/settingsService'
+
+const PENDING_SETTINGS_TAB_KEY = 'codehelper.pendingSettingsTab'
 
 /** 事件类型 → 中文标签（未知类型回退原始 key）。 */
 const EVENT_LABELS: Record<string, string> = {
@@ -72,21 +74,61 @@ function StatTile({
   )
 }
 
+function renderProfileAvatar(avatar: string, name: string, sizeClass = 'w-24 h-24') {
+  const trimmedAvatar = avatar.trim()
+  const label = name.trim().slice(0, 1).toUpperCase() || '同'
+
+  if (/^(data:image\/|https?:\/\/|blob:)/i.test(trimmedAvatar)) {
+    return (
+      <img
+        src={trimmedAvatar}
+        alt={`${name || '同学'}的头像`}
+        className={cn(sizeClass, 'rounded-full object-cover')}
+      />
+    )
+  }
+
+  if (trimmedAvatar) {
+    return (
+      <span className={cn(sizeClass, 'flex items-center justify-center rounded-full text-4xl')}>
+        {trimmedAvatar.slice(0, 2)}
+      </span>
+    )
+  }
+
+  return (
+    <span
+      className={cn(
+        sizeClass,
+        'flex items-center justify-center rounded-full bg-[var(--color-accent-purple)]/15 text-3xl font-bold text-[var(--color-accent-purple)]',
+      )}
+    >
+      {label}
+    </span>
+  )
+}
+
 export function ProfileView() {
   const setCurrentView = useAppStore((s) => s.setCurrentView)
   const [overview, setOverview] = useState<HomeOverview | null>(null)
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null)
+  const [profile, setProfile] = useState<UserProfileSettings>({ name: '', avatar: '' })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let mounted = true
     setLoading(true)
-    Promise.all([homeService.getOverview(), homeService.getAnalyticsSummary(30).catch(() => null)])
-      .then(([ov, sm]) => {
+    Promise.all([
+      homeService.getOverview(),
+      homeService.getAnalyticsSummary(30).catch(() => null),
+      getUserProfile().catch(() => ({ name: '', avatar: '' })),
+    ])
+      .then(([ov, sm, userProfile]) => {
         if (!mounted) return
         setOverview(ov)
         setSummary(sm)
+        setProfile(userProfile)
         setError(null)
       })
       .catch((e) => {
@@ -192,26 +234,37 @@ export function ProfileView() {
     },
   ]
   const unlockedCount = achievements.filter((a) => a.unlocked).length
+  const displayName = profile.name || overview.greetingName || '同学'
+
+  const openAccountSettings = () => {
+    try {
+      window.sessionStorage.setItem(PENDING_SETTINGS_TAB_KEY, 'account')
+    } catch {
+      /* SettingsView also listens for the event below. */
+    }
+    setCurrentView('settings')
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('codehelper:settings-tab', { detail: 'account' }))
+    }, 0)
+  }
 
   return (
     <div className="h-full flex flex-col bg-[var(--color-bg-base)] overflow-y-auto">
       <div className="max-w-[1000px] w-full mx-auto p-6 lg:p-8 space-y-6">
         {/* Hero */}
-        <div className="relative overflow-hidden rounded-2xl border border-[var(--color-border-subtle)] bg-gradient-to-br from-[#1E243A] to-[var(--color-bg-card)] p-6 lg:p-8 shadow-sm">
+        <div className="profile-hero relative overflow-hidden rounded-2xl border border-[var(--color-border-subtle)] p-6 lg:p-8 shadow-sm">
           <div className="absolute top-0 right-0 w-72 h-72 bg-[var(--color-accent-primary)] rounded-full blur-[120px] opacity-20 -translate-y-1/2 translate-x-1/4 pointer-events-none" />
           <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-6">
             <div className="relative shrink-0">
-              <div className="w-24 h-24 rounded-full bg-[#2A2F45] flex items-center justify-center ring-4 ring-[var(--color-accent-primary)]/20">
-                <CircleUser size={56} className="text-[#9CA3AF]" />
+              <div className="profile-hero-avatar w-24 h-24 rounded-full flex items-center justify-center overflow-hidden ring-4 ring-[var(--color-accent-primary)]/20">
+                {renderProfileAvatar(profile.avatar, displayName)}
               </div>
-              <div className="absolute -bottom-1 -right-1 bg-[#10B981] w-6 h-6 rounded-full border-4 border-[#1E243A]" />
+              <div className="profile-hero-status absolute -bottom-1 -right-1 bg-[#10B981] w-6 h-6 rounded-full border-4" />
             </div>
 
             <div className="flex-1 min-w-0 text-center sm:text-left w-full">
               <div className="flex items-center justify-center sm:justify-start gap-3 flex-wrap">
-                <h1 className="text-2xl font-bold text-white tracking-tight">
-                  {overview.greetingName || '同学'}
-                </h1>
+                <h1 className="text-2xl font-bold text-white tracking-tight">{displayName}</h1>
                 <span className="text-[11px] font-bold bg-[var(--color-accent-purple)]/20 text-[var(--color-accent-purple)] px-2 py-0.5 rounded-md border border-[var(--color-accent-purple)]/30">
                   {levelTitle(overview.level)}
                 </span>
@@ -241,8 +294,9 @@ export function ProfileView() {
             </div>
 
             <button
-              onClick={() => setCurrentView('settings')}
+              onClick={openAccountSettings}
               className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-base)]/40 text-sm text-[var(--color-text-secondary)] hover:text-white hover:border-[var(--color-accent-primary)] transition-colors"
+              data-open-account-settings
             >
               <Settings size={15} />
               账户设置

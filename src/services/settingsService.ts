@@ -19,6 +19,19 @@ export interface PlatformInfo {
   appVersion: string
 }
 
+export interface UserProfileSettings {
+  name: string
+  avatar: string
+}
+
+export interface LearningRecordsClearResult {
+  success: boolean
+  changed: Record<string, number>
+}
+
+export const PROFILE_NAME_KEY = 'user_name'
+export const PROFILE_AVATAR_KEY = 'user_avatar'
+
 export type ExportCategory =
   | 'problems'
   | 'submissions'
@@ -61,6 +74,30 @@ export async function getSetting(key: string): Promise<string | null> {
 
 export async function setSetting(key: string, value: string): Promise<void> {
   return invoke<void>('db-set-setting', key, value)
+}
+
+export async function getUserProfile(): Promise<UserProfileSettings> {
+  const [name, avatar] = await Promise.all([
+    getSetting(PROFILE_NAME_KEY),
+    getSetting(PROFILE_AVATAR_KEY),
+  ])
+  return {
+    name: name?.trim() || '',
+    avatar: avatar?.trim() || '',
+  }
+}
+
+export async function saveUserProfile(profile: UserProfileSettings): Promise<void> {
+  const trimmedName = profile.name.trim().slice(0, 40)
+  const trimmedAvatar = profile.avatar.trim().slice(0, 10000)
+  await Promise.all([
+    setSetting(PROFILE_NAME_KEY, trimmedName),
+    setSetting(PROFILE_AVATAR_KEY, trimmedAvatar),
+  ])
+}
+
+export async function clearLearningRecords(): Promise<LearningRecordsClearResult> {
+  return invoke<LearningRecordsClearResult>('learning-records-clear')
 }
 
 export async function getAIConfigs(): Promise<AIConfig[]> {

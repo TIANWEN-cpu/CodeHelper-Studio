@@ -280,7 +280,7 @@ export function AIModelSettings() {
                   <button
                     onClick={() => startEdit(cfg)}
                     title="编辑"
-                    className="p-1.5 rounded-md text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-bg-hover)] transition-colors"
+                    className="p-1.5 rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
                   >
                     <Pencil size={15} />
                   </button>
@@ -307,7 +307,7 @@ export function AIModelSettings() {
           {editingId != null && (
             <button
               onClick={resetForm}
-              className="text-xs text-[var(--color-text-muted)] hover:text-white flex items-center gap-1 transition-colors"
+              className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] flex items-center gap-1 transition-colors"
             >
               <X size={13} /> 取消编辑
             </button>
@@ -390,7 +390,7 @@ export function AIModelSettings() {
               <button
                 onClick={handleFetchModels}
                 disabled={fetchingModels}
-                className="px-3 py-2 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] text-sm text-[var(--color-text-secondary)] hover:text-white hover:border-[var(--color-accent-purple)] transition-colors flex items-center gap-1.5 shrink-0 disabled:opacity-50"
+                className="px-3 py-2 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-accent-purple)] transition-colors flex items-center gap-1.5 shrink-0 disabled:opacity-50"
               >
                 {fetchingModels ? (
                   <Loader2 size={14} className="animate-spin" />
@@ -417,14 +417,14 @@ export function AIModelSettings() {
                     <button
                       type="button"
                       onClick={selectVisibleModels}
-                      className="rounded-md border border-[var(--color-border-subtle)] px-2.5 py-1.5 text-[var(--color-text-secondary)] hover:text-white hover:bg-[var(--color-bg-hover)] transition-colors"
+                      className="rounded-md border border-[var(--color-border-subtle)] px-2.5 py-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
                     >
                       选择当前列表
                     </button>
                     <button
                       type="button"
                       onClick={clearSelectedModels}
-                      className="rounded-md border border-[var(--color-border-subtle)] px-2.5 py-1.5 text-[var(--color-text-secondary)] hover:text-white hover:bg-[var(--color-bg-hover)] transition-colors"
+                      className="rounded-md border border-[var(--color-border-subtle)] px-2.5 py-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
                     >
                       清空
                     </button>
@@ -448,8 +448,8 @@ export function AIModelSettings() {
                             duplicate
                               ? 'cursor-not-allowed opacity-50'
                               : checked
-                                ? 'bg-[var(--color-accent-purple)]/12 text-white'
-                                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-white',
+                                ? 'settings-soft-selected bg-[var(--color-accent-purple)]/12 text-[var(--color-text-primary)]'
+                                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]',
                           )}
                         >
                           <input
@@ -503,7 +503,7 @@ export function AIModelSettings() {
             {editingId == null && (form.name || form.base_url || form.model) && (
               <button
                 onClick={resetForm}
-                className="text-sm text-[var(--color-text-muted)] hover:text-white transition-colors"
+                className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
               >
                 清空
               </button>

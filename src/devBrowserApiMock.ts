@@ -61,6 +61,7 @@ const messages: Record<
 > = {
   'browser-session-1': [],
 }
+const settingsStore: Record<string, string> = {}
 
 function cloneSession(session: (typeof sessions)[number]) {
   return { ...session }
@@ -176,9 +177,12 @@ function overview() {
 async function invoke(channel: string, ...args: unknown[]) {
   switch (channel) {
     case 'db-get-setting':
-      return null
+      return settingsStore[String(args[0] ?? '')] ?? null
     case 'db-set-setting':
+      settingsStore[String(args[0] ?? '')] = String(args[1] ?? '')
       return undefined
+    case 'learning-records-clear':
+      return { success: true, changed: {} }
     case 'pets-list':
       return []
     case 'pets-install-slug':

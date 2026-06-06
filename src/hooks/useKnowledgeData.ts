@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   KnowledgeDoc,
+  ResourcePackImportResult,
   SearchResult,
   getDocuments,
+  importResourcePack,
   searchDocuments,
   uploadDocument,
   deleteDocument,
@@ -13,10 +15,13 @@ export interface UseKnowledgeDataReturn {
   searchResults: SearchResult[]
   loading: boolean
   uploading: boolean
+  importingResourcePack: boolean
   error: string | null
+  lastResourcePackImport: ResourcePackImportResult | null
   loadDocuments: () => Promise<void>
   search: (query: string) => Promise<void>
   upload: () => Promise<void>
+  importPack: (rootPath?: string) => Promise<ResourcePackImportResult | null>
   deleteDocument: (id: number) => Promise<void>
 }
 
@@ -25,6 +30,9 @@ export function useKnowledgeData(): UseKnowledgeDataReturn {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [importingResourcePack, setImportingResourcePack] = useState(false)
+  const [lastResourcePackImport, setLastResourcePackImport] =
+    useState<ResourcePackImportResult | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const loadDocuments = useCallback(async () => {
@@ -70,6 +78,25 @@ export function useKnowledgeData(): UseKnowledgeDataReturn {
     }
   }, [loadDocuments])
 
+  const importPack = useCallback(
+    async (rootPath?: string) => {
+      setImportingResourcePack(true)
+      setError(null)
+      try {
+        const result = await importResourcePack(rootPath)
+        setLastResourcePackImport(result)
+        if (result) await loadDocuments()
+        return result
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '资源包导入失败')
+        return null
+      } finally {
+        setImportingResourcePack(false)
+      }
+    },
+    [loadDocuments],
+  )
+
   const handleDelete = useCallback(
     async (id: number) => {
       setLoading(true)
@@ -95,10 +122,13 @@ export function useKnowledgeData(): UseKnowledgeDataReturn {
     searchResults,
     loading,
     uploading,
+    importingResourcePack,
     error,
+    lastResourcePackImport,
     loadDocuments,
     search,
     upload,
+    importPack,
     deleteDocument: handleDelete,
   }
 }

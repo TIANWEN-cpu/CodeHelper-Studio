@@ -16,6 +16,9 @@ const PET_HEIGHT = 238
 const PET_MARGIN = 16
 const PET_DESKTOP_SAFE_LEFT = 260
 const PET_SAFE_TOP = 148
+const PET_PROFILE_WIDTH = 96
+const PET_PROFILE_HEIGHT = 130
+const PET_PROFILE_DOCK_MARGIN = 8
 const PET_MOBILE_BREAKPOINT = 720
 
 interface PetPosition {
@@ -37,15 +40,35 @@ function getPetMinX(): number {
   return window.innerWidth <= PET_MOBILE_BREAKPOINT ? PET_MARGIN : PET_DESKTOP_SAFE_LEFT
 }
 
-function clampPosition(pos: PetPosition): PetPosition {
+function getPetFootprint(view?: string) {
+  return view === 'profile'
+    ? { width: PET_PROFILE_WIDTH, height: PET_PROFILE_HEIGHT, margin: PET_PROFILE_DOCK_MARGIN }
+    : { width: PET_WIDTH, height: PET_HEIGHT, margin: PET_MARGIN }
+}
+
+function clampPosition(pos: PetPosition, view?: string): PetPosition {
   if (typeof window === 'undefined') return pos
   const minX = getPetMinX()
-  const maxX = Math.max(minX, window.innerWidth - PET_WIDTH - PET_MARGIN)
-  const maxY = Math.max(PET_SAFE_TOP, window.innerHeight - PET_HEIGHT - PET_MARGIN)
+  const footprint = getPetFootprint(view)
+  const maxX = Math.max(minX, window.innerWidth - footprint.width - footprint.margin)
+  const maxY = Math.max(PET_SAFE_TOP, window.innerHeight - footprint.height - footprint.margin)
   return {
     x: Math.min(maxX, Math.max(minX, Math.round(pos.x))),
     y: Math.min(maxY, Math.max(PET_SAFE_TOP, Math.round(pos.y))),
   }
+}
+
+function getViewDockPosition(view: string): PetPosition | null {
+  if (typeof window === 'undefined' || view !== 'profile') return null
+  const footprint = getPetFootprint(view)
+  return {
+    x: Math.max(getPetMinX(), window.innerWidth - footprint.width - footprint.margin),
+    y: Math.max(PET_SAFE_TOP, window.innerHeight - footprint.height - footprint.margin),
+  }
+}
+
+function shouldDockForView(view: string): boolean {
+  return getViewDockPosition(view) != null
 }
 
 function readStoredPosition(): PetPosition {
@@ -139,14 +162,14 @@ export function AIPet() {
 
   const scheduleTransform = useCallback(
     (next: PetPosition) => {
-      latestPositionRef.current = clampPosition(next)
+      latestPositionRef.current = clampPosition(next, currentView)
       if (frameRef.current != null) return
       frameRef.current = window.requestAnimationFrame(() => {
         frameRef.current = null
         applyTransform(latestPositionRef.current)
       })
     },
-    [applyTransform],
+    [applyTransform, currentView],
   )
 
   useEffect(() => {
@@ -156,7 +179,9 @@ export function AIPet() {
 
   useEffect(() => {
     setPosition((prev) => {
-      const next = clampPosition(prev)
+      const next = shouldDockForView(currentView)
+        ? clampPosition(getViewDockPosition(currentView) ?? prev, currentView)
+        : clampPosition(prev, currentView)
       if (next.x === prev.x && next.y === prev.y) return prev
       latestPositionRef.current = next
       applyTransform(next)
@@ -168,7 +193,9 @@ export function AIPet() {
   useEffect(() => {
     const handleResize = () => {
       setPosition((prev) => {
-        const next = clampPosition(prev)
+        const next = shouldDockForView(currentView)
+          ? clampPosition(getViewDockPosition(currentView) ?? prev, currentView)
+          : clampPosition(prev, currentView)
         latestPositionRef.current = next
         applyTransform(next)
         persistPosition(next)
@@ -177,7 +204,7 @@ export function AIPet() {
     }
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
-  }, [applyTransform])
+  }, [applyTransform, currentView])
 
   useEffect(
     () => () => {
@@ -282,6 +309,7 @@ export function AIPet() {
       data-codex-pet-root
       data-active-pet-id={pet.id}
       data-animation-level={animationLevel}
+      data-current-view={currentView}
       className={cn(
         'ai-pet fixed left-0 top-0 z-40',
         expanded && 'is-expanded',
@@ -334,6 +362,7 @@ export function AIPet() {
             state={petState}
             className="ai-pet-image codex-pet-sprite"
             label={`AI 桌宠${pet.displayName}`}
+            animateIdle={animationLevel !== 'calm'}
             playOnce={petState === 'waving'}
           />
         </button>

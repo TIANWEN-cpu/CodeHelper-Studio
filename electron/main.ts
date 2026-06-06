@@ -16,6 +16,8 @@ import { registerAchievementsIPC } from './ipc/achievements'
 import { registerReviewIPC } from './ipc/review'
 import { registerHomeHandlers } from './ipc/home'
 import { registerPetsIPC } from './ipc/pets'
+import { registerResourcePackIPC } from './ipc/resourcePack'
+import { registerLearningRecordsIPC } from './ipc/learningRecords'
 import { logIpcStatsSummary, getIpcStats } from './utils/perfMonitor'
 import { registerIpcHandler, rateLimitMiddleware } from './utils/middleware'
 import { buildContentSecurityPolicy } from './utils/contentSecurityPolicy'
@@ -456,6 +458,18 @@ function registerDeferredIPC(): void {
     console.log('[IPC] Registered: pets handlers')
   } catch (e) {
     startupError('registerPetsIPC', e)
+  }
+  try {
+    registerResourcePackIPC()
+    console.log('[IPC] Registered: resource pack handlers')
+  } catch (e) {
+    startupError('registerResourcePackIPC', e)
+  }
+  try {
+    registerLearningRecordsIPC()
+    console.log('[IPC] Registered: learning records handlers')
+  } catch (e) {
+    startupError('registerLearningRecordsIPC', e)
   }
   startupLog('All deferred IPC handlers registered')
 }

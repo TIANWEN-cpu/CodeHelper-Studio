@@ -16,6 +16,29 @@ export interface SearchResult {
   chunk_index: number
 }
 
+export interface ResourcePackImportResult {
+  rootPath: string
+  manifest?: {
+    generated_at?: string
+    source_root?: string
+    output_root?: string
+  }
+  knowledge: {
+    found: number
+    imported: number
+    skipped: number
+    chunks: number
+  }
+  problems: {
+    files: number
+    found: number
+    imported: number
+    updated: number
+    skipped: number
+  }
+  errors: string[]
+}
+
 export async function getDocuments(): Promise<KnowledgeDoc[]> {
   return invoke<KnowledgeDoc[]>('knowledge-list')
 }
@@ -30,6 +53,12 @@ export async function semanticSearch(query: string): Promise<SearchResult[]> {
 
 export async function uploadDocument(): Promise<void> {
   return invoke<void>('knowledge-upload')
+}
+
+export async function importResourcePack(
+  rootPath?: string,
+): Promise<ResourcePackImportResult | null> {
+  return invoke<ResourcePackImportResult | null>('resource-pack-import', { rootPath })
 }
 
 export async function deleteDocument(docId: number): Promise<void> {

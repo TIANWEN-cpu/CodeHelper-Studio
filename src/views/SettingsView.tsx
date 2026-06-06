@@ -11,6 +11,10 @@ import {
   Wallpaper,
   Wand2,
   Sparkles,
+  UserRound,
+  ImagePlus,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSettingsData } from '../hooks/useSettingsData'
@@ -45,6 +49,13 @@ import { AIModelSettings } from './settings/AIModelSettings'
 import { REGION_OPTIONS } from '../lib/locale'
 import { CODE_THEME_OPTIONS, DEFAULT_CODE_THEME } from '../lib/codeThemes'
 import { CodeEditor } from '../components/editor/CodeEditor'
+import { clearIpcCache } from '../api/ipc'
+import {
+  PROFILE_AVATAR_KEY,
+  PROFILE_NAME_KEY,
+  clearLearningRecords,
+  saveUserProfile,
+} from '../services/settingsService'
 
 // 代码主题卡片的实时预览片段。
 const CODE_THEME_PREVIEW = `def greet(name):
@@ -63,8 +74,8 @@ const VISUAL_THEMES: Array<{
 }> = [
   {
     id: 'codex',
-    label: 'Codex 深空',
-    desc: '默认靛紫科技感，适合长时间编码',
+    label: '深空专注',
+    desc: '靛紫科技感，适合长时间编码',
     swatches: ['#6366F1', '#8B5CF6', '#22D3EE'],
   },
   {
@@ -123,7 +134,7 @@ function ToggleSwitch({ active, onToggle }: { active: boolean; onToggle: () => v
 
 type DataActionStatus =
   | { kind: 'idle'; message: '' }
-  | { kind: 'loading' | 'success' | 'error'; message: string }
+  | { kind: 'loading' | 'success' | 'error' | 'confirm'; message: string }
 
 type PetActionStatus =
   | { kind: 'idle'; message: '' }
@@ -140,6 +151,82 @@ function SparklesPreview() {
       <span className="h-2 w-2 rounded-full bg-[var(--color-accent-purple)] shadow-[0_0_18px_var(--color-accent-purple)]" />
     </span>
   )
+}
+
+const PENDING_SETTINGS_TAB_KEY = 'codehelper.pendingSettingsTab'
+const MAX_PROFILE_AVATAR_LENGTH = 9500
+
+function isImageAvatar(value: string) {
+  return /^(data:image\/|https?:\/\/|blob:)/i.test(value.trim())
+}
+
+function renderAvatarPreview(avatar: string, name: string, sizeClass = 'h-20 w-20') {
+  const trimmedAvatar = avatar.trim()
+  const fallback = name.trim().slice(0, 1).toUpperCase() || '同'
+
+  if (isImageAvatar(trimmedAvatar)) {
+    return (
+      <img
+        src={trimmedAvatar}
+        alt={`${name || '同学'}的头像预览`}
+        className={cn(sizeClass, 'rounded-full object-cover')}
+      />
+    )
+  }
+
+  if (trimmedAvatar) {
+    return (
+      <span className={cn(sizeClass, 'flex items-center justify-center rounded-full text-3xl')}>
+        {trimmedAvatar.slice(0, 2)}
+      </span>
+    )
+  }
+
+  return (
+    <span
+      className={cn(
+        sizeClass,
+        'flex items-center justify-center rounded-full bg-[var(--color-accent-purple)]/15 text-2xl font-bold text-[var(--color-accent-purple)]',
+      )}
+    >
+      {fallback}
+    </span>
+  )
+}
+
+async function fileToCompactAvatarDataUrl(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('请选择 PNG、JPG 或 WebP 图片。')
+  }
+
+  const imageUrl = URL.createObjectURL(file)
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => resolve(img)
+      img.onerror = () => reject(new Error('头像图片读取失败。'))
+      img.src = imageUrl
+    })
+
+    const maxSize = 160
+    const scale = Math.min(1, maxSize / Math.max(image.width, image.height))
+    const width = Math.max(1, Math.round(image.width * scale))
+    const height = Math.max(1, Math.round(image.height * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('当前环境无法处理头像图片。')
+    ctx.drawImage(image, 0, 0, width, height)
+
+    const dataUrl = canvas.toDataURL('image/webp', 0.72)
+    if (dataUrl.length > MAX_PROFILE_AVATAR_LENGTH) {
+      throw new Error('头像图片仍然过大，请换一张更小的图片，或使用字符头像。')
+    }
+    return dataUrl
+  } finally {
+    URL.revokeObjectURL(imageUrl)
+  }
 }
 
 // ---- Component ----
@@ -176,9 +263,26 @@ export function SettingsView() {
   const aiPetEnabled = useAppStore((s) => s.aiPetEnabled)
   const setAIPetEnabled = useAppStore((s) => s.setAIPetEnabled)
 
-  const [activeTab, setActiveTab] = React.useState('appearance')
+  const [activeTab, setActiveTab] = React.useState(() => {
+    try {
+      return window.sessionStorage.getItem(PENDING_SETTINGS_TAB_KEY) || 'appearance'
+    } catch {
+      return 'appearance'
+    }
+  })
   const [loaded, setLoaded] = React.useState(false)
   const [dataActionStatus, setDataActionStatus] = React.useState<DataActionStatus>({
+    kind: 'idle',
+    message: '',
+  })
+  const [profileName, setProfileName] = React.useState('')
+  const [profileAvatar, setProfileAvatar] = React.useState('')
+  const [profileActionStatus, setProfileActionStatus] = React.useState<DataActionStatus>({
+    kind: 'idle',
+    message: '',
+  })
+  const [clearLearningConfirm, setClearLearningConfirm] = React.useState(false)
+  const [clearLearningStatus, setClearLearningStatus] = React.useState<DataActionStatus>({
     kind: 'idle',
     message: '',
   })
@@ -225,6 +329,8 @@ export function SettingsView() {
           'background_style',
           'animation_level',
           'ai_pet_enabled',
+          PROFILE_NAME_KEY,
+          PROFILE_AVATAR_KEY,
         ]
 
         const results = await Promise.all(keys.map((k) => getSetting(k)))
@@ -253,6 +359,8 @@ export function SettingsView() {
           setAnimationLevel(vals.animation_level as AnimationLevel)
         }
         if (vals.ai_pet_enabled != null) setAIPetEnabled(vals.ai_pet_enabled === 'true')
+        setProfileName(vals[PROFILE_NAME_KEY]?.trim() || '')
+        setProfileAvatar(vals[PROFILE_AVATAR_KEY]?.trim() || '')
       } catch {
         // useDefaults
       } finally {
@@ -265,6 +373,34 @@ export function SettingsView() {
       cancelled = true
     }
   }, [getSetting, setAIPetEnabled, setAnimationLevel, setBackgroundStyle, setVisualTheme])
+
+  React.useEffect(() => {
+    const applySettingsTab = (tab: unknown) => {
+      if (
+        typeof tab === 'string' &&
+        ['account', 'appearance', 'ai', 'data', 'about'].includes(tab)
+      ) {
+        setActiveTab(tab)
+      }
+    }
+
+    try {
+      const pendingTab = window.sessionStorage.getItem(PENDING_SETTINGS_TAB_KEY)
+      if (pendingTab) {
+        applySettingsTab(pendingTab)
+        window.sessionStorage.removeItem(PENDING_SETTINGS_TAB_KEY)
+      }
+    } catch {
+      /* The custom event path below covers browser storage failures. */
+    }
+
+    const handleSettingsTab = (event: Event) => {
+      applySettingsTab((event as CustomEvent).detail)
+    }
+
+    window.addEventListener('codehelper:settings-tab', handleSettingsTab)
+    return () => window.removeEventListener('codehelper:settings-tab', handleSettingsTab)
+  }, [])
 
   const refreshPets = React.useCallback(async () => {
     const pets = await listInstalledPets()
@@ -287,6 +423,7 @@ export function SettingsView() {
 
   // ---- Constants ----
   const tabs = [
+    { id: 'account', label: '账户', icon: UserRound },
     { id: 'appearance', label: '外观', icon: Palette },
     { id: 'ai', label: 'AI 模型', icon: Settings },
     { id: 'data', label: '数据', icon: Download },
@@ -394,7 +531,81 @@ export function SettingsView() {
     applyHighContrast(false)
   }
 
-  const handleSave = () => {
+  const handleSaveProfile = React.useCallback(async () => {
+    const name = profileName.trim().slice(0, 40)
+    const avatar = profileAvatar.trim().slice(0, MAX_PROFILE_AVATAR_LENGTH)
+    setProfileActionStatus({ kind: 'loading', message: '正在保存账户资料...' })
+    try {
+      await saveUserProfile({ name, avatar })
+      setProfileName(name)
+      setProfileAvatar(avatar)
+      setProfileActionStatus({ kind: 'success', message: '账户资料已保存。' })
+      window.dispatchEvent(new Event('codehelper:profile-changed'))
+    } catch (error) {
+      setProfileActionStatus({
+        kind: 'error',
+        message: getDataActionError(error, '保存账户资料失败。'),
+      })
+    }
+  }, [profileAvatar, profileName])
+
+  const handleAvatarFileChange = React.useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0]
+      event.target.value = ''
+      if (!file) return
+      setProfileActionStatus({ kind: 'loading', message: '正在处理头像图片...' })
+      try {
+        const dataUrl = await fileToCompactAvatarDataUrl(file)
+        setProfileAvatar(dataUrl)
+        setProfileActionStatus({ kind: 'success', message: '头像已载入，保存后生效。' })
+      } catch (error) {
+        setProfileActionStatus({
+          kind: 'error',
+          message: getDataActionError(error, '头像处理失败。'),
+        })
+      }
+    },
+    [],
+  )
+
+  const handleClearLearningRecords = React.useCallback(async () => {
+    if (!clearLearningConfirm) {
+      setClearLearningConfirm(true)
+      setClearLearningStatus({
+        kind: 'confirm',
+        message: '再次点击确认清空学习记录。',
+      })
+      return
+    }
+
+    setClearLearningStatus({ kind: 'loading', message: '正在清空学习记录...' })
+    try {
+      const result = await clearLearningRecords()
+      const changedRows = Object.values(result.changed ?? {}).reduce((sum, value) => sum + value, 0)
+      setClearLearningConfirm(false)
+      setClearLearningStatus({
+        kind: 'success',
+        message:
+          changedRows > 0
+            ? `已清空学习记录，共重置/删除 ${changedRows} 条记录。`
+            : '学习记录已是空的。',
+      })
+      clearIpcCache()
+      window.dispatchEvent(new Event('codehelper:learning-records-cleared'))
+    } catch (error) {
+      setClearLearningStatus({
+        kind: 'error',
+        message: getDataActionError(error, '清空学习记录失败。'),
+      })
+    }
+  }, [clearLearningConfirm])
+
+  const handleSave = async () => {
+    if (activeTab === 'account') {
+      await handleSaveProfile()
+      return
+    }
     // 各项已即时持久化并应用；此处再整体重应用一次，作为"保存"的明确反馈。
     applyTheme(followSystem ? resolveTheme(theme, true) : theme)
     applyThemeColor(themeColor)
@@ -563,6 +774,230 @@ export function SettingsView() {
         </div>
 
         {/* Settings Content */}
+        {activeTab === 'account' && (
+          <div className="space-y-6 pb-24">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
+                <div className="mb-5 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-accent-purple)]/10 text-[var(--color-accent-purple)]">
+                    <UserRound size={19} />
+                  </div>
+                  <div>
+                    <h3 className="text-[15px] font-semibold text-[var(--color-text-primary)]">
+                      账户资料
+                    </h3>
+                    <p className="text-xs text-[var(--color-text-muted)]">
+                      自定义个人页展示的昵称和头像
+                    </p>
+                  </div>
+                </div>
+
+                {profileActionStatus.kind !== 'idle' && (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className={cn(
+                      'mb-4 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs',
+                      profileActionStatus.kind === 'error'
+                        ? 'border-red-500/40 bg-red-500/10 text-red-200'
+                        : profileActionStatus.kind === 'success'
+                          ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                          : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] text-[var(--color-text-secondary)]',
+                    )}
+                  >
+                    {profileActionStatus.kind === 'success' ? (
+                      <Check size={14} />
+                    ) : (
+                      <Info size={14} />
+                    )}
+                    <span>{profileActionStatus.message}</span>
+                  </div>
+                )}
+
+                <div className="space-y-5">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-[var(--color-text-primary)]">
+                      显示名称
+                    </span>
+                    <input
+                      value={profileName}
+                      onChange={(event) => setProfileName(event.target.value.slice(0, 40))}
+                      placeholder="同学"
+                      maxLength={40}
+                      className="w-full rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none transition-colors placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent-purple)]"
+                      data-profile-name-input
+                    />
+                  </label>
+
+                  <div>
+                    <span className="mb-2 block text-sm font-medium text-[var(--color-text-primary)]">
+                      头像
+                    </span>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-[auto_minmax(0,1fr)]">
+                      <div
+                        className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)]"
+                        data-profile-avatar-preview
+                      >
+                        {renderAvatarPreview(profileAvatar, profileName, 'h-24 w-24')}
+                      </div>
+
+                      <div className="space-y-3">
+                        <input
+                          value={profileAvatar}
+                          onChange={(event) =>
+                            setProfileAvatar(event.target.value.slice(0, MAX_PROFILE_AVATAR_LENGTH))
+                          }
+                          placeholder="输入一个字符、emoji，或粘贴图片 URL"
+                          className="w-full rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none transition-colors placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent-purple)]"
+                          data-profile-avatar-input
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          {['同', '学', '码', 'AI', '✨'].map((avatar) => (
+                            <button
+                              key={avatar}
+                              type="button"
+                              onClick={() => setProfileAvatar(avatar)}
+                              className={cn(
+                                'h-9 min-w-9 rounded-lg border px-2 text-sm transition-colors',
+                                profileAvatar === avatar
+                                  ? 'settings-soft-selected border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/10 text-[var(--color-text-primary)]'
+                                  : 'border-[var(--color-border-subtle)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+                              )}
+                            >
+                              {avatar}
+                            </button>
+                          ))}
+                          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--color-border-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]">
+                            <ImagePlus size={14} />
+                            选择图片
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp"
+                              onChange={handleAvatarFileChange}
+                              className="sr-only"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setProfileAvatar('')}
+                            className="rounded-lg border border-[var(--color-border-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
+                          >
+                            清除头像
+                          </button>
+                        </div>
+                        <p className="text-[11px] leading-relaxed text-[var(--color-text-muted)]">
+                          图片会在本地压缩后保存；如果图片过大，可以改用字符头像。
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleSaveProfile}
+                    disabled={profileActionStatus.kind === 'loading'}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-purple)] px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#7C3AED] disabled:cursor-not-allowed disabled:opacity-60"
+                    data-profile-save-button
+                  >
+                    <Check size={16} />
+                    保存账户资料
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
+                  <p className="mb-4 text-sm font-semibold text-[var(--color-text-primary)]">
+                    个人页预览
+                  </p>
+                  <div className="flex flex-col items-center rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] p-5 text-center">
+                    <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-[var(--color-bg-base)]">
+                      {renderAvatarPreview(profileAvatar, profileName)}
+                    </div>
+                    <p className="mt-3 text-base font-semibold text-[var(--color-text-primary)]">
+                      {profileName.trim() || '同学'}
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                      账户资料会同步到个人主页
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-[var(--color-bg-card)] border border-red-500/25 rounded-xl p-5 shadow-sm">
+                  <div className="mb-3 flex items-start gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-500/10 text-red-300">
+                      <AlertTriangle size={17} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                        学习记录
+                      </p>
+                      <p className="mt-1 text-xs leading-relaxed text-[var(--color-text-muted)]">
+                        清空课程进度、刷题提交、错题、复习计划、XP、连续天数、热力图、练习草稿和计时。
+                      </p>
+                    </div>
+                  </div>
+                  <p className="mb-4 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
+                    不会删除题库、知识库、AI 配置、账户资料和课堂笔记。
+                  </p>
+
+                  {clearLearningStatus.kind !== 'idle' && (
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      className={cn(
+                        'mb-3 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs',
+                        clearLearningStatus.kind === 'error'
+                          ? 'border-red-500/40 bg-red-500/10 text-red-200'
+                          : clearLearningStatus.kind === 'success'
+                            ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                            : 'border-amber-500/40 bg-amber-500/10 text-amber-200',
+                      )}
+                    >
+                      {clearLearningStatus.kind === 'success' ? (
+                        <Check size={14} />
+                      ) : (
+                        <Info size={14} />
+                      )}
+                      <span>{clearLearningStatus.message}</span>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={handleClearLearningRecords}
+                      disabled={clearLearningStatus.kind === 'loading'}
+                      className={cn(
+                        'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                        clearLearningConfirm
+                          ? 'bg-red-600 hover:bg-red-500'
+                          : 'bg-red-500/80 hover:bg-red-500',
+                      )}
+                      data-clear-learning-records-button
+                    >
+                      <Trash2 size={15} />
+                      {clearLearningConfirm ? '确认清空学习记录' : '一键清空学习记录'}
+                    </button>
+                    {clearLearningConfirm && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setClearLearningConfirm(false)
+                          setClearLearningStatus({ kind: 'idle', message: '' })
+                        }}
+                        className="rounded-lg border border-[var(--color-border-subtle)] px-3 py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
+                      >
+                        取消
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'appearance' && (
           <div className="space-y-6 pb-24">
             <div className="overflow-hidden rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] shadow-sm">
@@ -646,8 +1081,8 @@ export function SettingsView() {
                             className={cn(
                               'rounded-lg border px-3 py-2 text-left transition-colors',
                               backgroundStyle === item.id
-                                ? 'border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/10 text-white'
-                                : 'border-[var(--color-border-subtle)] text-[var(--color-text-secondary)] hover:text-white',
+                                ? 'settings-soft-selected border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/10 text-[var(--color-text-primary)]'
+                                : 'border-[var(--color-border-subtle)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
                             )}
                           >
                             <p className="text-xs font-semibold">{item.label}</p>
@@ -675,7 +1110,7 @@ export function SettingsView() {
                               'flex-1 rounded-md px-2 py-2 text-xs font-medium transition-colors',
                               animationLevel === item.id
                                 ? 'bg-[var(--color-accent-purple)] text-white shadow-sm'
-                                : 'text-[var(--color-text-muted)] hover:text-white',
+                                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]',
                             )}
                             title={item.desc}
                           >
@@ -696,7 +1131,7 @@ export function SettingsView() {
                             <p className="text-sm font-semibold text-white">AI 桌宠</p>
                           </div>
                           <p className="mt-1 text-xs leading-relaxed text-[var(--color-text-muted)]">
-                            默认使用流萤，兼容 Codex Pet 的 pet.json + spritesheet.webp。
+                            默认使用流萤，兼容 pet.json + spritesheet.webp 的通用桌宠格式。
                           </p>
                         </div>
                         <ToggleSwitch
@@ -715,14 +1150,15 @@ export function SettingsView() {
                             className={cn(
                               'flex items-center gap-2 rounded-lg border px-2 py-2 text-left transition-colors',
                               selectedPetId === pet.id
-                                ? 'border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/10 text-white'
-                                : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] text-[var(--color-text-secondary)] hover:text-white',
+                                ? 'settings-soft-selected border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/10 text-[var(--color-text-primary)]'
+                                : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
                             )}
                           >
                             <CodexPetSprite
                               pet={pet}
                               className="settings-pet-sprite codex-pet-sprite"
                               label={`${pet.displayName} 预览`}
+                              animateIdle={animationLevel !== 'calm'}
                             />
                             <span className="min-w-0">
                               <span className="block truncate text-xs font-semibold">
@@ -742,7 +1178,7 @@ export function SettingsView() {
                           onChange={(event) => setPetSlug(event.target.value)}
                           className="min-w-0 flex-1 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 py-2 text-xs text-white outline-none focus:border-[var(--color-accent-purple)]"
                           placeholder="firefly"
-                          aria-label="Codex Pet slug"
+                          aria-label="桌宠 slug"
                         />
                         <button
                           type="button"
@@ -759,7 +1195,7 @@ export function SettingsView() {
                           type="button"
                           onClick={() => handleImportPet('file')}
                           disabled={petActionStatus.kind === 'loading'}
-                          className="rounded-lg border border-[var(--color-border-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)] transition-colors hover:text-white disabled:opacity-60"
+                          className="rounded-lg border border-[var(--color-border-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)] disabled:opacity-60"
                         >
                           导入包
                         </button>
@@ -767,7 +1203,7 @@ export function SettingsView() {
                           type="button"
                           onClick={() => handleImportPet('directory')}
                           disabled={petActionStatus.kind === 'loading'}
-                          className="rounded-lg border border-[var(--color-border-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)] transition-colors hover:text-white disabled:opacity-60"
+                          className="rounded-lg border border-[var(--color-border-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)] disabled:opacity-60"
                         >
                           选文件夹
                         </button>
@@ -879,8 +1315,8 @@ export function SettingsView() {
                         className={cn(
                           'flex items-center justify-between px-3 py-2 rounded-lg border text-sm transition-colors',
                           dateRegion === opt.value
-                            ? 'border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/10 text-white'
-                            : 'border-[var(--color-border-subtle)] text-[var(--color-text-secondary)] hover:text-white',
+                            ? 'settings-soft-selected border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/10 text-[var(--color-text-primary)]'
+                            : 'border-[var(--color-border-subtle)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
                         )}
                       >
                         <span>{opt.label}</span>
@@ -906,7 +1342,7 @@ export function SettingsView() {
                           'flex-1 py-1.5 text-xs font-medium rounded-md transition-colors',
                           weekStart === val
                             ? 'bg-[var(--color-accent-purple)] text-white shadow-sm'
-                            : 'text-[var(--color-text-muted)] hover:text-white',
+                            : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]',
                         )}
                       >
                         {label}
@@ -944,7 +1380,7 @@ export function SettingsView() {
                       </button>
                     ))}
                     <label
-                      className="w-8 h-8 rounded-full border border-[var(--color-border-subtle)] flex items-center justify-center text-[var(--color-text-muted)] hover:text-white hover:border-[var(--color-accent-purple)] transition-colors cursor-pointer"
+                      className="w-8 h-8 rounded-full border border-[var(--color-border-subtle)] flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-accent-purple)] transition-colors cursor-pointer"
                       title="自定义颜色"
                     >
                       <span className="text-lg leading-none mb-0.5">+</span>
@@ -970,7 +1406,7 @@ export function SettingsView() {
                           'flex-1 py-1.5 text-xs font-medium rounded-md transition-colors',
                           uiScale === scale
                             ? 'bg-[var(--color-accent-purple)] text-white shadow-sm'
-                            : 'text-[var(--color-text-muted)] hover:text-white',
+                            : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]',
                         )}
                       >
                         {scale}
@@ -1014,8 +1450,8 @@ export function SettingsView() {
                         className={cn(
                           'flex items-center justify-between px-3 py-2 rounded-lg border text-sm transition-colors',
                           codeTheme === opt.id
-                            ? 'border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/10 text-white'
-                            : 'border-[var(--color-border-subtle)] text-[var(--color-text-secondary)] hover:text-white',
+                            ? 'settings-soft-selected border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/10 text-[var(--color-text-primary)]'
+                            : 'border-[var(--color-border-subtle)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
                         )}
                       >
                         <span className="truncate">{opt.label}</span>
@@ -1207,7 +1643,7 @@ export function SettingsView() {
       <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-card)]/80 backdrop-blur-md flex items-center justify-between">
         <button
           onClick={handleResetDefaults}
-          className="flex items-center gap-2 px-4 py-2 text-sm text-[var(--color-text-secondary)] hover:text-white transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
         >
           <RotateCcw size={16} />
           重置为默认设置

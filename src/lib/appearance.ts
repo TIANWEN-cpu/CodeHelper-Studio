@@ -14,7 +14,6 @@
 // ============================================================
 
 import { getSetting, setSetting } from '../services/settingsService'
-
 export type ThemeMode = 'dark' | 'light'
 export type VisualTheme = 'codex' | 'aurora' | 'nebula' | 'graphite'
 export type BackgroundStyle = 'soft' | 'aurora' | 'grid' | 'none'
@@ -49,6 +48,9 @@ export const DEFAULT_APPEARANCE: Appearance = {
   animationLevel: 'balanced',
   aiPetEnabled: true,
 }
+
+const APPEARANCE_ALIGNMENT_KEY = 'appearance_light_theme_alignment_v1'
+const APPEARANCE_ALIGNMENT_DONE = 'done'
 
 // ---- 颜色工具：按百分比提亮(正)/加深(负) ----
 function clamp255(n: number): number {
@@ -198,6 +200,16 @@ function parseAnimationLevel(value: string | null): AnimationLevel {
   return value === 'calm' || value === 'expressive' ? value : 'balanced'
 }
 
+function isLegacyLightThemeState(a: Appearance, marker: string | null): boolean {
+  return (
+    marker !== APPEARANCE_ALIGNMENT_DONE &&
+    a.theme === 'light' &&
+    a.visualTheme === 'nebula' &&
+    a.backgroundStyle === 'none' &&
+    a.animationLevel === 'expressive'
+  )
+}
+
 /** 从数据库读回已持久化的外观设置（失败回退默认值）。 */
 export async function loadAppearance(): Promise<Appearance> {
   try {
@@ -214,6 +226,7 @@ export async function loadAppearance(): Promise<Appearance> {
       backgroundStyle,
       animationLevel,
       aiPet,
+      alignmentMarker,
     ] = await Promise.all([
       getSetting('theme_mode'),
       getSetting('follow_system'),
@@ -227,9 +240,10 @@ export async function loadAppearance(): Promise<Appearance> {
       getSetting('background_style'),
       getSetting('animation_level'),
       getSetting('ai_pet_enabled'),
+      getSetting(APPEARANCE_ALIGNMENT_KEY),
     ])
     const parsedFont = font ? parseInt(font, 10) : NaN
-    return {
+    const appearance: Appearance = {
       theme: theme === 'light' ? 'light' : 'dark',
       followSystem: follow === 'true',
       themeColor: color || DEFAULT_APPEARANCE.themeColor,
@@ -243,6 +257,25 @@ export async function loadAppearance(): Promise<Appearance> {
       animationLevel: parseAnimationLevel(animationLevel),
       aiPetEnabled: aiPet == null ? DEFAULT_APPEARANCE.aiPetEnabled : aiPet === 'true',
     }
+    if (isLegacyLightThemeState(appearance, alignmentMarker)) {
+      const aligned: Appearance = {
+        ...appearance,
+        visualTheme: DEFAULT_APPEARANCE.visualTheme,
+        backgroundStyle: DEFAULT_APPEARANCE.backgroundStyle,
+        animationLevel: DEFAULT_APPEARANCE.animationLevel,
+      }
+      await Promise.all([
+        setSetting('visual_theme', aligned.visualTheme),
+        setSetting('background_style', aligned.backgroundStyle),
+        setSetting('animation_level', aligned.animationLevel),
+        setSetting(APPEARANCE_ALIGNMENT_KEY, APPEARANCE_ALIGNMENT_DONE),
+      ])
+      return aligned
+    }
+    if (alignmentMarker !== APPEARANCE_ALIGNMENT_DONE) {
+      await setSetting(APPEARANCE_ALIGNMENT_KEY, APPEARANCE_ALIGNMENT_DONE)
+    }
+    return appearance
   } catch {
     return { ...DEFAULT_APPEARANCE }
   }
