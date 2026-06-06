@@ -127,12 +127,14 @@ jobs:
         include:
           - os: windows-latest
             platform: win
+            optional: false
             artifact_glob: |
               dist-release/*.exe
               dist-release/*.yml
               dist-release/*.blockmap
           - os: macos-latest
             platform: mac
+            optional: false
             artifact_glob: |
               dist-release/*.dmg
               dist-release/*.zip
@@ -140,6 +142,7 @@ jobs:
               dist-release/*.blockmap
           - os: ubuntu-latest
             platform: linux
+            optional: true
             artifact_glob: |
               dist-release/*.AppImage
               dist-release/*.deb
@@ -147,6 +150,7 @@ jobs:
               dist-release/*.blockmap
 
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.optional }}
 
     steps:
       - uses: actions/checkout@v4
