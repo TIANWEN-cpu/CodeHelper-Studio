@@ -50,7 +50,7 @@ jobs:
     name: Commit Message Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -67,7 +67,7 @@ jobs:
     name: Change Size Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Label PR by size
         uses: codelytv/pr-size-labeler@v1
@@ -123,7 +123,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.action == 'opened' || github.event.action == 'synchronize'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
