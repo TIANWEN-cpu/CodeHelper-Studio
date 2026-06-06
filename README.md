@@ -81,7 +81,8 @@
 
 - Node.js 20 或更高版本
 - npm 10 或更高版本
-- Windows 10/11、macOS 或 Linux
+- Windows 10/11（官方安装包）
+- macOS / Linux 可从源码运行，暂不作为当前正式安装包目标
 
 代码运行器会调用本机语言环境。未安装 Python、GCC、Node.js 等运行时不会影响应用启动，只会影响对应语言的运行功能。
 
@@ -110,8 +111,8 @@ npm run package:win:dir
 | `npm run test:coverage`   | 运行覆盖率测试                     |
 | `npm run package:win:dir` | 构建 Windows unpacked 包并校验资源 |
 | `npm run build:win`       | 构建 Windows 安装包                |
-| `npm run build:mac`       | 构建 macOS 包                      |
-| `npm run build:linux`     | 构建 Linux 包                      |
+| `npm run build:mac`       | 本地尝试构建 macOS 包              |
+| `npm run build:linux`     | 本地尝试构建 Linux 包              |
 
 ## 项目结构
 
@@ -156,8 +157,8 @@ npm run package:win:dir
 Release 工作流由 `.github/workflows/release.yml` 驱动：
 
 - 标签 `v*` 推送后触发发布流程。
-- Windows 和 macOS 构建是发布阻塞项。
-- Linux 构建当前作为 best-effort 产物尝试，失败不会阻塞 Windows/macOS 正式发布。
+- 当前正式 Release 只发布 Windows 安装包和自动更新清单。
+- macOS / Linux 暂不上传官方安装包，避免把未充分验证的平台产物交给用户。
 - GitHub Release 由 workflow 的发布阶段统一创建，Electron Builder 打包阶段不会提前发布。
 
 本地发版前建议至少运行：

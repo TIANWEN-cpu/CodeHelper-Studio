@@ -116,7 +116,7 @@ jobs:
           npm test
 
   # ---------------------------------------------------------------
-  # 2. Multi-platform build
+  # 2. Windows desktop build
   # ---------------------------------------------------------------
   build:
     name: Build (${{ matrix.platform }})
@@ -127,30 +127,12 @@ jobs:
         include:
           - os: windows-latest
             platform: win
-            optional: false
             artifact_glob: |
               dist-release/*.exe
               dist-release/*.yml
               dist-release/*.blockmap
-          - os: macos-latest
-            platform: mac
-            optional: false
-            artifact_glob: |
-              dist-release/*.dmg
-              dist-release/*.zip
-              dist-release/*.yml
-              dist-release/*.blockmap
-          - os: ubuntu-latest
-            platform: linux
-            optional: true
-            artifact_glob: |
-              dist-release/*.AppImage
-              dist-release/*.deb
-              dist-release/*.yml
-              dist-release/*.blockmap
 
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.optional }}
 
     steps:
       - uses: actions/checkout@v4
@@ -163,12 +145,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Linux packaging tools
-        if: matrix.platform == 'linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libfuse2t64 fakeroot dpkg || sudo apt-get install -y libfuse2 fakeroot dpkg
-
       - name: Build renderer & main
         run: npm run build
 
@@ -176,7 +152,6 @@ jobs:
         run: npx electron-builder --${{ matrix.platform }} --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
-          APPIMAGE_EXTRACT_AND_RUN: 1
 
       - name: Verify packaged Windows resources
         if: matrix.platform == 'win'
@@ -219,6 +194,11 @@ jobs:
           ${{ needs.prepare.outputs.changelog }}
           NOTES_EOF
 
+      - name: Remove existing release for clean re-publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release delete "${{ needs.prepare.outputs.tag }}" --yes || true
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -230,10 +210,6 @@ jobs:
           generate_release_notes: ${{ needs.prepare.outputs.changelog == '' }}
           files: |
             artifacts/**/*.exe
-            artifacts/**/*.dmg
-            artifacts/**/*.zip
-            artifacts/**/*.AppImage
-            artifacts/**/*.deb
             artifacts/**/*.yml
             artifacts/**/*.blockmap
         env:
@@ -269,7 +245,7 @@ jobs:
           echo "Release assets:"
           echo "$ASSETS"
 
-          for MANIFEST in latest.yml latest-mac.yml latest-linux.yml; do
+          for MANIFEST in latest.yml; do
             if echo "$ASSETS" | grep -q "$MANIFEST"; then
               echo "OK: $MANIFEST found (auto-update feed will work)"
             fi
@@ -279,6 +255,6 @@ jobs:
         run: |
           echo "## Release ${{ needs.prepare.outputs.tag }} Complete" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "All platforms built and published successfully." >> "$GITHUB_STEP_SUMMARY"
+          echo "Windows desktop package built and published successfully." >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Auto-update manifests are included for Electron Updater." >> "$GITHUB_STEP_SUMMARY"
+          echo "The Windows auto-update manifest is included for Electron Updater." >> "$GITHUB_STEP_SUMMARY"
