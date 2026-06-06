@@ -1,6 +1,13 @@
-# CodeHelper Studio
+<p align="center">
+  <img src="resources/icons/icon.png" alt="CodeHelper Studio Logo" width="120">
+</p>
 
-> AI 驱动的一体化桌面编程学习平台：代码编辑、AI 辅导、刷题训练、课程练习、知识库检索、错题复盘和学习记录集中在一个窗口里。
+<h1 align="center">CodeHelper Studio</h1>
+
+<p align="center">
+  AI 驱动的一体化桌面编程学习平台。<br>
+  代码编辑、AI 辅导、刷题训练、课程练习、知识库检索、错题复盘和学习记录集中在一个窗口里。
+</p>
 
 <p align="center">
   <a href="https://github.com/TIANWEN-cpu/CodeHelper-Studio/actions/workflows/ci.yml"><img src="https://github.com/TIANWEN-cpu/CodeHelper-Studio/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
@@ -11,6 +18,15 @@
   <img src="https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
 </p>
 
+<p align="center">
+  <a href="#当前版本">当前版本</a> &bull;
+  <a href="#截图预览">截图预览</a> &bull;
+  <a href="#核心能力">核心能力</a> &bull;
+  <a href="#快速开始">快速开始</a> &bull;
+  <a href="#打包与发布">打包与发布</a> &bull;
+  <a href="https://github.com/TIANWEN-cpu/CodeHelper-Studio/releases/latest">下载最新版</a>
+</p>
+
 ## 当前版本
 
 **v2.2.1 - 2026-06-06**
@@ -18,6 +34,37 @@
 这一版聚焦真实桌面使用体验：浅色主题重新打磨，账户设置支持自定义头像和昵称，学习记录支持一键清空，AI 桌宠和主题套装命名进一步整理，并补齐资源包导入链路与回归测试。
 
 发布页：[CodeHelper Studio Releases](https://github.com/TIANWEN-cpu/CodeHelper-Studio/releases)
+
+## 截图预览
+
+<p align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <img src="docs/assets/readme/home-dashboard.png" alt="首页学习工作台" width="420"><br>
+        <b>首页学习工作台</b><br>
+        <sub>学习计划、课程入口、复盘节奏和桌宠陪伴集中展示。</sub>
+      </td>
+      <td align="center">
+        <img src="docs/assets/readme/workspace.png" alt="编程工作区" width="420"><br>
+        <b>编程工作区</b><br>
+        <sub>代码编辑、资源管理、运行输出和运行配置在同一工作台完成。</sub>
+      </td>
+    </tr>
+    <tr>
+      <td align="center">
+        <img src="docs/assets/readme/ai-assistant.png" alt="AI 助手" width="420"><br>
+        <b>AI 助手</b><br>
+        <sub>带入当前题目、代码和记忆上下文，支持 Tutor / Agent / 对话模式。</sub>
+      </td>
+      <td align="center">
+        <img src="docs/assets/readme/settings-account.png" alt="设置与账户" width="420"><br>
+        <b>设置与账户</b><br>
+        <sub>自定义昵称与头像，学习记录可清空且保留题库、知识库和 AI 配置。</sub>
+      </td>
+    </tr>
+  </table>
+</p>
 
 ## 适合谁用
 
