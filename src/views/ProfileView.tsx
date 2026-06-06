@@ -74,24 +74,21 @@ function StatTile({
   )
 }
 
-function renderProfileAvatar(avatar: string, name: string, sizeClass = 'w-24 h-24') {
-  const trimmedAvatar = avatar.trim()
+function ProfileAvatarFallback({
+  value,
+  name,
+  sizeClass,
+}: {
+  value: string
+  name: string
+  sizeClass: string
+}) {
   const label = name.trim().slice(0, 1).toUpperCase() || '同'
 
-  if (/^(data:image\/|https?:\/\/|blob:)/i.test(trimmedAvatar)) {
-    return (
-      <img
-        src={trimmedAvatar}
-        alt={`${name || '同学'}的头像`}
-        className={cn(sizeClass, 'rounded-full object-cover')}
-      />
-    )
-  }
-
-  if (trimmedAvatar) {
+  if (value) {
     return (
       <span className={cn(sizeClass, 'flex items-center justify-center rounded-full text-4xl')}>
-        {trimmedAvatar.slice(0, 2)}
+        {value.slice(0, 2)}
       </span>
     )
   }
@@ -106,6 +103,42 @@ function renderProfileAvatar(avatar: string, name: string, sizeClass = 'w-24 h-2
       {label}
     </span>
   )
+}
+
+function ProfileAvatar({
+  avatar,
+  name,
+  sizeClass = 'w-24 h-24',
+}: {
+  avatar: string
+  name: string
+  sizeClass?: string
+}) {
+  const trimmedAvatar = avatar.trim()
+  const [imageFailed, setImageFailed] = useState(false)
+
+  useEffect(() => {
+    setImageFailed(false)
+  }, [trimmedAvatar])
+
+  if (/^(data:image\/|https?:\/\/|blob:)/i.test(trimmedAvatar) && !imageFailed) {
+    return (
+      <img
+        src={trimmedAvatar}
+        alt={`${name || '同学'}的头像`}
+        className={cn(sizeClass, 'rounded-full object-cover')}
+        onError={() => setImageFailed(true)}
+      />
+    )
+  }
+
+  return (
+    <ProfileAvatarFallback value={imageFailed ? '' : trimmedAvatar} name={name} sizeClass={sizeClass} />
+  )
+}
+
+function renderProfileAvatar(avatar: string, name: string, sizeClass = 'w-24 h-24') {
+  return <ProfileAvatar avatar={avatar} name={name} sizeClass={sizeClass} />
 }
 
 export function ProfileView() {

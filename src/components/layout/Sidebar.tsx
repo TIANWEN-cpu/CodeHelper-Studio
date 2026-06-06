@@ -110,7 +110,7 @@ export function Sidebar() {
     <motion.div
       initial={false}
       animate={{ width: collapsed ? 72 : 240 }}
-      className="flex-shrink-0 flex flex-col bg-[var(--color-bg-panel)] border-r border-[var(--color-border-subtle)] overflow-hidden h-full z-20"
+      className="app-sidebar flex-shrink-0 flex flex-col bg-[var(--color-bg-panel)] border-r border-[var(--color-border-subtle)] overflow-hidden h-full z-20"
     >
       {/* Logo Area */}
       <div

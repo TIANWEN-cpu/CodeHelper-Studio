@@ -294,6 +294,18 @@ describe('registerDatabaseIPC', () => {
       handlers['db-set-setting'](null, 'ui-theme', 'fjord')
       expect(mockRun).toHaveBeenCalledWith('ui-theme', 'fjord')
     })
+
+    it('keeps large avatar data urls intact', async () => {
+      const mockRun = vi.fn()
+      const largeAvatar = `data:image/webp;base64,${'a'.repeat(50000)}`
+      mockDB.prepare.mockReturnValue({ run: mockRun, get: vi.fn(), all: vi.fn() })
+      const { registerDatabaseIPC } = await import('../electron/ipc/database')
+      registerDatabaseIPC()
+
+      handlers['db-set-setting'](null, 'user_avatar', largeAvatar)
+
+      expect(mockRun).toHaveBeenCalledWith('user_avatar', largeAvatar)
+    })
   })
 
   describe('db-get-ai-configs', () => {

@@ -504,7 +504,7 @@ export function HomeView() {
 
   if (loading) {
     return (
-      <div className="h-full flex flex-col bg-[var(--color-bg-base)] overflow-y-auto">
+      <div className="home-view h-full flex flex-col bg-[var(--color-bg-base)] overflow-y-auto">
         <div className="max-w-[1200px] w-full mx-auto p-6 lg:p-8 space-y-6">
           <div className="flex items-center justify-center py-20">
             <Loader2 size={32} className="animate-spin text-[var(--color-accent-primary)]" />
@@ -516,7 +516,7 @@ export function HomeView() {
 
   if (error) {
     return (
-      <div className="h-full flex flex-col bg-[var(--color-bg-base)] overflow-y-auto">
+      <div className="home-view h-full flex flex-col bg-[var(--color-bg-base)] overflow-y-auto">
         <div className="max-w-[1200px] w-full mx-auto p-6 lg:p-8 space-y-6">
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <div className="w-16 h-16 rounded-full bg-[#EF4444]/10 flex items-center justify-center">
@@ -530,7 +530,7 @@ export function HomeView() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-[var(--color-bg-base)] overflow-y-auto">
+    <div className="home-view h-full flex flex-col bg-[var(--color-bg-base)] overflow-y-auto">
       <motion.div
         {...pageMotion}
         className="max-w-[1320px] w-full mx-auto p-5 md:p-6 lg:p-8 space-y-6"

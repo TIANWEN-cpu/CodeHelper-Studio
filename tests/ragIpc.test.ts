@@ -214,7 +214,7 @@ describe('registerRAGIPC', () => {
       registerRAGIPC()
       await flushMicrotasks() // allow deferred DB init to complete
 
-      const result = handlers['knowledge-list']()
+      const result = await handlers['knowledge-list']()
       expect(result).toEqual(docs)
     })
   })

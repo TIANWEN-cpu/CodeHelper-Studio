@@ -95,6 +95,8 @@ extraResources:
     to: problems
   - from: resources/demo
     to: demo
+  - from: resources/resource-catalogs
+    to: resource-catalogs
   - from: content
     to: content
   - from: electron/db/schema.sql

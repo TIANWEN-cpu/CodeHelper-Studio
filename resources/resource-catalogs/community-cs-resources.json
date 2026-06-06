@@ -1,0 +1,91 @@
+{
+  "id": "community-cs-resources",
+  "title": "Community CS Learning Resources",
+  "description": "External resource-pack catalog for optional local import. The CodeHelper repository does not bundle third-party learning content from these packs.",
+  "generated_at": "2026-06-06T10:13:42Z",
+  "external_pack_root_hint": "D:\\coderhelperresource\\import-batches",
+  "recommended_import_order": [
+    "01-core-cs-foundation",
+    "02-ai-deep-learning",
+    "03-interview-career",
+    "04-cs408-and-courses",
+    "00-problem-seeds",
+    "05-roadmap-and-bug-manual",
+    "07-language-specific",
+    "06-book-resource-indexes"
+  ],
+  "batches": [
+    {
+      "id": "01-core-cs-foundation",
+      "title": "Core CS Foundation",
+      "knowledge_docs": 570,
+      "sources": ["CyC2018/CS-Notes", "xiaolincoder/CS-Base", "PKUFlyingPig/cs-self-learning"]
+    },
+    {
+      "id": "02-ai-deep-learning",
+      "title": "AI and Deep Learning",
+      "knowledge_docs": 129,
+      "sources": [
+        "scutan90/DeepLearning-500-questions",
+        "amusi/Deep-Learning-Interview-Book",
+        "amusi/daily-paper-computer-vision",
+        "tangyudi/Ai-Learn"
+      ]
+    },
+    {
+      "id": "03-interview-career",
+      "title": "Interview and Career",
+      "knowledge_docs": 179,
+      "sources": ["wolverinn/Waking-Up", "forthespada/InterviewGuide"]
+    },
+    {
+      "id": "04-cs408-and-courses",
+      "title": "CS408 and Courses",
+      "knowledge_docs": 311,
+      "sources": [
+        "CodePanda66/CSPostgraduate-408",
+        "SSHeRun/CS-Xmind-Note",
+        "csseky/cskaoyan",
+        "ddy-ddy/cs-408",
+        "1c7/Crash-Course-Computer-Science-Chinese",
+        "DeathKing/Learning-SICP",
+        "PKUanonym/REKCARC-TSC-UHT"
+      ]
+    },
+    {
+      "id": "00-problem-seeds",
+      "title": "Problem Seeds",
+      "problem_files": 5,
+      "problems": 5,
+      "sources": ["D:\\coderhelperresource\\import-ready\\problems"]
+    },
+    {
+      "id": "05-roadmap-and-bug-manual",
+      "title": "Roadmap and Bug Manual",
+      "knowledge_docs": 999,
+      "sources": ["liyupi/codefather"]
+    },
+    {
+      "id": "07-language-specific",
+      "title": "Language Specific",
+      "knowledge_docs": 4,
+      "sources": ["xiaobaiTech/golangFamily", "singgel/JAVA"]
+    },
+    {
+      "id": "06-book-resource-indexes",
+      "title": "Book and Resource Indexes",
+      "knowledge_docs": 27,
+      "sources": [
+        "justjavac/free-programming-books-zh_CN",
+        "forthespada/CS-Books",
+        "imarvinle/awesome-cs-books",
+        "jobbole/awesome-programming-books",
+        "kska32/ebooks",
+        "doocs/technical-books",
+        "iamshuaidi/CS-Book",
+        "0voice/expert_readed_books"
+      ]
+    }
+  ],
+  "license_note": "Third-party documents are imported only from external resource packs and keep upstream source metadata. Check each upstream repository license before redistribution."
+}

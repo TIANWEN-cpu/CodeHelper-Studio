@@ -4,12 +4,15 @@ import {
   applyAIPetEnabled,
   applyAnimationLevel,
   applyBackgroundStyle,
+  applyGlassBlur,
+  applyGlassStyle,
   applyTheme,
   applyVisualTheme,
   persistAppearance,
   type AnimationLevel,
   type Appearance,
   type BackgroundStyle,
+  type GlassStyle,
   type ThemeMode,
   type VisualTheme,
 } from './lib/appearance'
@@ -24,7 +27,7 @@ export type WeekStart = 'mon' | 'sun'
  * AI 面板据此把代码与题面组装进提问，使对话真正结合上下文而非孤立聊天。
  */
 export interface AIContextSnapshot {
-  kind: 'problem' | 'exercise' | 'mistake' | 'lesson'
+  kind: 'problem' | 'exercise' | 'mistake' | 'lesson' | 'knowledge'
   title: string
   language?: string
   code?: string
@@ -81,6 +84,8 @@ interface AppState {
   visualTheme: VisualTheme
   backgroundStyle: BackgroundStyle
   animationLevel: AnimationLevel
+  glassStyle: GlassStyle
+  glassBlur: number
   aiPetEnabled: boolean
   setCurrentView: (view: ViewType) => void
   toggleAITutor: () => void
@@ -111,13 +116,15 @@ interface AppState {
   setVisualTheme: (theme: VisualTheme) => void
   setBackgroundStyle: (style: BackgroundStyle) => void
   setAnimationLevel: (level: AnimationLevel) => void
+  setGlassStyle: (style: GlassStyle) => void
+  setGlassBlur: (value: number) => void
   setAIPetEnabled: (enabled: boolean) => void
   /** 启动时把已解析的主题同步进 store，不重复持久化。 */
   hydrateTheme: (theme: ThemeMode) => void
   hydrateAppearanceControls: (
     appearance: Pick<
       Appearance,
-      'visualTheme' | 'backgroundStyle' | 'animationLevel' | 'aiPetEnabled'
+      'visualTheme' | 'backgroundStyle' | 'animationLevel' | 'glassStyle' | 'glassBlur' | 'aiPetEnabled'
     >,
   ) => void
   /** 启动时从数据库读回 UI 偏好（AI 面板/侧边栏/底部面板/标签换行/区域/周起始）。 */
@@ -140,6 +147,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   visualTheme: 'codex',
   backgroundStyle: 'soft',
   animationLevel: 'balanced',
+  glassStyle: 'layered',
+  glassBlur: 18,
   aiPetEnabled: true,
   setCurrentView: (view) => set({ currentView: view }),
   toggleAITutor: () => set((state) => ({ showAITutor: !state.showAITutor })),
@@ -203,6 +212,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     applyAnimationLevel(level)
     persistAppearance('animation_level', level)
     set({ animationLevel: level })
+  },
+  setGlassStyle: (style) => {
+    applyGlassStyle(style)
+    persistAppearance('glass_style', style)
+    set({ glassStyle: style })
+  },
+  setGlassBlur: (value) => {
+    const blur = Math.min(32, Math.max(6, Math.round(value)))
+    applyGlassBlur(blur)
+    persistAppearance('glass_blur', String(blur))
+    set({ glassBlur: blur })
   },
   setAIPetEnabled: (enabled) => {
     applyAIPetEnabled(enabled)

@@ -65,6 +65,7 @@ const KIND_LABELS: Record<AIContextSnapshot['kind'], string> = {
   exercise: '练习',
   mistake: '错题',
   lesson: '课程',
+  knowledge: '知识文档',
 }
 
 const ASSISTANT_VIEWS: Array<{

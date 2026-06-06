@@ -94,7 +94,7 @@ export function registerProblemsIPC(): void {
           query += ' AND p.mode = ?'
           params.push(filters.mode)
         }
-        query += ' ORDER BY p.id ASC LIMIT 500'
+        query += ' ORDER BY p.id ASC LIMIT 3000'
         return getDB()
           .prepare(query)
           .all(...params)

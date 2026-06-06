@@ -310,6 +310,7 @@ const KIND_LABELS: Record<AIContextSnapshot['kind'], string> = {
   exercise: '练习',
   mistake: '错题',
   lesson: '课程',
+  knowledge: '知识文档',
 }
 
 function AssistantMarkdown({ content }: { content: string }) {
@@ -561,7 +562,7 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 32 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
-      className="relative z-20 flex h-full flex-shrink-0 overflow-visible"
+      className="relative z-[140] flex h-full flex-shrink-0 overflow-visible"
       style={{
         width: `min(${aiPanelWidth || AI_PANEL_DEFAULT_WIDTH}px, calc(100vw - 4.5rem))`,
         maxWidth: `min(${AI_PANEL_MAX_WIDTH}px, calc(100vw - 4.5rem))`,

@@ -300,7 +300,7 @@ export function AIPet() {
     )
   }
 
-  if (!aiPetEnabled) return null
+  if (!aiPetEnabled || currentView === 'settings') return null
 
   return (
     <div

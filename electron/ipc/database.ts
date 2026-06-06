@@ -28,6 +28,9 @@ function decryptApiKey(value: string): string {
 }
 
 type AIConfigPublic = Omit<AIConfigDecrypted, 'api_key'> & { api_key: string; has_api_key: boolean }
+const SETTINGS_VALUE_LIMIT = 10000
+const SETTINGS_LARGE_VALUE_LIMIT = 120000
+const LARGE_SETTING_KEYS = new Set(['user_avatar'])
 
 function decryptConfigRow(row: AIConfigRow | undefined | null): AIConfigDecrypted | null {
   if (!row) return null
@@ -79,7 +82,10 @@ export function registerDatabaseIPC(): void {
     if (typeof key !== 'string' || !key.trim()) throw new Error('参数无效: key')
     if (typeof value !== 'string') throw new Error('参数无效: value')
     key = key.trim().slice(0, 256)
-    value = value.slice(0, 10000)
+    value = value.slice(
+      0,
+      LARGE_SETTING_KEYS.has(key) ? SETTINGS_LARGE_VALUE_LIMIT : SETTINGS_VALUE_LIMIT,
+    )
     getDB().prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value)
   })
 

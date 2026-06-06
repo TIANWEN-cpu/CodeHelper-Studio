@@ -31,6 +31,7 @@ export interface LearningRecordsClearResult {
 
 export const PROFILE_NAME_KEY = 'user_name'
 export const PROFILE_AVATAR_KEY = 'user_avatar'
+export const PROFILE_AVATAR_MAX_LENGTH = 120000
 
 export type ExportCategory =
   | 'problems'
@@ -89,7 +90,7 @@ export async function getUserProfile(): Promise<UserProfileSettings> {
 
 export async function saveUserProfile(profile: UserProfileSettings): Promise<void> {
   const trimmedName = profile.name.trim().slice(0, 40)
-  const trimmedAvatar = profile.avatar.trim().slice(0, 10000)
+  const trimmedAvatar = profile.avatar.trim().slice(0, PROFILE_AVATAR_MAX_LENGTH)
   await Promise.all([
     setSetting(PROFILE_NAME_KEY, trimmedName),
     setSetting(PROFILE_AVATAR_KEY, trimmedAvatar),

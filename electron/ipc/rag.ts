@@ -8,6 +8,26 @@ import type { KnowledgeChunkRow } from '../types/db'
 import type Database from 'better-sqlite3'
 
 type ScoredKnowledgeChunk = KnowledgeChunkRow & { score: number }
+type KnowledgeDocListRow = {
+  id: number
+  filename: string
+  file_type: string | null
+  chunk_count: number
+  created_at: string
+  content_preview?: string | null
+}
+type KnowledgeDocDetailRow = KnowledgeDocListRow & {
+  content: string | null
+}
+type KnowledgeDocMetadata = {
+  display_title?: string
+  source_repo?: string
+  source_url?: string
+  source_path?: string
+  category?: string
+  category_dir?: string
+  tags?: string[]
+}
 
 // ---------------------------------------------------------------------------
 // Deferred DB wrapper — prevents blocking startup with synchronous DB init.
@@ -88,6 +108,55 @@ ensureKnowledgeDBInit()
 function validateKnowledgeQuery(query: string): string {
   if (typeof query !== 'string' || !query.trim()) throw new Error('参数无效: query')
   return query.trim().slice(0, 1000)
+}
+
+function extractYamlScalar(frontMatter: string, key: string): string | undefined {
+  const match = frontMatter.match(new RegExp(`^${key}:\\s*"?([^"\\r\\n]+)"?\\s*$`, 'm'))
+  return match?.[1]?.trim()
+}
+
+function extractYamlTags(frontMatter: string): string[] {
+  const tagsBlock = frontMatter.match(/^tags:\s*\r?\n((?:\s+-\s*.*\r?\n?)+)/m)?.[1]
+  if (!tagsBlock) return []
+  return tagsBlock
+    .split(/\r?\n/)
+    .map((line) => line.match(/^\s+-\s*"?([^"]+)"?\s*$/)?.[1]?.trim())
+    .filter((tag): tag is string => Boolean(tag))
+}
+
+function titleFromFilename(filename: string): string {
+  return filename
+    .replace(/\.md$/i, '')
+    .replace(/\.md$/i, '')
+    .split('__')
+    .slice(-1)[0]
+    .replace(/^[a-f0-9]{8,}_?/i, '')
+    .replace(/[-_]+/g, ' ')
+    .trim()
+}
+
+function enrichKnowledgeDoc<T extends KnowledgeDocListRow | KnowledgeDocDetailRow>(
+  row: T,
+): T & KnowledgeDocMetadata {
+  const preview = 'content' in row ? row.content : row.content_preview
+  if (typeof preview !== 'string') return row
+
+  const frontMatter = preview.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? ''
+  const displayTitle = extractYamlScalar(frontMatter, 'title') ?? titleFromFilename(row.filename)
+  const metadata: KnowledgeDocMetadata = {
+    display_title: displayTitle,
+    source_repo: extractYamlScalar(frontMatter, 'source_repo'),
+    source_url: extractYamlScalar(frontMatter, 'source_url'),
+    source_path: extractYamlScalar(frontMatter, 'source_path'),
+    category: extractYamlScalar(frontMatter, 'category'),
+    category_dir: extractYamlScalar(frontMatter, 'category_dir'),
+  }
+  const tags = extractYamlTags(frontMatter)
+  if (tags.length > 0) metadata.tags = tags
+
+  return Object.fromEntries(
+    Object.entries({ ...row, ...metadata }).filter(([, value]) => value !== undefined),
+  ) as unknown as T & KnowledgeDocMetadata
 }
 
 function keywordSearch(query: string, limit = 5): ScoredKnowledgeChunk[] {
@@ -235,15 +304,34 @@ export function registerRAGIPC(): void {
     }),
   )
 
-  ipcMain.handle('knowledge-list', () => {
-    const db = getReadyDB()
-    if (!db) return [] // DB not ready yet — return empty list gracefully.
+  ipcMain.handle('knowledge-list', async () => {
+    const db = await getDBWithTimeout()
     return db
       .prepare(
-        'SELECT id, filename, file_type, chunk_count, created_at FROM knowledge_docs ORDER BY created_at DESC',
+        `SELECT id, filename, file_type, chunk_count, created_at, substr(content, 1, 1800) AS content_preview
+         FROM knowledge_docs
+         ORDER BY created_at DESC, id DESC`,
       )
       .all()
+      .map((row) => enrichKnowledgeDoc(row as KnowledgeDocListRow))
   })
+
+  ipcMain.handle(
+    'knowledge-get',
+    trackPerformance('knowledge-get', (_e, id: number) => {
+      if (typeof id !== 'number' || !Number.isFinite(id) || id < 1) throw new Error('参数无效: id')
+      const db = getReadyDB()
+      if (!db) return null
+      const row = db
+        .prepare(
+          `SELECT id, filename, file_type, content, chunk_count, created_at
+           FROM knowledge_docs
+           WHERE id = ?`,
+        )
+        .get(id) as KnowledgeDocDetailRow | undefined
+      return row ? enrichKnowledgeDoc(row) : null
+    }),
+  )
 
   ipcMain.handle(
     'knowledge-delete',
