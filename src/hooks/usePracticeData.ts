@@ -150,6 +150,8 @@ export function usePracticeData(): UsePracticeDataReturn {
       try {
         const [exercise, draft] = await Promise.all([getExercise(id), getDraft(id)])
         activeExerciseId.current = id
+        const preferredLanguage = exercise.languages?.[0]
+        if (preferredLanguage) safeUpdate(setLanguage, preferredLanguage)
         const initialCode = draft ?? exercise.starter_code ?? ''
         latestCode.current = initialCode
         safeUpdate(setCurrentExercise, exercise)

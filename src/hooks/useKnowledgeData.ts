@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   KnowledgeDoc,
+  KnowledgeDocDetail,
   ResourcePackImportResult,
   SearchResult,
+  getDocument,
   getDocuments,
   importResourcePack,
   searchDocuments,
@@ -12,6 +14,8 @@ import {
 
 export interface UseKnowledgeDataReturn {
   documents: KnowledgeDoc[]
+  selectedDocument: KnowledgeDocDetail | null
+  loadingDocument: boolean
   searchResults: SearchResult[]
   loading: boolean
   uploading: boolean
@@ -19,6 +23,7 @@ export interface UseKnowledgeDataReturn {
   error: string | null
   lastResourcePackImport: ResourcePackImportResult | null
   loadDocuments: () => Promise<void>
+  loadDocument: (id: number) => Promise<KnowledgeDocDetail | null>
   search: (query: string) => Promise<void>
   upload: () => Promise<void>
   importPack: (rootPath?: string) => Promise<ResourcePackImportResult | null>
@@ -27,6 +32,8 @@ export interface UseKnowledgeDataReturn {
 
 export function useKnowledgeData(): UseKnowledgeDataReturn {
   const [documents, setDocuments] = useState<KnowledgeDoc[]>([])
+  const [selectedDocument, setSelectedDocument] = useState<KnowledgeDocDetail | null>(null)
+  const [loadingDocument, setLoadingDocument] = useState(false)
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -34,6 +41,7 @@ export function useKnowledgeData(): UseKnowledgeDataReturn {
   const [lastResourcePackImport, setLastResourcePackImport] =
     useState<ResourcePackImportResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const detailRequestId = useRef(0)
 
   const loadDocuments = useCallback(async () => {
     setLoading(true)
@@ -62,6 +70,25 @@ export function useKnowledgeData(): UseKnowledgeDataReturn {
       setError(err instanceof Error ? err.message : '搜索失败')
     } finally {
       setLoading(false)
+    }
+  }, [])
+
+  const loadDocument = useCallback(async (id: number) => {
+    const requestId = detailRequestId.current + 1
+    detailRequestId.current = requestId
+    setLoadingDocument(true)
+    setError(null)
+    try {
+      const doc = await getDocument(id)
+      if (detailRequestId.current === requestId) setSelectedDocument(doc)
+      return doc
+    } catch (err) {
+      if (detailRequestId.current === requestId) {
+        setError(err instanceof Error ? err.message : '加载文档详情失败')
+      }
+      return null
+    } finally {
+      if (detailRequestId.current === requestId) setLoadingDocument(false)
     }
   }, [])
 
@@ -103,6 +130,7 @@ export function useKnowledgeData(): UseKnowledgeDataReturn {
       setError(null)
       try {
         await deleteDocument(id)
+        setSelectedDocument((current) => (current?.id === id ? null : current))
         await loadDocuments()
       } catch (err) {
         setError(err instanceof Error ? err.message : '删除失败')
@@ -119,6 +147,8 @@ export function useKnowledgeData(): UseKnowledgeDataReturn {
 
   return {
     documents,
+    selectedDocument,
+    loadingDocument,
     searchResults,
     loading,
     uploading,
@@ -126,6 +156,7 @@ export function useKnowledgeData(): UseKnowledgeDataReturn {
     error,
     lastResourcePackImport,
     loadDocuments,
+    loadDocument,
     search,
     upload,
     importPack,

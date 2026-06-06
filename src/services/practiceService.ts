@@ -18,6 +18,12 @@ export interface Exercise {
   starter_code?: string
   hints?: string[]
   tests?: string[]
+  source_type?: 'exercise' | 'problem'
+  source?: string
+  languages?: string[]
+  platform?: string
+  mode?: string
+  problem_id?: number
 }
 
 export interface SubmitResult {
@@ -54,9 +60,9 @@ export async function getExercise(id: string): Promise<Exercise> {
 export async function submitCode(
   exerciseId: string,
   code: string,
-  _language: string,
+  language: string,
 ): Promise<SubmitResult> {
-  const result = await invoke<SubmitResult>('exercises-evaluate', { exerciseId, code })
+  const result = await invoke<SubmitResult>('exercises-evaluate', { exerciseId, code, language })
   if (result?.passed) {
     // 练习通过算作"解答通过一道题"。
     track('problem_solved', { exerciseId })

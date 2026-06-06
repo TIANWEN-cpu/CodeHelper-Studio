@@ -6,6 +6,18 @@ export interface KnowledgeDoc {
   file_type: string
   chunk_count: number
   created_at: string
+  content_preview?: string
+  display_title?: string
+  source_repo?: string
+  source_url?: string
+  source_path?: string
+  category?: string
+  category_dir?: string
+  tags?: string[]
+}
+
+export interface KnowledgeDocDetail extends KnowledgeDoc {
+  content: string
 }
 
 export interface SearchResult {
@@ -41,6 +53,10 @@ export interface ResourcePackImportResult {
 
 export async function getDocuments(): Promise<KnowledgeDoc[]> {
   return invoke<KnowledgeDoc[]>('knowledge-list')
+}
+
+export async function getDocument(docId: number): Promise<KnowledgeDocDetail | null> {
+  return invoke<KnowledgeDocDetail | null>('knowledge-get', docId)
 }
 
 export async function searchDocuments(query: string): Promise<SearchResult[]> {

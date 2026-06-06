@@ -25,6 +25,7 @@ const requiredPaths = [
   path.join('demo', 'sample-knowledge', 'algorithm-patterns.md'),
   path.join('demo', 'sample-solutions', 'two-sum.py'),
   path.join('problems', 'leetcode.json'),
+  path.join('resource-catalogs', 'community-cs-resources.json'),
   path.join('db', 'schema.sql'),
 ]
 
@@ -41,6 +42,7 @@ const countedDirs = [
   path.join('demo', 'sample-knowledge'),
   path.join('demo', 'sample-solutions'),
   'problems',
+  'resource-catalogs',
   'db',
 ]
 

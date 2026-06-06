@@ -62,6 +62,40 @@ const messages: Record<
   'browser-session-1': [],
 }
 const settingsStore: Record<string, string> = {}
+const mockKnowledgeDocs = [
+  {
+    id: 1,
+    filename: 'PKUFlyingPig__cs-self-learning__15445.en__c0ddc5a9ab.md',
+    file_type: 'md',
+    chunk_count: 12,
+    created_at: new Date().toISOString(),
+    content_preview:
+      '---\ntitle: "CMU 15-445: Database Systems"\nsource_repo: "PKUFlyingPig/cs-self-learning"\ncategory: "计算机基础"\ncategory_dir: "01-cs-foundation"\ntags:\n  - "knowledge"\n  - "database"\n---\n# CMU 15-445: Database Systems\n\n数据库系统课程资料示例。',
+    display_title: 'CMU 15-445: Database Systems',
+    source_repo: 'PKUFlyingPig/cs-self-learning',
+    source_url: 'https://github.com/PKUFlyingPig/cs-self-learning',
+    source_path: 'docs/数据库系统/15445.en.md',
+    category: '计算机基础',
+    category_dir: '01-cs-foundation',
+    tags: ['knowledge', 'database'],
+  },
+  {
+    id: 2,
+    filename: 'CyC2018__CS-Notes__10.1__1ad438f87c.md',
+    file_type: 'md',
+    chunk_count: 8,
+    created_at: new Date().toISOString(),
+    content_preview:
+      '---\ntitle: "10.1 斐波那契数列"\nsource_repo: "CyC2018/CS-Notes"\ncategory: "算法与数据结构"\ncategory_dir: "01-cs-foundation"\ntags:\n  - "knowledge"\n  - "algorithm"\n---\n# 10.1 斐波那契数列\n\n动态规划与递归优化示例。',
+    display_title: '10.1 斐波那契数列',
+    source_repo: 'CyC2018/CS-Notes',
+    source_url: 'https://github.com/CyC2018/CS-Notes',
+    source_path: 'notes/10.1 斐波那契数列.md',
+    category: '算法与数据结构',
+    category_dir: '01-cs-foundation',
+    tags: ['knowledge', 'algorithm'],
+  },
+]
 
 function cloneSession(session: (typeof sessions)[number]) {
   return { ...session }
@@ -206,12 +240,48 @@ async function invoke(channel: string, ...args: unknown[]) {
       return []
     case 'review-due':
     case 'chat-presets-list':
+      return []
+    case 'knowledge-get':
+      return mockKnowledgeDocs.find((doc) => doc.id === Number(args[0])) ?? null
     case 'knowledge-list':
+      return mockKnowledgeDocs
     case 'knowledge-search':
+      return [
+        {
+          doc_id: 1,
+          filename: mockKnowledgeDocs[0].filename,
+          content: 'Database Systems 课程资料示例片段。',
+          score: 1,
+          chunk_index: 0,
+        },
+      ]
     case 'knowledge-semantic-search':
     case 'mistakes-list':
     case 'problems-list':
       return []
+    case 'resource-pack-import':
+      return {
+        rootPath: (args[0] as { rootPath?: string } | undefined)?.rootPath ?? '',
+        manifest: {
+          generated_at: new Date().toISOString(),
+          source_root: 'browser-preview',
+          output_root: 'browser-preview',
+        },
+        knowledge: {
+          found: 0,
+          imported: 0,
+          skipped: 0,
+          chunks: 0,
+        },
+        problems: {
+          files: 0,
+          found: 0,
+          imported: 0,
+          updated: 0,
+          skipped: 0,
+        },
+        errors: ['浏览器预览模式不会访问本地文件夹；请在 Electron 应用中导入资源包。'],
+      }
     case 'lessons-list':
       return courseMap.tracks
     case 'lessons-get': {

@@ -45,6 +45,44 @@ body {
     color 0.2s ease;
 }
 
+:root {
+  --glass-blur: 18px;
+  --glass-blur-soft: 10px;
+  --glass-blur-strong: 24px;
+  --glass-saturation: 1.28;
+  --glass-panel-mix: 72%;
+  --glass-card-mix: 68%;
+  --glass-base-mix: 54%;
+  --glass-highlight-alpha: 0.1;
+  --glass-shadow: 0 20px 64px rgba(0, 0, 0, 0.22);
+}
+
+:root[data-glass-style='frosted'] {
+  --glass-saturation: 1.12;
+  --glass-panel-mix: 82%;
+  --glass-card-mix: 78%;
+  --glass-base-mix: 66%;
+  --glass-highlight-alpha: 0.055;
+  --glass-shadow: 0 16px 44px rgba(0, 0, 0, 0.18);
+}
+
+:root[data-glass-style='layered'] {
+  --glass-saturation: 1.35;
+  --glass-panel-mix: 68%;
+  --glass-card-mix: 62%;
+  --glass-base-mix: 48%;
+  --glass-highlight-alpha: 0.12;
+  --glass-shadow: 0 24px 72px rgba(0, 0, 0, 0.26);
+}
+
+:root[data-theme='light'] {
+  --glass-shadow: 0 20px 56px rgba(24, 32, 48, 0.12);
+  --glass-panel-mix: 72%;
+  --glass-card-mix: 68%;
+  --glass-base-mix: 56%;
+  --glass-highlight-alpha: 0.34;
+}
+
 /* ============================================================
    浅色主题：覆盖 @theme 的深色变量。
    :root[data-theme="light"] 为未分层规则，优先级高于 @layer theme 中的 :root，
@@ -105,6 +143,45 @@ body {
   --color-accent-purple: #22c55e;
 }
 
+:root[data-visual-theme='deep-space'] {
+  --color-bg-base: #050816;
+  --color-bg-panel: #0a1020;
+  --color-bg-card: #11182a;
+  --color-bg-hover: #17213a;
+  --color-bg-active: #202c4a;
+  --color-border-subtle: #26324f;
+  --color-border-default: #35466d;
+  --color-accent-primary: #3b82f6;
+  --color-accent-hover: #2563eb;
+  --color-accent-purple: #a78bfa;
+}
+
+:root[data-visual-theme='forest'] {
+  --color-bg-base: #06110d;
+  --color-bg-panel: #0b1913;
+  --color-bg-card: #11231a;
+  --color-bg-hover: #173022;
+  --color-bg-active: #20432f;
+  --color-border-subtle: #224033;
+  --color-border-default: #32624b;
+  --color-accent-primary: #10b981;
+  --color-accent-hover: #059669;
+  --color-accent-purple: #a3e635;
+}
+
+:root[data-visual-theme='anime'] {
+  --color-bg-base: #0a1022;
+  --color-bg-panel: #11162b;
+  --color-bg-card: #191f38;
+  --color-bg-hover: #232948;
+  --color-bg-active: #30365c;
+  --color-border-subtle: #303657;
+  --color-border-default: #46507c;
+  --color-accent-primary: #8b5cf6;
+  --color-accent-hover: #7c3aed;
+  --color-accent-purple: #f472b6;
+}
+
 :root[data-theme='light'][data-visual-theme='aurora'] {
   --color-bg-base: #f0fbf8;
   --color-bg-panel: #ffffff;
@@ -135,9 +212,40 @@ body {
   --color-border-default: #c7d2da;
 }
 
+:root[data-theme='light'][data-visual-theme='deep-space'] {
+  --color-bg-base: #f2f6ff;
+  --color-bg-panel: #ffffff;
+  --color-bg-card: #ffffff;
+  --color-bg-hover: #e9effc;
+  --color-bg-active: #dce7fa;
+  --color-border-subtle: #d8e2f3;
+  --color-border-default: #bdcbe4;
+}
+
+:root[data-theme='light'][data-visual-theme='forest'] {
+  --color-bg-base: #f1faf5;
+  --color-bg-panel: #ffffff;
+  --color-bg-card: #ffffff;
+  --color-bg-hover: #e6f4ec;
+  --color-bg-active: #d7ecdf;
+  --color-border-subtle: #d2e7da;
+  --color-border-default: #afd1bd;
+}
+
+:root[data-theme='light'][data-visual-theme='anime'] {
+  --color-bg-base: #fff5fb;
+  --color-bg-panel: #ffffff;
+  --color-bg-card: #ffffff;
+  --color-bg-hover: #f8eaf5;
+  --color-bg-active: #f0dce9;
+  --color-border-subtle: #ead3e2;
+  --color-border-default: #d5b4ca;
+}
+
 .app-shell {
   position: relative;
   isolation: isolate;
+  background: var(--color-bg-base);
 }
 
 .app-ambient-layer {
@@ -147,6 +255,10 @@ body {
   pointer-events: none;
   opacity: 1;
   transition: opacity 0.25s ease;
+}
+
+.app-main {
+  background: var(--color-bg-base);
 }
 
 :root[data-background-style='soft'] .app-ambient-layer,
@@ -207,6 +319,169 @@ body {
   opacity: 0;
 }
 
+:root[data-visual-theme='deep-space'] .app-ambient-layer {
+  opacity: 0.88;
+  background:
+    linear-gradient(180deg, rgba(5, 8, 22, 0.2), rgba(5, 8, 22, 0.88)),
+    radial-gradient(circle at 18% 6%, rgba(59, 130, 246, 0.24), transparent 30%),
+    url('./assets/generated/codehelper-materials/theme-deep-space.png') center / cover no-repeat;
+  mask-image: none;
+}
+
+:root[data-visual-theme='forest'] .app-ambient-layer {
+  opacity: 0.9;
+  background:
+    linear-gradient(180deg, rgba(6, 17, 13, 0.18), rgba(6, 17, 13, 0.9)),
+    radial-gradient(circle at 12% 12%, rgba(16, 185, 129, 0.18), transparent 30%),
+    url('./assets/generated/codehelper-materials/theme-forest-focus.png') center / cover no-repeat;
+  mask-image: none;
+}
+
+:root[data-visual-theme='anime'] .app-ambient-layer {
+  opacity: 0.86;
+  background:
+    linear-gradient(180deg, rgba(10, 16, 34, 0.22), rgba(10, 16, 34, 0.86)),
+    radial-gradient(circle at 80% 10%, rgba(244, 114, 182, 0.16), transparent 28%),
+    url('./assets/generated/codehelper-materials/theme-anime-study.png') center / cover no-repeat;
+  mask-image: none;
+}
+
+:root[data-theme='light'][data-visual-theme='deep-space'] .app-ambient-layer,
+:root[data-theme='light'][data-visual-theme='forest'] .app-ambient-layer,
+:root[data-theme='light'][data-visual-theme='anime'] .app-ambient-layer {
+  opacity: 0.28;
+  filter: saturate(0.8);
+}
+
+:root[data-visual-theme='deep-space'] .app-shell,
+:root[data-visual-theme='forest'] .app-shell,
+:root[data-visual-theme='anime'] .app-shell,
+:root[data-visual-theme='deep-space'] .app-main,
+:root[data-visual-theme='forest'] .app-main,
+:root[data-visual-theme='anime'] .app-main {
+  background: transparent;
+}
+
+:root[data-visual-theme='deep-space'] .app-shell {
+  background:
+    linear-gradient(180deg, rgba(5, 8, 22, 0.18), rgba(5, 8, 22, 0.46)),
+    url('./assets/generated/codehelper-materials/theme-deep-space.png') center / cover fixed
+      no-repeat;
+}
+
+:root[data-visual-theme='forest'] .app-shell {
+  background:
+    linear-gradient(180deg, rgba(6, 17, 13, 0.14), rgba(6, 17, 13, 0.42)),
+    url('./assets/generated/codehelper-materials/theme-forest-focus.png') center / cover fixed
+      no-repeat;
+}
+
+:root[data-visual-theme='anime'] .app-shell {
+  background:
+    linear-gradient(180deg, rgba(10, 16, 34, 0.16), rgba(10, 16, 34, 0.42)),
+    url('./assets/generated/codehelper-materials/theme-anime-study.png') center / cover fixed
+      no-repeat;
+}
+
+:root[data-visual-theme='deep-space'] .app-main,
+:root[data-visual-theme='forest'] .app-main,
+:root[data-visual-theme='anime'] .app-main {
+  background:
+    linear-gradient(180deg, rgba(5, 8, 22, 0.42), rgba(5, 8, 22, 0.18) 42%, rgba(5, 8, 22, 0.44)),
+    radial-gradient(circle at 50% 8%, rgba(255, 255, 255, 0.03), transparent 34%);
+}
+
+:root[data-visual-theme='deep-space'] .home-view,
+:root[data-visual-theme='forest'] .home-view,
+:root[data-visual-theme='anime'] .home-view,
+:root[data-visual-theme='deep-space'] .settings-view,
+:root[data-visual-theme='forest'] .settings-view,
+:root[data-visual-theme='anime'] .settings-view {
+  background:
+    linear-gradient(180deg, rgba(5, 8, 22, 0.34), rgba(5, 8, 22, 0.12) 34%, rgba(5, 8, 22, 0.34)),
+    transparent !important;
+}
+
+:root[data-visual-theme='deep-space'] .surface-card,
+:root[data-visual-theme='forest'] .surface-card,
+:root[data-visual-theme='anime'] .surface-card {
+  background: color-mix(in srgb, var(--color-bg-card) 64%, transparent) !important;
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  box-shadow:
+    0 20px 64px rgba(0, 0, 0, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+:root[data-visual-theme='deep-space'] .home-view [class*='bg-[var(--color-bg-card)]'],
+:root[data-visual-theme='forest'] .home-view [class*='bg-[var(--color-bg-card)]'],
+:root[data-visual-theme='anime'] .home-view [class*='bg-[var(--color-bg-card)]'],
+:root[data-visual-theme='deep-space'] .settings-view [class*='bg-[var(--color-bg-card)]'],
+:root[data-visual-theme='forest'] .settings-view [class*='bg-[var(--color-bg-card)]'],
+:root[data-visual-theme='anime'] .settings-view [class*='bg-[var(--color-bg-card)]'] {
+  background-color: color-mix(in srgb, var(--color-bg-card) 62%, transparent) !important;
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+}
+
+:root[data-visual-theme='deep-space'] .home-view [class*='bg-[var(--color-bg-base)]'],
+:root[data-visual-theme='forest'] .home-view [class*='bg-[var(--color-bg-base)]'],
+:root[data-visual-theme='anime'] .home-view [class*='bg-[var(--color-bg-base)]'],
+:root[data-visual-theme='deep-space'] .settings-view [class*='bg-[var(--color-bg-base)]'],
+:root[data-visual-theme='forest'] .settings-view [class*='bg-[var(--color-bg-base)]'],
+:root[data-visual-theme='anime'] .settings-view [class*='bg-[var(--color-bg-base)]'] {
+  background-color: color-mix(in srgb, var(--color-bg-base) 46%, transparent) !important;
+}
+
+:root[data-visual-theme='deep-space'] .settings-view [class*='radial-gradient'],
+:root[data-visual-theme='forest'] .settings-view [class*='radial-gradient'],
+:root[data-visual-theme='anime'] .settings-view [class*='radial-gradient'] {
+  opacity: 0.38;
+}
+
+:root[data-visual-theme='deep-space'] .home-hero-card,
+:root[data-visual-theme='forest'] .home-hero-card,
+:root[data-visual-theme='anime'] .home-hero-card {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-accent-primary) 16%, transparent),
+      transparent 40%
+    ),
+    linear-gradient(
+      155deg,
+      rgba(14, 20, 36, 0.68) 0%,
+      rgba(12, 18, 30, 0.52) 52%,
+      rgba(10, 15, 26, 0.64) 100%
+    );
+  backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-saturation));
+}
+
+:root[data-visual-theme='deep-space'] header,
+:root[data-visual-theme='forest'] header,
+:root[data-visual-theme='anime'] header {
+  background-color: color-mix(in srgb, var(--color-bg-base) 58%, transparent) !important;
+}
+
+:root[data-visual-theme='deep-space'] .app-sidebar,
+:root[data-visual-theme='forest'] .app-sidebar,
+:root[data-visual-theme='anime'] .app-sidebar {
+  background-color: color-mix(in srgb, var(--color-bg-panel) 72%, transparent) !important;
+  backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-saturation));
+}
+
+:root[data-background-style='none'] .app-main,
+:root[data-background-style='none'] .home-view,
+:root[data-background-style='none'] .settings-view {
+  background: var(--color-bg-base) !important;
+}
+
+:root[data-background-style='none'] .app-ambient-layer {
+  opacity: 0;
+}
+
 :root[data-animation-level='expressive'] .app-ambient-layer {
   animation: ambient-drift 18s ease-in-out infinite alternate;
 }
@@ -214,6 +489,66 @@ body {
 :root[data-reduce-motion='true'] .app-ambient-layer,
 :root[data-animation-level='calm'] .app-ambient-layer {
   animation: none;
+}
+
+:root[data-glass='on'] .app-sidebar,
+:root[data-glass='on'] header,
+:root[data-glass='on'] .surface-card,
+:root[data-glass='on'] .home-hero-card,
+:root[data-glass='on'] [class*='bg-[var(--color-bg-card)]'],
+:root[data-glass='on'] [class*='bg-[var(--color-bg-panel)]'] {
+  background-color: color-mix(
+    in srgb,
+    var(--color-bg-card) var(--glass-card-mix),
+    transparent
+  ) !important;
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  box-shadow:
+    var(--glass-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, var(--glass-highlight-alpha));
+}
+
+:root[data-glass='on'] .app-sidebar,
+:root[data-glass='on'] header {
+  background-color: color-mix(
+    in srgb,
+    var(--color-bg-panel) var(--glass-panel-mix),
+    transparent
+  ) !important;
+  backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(var(--glass-blur-strong)) saturate(var(--glass-saturation));
+}
+
+:root[data-glass='on'] [class*='bg-[var(--color-bg-base)]'] {
+  background-color: color-mix(
+    in srgb,
+    var(--color-bg-base) var(--glass-base-mix),
+    transparent
+  ) !important;
+  backdrop-filter: blur(var(--glass-blur-soft)) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(var(--glass-blur-soft)) saturate(var(--glass-saturation));
+}
+
+:root[data-glass='on'][data-glass-style='layered'] .surface-card,
+:root[data-glass='on'][data-glass-style='layered'] .home-hero-card,
+:root[data-glass='on'][data-glass-style='layered'] [class*='bg-[var(--color-bg-card)]'],
+:root[data-glass='on'][data-glass-style='layered'] [class*='bg-[var(--color-bg-panel)]'] {
+  border-color: color-mix(in srgb, var(--color-border-default) 70%, rgba(255, 255, 255, 0.22));
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, var(--glass-highlight-alpha)), transparent 46%),
+    radial-gradient(
+      circle at 16% 0%,
+      color-mix(in srgb, var(--color-accent-primary) 12%, transparent),
+      transparent 34%
+    );
+}
+
+:root[data-glass='on'][data-glass-style='frosted'] .surface-card,
+:root[data-glass='on'][data-glass-style='frosted'] .home-hero-card,
+:root[data-glass='on'][data-glass-style='frosted'] [class*='bg-[var(--color-bg-card)]'],
+:root[data-glass='on'][data-glass-style='frosted'] [class*='bg-[var(--color-bg-panel)]'] {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 58%);
 }
 
 @keyframes ambient-drift {
@@ -385,6 +720,276 @@ body {
   border-color: #ffffff;
 }
 
+.knowledge-reader-overlay {
+  color: var(--color-text-primary);
+  background:
+    radial-gradient(
+      circle at 16% 0%,
+      color-mix(in srgb, var(--color-accent-primary) 14%, transparent),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 86% 4%,
+      color-mix(in srgb, var(--color-accent-purple) 12%, transparent),
+      transparent 30%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-bg-base) 92%, var(--color-bg-panel)),
+      var(--color-bg-base)
+    );
+}
+
+.knowledge-reader-toolbar {
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--color-bg-panel) 94%, transparent);
+  color: var(--color-text-primary);
+}
+
+.knowledge-reader-sidebar {
+  border-right: 1px solid color-mix(in srgb, var(--color-border-default) 82%, transparent);
+  background: color-mix(in srgb, var(--color-bg-panel) 88%, var(--color-bg-base));
+}
+
+.knowledge-reader-paper {
+  border: 1px solid color-mix(in srgb, var(--color-border-default) 78%, transparent);
+  background: color-mix(in srgb, var(--color-bg-panel) 92%, var(--color-bg-base));
+  color: var(--color-text-primary);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+}
+
+.knowledge-reader-document-header {
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border-subtle) 86%, transparent);
+}
+
+.knowledge-reader-secondary-button {
+  border: 1px solid color-mix(in srgb, var(--color-border-default) 84%, transparent);
+  background: color-mix(in srgb, var(--color-bg-card) 92%, var(--color-bg-base));
+  color: var(--color-text-secondary);
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.knowledge-reader-secondary-button:hover {
+  border-color: color-mix(in srgb, var(--color-accent-primary) 38%, var(--color-border-default));
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.knowledge-reader-primary-button {
+  border: 1px solid color-mix(in srgb, var(--color-accent-primary) 76%, transparent);
+  background: var(--color-accent-primary);
+  color: #fff;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.knowledge-reader-primary-button:hover {
+  border-color: var(--color-accent-hover);
+  background: var(--color-accent-hover);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--color-accent-primary) 24%, transparent);
+}
+
+.knowledge-reader-info-card,
+.knowledge-reader-chip {
+  border: 1px solid color-mix(in srgb, var(--color-border-subtle) 82%, transparent);
+  background: color-mix(in srgb, var(--color-bg-card) 88%, var(--color-bg-base));
+  color: var(--color-text-secondary);
+}
+
+.knowledge-reader-chip-warning {
+  border: 1px solid color-mix(in srgb, var(--color-accent-warning) 42%, transparent);
+  background: color-mix(in srgb, var(--color-accent-warning) 13%, var(--color-bg-card));
+  color: color-mix(in srgb, var(--color-accent-warning) 82%, var(--color-text-primary));
+}
+
+.knowledge-reader-hit {
+  border: 1px solid color-mix(in srgb, var(--color-accent-warning) 42%, transparent);
+  background: color-mix(in srgb, var(--color-accent-warning) 10%, var(--color-bg-card));
+}
+
+.knowledge-reader-hit-title {
+  color: color-mix(in srgb, var(--color-accent-warning) 86%, var(--color-text-primary));
+}
+
+.knowledge-markdown {
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.knowledge-markdown > :first-child {
+  margin-top: 0;
+}
+
+.knowledge-markdown h1 {
+  margin-bottom: 1.25rem;
+  color: var(--color-text-primary);
+  font-size: 2rem;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.knowledge-markdown h2 {
+  margin-top: 2.25rem;
+  margin-bottom: 0.9rem;
+  color: var(--color-text-primary);
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.knowledge-markdown h3 {
+  margin-top: 1.75rem;
+  margin-bottom: 0.75rem;
+  color: var(--color-text-primary);
+  font-size: 1.15rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.knowledge-markdown h4 {
+  margin-top: 1.4rem;
+  margin-bottom: 0.65rem;
+  color: var(--color-text-primary);
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.knowledge-markdown p {
+  margin-bottom: 1rem;
+  color: var(--color-text-secondary);
+  font-size: 15.5px;
+  line-height: 1.85;
+}
+
+.knowledge-markdown ul,
+.knowledge-markdown ol {
+  margin: 0 0 1rem;
+  padding-left: 1.45rem;
+  color: var(--color-text-secondary);
+}
+
+.knowledge-markdown ul {
+  list-style-type: disc;
+}
+
+.knowledge-markdown ol {
+  list-style-type: decimal;
+}
+
+.knowledge-markdown li {
+  margin-bottom: 0.45rem;
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+.knowledge-markdown strong {
+  color: var(--color-text-primary);
+  font-weight: 650;
+}
+
+.knowledge-markdown a {
+  color: var(--color-accent-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.knowledge-markdown code {
+  border-radius: 0.25rem;
+  background: color-mix(in srgb, var(--color-accent-primary) 12%, transparent);
+  color: color-mix(in srgb, var(--color-accent-purple) 86%, var(--color-text-primary));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.88rem;
+  padding: 0.125rem 0.35rem;
+}
+
+.knowledge-markdown pre {
+  margin: 1.25rem 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--color-border-default) 84%, transparent);
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--color-bg-base) 74%, #020617);
+}
+
+.knowledge-markdown pre code {
+  display: block;
+  overflow-x: auto;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 0.88rem;
+  line-height: 1.7;
+  padding: 1rem;
+}
+
+.knowledge-markdown blockquote {
+  margin: 1rem 0;
+  border-left: 3px solid var(--color-accent-purple);
+  border-radius: 0 0.5rem 0.5rem 0;
+  background: color-mix(in srgb, var(--color-accent-purple) 8%, transparent);
+  color: var(--color-text-secondary);
+  padding: 0.9rem 1.1rem;
+}
+
+.knowledge-markdown table {
+  display: block;
+  width: 100%;
+  margin: 1rem 0;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.knowledge-markdown th,
+.knowledge-markdown td {
+  border: 1px solid color-mix(in srgb, var(--color-border-subtle) 86%, transparent);
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+  font-size: 14px;
+}
+
+.knowledge-markdown th {
+  background: color-mix(in srgb, var(--color-bg-hover) 72%, var(--color-bg-card));
+  color: var(--color-text-primary);
+  font-weight: 650;
+}
+
+.knowledge-markdown td {
+  color: var(--color-text-secondary);
+}
+
+.knowledge-markdown img {
+  max-width: 100%;
+  margin: 1rem 0;
+  border: 1px solid color-mix(in srgb, var(--color-border-subtle) 72%, transparent);
+  border-radius: 0.5rem;
+}
+
+:root[data-theme='light'] .knowledge-reader-toolbar {
+  background: color-mix(in srgb, var(--color-bg-panel) 96%, transparent);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+:root[data-theme='light'] .knowledge-reader-paper {
+  background: #ffffff;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 24px 80px rgba(15, 23, 42, 0.12);
+}
+
+:root[data-theme='light'] .knowledge-markdown pre {
+  background: #f8fafc;
+}
+
+:root[data-theme='light'] .knowledge-markdown pre code {
+  color: #172033;
+}
+
 /* 减少动态效果：用户在设置里开启后，全局弱化过渡/动画 */
 :root[data-reduce-motion='true'] *,
 :root[data-reduce-motion='true'] *::before,
@@ -406,10 +1011,42 @@ body {
   animation: none !important;
 }
 
-/* 毛玻璃效果关闭：禁用所有 backdrop-blur，回到实心面板背景 */
-:root[data-glass='off'] [class*='backdrop-blur'] {
+/* 毛玻璃效果关闭：禁用所有 backdrop-filter，回到实心面板背景 */
+:root[data-glass='off'] [class*='backdrop-blur'],
+:root[data-glass='off'] .app-sidebar,
+:root[data-glass='off'] header,
+:root[data-glass='off'] .surface-card,
+:root[data-glass='off'] .home-hero-card,
+:root[data-glass='off'] .home-hero-chip,
+:root[data-glass='off'] .ai-pet-tool-button,
+:root[data-glass='off'] .ai-pet-icon-button,
+:root[data-glass='off'] .ai-pet-card,
+:root[data-glass='off'] [class*='bg-[var(--color-bg-card)]'],
+:root[data-glass='off'] [class*='bg-[var(--color-bg-panel)]'],
+:root[data-glass='off'] [class*='bg-[var(--color-bg-base)]'] {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  background-image: none;
+}
+
+:root[data-glass='off'] .app-sidebar,
+:root[data-glass='off'] header,
+:root[data-glass='off'] .home-hero-chip,
+:root[data-glass='off'] .ai-pet-tool-button,
+:root[data-glass='off'] .ai-pet-icon-button,
+:root[data-glass='off'] .ai-pet-card,
+:root[data-glass='off'] [class*='bg-[var(--color-bg-panel)]'] {
+  background-color: var(--color-bg-panel) !important;
+}
+
+:root[data-glass='off'] .surface-card,
+:root[data-glass='off'] .home-hero-card,
+:root[data-glass='off'] [class*='bg-[var(--color-bg-card)]'] {
+  background-color: var(--color-bg-card) !important;
+}
+
+:root[data-glass='off'] [class*='bg-[var(--color-bg-base)]'] {
+  background-color: var(--color-bg-base) !important;
 }
 
 /* 高对比度：调亮边框与次要文字，增强可读性 */
@@ -988,7 +1625,8 @@ body {
   font-weight: 700;
   padding: 6px 10px;
   box-shadow: 0 16px 34px rgba(0, 0, 0, 0.28);
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(var(--glass-blur-soft)) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(var(--glass-blur-soft)) saturate(var(--glass-saturation));
 }
 
 .home-hero-chip-top {
@@ -1349,7 +1987,8 @@ body {
   border: 1px solid var(--color-border-subtle);
   color: var(--color-text-secondary);
   background: color-mix(in srgb, var(--color-bg-panel) 86%, transparent);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(var(--glass-blur-soft)) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(var(--glass-blur-soft)) saturate(var(--glass-saturation));
   transition:
     color 0.15s ease,
     border-color 0.15s ease,
@@ -1385,7 +2024,8 @@ body {
   background: color-mix(in srgb, var(--color-bg-panel) 92%, transparent);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
   padding: 12px;
-  backdrop-filter: blur(16px);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
 }
 
 .ai-pet-card::after {

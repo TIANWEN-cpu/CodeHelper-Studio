@@ -67,6 +67,8 @@ function App() {
         visualTheme: a.visualTheme,
         backgroundStyle: a.backgroundStyle,
         animationLevel: a.animationLevel,
+        glassStyle: a.glassStyle,
+        glassBlur: a.glassBlur,
         aiPetEnabled: a.aiPetEnabled,
       })
       if (a.followSystem) {
@@ -124,13 +126,13 @@ function App() {
   const hideHeader = currentView === 'workspace' || currentView === 'practice'
 
   return (
-    <div className="app-shell flex h-screen w-full bg-[var(--color-bg-base)] text-[var(--color-text-primary)] overflow-hidden font-sans">
+    <div className="app-shell flex h-screen w-full text-[var(--color-text-primary)] overflow-hidden font-sans">
       <div className="app-ambient-layer" aria-hidden="true" />
       <Sidebar />
 
       <div className="relative z-10 flex-1 flex flex-col min-w-0">
         {!hideHeader && <Header />}
-        <main className="flex-1 overflow-hidden relative">
+        <main className="app-main flex-1 overflow-hidden relative">
           <motion.div
             key={currentView}
             initial={{ opacity: 0, y: 8 }}

@@ -15,9 +15,17 @@
 
 import { getSetting, setSetting } from '../services/settingsService'
 export type ThemeMode = 'dark' | 'light'
-export type VisualTheme = 'codex' | 'aurora' | 'nebula' | 'graphite'
+export type VisualTheme =
+  | 'codex'
+  | 'aurora'
+  | 'nebula'
+  | 'graphite'
+  | 'deep-space'
+  | 'forest'
+  | 'anime'
 export type BackgroundStyle = 'soft' | 'aurora' | 'grid' | 'none'
 export type AnimationLevel = 'calm' | 'balanced' | 'expressive'
+export type GlassStyle = 'frosted' | 'layered'
 
 export interface Appearance {
   theme: ThemeMode
@@ -27,6 +35,8 @@ export interface Appearance {
   fontSize: number // px，范围 12–24，14 为中性基准
   reduceMotion: boolean
   glassEffect: boolean // 毛玻璃（backdrop-blur）开关，默认开
+  glassStyle: GlassStyle // 玻璃质感：经典毛玻璃 / iOS 式层次玻璃
+  glassBlur: number // px，控制全局玻璃模糊强度
   highContrast: boolean // 高对比度，默认关
   visualTheme: VisualTheme // 视觉主题套装：驱动语义色、背景氛围与组件质感
   backgroundStyle: BackgroundStyle // 全局背景层：轻量 CSS，不加载大图
@@ -42,6 +52,8 @@ export const DEFAULT_APPEARANCE: Appearance = {
   fontSize: 14,
   reduceMotion: false,
   glassEffect: true,
+  glassStyle: 'layered',
+  glassBlur: 18,
   highContrast: false,
   visualTheme: 'codex',
   backgroundStyle: 'soft',
@@ -147,6 +159,21 @@ export function applyGlassEffect(on: boolean): void {
   document.documentElement.setAttribute('data-glass', on ? 'on' : 'off')
 }
 
+export function applyGlassStyle(style: GlassStyle): void {
+  if (typeof document === 'undefined') return
+  document.documentElement.setAttribute('data-glass-style', style)
+}
+
+export function applyGlassBlur(value: number): void {
+  if (typeof document === 'undefined') return
+  const blur = Number.isFinite(value) ? Math.min(32, Math.max(6, Math.round(value))) : 18
+  const root = document.documentElement
+  root.style.setProperty('--glass-blur', `${blur}px`)
+  root.style.setProperty('--glass-blur-soft', `${Math.max(4, Math.round(blur * 0.56))}px`)
+  root.style.setProperty('--glass-blur-strong', `${Math.min(42, Math.round(blur * 1.34))}px`)
+  root.setAttribute('data-glass-blur', String(blur))
+}
+
 /** 高对比度：开启时标记 data-contrast="high"，index.css 据此调亮边框与次要文字。 */
 export function applyHighContrast(on: boolean): void {
   if (typeof document === 'undefined') return
@@ -181,6 +208,8 @@ export function applyAll(a: Appearance): void {
   applyFontSize(a.fontSize)
   applyReduceMotion(a.reduceMotion)
   applyGlassEffect(a.glassEffect)
+  applyGlassStyle(a.glassStyle)
+  applyGlassBlur(a.glassBlur)
   applyHighContrast(a.highContrast)
   applyVisualTheme(a.visualTheme)
   applyBackgroundStyle(a.backgroundStyle)
@@ -189,7 +218,14 @@ export function applyAll(a: Appearance): void {
 }
 
 function parseVisualTheme(value: string | null): VisualTheme {
-  return value === 'aurora' || value === 'nebula' || value === 'graphite' ? value : 'codex'
+  return value === 'aurora' ||
+    value === 'nebula' ||
+    value === 'graphite' ||
+    value === 'deep-space' ||
+    value === 'forest' ||
+    value === 'anime'
+    ? value
+    : 'codex'
 }
 
 function parseBackgroundStyle(value: string | null): BackgroundStyle {
@@ -198,6 +234,17 @@ function parseBackgroundStyle(value: string | null): BackgroundStyle {
 
 function parseAnimationLevel(value: string | null): AnimationLevel {
   return value === 'calm' || value === 'expressive' ? value : 'balanced'
+}
+
+function parseGlassStyle(value: string | null): GlassStyle {
+  return value === 'frosted' ? 'frosted' : 'layered'
+}
+
+function parseGlassBlur(value: string | null): number {
+  const parsed = value ? parseInt(value, 10) : NaN
+  return Number.isFinite(parsed)
+    ? Math.min(32, Math.max(6, parsed))
+    : DEFAULT_APPEARANCE.glassBlur
 }
 
 function isLegacyLightThemeState(a: Appearance, marker: string | null): boolean {
@@ -221,6 +268,8 @@ export async function loadAppearance(): Promise<Appearance> {
       font,
       rm,
       glass,
+      glassStyle,
+      glassBlur,
       contrast,
       visualTheme,
       backgroundStyle,
@@ -235,6 +284,8 @@ export async function loadAppearance(): Promise<Appearance> {
       getSetting('font_size'),
       getSetting('reduce_motion'),
       getSetting('glass_effect'),
+      getSetting('glass_style'),
+      getSetting('glass_blur'),
       getSetting('high_contrast'),
       getSetting('visual_theme'),
       getSetting('background_style'),
@@ -251,6 +302,8 @@ export async function loadAppearance(): Promise<Appearance> {
       fontSize: Number.isFinite(parsedFont) ? parsedFont : DEFAULT_APPEARANCE.fontSize,
       reduceMotion: rm === 'true',
       glassEffect: glass == null ? DEFAULT_APPEARANCE.glassEffect : glass === 'true',
+      glassStyle: parseGlassStyle(glassStyle),
+      glassBlur: parseGlassBlur(glassBlur),
       highContrast: contrast === 'true',
       visualTheme: parseVisualTheme(visualTheme),
       backgroundStyle: parseBackgroundStyle(backgroundStyle),

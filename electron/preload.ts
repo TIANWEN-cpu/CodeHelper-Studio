@@ -22,6 +22,7 @@ const allowedInvokeChannels = new Set([
   'mistakes-delete',
   'knowledge-upload',
   'knowledge-list',
+  'knowledge-get',
   'knowledge-delete',
   'knowledge-search',
   // Advanced knowledge features
