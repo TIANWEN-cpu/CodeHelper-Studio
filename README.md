@@ -1,406 +1,194 @@
-<p align="center">
-  <img src="resources/icons/icon.png" alt="CodeHelper Logo" width="120">
-</p>
+# CodeHelper Studio
 
-<h1 align="center">CodeHelper</h1>
+> AI 驱动的一体化桌面编程学习平台：代码编辑、AI 辅导、刷题训练、课程练习、知识库检索、错题复盘和学习记录集中在一个窗口里。
 
 <p align="center">
   <a href="https://github.com/TIANWEN-cpu/CodeHelper-Studio/actions/workflows/ci.yml"><img src="https://github.com/TIANWEN-cpu/CodeHelper-Studio/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <img src="https://img.shields.io/github/v/release/TIANWEN-cpu/CodeHelper-Studio?label=release" alt="Release">
+  <a href="https://github.com/TIANWEN-cpu/CodeHelper-Studio/releases"><img src="https://img.shields.io/github/v/release/TIANWEN-cpu/CodeHelper-Studio?label=release" alt="Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/TIANWEN-cpu/CodeHelper-Studio" alt="License"></a>
   <img src="https://img.shields.io/badge/Electron-41-47848F?logo=electron&logoColor=white" alt="Electron">
   <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React">
   <img src="https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
 </p>
 
-<h3 align="center">AI 驱动的一体化桌面编程学习平台</h3>
+## 当前版本
 
-<p align="center">
-  集代码编辑、AI 对话、智能刷题、课程练习、知识库检索与错题复习于一身。<br>
-  一个应用，覆盖编程学习的全部场景。<br>
-  <strong>写代码、问 AI、刷题、查资料、复盘错题 —— 全在一个窗口里完成。</strong>
-</p>
+**v2.2.1 - 2026-06-06**
 
-<p align="center">
-  <a href="#-功能亮点">功能亮点</a> &bull;
-  <a href="#-快速开始">快速开始</a> &bull;
-  <a href="#-技术栈">技术栈</a> &bull;
-  <a href="#-项目结构">项目结构</a> &bull;
-  <a href="docs/quickstart.md">详细文档</a>
-</p>
+这一版聚焦真实桌面使用体验：浅色主题重新打磨，账户设置支持自定义头像和昵称，学习记录支持一键清空，AI 桌宠和主题套装命名进一步整理，并补齐资源包导入链路与回归测试。
 
----
+发布页：[CodeHelper Studio Releases](https://github.com/TIANWEN-cpu/CodeHelper-Studio/releases)
 
-## 关于本版本
+## 适合谁用
 
-**当前发布版：v2.2.1（2026-06-06）**
+- 正在系统学习编程、算法、C/C++、Python、数据库或软件工程的学生。
+- 希望把刷题、复盘、笔记、AI 提问放在同一个桌面环境里的学习者。
+- 想要一个本地优先、可配置 AI Provider、数据可迁移的编程练习工作台。
+- 需要 Electron + React + SQLite 项目样板和 IPC 实践参考的开发者。
 
-v2.2.1 聚焦产品体验收口：浅色主题不再复用深色大块，首页学习工作台与个人主页横幅改为浅色专属视觉；账户设置支持自定义昵称与头像；学习记录支持一键清空；AI 桌宠、主题套装命名与外观选项进一步整理，并补齐资源包导入和回归测试。
+## 核心能力
 
-CodeHelper 由三个项目融合而成的一体化产品：
+### 编程工作台
 
-- **现代化前端外壳** —— Electron + electron-vite + React 19 + TailwindCSS v4 打造的 UI 与交互层
-- **CodeHelper 后端** —— 约 80 个 IPC 通道 + SQLite 持久化，承载代码运行、判题、AI、知识库、错题与统计
-- **结构化学习内容** —— 算法、C/C++、Python、数据结构等数百篇课程练习作为内容源
+- CodeMirror 6 编辑器，支持 Python、C/C++、JavaScript、SQL 等语言高亮。
+- 本地代码运行器，统一显示 stdout、stderr、退出码和运行耗时。
+- 工作区、底部面板和 AI 侧栏联动，报错后可以直接交给 AI 辅助分析。
 
-经过四轮"假功能真实化"审查，前端不再有任何装饰性空壳：**每一个按钮、开关、统计都接通真实后端**。可扩展，不简化。
+### AI 辅导
 
----
+- 支持 OpenAI 兼容 API 与本地 Ollama 等 Provider。
+- 对话支持 Markdown、代码块、历史会话、预设提示词和长期记忆。
+- 可自动带入当前题目、练习、错题、代码和报错上下文。
 
-## 为什么选择 CodeHelper？
+### 刷题与课程练习
 
-编程学习者的日常：在编辑器里写代码、在浏览器里问 AI、在题库平台刷题、在笔记软件记知识点 —— 多个窗口来回切换，上下文不断丢失。
+- 内置多来源题库，覆盖算法、复试、建模、IC 岗位、基础练习等方向。
+- 题目筛选、详情、提交判题、提交历史和 AI 提示形成闭环。
+- 结构化课程内容覆盖 C、C++、C#、Python、数据库、Web 和集成主题。
 
-**CodeHelper 把这一切合并到一个桌面应用中。** 无需在工具之间跳转，无需重复配置环境，无需跨平台复制粘贴代码。
+### 错题与复盘
 
-|             传统工作流             |        CodeHelper        |
-| :--------------------------------: | :----------------------: |
-| 编辑器 + AI 网页 + 题库 + 笔记软件 |     **一个窗口搞定**     |
-|     手动复制粘贴代码和错误信息     |  **AI 侧边栏直接分析**   |
-|          错题分散在各平台          | **自动收集 + 间隔复习**  |
-|          知识点散落在各处          | **本地知识库，即时检索** |
+- 失败提交可进入错题系统。
+- 复习队列支持间隔复习和掌握度反馈。
+- 首页学习数据、活动记录、成就进度和错题趋势来自真实本地数据。
 
----
+### 知识库
 
-## 功能亮点
+- 支持本地文档上传、分块存储、关键词检索、语义检索入口和 RAG 上下文注入。
+- 适合保存课程笔记、题解、常见错误、项目资料和个人知识片段。
 
-### :pencil2: CodeMirror 代码编辑器
+### 个性化设置
 
-> 基于 CodeMirror 6 的现代编辑体验，多语言语法高亮
+- 深色、浅色、高对比、紧凑布局和主题套装。
+- 账户资料可自定义昵称、图片头像、URL 头像或文本头像。
+- 学习记录可一键清空，同时保留题库、知识库、AI 配置、账户资料和课堂笔记。
 
-- 多种代码主题实时切换（基于 thememirror）
-- Python / C / C++ / SQL 等语言的语法高亮
-- 行号、括号匹配、自动缩进
-- 内置终端面板，实时查看运行输出与判题结果
+## v2.2.1 更新重点
 
-### :robot: AI 智能对话
+- 浅色主题不再复用深色大块，首页工作台与个人主页横幅改成浅色专属视觉。
+- 修复白色主题下文字、按钮和透明文本对比度不足的问题。
+- 设置页新增账户模式，可自定义头像和名字。
+- 学习记录新增一键清空能力。
+- AI 桌宠低动效模式减少闲置动画，个人页自动缩小停靠。
+- 主题套装命名更协调，移除无效主题图片入口。
+- 新增资源包导入 IPC 与前端服务封装。
 
-> 支持任意 OpenAI 兼容 API，上下文感知的编程助手
-
-- 流式输出，逐字符渲染
-- Markdown 渲染与代码块高亮（marked）
-- 预设提示词系统（内置 + 自定义）
-- **上下文感知**：提问自动带入当前题目 / 练习 / 错题的代码与报错
-- **长期记忆 + 多会话**：跨对话记住偏好，多会话互不串扰
-- **运行报错一键诊断**：把代码与 stderr 直接交给 AI 分析
-- 支持 GPT 系列、本地 Ollama 等任意兼容服务
-
-### :dart: 题库系统
-
-> 内置多来源编程题目，一站式刷题平台
-
-- 多来源覆盖：力扣、牛客、PAT、CSP、数学建模等
-- 自动判题引擎，逐用例运行与精确比较
-- 多维度筛选：难度、标签、来源、赛道、平台
-- AI 侧边栏实时辅助解题
-
-### :books: 课程练习
-
-> 数百篇结构化学习内容，由浅入深
-
-- 算法、数据结构、C/C++、Python 等主题课程
-- 练习与工作区双向闭环：在工作区直接编写、运行、提交练习
-- 提交结果（通过/失败、用例反馈、得分）真实回写
-
-### :warning: 错题本 + 间隔复习
-
-> 自动追踪错误，SM-2 算法科学复盘
-
-- 从失败提交中自动收集错题，进入 SM-2 间隔复习队列
-- **真实三档自评**（还不会 / 有点难 / 已掌握）驱动复习间隔
-- AI 复盘建议：结合错误代码与参考答案给出根因分析（未配置 AI 时诚实回退本地规则）
-- 错误类型、错误次数、知识点标签全程追踪
-
-### :mag: 知识库 RAG 检索
-
-> 本地文档管理与智能检索
-
-- 支持 PDF / Markdown / TXT 文档导入
-- 自动文本分块，关键词匹配检索，按相关度排序
-- 向量嵌入字段已预留，支持未来升级为语义检索
-
-### :bar_chart: 学习数据统计
-
-> 行为埋点驱动，真实反映你的努力
-
-- 代码运行、解题通过、课程完成、AI 提问等行为自动埋点
-- 首页活跃度热力图（按周对齐）、连续学习天数、经验与等级
-- 全部由真实操作事件推导，绝非装饰性占位
-
-### :zap: 多语言代码运行器
-
-> 本地执行，编译与运行分离
-
-- Python、C、C++、C#、JavaScript（Node.js）原生执行
-- SQL 使用内存数据库执行与结果格式化
-- 资源限制保护：执行超时、输出上限、最大并发数
-
-### :art: 真实个性化设置
-
-> 每一个开关都真实生效
-
-- 代码主题、应用主题色（全色系跟随）、浅色/深色切换
-- 紧凑侧边栏、AI 面板、底部面板、双行标签等布局开关接通真实状态
-- 账户资料支持自定义昵称与头像，个人主页同步展示
-- 学习记录支持一键清空，保留题库、知识库、AI 配置、账户资料和课堂笔记
-- AI 桌宠支持内置与导入资源包，低动效模式下可关闭闲置动画
-- 日期区域格式与每周起始日真实影响日期显示与热力图对齐
-- 多模型管理，API Key 加密存储
-
----
-
-## 截图预览
-
-<p align="center">
-  <table>
-    <tr>
-      <td align="center">
-        <img src="docs/screenshot-editor.png" alt="代码编辑器" width="400"><br>
-        <b>代码编辑器</b><br>
-        <sub>CodeMirror 6，多语言高亮 + 多主题</sub>
-      </td>
-      <td align="center">
-        <img src="docs/screenshot-ai-chat.png" alt="AI 智能对话" width="400"><br>
-        <b>AI 智能对话</b><br>
-        <sub>上下文感知，流式输出，长期记忆</sub>
-      </td>
-    </tr>
-    <tr>
-      <td align="center">
-        <img src="docs/screenshot-problems.png" alt="题库系统" width="400"><br>
-        <b>题库系统</b><br>
-        <sub>多来源题目，自动判题，AI 辅助</sub>
-      </td>
-      <td align="center">
-        <img src="docs/screenshot-mistakes.png" alt="错题本" width="400"><br>
-        <b>错题本</b><br>
-        <sub>自动收集，SM-2 间隔复习</sub>
-      </td>
-    </tr>
-  </table>
-</p>
-
----
+完整变更见 [CHANGELOG.md](CHANGELOG.md)，发布说明见 [RELEASE.md](RELEASE.md)。
 
 ## 快速开始
 
-> **3 分钟，从零到运行。**
+### 环境要求
+
+- Node.js 20 或更高版本
+- npm 10 或更高版本
+- Windows 10/11、macOS 或 Linux
+
+代码运行器会调用本机语言环境。未安装 Python、GCC、Node.js 等运行时不会影响应用启动，只会影响对应语言的运行功能。
+
+### 本地开发
 
 ```bash
-# 1. 克隆并进入项目
-git clone https://github.com/TIANWEN-cpu/CodeHelper-Studio.git
-cd CodeHelper-Studio
-
-# 2. 安装依赖
 npm install
-
-# 3. 启动开发模式
 npm run dev
 ```
 
-启动后即可体验代码编辑器、题库系统、课程练习、错题本与知识库等离线功能。如需 AI 对话功能，请在 **设置** 页面配置 API Key 与 Base URL。
-
-> **Tip:** 未安装 Python / GCC 等编译器不会影响其他功能，仅代码运行器会提示"找不到命令"。
-
-**常用开发命令：**
-
-| 命令                | 用途                     |
-| :------------------ | :----------------------- |
-| `npm run dev`       | 启动开发服务器（热重载） |
-| `npm run build`     | 构建生产版本             |
-| `npm run build:win` | 构建 Windows 安装包      |
-| `npm test`          | 运行单元测试             |
-| `npm run lint`      | ESLint 代码检查          |
-| `npm run typecheck` | TypeScript 类型检查      |
-
----
-
-## 安装与运行
-
-### 环境要求
-
-- Node.js >= 18
-- npm >= 9
-- Windows / macOS / Linux
-
-### 代码运行器依赖（可选）
-
-代码运行器功能需要以下编译器/运行时，未安装不影响其他功能：
-
-| 语言       | 依赖              | 安装说明                                                                      |
-| :--------- | :---------------- | :---------------------------------------------------------------------------- |
-| Python     | `python` (>= 3.8) | [python.org](https://www.python.org/downloads/)                               |
-| C / C++    | `gcc` / `g++`     | Windows: MinGW-w64; macOS: `xcode-select --install`; Linux: `build-essential` |
-| C#         | `dotnet` (>= 6)   | [dotnet.microsoft.com](https://dotnet.microsoft.com/download)                 |
-| JavaScript | `node`            | 已随 Node.js 安装                                                             |
-
-### 构建打包
+### 常用命令
 
 ```bash
-npm run build          # 构建应用
-npm run build:win      # 打包 Windows 安装包
+npm run typecheck
+npm run test
+npm run build
+npm run package:win:dir
 ```
 
----
-
-## 技术栈
-
-| 类别       | 技术                                 |
-| :--------- | :----------------------------------- |
-| 桌面框架   | Electron 41                          |
-| 前端框架   | React 19 + TypeScript 6              |
-| 构建工具   | Vite 7 + electron-vite 5             |
-| 状态管理   | Zustand 5                            |
-| 代码编辑器 | CodeMirror 6 (@uiw/react-codemirror) |
-| 样式方案   | TailwindCSS 4                        |
-| 数据库     | better-sqlite3 (SQLite)              |
-| 图表       | Recharts                             |
-| 动画       | Motion                               |
-| 文档渲染   | marked                               |
-| 图标库     | Lucide React                         |
-
----
+| 命令                      | 说明                               |
+| ------------------------- | ---------------------------------- |
+| `npm run dev`             | 启动 Electron + Vite 开发环境      |
+| `npm run build`           | 构建主进程、预加载脚本和渲染端     |
+| `npm run typecheck`       | 运行 TypeScript 项目检查           |
+| `npm run test`            | 运行 Vitest 测试                   |
+| `npm run test:coverage`   | 运行覆盖率测试                     |
+| `npm run package:win:dir` | 构建 Windows unpacked 包并校验资源 |
+| `npm run build:win`       | 构建 Windows 安装包                |
+| `npm run build:mac`       | 构建 macOS 包                      |
+| `npm run build:linux`     | 构建 Linux 包                      |
 
 ## 项目结构
 
-```
-codehelper/
-├── electron/                    # Electron 主进程
-│   ├── main.ts                  # 应用入口（启动链路 + 窗口管理）
-│   ├── preload.ts               # 预加载脚本（通道白名单）
-│   ├── ipc/                     # IPC 处理器（约 80 个通道）
-│   │   ├── runner.ts            # 多语言代码执行引擎
-│   │   ├── database.ts          # 数据库操作 + AI 配置
-│   │   ├── ai.ts                # AI 对话（流式响应）
-│   │   ├── chat.ts              # 会话历史 + 人设 + 长期记忆
-│   │   ├── problems.ts          # 题库管理 + 自动判题
-│   │   ├── exercises.ts         # 课程练习评测
-│   │   ├── lessons.ts           # 课程内容
-│   │   ├── mistakes.ts          # 错题本
-│   │   ├── review.ts            # SM-2 间隔复习
-│   │   ├── rag.ts               # 知识库 RAG 引擎
-│   │   ├── analytics.ts         # 行为埋点与学习统计
-│   │   ├── home.ts              # 首页概览
-│   │   └── achievements.ts      # 成就系统
-│   └── db/                      # SQLite schema 与连接
-├── src/                         # React 渲染进程
-│   ├── App.tsx                  # 根组件
-│   ├── store.ts                 # Zustand 全局状态
-│   ├── views/                   # 页面视图
-│   │   ├── HomeView.tsx         # 首页（统计 / 热力图 / 待复习）
-│   │   ├── WorkspaceView.tsx    # 代码工作区（CodeMirror）
-│   │   ├── PracticeView.tsx     # 课程练习
-│   │   ├── ReviewView.tsx       # 错题本 + 复习
-│   │   ├── KnowledgeView.tsx    # 知识库
-│   │   ├── LearnView.tsx        # 课程学习
-│   │   ├── ProfileView.tsx      # 个人主页
-│   │   └── SettingsView.tsx     # 设置
-│   ├── services/                # 前端服务层（封装 IPC 调用）
-│   ├── components/              # 通用组件（编辑器 / 布局 / AI 面板等）
-│   ├── hooks/                   # 业务 hooks
-│   └── lib/                     # 主题 / 区域 / 外观等工具
-├── content/                     # 结构化课程练习内容
-├── tests/                       # 单元测试
-├── resources/                   # 题库数据 + 应用图标
-└── docs/                        # 详细文档
+```text
+.
+├── electron/              # Electron 主进程、preload、IPC、SQLite 和运行器
+│   ├── db/                # better-sqlite3 schema 与迁移
+│   ├── ipc/               # AI、题库、课程、知识库、学习记录等 IPC
+│   └── utils/             # 代码运行、安全、文本、SQL、性能工具
+├── src/                   # React 渲染端
+│   ├── modules/           # 首页、工作台、AI、题库、复习、知识库、设置
+│   ├── stores/            # Zustand 状态
+│   ├── api/               # 类型化 IPC 调用封装
+│   └── components/        # 通用 UI 组件
+├── content/               # 结构化课程内容
+├── resources/             # 图标、题库、知识素材、演示数据
+├── tests/                 # 单元、IPC、集成和回归测试
+├── docs/                  # 架构、数据流、IPC、可访问性和开发文档
+└── .github/workflows/     # CI 与 Release 自动化
 ```
 
----
+## 数据与隐私
 
-## 系统架构
+- 默认数据存放在本机 Electron 用户数据目录。
+- SQLite 保存题库进度、提交记录、错题、知识库、设置、账户资料和 AI 配置。
+- AI Provider 由用户自行配置，API Key 存在本地配置中。
+- 学习记录清空只删除学习活动相关数据，不删除题库、知识库、AI 配置、账户资料和课堂笔记。
 
-```mermaid
-graph TB
-    subgraph "Main Process (Node.js)"
-        main["electron/main.ts<br/>窗口管理 + IPC 路由"]
-        db["electron/db/<br/>SQLite (better-sqlite3)"]
-        ipc["electron/ipc/<br/>约 80 个业务通道"]
-        runner["electron/ipc/runner.ts<br/>多语言代码执行"]
-        ai["electron/ipc/ai.ts<br/>AI 流式通信"]
-    end
+## AI Provider 配置
 
-    subgraph "Preload (沙箱)"
-        preload["electron/preload.ts<br/>通道白名单 + 序列化检查"]
-    end
+在设置页添加 OpenAI 兼容服务即可使用 AI 对话与上下文辅导。常见字段：
 
-    subgraph "Renderer (Chromium)"
-        react["React 19 SPA"]
-        store["Zustand 状态管理"]
-        services["services/ 服务层"]
-        views["views/ 页面<br/>工作区 | 练习 | 错题 | 知识库<br/>课程 | 首页 | 设置"]
-    end
+- Base URL，例如 `https://api.openai.com/v1`
+- API Key
+- Model，例如 `gpt-4.1-mini`、`gpt-4o-mini` 或兼容服务提供的模型名
+- Temperature / Max Tokens 等生成参数
 
-    react --> store
-    react --> services
-    services -->|"invoke()"| preload
-    preload -->|"ipcMain.handle()"| ipc
-    ipc --> db
-    ipc --> runner
-    ai -->|"SSE 流式"| ExternalAPI["OpenAI 兼容 API"]
-    ai -->|"webContents.send()"| preload
-    main --> ipc
-    main --> preload
-```
+本地 Ollama 或其他兼容服务也可以通过相同方式接入。
 
----
+## 打包与发布
 
-## 安全特性
+Release 工作流由 `.github/workflows/release.yml` 驱动：
 
-- **Chromium 渲染进程沙箱** —— `contextIsolation` + `nodeIntegration: false`
-- **API 密钥加密存储** —— Electron `safeStorage` API
-- **CSP 内容安全策略** —— 严格 Content-Security-Policy
-- **代码执行资源限制** —— 超时 / 输出大小 / 并发数三重保护
-- **IPC 参数验证** —— 类型检查 + 协议白名单校验
-- **无 shell 注入** —— 子进程执行不使用 `shell:true`
-- **外部链接白名单** —— 仅允许 `http:` / `https:` 协议
+- 标签 `v*` 推送后触发发布流程。
+- Windows 和 macOS 构建是发布阻塞项。
+- Linux 构建当前作为 best-effort 产物尝试，失败不会阻塞 Windows/macOS 正式发布。
+- GitHub Release 由 workflow 的发布阶段统一创建，Electron Builder 打包阶段不会提前发布。
 
----
-
-## 测试
+本地发版前建议至少运行：
 
 ```bash
-npm run test          # 运行所有测试
-npm run test:watch    # 监听模式
-npm run test:ui       # 可视化测试界面
-npm run test:coverage # 覆盖率报告
+npm run typecheck
+npx vitest run tests/productionFixes.test.ts tests/learningRecordsIpc.test.ts
+npm run build
 ```
 
----
+## 文档入口
 
-## 代码规范
+- [docs/architecture.md](docs/architecture.md) - 总体架构
+- [docs/api.md](docs/api.md) - IPC 与数据接口
+- [docs/concepts/data-flow.md](docs/concepts/data-flow.md) - 前后端数据流
+- [docs/concepts/ipc-patterns.md](docs/concepts/ipc-patterns.md) - IPC 开发规范
+- [docs/data-portability.md](docs/data-portability.md) - 数据导入导出
+- [docs/accessibility.md](docs/accessibility.md) - 可访问性检查
+
+## 贡献
+
+欢迎提交 issue、改进文档、补充题库、修复 UI 细节或扩展测试。开发前建议先阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 与 `docs/concepts` 下的架构说明。
+
+提交前建议运行：
 
 ```bash
-npm run lint          # ESLint 检查
-npm run lint:fix      # 自动修复
-npm run format        # Prettier 格式化
-npm run typecheck     # TypeScript 类型检查
+npm run typecheck
+npm run test
+npm run build
 ```
 
-提交前由 husky + lint-staged 自动对暂存文件执行 ESLint 修复与 Prettier 格式化。
+## License
 
----
-
-## 详细文档
-
-| 文档                                                   | 说明         |
-| :----------------------------------------------------- | :----------- |
-| [docs/quickstart.md](docs/quickstart.md)               | 快速入门     |
-| [docs/architecture.md](docs/architecture.md)           | 系统架构详解 |
-| [docs/api.md](docs/api.md)                             | API 参考     |
-| [docs/features-showcase.md](docs/features-showcase.md) | 功能详细展示 |
-| [docs/troubleshooting.md](docs/troubleshooting.md)     | 故障排除指南 |
-| [CONTRIBUTING.md](CONTRIBUTING.md)                     | 贡献指南     |
-| [CHANGELOG.md](CHANGELOG.md)                           | 版本更新日志 |
-
----
-
-## 许可证
-
-本项目基于 [MIT License](LICENSE) 开源 —— 免费使用，自由修改，商业友好。
-
----
-
-<p align="center">
-  <strong>CodeHelper —— 写代码、问 AI、刷题、查资料、复盘错题，一个窗口搞定。</strong><br><br>
-  <sub>Built with Electron + React + TypeScript</sub>
-</p>
+MIT License. See [LICENSE](LICENSE).
