@@ -10,7 +10,7 @@ directories:
 publish:
   provider: github
   owner: TIANWEN-cpu
-  repo: CodeHelper
+  repo: CodeHelper-Studio
   releaseType: release
 
 # Windows build configuration

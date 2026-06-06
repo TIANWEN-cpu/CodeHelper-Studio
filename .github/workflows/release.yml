@@ -164,15 +164,9 @@ jobs:
         run: npm run build
 
       - name: Build Electron packages
-        run: npx electron-builder --${{ matrix.platform }}
+        run: npx electron-builder --${{ matrix.platform }} --publish never
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Windows code signing (uncomment and set secrets):
-          # CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE }}
-          # CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-          # macOS code signing (uncomment and set secrets):
-          # CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
-          # CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - name: Verify packaged Windows resources
         if: matrix.platform == 'win'
