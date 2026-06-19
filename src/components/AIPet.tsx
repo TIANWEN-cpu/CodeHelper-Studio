@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
 import { CodexPetSprite } from '@/components/CodexPetSprite'
 import { ACTIVITY_EVENT } from '@/services/analyticsService'
-import { getPetReaction } from '@/lib/petReactions'
+import { getPetReaction, pickIdleAnimation } from '@/lib/petReactions'
 import {
   BUILT_IN_FIREFLY_PET,
   listInstalledPets,
@@ -113,6 +113,8 @@ export function AIPet() {
   const frameRef = useRef<number | null>(null)
   const reactionTimerRef = useRef<number | null>(null)
   const bubbleTimerRef = useRef<number | null>(null)
+  const idleTimerRef = useRef<number | null>(null)
+  const petStateRef = useRef(petState)
   const latestPositionRef = useRef(position)
   const dragRef = useRef<{
     pointerId: number
@@ -215,9 +217,15 @@ export function AIPet() {
       if (frameRef.current != null) window.cancelAnimationFrame(frameRef.current)
       if (reactionTimerRef.current != null) window.clearTimeout(reactionTimerRef.current)
       if (bubbleTimerRef.current != null) window.clearTimeout(bubbleTimerRef.current)
+      if (idleTimerRef.current != null) window.clearTimeout(idleTimerRef.current)
     },
     [],
   )
+
+  // 让空闲调度器读到最新状态，又不必把 petState 列进定时器依赖（否则每次反应都会重置）。
+  useEffect(() => {
+    petStateRef.current = petState
+  }, [petState])
 
   const playReaction = useCallback((state: string, duration = 680) => {
     if (reactionTimerRef.current != null) window.clearTimeout(reactionTimerRef.current)
@@ -247,6 +255,30 @@ export function AIPet() {
     window.addEventListener(ACTIVITY_EVENT, onActivity)
     return () => window.removeEventListener(ACTIVITY_EVENT, onActivity)
   }, [playReaction])
+
+  // 空闲时每隔一段随机时间播放一个小动作，让桌宠静置时也有生气。
+  // calm 动画档 / reduce-motion / 拖动 / 展开菜单 / 正在反应时都跳过。
+  useEffect(() => {
+    if (animationLevel === 'calm' || !aiPetEnabled || currentView === 'settings') return
+    let timer: number | null = null
+    const schedule = () => {
+      const delay = 12000 + Math.random() * 16000 // 12~28s
+      timer = window.setTimeout(() => {
+        const reduceMotion =
+          typeof document !== 'undefined' &&
+          document.documentElement.getAttribute('data-reduce-motion') === 'true'
+        if (!reduceMotion && !dragging && !expanded && petStateRef.current === 'idle') {
+          const move = pickIdleAnimation(Math.random())
+          playReaction(move.state, move.duration)
+        }
+        schedule()
+      }, delay)
+    }
+    schedule()
+    return () => {
+      if (timer != null) window.clearTimeout(timer)
+    }
+  }, [animationLevel, aiPetEnabled, currentView, dragging, expanded, playReaction])
 
   const handlePointerMove = useCallback(
     (event: PointerEvent) => {

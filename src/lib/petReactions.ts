@@ -21,3 +21,19 @@ const REACTIONS: Record<string, PetReaction> = {
 export function getPetReaction(activityType: string): PetReaction | null {
   return REACTIONS[activityType] ?? null
 }
+
+/** 空闲时随机播放的小动作（无气泡），让桌宠在静置时也有生气。 */
+export const IDLE_ANIMATIONS: PetReaction[] = [
+  { state: 'waving', duration: 760 },
+  { state: 'jumping', duration: 900 },
+]
+
+/**
+ * 按 [0,1) 的随机种子挑一个空闲小动作（纯函数，便于确定性测试）。
+ * 越界种子会被夹到合法区间。
+ */
+export function pickIdleAnimation(seed: number): PetReaction {
+  const clamped = Number.isFinite(seed) ? Math.min(0.999999, Math.max(0, seed)) : 0
+  const index = Math.floor(clamped * IDLE_ANIMATIONS.length)
+  return IDLE_ANIMATIONS[index] ?? IDLE_ANIMATIONS[0]
+}
