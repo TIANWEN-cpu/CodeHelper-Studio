@@ -48,6 +48,9 @@ const allowedInvokeChannels = new Set([
   'chat-memory-save',
   'chat-memory-delete',
   'chat-memory-capture',
+  'chat-context-preview',
+  'chat-memories-batch',
+  'chat-memory-extract',
   'platform-info',
   // Analytics
   'analytics-track',
