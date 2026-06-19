@@ -577,7 +577,7 @@ describe('production fix coverage', () => {
     expect(headerSource).toContain('w-[220px]')
     expect(headerSource).toContain('max-w-[420px]')
     expect(headerSource).toContain('placeholder="快速跳转..."')
-    expect(headerSource).toContain('搜索页面、课程或练习')
+    expect(headerSource).toContain('搜索页面、课程、练习或知识库')
     expect(headerSource).toContain('buildCommandResults')
     expect(headerSource).toContain('pt-20')
     expect(headerSource).toContain('<span>终端</span>')

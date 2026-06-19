@@ -28,6 +28,7 @@ import { useKnowledgeData } from '@/hooks/useKnowledgeData'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
 import { renderMarkdown } from '@/utils/markdown'
+import { consumePendingDeepLink, subscribeDeepLink } from '@/lib/deepLink'
 import type { KnowledgeDoc } from '@/services/knowledgeService'
 
 type SortMode = 'recent' | 'name' | 'chunks'
@@ -121,6 +122,29 @@ function shortText(text: string | undefined, limit = 160): string {
   return value.length > limit ? `${value.slice(0, limit)}...` : value
 }
 
+/** 把知识文档映射为列表展示项（文档分支与命令面板深链共用同一口径）。 */
+function toDocumentDisplayItem(doc: KnowledgeDoc): KnowledgeDisplayItem {
+  const fileType = normalizeFileType(doc.file_type)
+  const tags = Array.from(
+    new Set([fileType, getTopic(doc), ...(doc.tags ?? []).filter((tag) => tag !== 'knowledge')]),
+  ).slice(0, 4)
+  return {
+    id: doc.id,
+    title: cleanTitle(doc),
+    filename: doc.filename,
+    desc: shortText(doc.content_preview),
+    fileType,
+    topic: getTopic(doc),
+    repo: getRepo(doc),
+    sourcePath: doc.source_path,
+    sourceUrl: doc.source_url,
+    tags,
+    time: doc.created_at,
+    chunkCount: doc.chunk_count,
+    source: 'document',
+  }
+}
+
 function formatScore(score?: number): string | null {
   if (typeof score !== 'number' || Number.isNaN(score)) return null
   return `${Math.round(score * 100)}% 匹配`
@@ -210,6 +234,7 @@ export function KnowledgeView() {
   const [sortMode, setSortMode] = useState<SortMode>('recent')
   const [selectedItem, setSelectedItem] = useState<KnowledgeDisplayItem | null>(null)
   const [page, setPage] = useState(1)
+  const [pendingDocId, setPendingDocId] = useState<number | null>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const {
@@ -253,6 +278,22 @@ export function KnowledgeView() {
     for (const doc of documents) map.set(doc.id, doc)
     return map
   }, [documents])
+
+  // 命令面板深链：挂载时领取待打开的文档，并订阅后续实时事件。
+  useEffect(() => {
+    const pending = consumePendingDeepLink('knowledge')
+    if (pending) setPendingDocId(Number(pending))
+    return subscribeDeepLink('knowledge', (id) => setPendingDocId(Number(id)))
+  }, [])
+  // 文档列表异步加载，待目标文档就绪后再打开其详情。
+  useEffect(() => {
+    if (pendingDocId == null) return
+    const doc = docsById.get(pendingDocId)
+    if (!doc) return
+    setSelectedItem(toDocumentDisplayItem(doc))
+    void loadDocument(doc.id)
+    setPendingDocId(null)
+  }, [pendingDocId, docsById, loadDocument])
 
   const topicGroups = useMemo(() => {
     const map = new Map<string, number>()
@@ -304,27 +345,7 @@ export function KnowledgeView() {
             source: 'search' as const,
           }
         })
-      : documents.map((doc) => {
-          const fileType = normalizeFileType(doc.file_type)
-          const tags = Array.from(
-            new Set([fileType, getTopic(doc), ...(doc.tags ?? []).filter((tag) => tag !== 'knowledge')]),
-          ).slice(0, 4)
-          return {
-            id: doc.id,
-            title: cleanTitle(doc),
-            filename: doc.filename,
-            desc: shortText(doc.content_preview),
-            fileType,
-            topic: getTopic(doc),
-            repo: getRepo(doc),
-            sourcePath: doc.source_path,
-            sourceUrl: doc.source_url,
-            tags,
-            time: doc.created_at,
-            chunkCount: doc.chunk_count,
-            source: 'document' as const,
-          }
-        })
+      : documents.map(toDocumentDisplayItem)
 
     const filtered = items.filter((item) => {
       if (activeFilter.kind === 'all') return true
@@ -435,14 +456,18 @@ export function KnowledgeView() {
                 <BookOpen size={14} className="text-[#A78BFA]" />
                 主题
               </div>
-              <div className="mt-1 text-2xl font-bold text-white font-mono">{topicGroups.length}</div>
+              <div className="mt-1 text-2xl font-bold text-white font-mono">
+                {topicGroups.length}
+              </div>
             </div>
             <div className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] px-4 py-3">
               <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
                 <Database size={14} className="text-[#F59E0B]" />
                 来源
               </div>
-              <div className="mt-1 text-2xl font-bold text-white font-mono">{repoGroups.length}</div>
+              <div className="mt-1 text-2xl font-bold text-white font-mono">
+                {repoGroups.length}
+              </div>
             </div>
           </div>
         )}
@@ -498,8 +523,9 @@ export function KnowledgeView() {
           <div className="px-3 py-2 bg-[#10B981]/10 border border-[#10B981]/30 rounded-lg text-xs text-[#10B981]">
             资源包导入完成：知识文档 {lastResourcePackImport.knowledge.imported} 新增 /{' '}
             {lastResourcePackImport.knowledge.skipped} 跳过，知识片段{' '}
-            {lastResourcePackImport.knowledge.chunks}；题目 {lastResourcePackImport.problems.imported}{' '}
-            新增 / {lastResourcePackImport.problems.updated} 更新 /{' '}
+            {lastResourcePackImport.knowledge.chunks}；题目{' '}
+            {lastResourcePackImport.problems.imported} 新增 /{' '}
+            {lastResourcePackImport.problems.updated} 更新 /{' '}
             {lastResourcePackImport.problems.skipped} 跳过。
           </div>
         )}
@@ -633,118 +659,118 @@ export function KnowledgeView() {
           )}
 
           <div className="flex-1 flex flex-col min-h-0 bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl overflow-hidden">
-              <div className="p-4 border-b border-[var(--color-border-subtle)] flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <span className="font-medium text-white text-sm">
-                    {query.trim() ? '搜索结果' : filterLabel(activeFilter)} ({displayItems.length})
-                  </span>
-                  <p className="text-[11px] text-[var(--color-text-muted)] mt-1 truncate">
-                    当前只渲染第 {safePage} 页的 {visibleItems.length} 条，避免大批量资料滚动卡顿。
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
-                  <button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={safePage <= 1}
-                    className="rounded-md border border-[var(--color-border-subtle)] p-1.5 disabled:opacity-40 hover:text-white"
-                    title="上一页"
-                  >
-                    <ChevronLeft size={15} />
-                  </button>
-                  <span className="font-mono">
-                    {safePage}/{totalPages}
-                  </span>
-                  <button
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={safePage >= totalPages}
-                    className="rounded-md border border-[var(--color-border-subtle)] p-1.5 disabled:opacity-40 hover:text-white"
-                    title="下一页"
-                  >
-                    <ChevronRight size={15} />
-                  </button>
-                </div>
+            <div className="p-4 border-b border-[var(--color-border-subtle)] flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <span className="font-medium text-white text-sm">
+                  {query.trim() ? '搜索结果' : filterLabel(activeFilter)} ({displayItems.length})
+                </span>
+                <p className="text-[11px] text-[var(--color-text-muted)] mt-1 truncate">
+                  当前只渲染第 {safePage} 页的 {visibleItems.length} 条，避免大批量资料滚动卡顿。
+                </p>
               </div>
+              <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage <= 1}
+                  className="rounded-md border border-[var(--color-border-subtle)] p-1.5 disabled:opacity-40 hover:text-white"
+                  title="上一页"
+                >
+                  <ChevronLeft size={15} />
+                </button>
+                <span className="font-mono">
+                  {safePage}/{totalPages}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage >= totalPages}
+                  className="rounded-md border border-[var(--color-border-subtle)] p-1.5 disabled:opacity-40 hover:text-white"
+                  title="下一页"
+                >
+                  <ChevronRight size={15} />
+                </button>
+              </div>
+            </div>
 
-              <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
-                {loading && displayItems.length === 0 && (
-                  <div className="flex items-center justify-center h-32 text-sm text-[var(--color-text-muted)]">
-                    加载中...
-                  </div>
-                )}
-                {!loading && displayItems.length === 0 && (
-                  <div className="flex flex-col items-center justify-center h-48 text-sm text-[var(--color-text-muted)]">
-                    <FileText size={34} className="mb-2 opacity-40" />
-                    {query.trim() ? '没有找到匹配资料' : '暂无资料'}
-                  </div>
-                )}
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
+              {loading && displayItems.length === 0 && (
+                <div className="flex items-center justify-center h-32 text-sm text-[var(--color-text-muted)]">
+                  加载中...
+                </div>
+              )}
+              {!loading && displayItems.length === 0 && (
+                <div className="flex flex-col items-center justify-center h-48 text-sm text-[var(--color-text-muted)]">
+                  <FileText size={34} className="mb-2 opacity-40" />
+                  {query.trim() ? '没有找到匹配资料' : '暂无资料'}
+                </div>
+              )}
 
-                <div className="space-y-2">
-                  {visibleItems.map((item) => (
-                    <button
-                      key={`${item.source}-${item.id}-${item.chunkIndex ?? 'doc'}`}
-                      onClick={() => void handleSelectItem(item)}
-                      className="group w-full rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] p-3 text-left transition-colors hover:border-[var(--color-accent-purple)]/45 hover:bg-[var(--color-bg-hover)]"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--color-accent-purple)] text-white">
-                          <FileText size={18} />
+              <div className="space-y-2">
+                {visibleItems.map((item) => (
+                  <button
+                    key={`${item.source}-${item.id}-${item.chunkIndex ?? 'doc'}`}
+                    onClick={() => void handleSelectItem(item)}
+                    className="group w-full rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] p-3 text-left transition-colors hover:border-[var(--color-accent-purple)]/45 hover:bg-[var(--color-bg-hover)]"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--color-accent-purple)] text-white">
+                        <FileText size={18} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="truncate text-sm font-semibold text-white group-hover:text-[var(--color-accent-purple)]">
+                            {item.title}
+                          </h3>
+                          <span className="shrink-0 rounded border border-[#10B981]/25 bg-[#10B981]/10 px-1.5 py-0.5 text-[10px] text-[#10B981]">
+                            {item.fileType}
+                          </span>
+                          {formatScore(item.score) && (
+                            <span className="shrink-0 text-[10px] text-[var(--color-text-muted)]">
+                              {formatScore(item.score)}
+                            </span>
+                          )}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <h3 className="truncate text-sm font-semibold text-white group-hover:text-[var(--color-accent-purple)]">
-                              {item.title}
-                            </h3>
-                            <span className="shrink-0 rounded border border-[#10B981]/25 bg-[#10B981]/10 px-1.5 py-0.5 text-[10px] text-[#10B981]">
-                              {item.fileType}
-                            </span>
-                            {formatScore(item.score) && (
-                              <span className="shrink-0 text-[10px] text-[var(--color-text-muted)]">
-                                {formatScore(item.score)}
-                              </span>
-                            )}
-                          </div>
-                          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[var(--color-text-muted)]">
-                            {item.desc}
-                          </p>
-                          <div className="mt-2 flex flex-wrap items-center gap-2">
-                            <span className="rounded bg-[var(--color-bg-panel)] px-2 py-0.5 text-[11px] text-[var(--color-text-secondary)]">
-                              {item.topic}
-                            </span>
-                            <span className="rounded bg-[var(--color-bg-panel)] px-2 py-0.5 text-[11px] text-[var(--color-text-secondary)]">
-                              {item.repo}
-                            </span>
-                            <span className="text-[11px] text-[var(--color-text-muted)]">
-                              {item.chunkCount} 片段
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-1">
-                          <Eye size={15} className="text-[var(--color-text-muted)]" />
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              void handleDelete(item)
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key !== 'Enter' && e.key !== ' ') return
-                              e.preventDefault()
-                              e.stopPropagation()
-                              void handleDelete(item)
-                            }}
-                            className="ml-1 cursor-pointer p-1 text-[var(--color-text-muted)] hover:text-red-400"
-                            title="删除文档"
-                          >
-                            <Trash2 size={14} />
+                        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[var(--color-text-muted)]">
+                          {item.desc}
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span className="rounded bg-[var(--color-bg-panel)] px-2 py-0.5 text-[11px] text-[var(--color-text-secondary)]">
+                            {item.topic}
+                          </span>
+                          <span className="rounded bg-[var(--color-bg-panel)] px-2 py-0.5 text-[11px] text-[var(--color-text-secondary)]">
+                            {item.repo}
+                          </span>
+                          <span className="text-[11px] text-[var(--color-text-muted)]">
+                            {item.chunkCount} 片段
                           </span>
                         </div>
                       </div>
-                    </button>
-                  ))}
-                </div>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Eye size={15} className="text-[var(--color-text-muted)]" />
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            void handleDelete(item)
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key !== 'Enter' && e.key !== ' ') return
+                            e.preventDefault()
+                            e.stopPropagation()
+                            void handleDelete(item)
+                          }}
+                          className="ml-1 cursor-pointer p-1 text-[var(--color-text-muted)] hover:text-red-400"
+                          title="删除文档"
+                        >
+                          <Trash2 size={14} />
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
+          </div>
         </div>
       </div>
       {selectedItem &&

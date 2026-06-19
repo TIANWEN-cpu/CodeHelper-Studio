@@ -4,7 +4,10 @@
 // sessionStorage 暂存 pending（挂载时消费）+ CustomEvent 实时通知
 // （视图已挂载时即时响应）。沿用 ProfileView→Settings 的既有模式。
 
-export type DeepLinkTarget = { kind: 'lesson'; id: string } | { kind: 'exercise'; id: string }
+export type DeepLinkTarget =
+  | { kind: 'lesson'; id: string }
+  | { kind: 'exercise'; id: string }
+  | { kind: 'knowledge'; id: string }
 
 const PENDING_KEY = 'codehelper.pendingDeepLink'
 const EVENT = 'codehelper:deep-link'

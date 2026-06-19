@@ -9,12 +9,15 @@ import type { AIConfig } from '@/services/settingsService'
 import * as reviewService from '@/services/reviewService'
 import * as learnService from '@/services/learnService'
 import * as practiceService from '@/services/practiceService'
+import * as knowledgeService from '@/services/knowledgeService'
 import { requestDeepLink } from '@/lib/deepLink'
+import { getRecentRefs, recordRecent, type RecentRef } from '@/lib/recentItems'
 import {
   buildCommandResults,
   type CommandResult,
   type LessonItem,
   type ExerciseItem,
+  type KnowledgeItem,
 } from '@/lib/commandPalette'
 
 /** Pages reachable from the command palette. */
@@ -33,6 +36,7 @@ const KIND_LABELS: Record<CommandResult['kind'], string> = {
   page: '页面',
   lesson: '课程',
   exercise: '练习',
+  knowledge: '知识',
 }
 
 export function Header() {
@@ -54,9 +58,11 @@ export function Header() {
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
-  // 课程/练习作为可搜索内容，首次打开面板时懒加载一次。
+  // 课程/练习/知识库作为可搜索内容，首次打开面板时懒加载一次。
   const [lessons, setLessons] = useState<LessonItem[]>([])
   const [exercises, setExercises] = useState<ExerciseItem[]>([])
+  const [knowledge, setKnowledge] = useState<KnowledgeItem[]>([])
+  const [recentRefs, setRecentRefs] = useState<RecentRef[]>([])
   const contentLoadedRef = useRef(false)
 
   const currentModelConfig = useMemo(
@@ -104,18 +110,26 @@ export function Header() {
   }, [])
 
   const filteredItems = useMemo(
-    () => buildCommandResults(query, { pages: COMMAND_ITEMS, lessons, exercises }),
-    [query, lessons, exercises],
+    () =>
+      buildCommandResults(query, {
+        pages: COMMAND_ITEMS,
+        lessons,
+        exercises,
+        knowledge,
+        recentRefs,
+      }),
+    [query, lessons, exercises, knowledge, recentRefs],
   )
 
-  // 首次打开面板时拉取课程/练习供搜索；失败静默（仍可搜索页面）。
+  // 首次打开面板时拉取课程/练习/知识库供搜索；失败静默（仍可搜索页面）。
   const loadSearchableContent = useCallback(async () => {
     if (contentLoadedRef.current) return
     contentLoadedRef.current = true
     try {
-      const [tracks, exerciseList] = await Promise.all([
+      const [tracks, exerciseList, docs] = await Promise.all([
         learnService.getTracks().catch(() => []),
         practiceService.getExercises().catch(() => []),
+        knowledgeService.getDocuments().catch(() => []),
       ])
       const flatLessons: LessonItem[] = tracks.flatMap((track) =>
         track.modules.flatMap((module) =>
@@ -136,6 +150,13 @@ export function Header() {
           trackId: ex.track_id,
         })),
       )
+      setKnowledge(
+        docs.map((doc) => ({
+          id: String(doc.id),
+          title: doc.display_title?.trim() || doc.filename,
+          sublabel: doc.source_repo || doc.category || undefined,
+        })),
+      )
     } catch {
       // 内容搜索是增量能力，加载失败不影响页面跳转。
       contentLoadedRef.current = false
@@ -145,6 +166,7 @@ export function Header() {
   const openPalette = useCallback(() => {
     setQuery('')
     setActiveIndex(0)
+    setRecentRefs(getRecentRefs())
     setPaletteOpen(true)
     void loadSearchableContent()
   }, [loadSearchableContent])
@@ -182,7 +204,10 @@ export function Header() {
   const runCommand = useCallback(
     (result: CommandResult) => {
       setCurrentView(result.view)
-      if (result.target) requestDeepLink(result.target)
+      if (result.target) {
+        requestDeepLink(result.target)
+        recordRecent({ kind: result.target.kind, id: result.target.id })
+      }
       setPaletteOpen(false)
     },
     [setCurrentView],
@@ -197,6 +222,7 @@ export function Header() {
           if (prev) return false
           setQuery('')
           setActiveIndex(0)
+          setRecentRefs(getRecentRefs())
           void loadSearchableContent()
           return true
         })
@@ -454,7 +480,7 @@ export function Header() {
                     setActiveIndex(0)
                   }}
                   onKeyDown={onInputKeyDown}
-                  placeholder="搜索页面、课程或练习..."
+                  placeholder="搜索页面、课程、练习或知识库..."
                   className="flex-1 bg-transparent py-3 text-sm text-white placeholder-[var(--color-text-muted)] focus:outline-none"
                 />
                 <kbd className="hidden sm:inline-flex items-center bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] rounded px-1.5 py-0.5 text-[10px] font-mono text-[var(--color-text-muted)]">
@@ -486,7 +512,7 @@ export function Header() {
                           )}
                         </span>
                         <span className="shrink-0 rounded-full border border-[var(--color-border-subtle)] px-2 py-0.5 text-[10px] text-[var(--color-text-muted)]">
-                          {KIND_LABELS[item.kind]}
+                          {item.badge ?? KIND_LABELS[item.kind]}
                         </span>
                       </button>
                     </li>

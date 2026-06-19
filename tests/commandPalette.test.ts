@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { buildCommandResults, MAX_PER_GROUP, type CommandSources } from '../src/lib/commandPalette'
+import {
+  buildCommandResults,
+  MAX_PER_GROUP,
+  MAX_RECENTS,
+  type CommandSources,
+} from '../src/lib/commandPalette'
 
 const PAGES = [
   { view: 'home' as const, label: '首页' },
@@ -16,6 +21,10 @@ const sources: CommandSources = {
   exercises: [
     { id: 'e1', title: '两数之和', difficulty: '简单', trackId: 'algo' },
     { id: 'e2', title: '双指针求和', difficulty: '中等', trackId: 'algo' },
+  ],
+  knowledge: [
+    { id: '1', title: '数据库系统', sublabel: 'PKU/cs' },
+    { id: '2', title: '斐波那契数列', sublabel: 'CyC2018' },
   ],
 }
 
@@ -88,5 +97,76 @@ describe('buildCommandResults', () => {
       pages: [{ view: 'learn', label: 'Learn' }],
     })
     expect(results).toHaveLength(1)
+  })
+
+  it('matches knowledge docs and carries a knowledge deep-link', () => {
+    const results = buildCommandResults('数据库', sources)
+    const kb = results.find((r) => r.kind === 'knowledge')
+    expect(kb?.label).toBe('数据库系统')
+    expect(kb?.target).toEqual({ kind: 'knowledge', id: '1' })
+    expect(kb?.view).toBe('knowledge')
+  })
+
+  it('matches knowledge by sublabel too', () => {
+    const results = buildCommandResults('CyC2018', sources)
+    expect(results.some((r) => r.kind === 'knowledge' && r.label === '斐波那契数列')).toBe(true)
+  })
+
+  it('orders content groups page → lesson → exercise → knowledge', () => {
+    const all: CommandSources = {
+      pages: [{ view: 'learn', label: '通' }],
+      lessons: [{ id: 'l', title: '通用课' }],
+      exercises: [{ id: 'e', title: '通用练习' }],
+      knowledge: [{ id: 'k', title: '通用知识' }],
+    }
+    expect(buildCommandResults('通', all).map((r) => r.kind)).toEqual([
+      'page',
+      'lesson',
+      'exercise',
+      'knowledge',
+    ])
+  })
+})
+
+describe('buildCommandResults recents', () => {
+  it('resolves recent refs ahead of pages on an empty query', () => {
+    const results = buildCommandResults('', {
+      ...sources,
+      recentRefs: [
+        { kind: 'exercise', id: 'e2' },
+        { kind: 'lesson', id: 'l1' },
+      ],
+    })
+    expect(results[0]).toMatchObject({ kind: 'exercise', label: '双指针求和', badge: '最近' })
+    expect(results[1]).toMatchObject({ kind: 'lesson', label: '双指针入门', badge: '最近' })
+    // pages still follow the recents
+    expect(results.slice(2).every((r) => r.kind === 'page')).toBe(true)
+  })
+
+  it('skips recent refs whose content is not loaded', () => {
+    const results = buildCommandResults('', {
+      pages: [],
+      lessons: [],
+      recentRefs: [{ kind: 'lesson', id: 'missing' }],
+    })
+    expect(results).toEqual([])
+  })
+
+  it('ignores recents when the query is non-empty', () => {
+    const results = buildCommandResults('双指针', {
+      ...sources,
+      recentRefs: [{ kind: 'lesson', id: 'l2' }],
+    })
+    expect(results.every((r) => r.badge !== '最近')).toBe(true)
+  })
+
+  it('caps recents at MAX_RECENTS', () => {
+    const lessons = Array.from({ length: MAX_RECENTS + 4 }, (_, i) => ({
+      id: `r${i}`,
+      title: `最近课 ${i}`,
+    }))
+    const recentRefs = lessons.map((l) => ({ kind: 'lesson' as const, id: l.id }))
+    const results = buildCommandResults('', { pages: [], lessons, recentRefs })
+    expect(results.filter((r) => r.badge === '最近')).toHaveLength(MAX_RECENTS)
   })
 })
