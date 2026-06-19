@@ -160,16 +160,37 @@ export function ReviewView() {
 
   // Handlers
   // 间隔复习自评：用户对当前错题的掌握度真实驱动 SM-2 quality（0-5），不再恒为 3。
-  const handleReview = async (quality: number) => {
+  const handleReview = React.useCallback(
+    async (quality: number) => {
+      if (!selected) return
+      try {
+        await updateReview(String(selected.problem_id), quality)
+        await getStats()
+        await loadDueReviews()
+      } catch {
+        /* error handled by hook */
+      }
+    },
+    [selected, updateReview, getStats, loadDueReviews],
+  )
+
+  // 键盘自评：1=还不会 / 2=有点难 / 3=已掌握，加速复习；在输入框/编辑器内不拦截。
+  React.useEffect(() => {
     if (!selected) return
-    try {
-      await updateReview(String(selected.problem_id), quality)
-      await getStats()
-      await loadDueReviews()
-    } catch {
-      /* error handled by hook */
+    const KEY_TO_QUALITY: Record<string, number> = { '1': 2, '2': 3, '3': 5 }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const target = e.target as HTMLElement | null
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) return
+      const quality = KEY_TO_QUALITY[e.key]
+      if (quality === undefined) return
+      e.preventDefault()
+      void handleReview(quality)
     }
-  }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [selected, handleReview])
 
   // 组装错题分析提示词：题面 + 错误类型 + 知识点 + 错误代码（含参考正确代码）。
   const buildMistakePrompt = () => {
@@ -727,26 +748,29 @@ export function ReviewView() {
                   <button
                     onClick={() => handleReview(2)}
                     disabled={!selected}
-                    className="px-2.5 py-2 rounded-lg text-sm font-medium border border-[#EF4444]/30 text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors disabled:opacity-40"
-                    title="没掌握：缩短间隔，尽快再复习"
+                    className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium border border-[#EF4444]/30 text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors disabled:opacity-40"
+                    title="没掌握：缩短间隔，尽快再复习（快捷键 1）"
                   >
                     还不会
+                    <kbd className="rounded px-1 text-[10px] leading-none opacity-60">1</kbd>
                   </button>
                   <button
                     onClick={() => handleReview(3)}
                     disabled={!selected}
-                    className="px-2.5 py-2 rounded-lg text-sm font-medium border border-[#F59E0B]/30 text-[#F59E0B] hover:bg-[#F59E0B]/10 transition-colors disabled:opacity-40"
-                    title="有点难：按正常节奏推进间隔"
+                    className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium border border-[#F59E0B]/30 text-[#F59E0B] hover:bg-[#F59E0B]/10 transition-colors disabled:opacity-40"
+                    title="有点难：按正常节奏推进间隔（快捷键 2）"
                   >
                     有点难
+                    <kbd className="rounded px-1 text-[10px] leading-none opacity-60">2</kbd>
                   </button>
                   <button
                     onClick={() => handleReview(5)}
                     disabled={!selected}
-                    className="px-2.5 py-2 rounded-lg text-sm font-medium border border-[#10B981]/30 text-[#10B981] hover:bg-[#10B981]/10 transition-colors disabled:opacity-40"
-                    title="已掌握：大幅延长下次复习间隔"
+                    className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium border border-[#10B981]/30 text-[#10B981] hover:bg-[#10B981]/10 transition-colors disabled:opacity-40"
+                    title="已掌握：大幅延长下次复习间隔（快捷键 3）"
                   >
                     已掌握
+                    <kbd className="rounded px-1 text-[10px] leading-none opacity-60">3</kbd>
                   </button>
                 </div>
                 <button
