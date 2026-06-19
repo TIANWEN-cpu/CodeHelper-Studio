@@ -180,7 +180,11 @@ export function registerAIIPC(): void {
         return { success: true, requestId, content: fullContent }
       } finally {
         clearTimeout(requestTimeout)
-        activeRequests.delete(requestId)
+        // 仅当 map 中仍是本次的 controller 时才删除：避免被同 requestId 的后续请求
+        // 取代后，本请求的清理误删掉后续请求的 controller（否则会漏掉对后续请求的取消）。
+        if (activeRequests.get(requestId) === controller) {
+          activeRequests.delete(requestId)
+        }
       }
     },
   )
