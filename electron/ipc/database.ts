@@ -2,6 +2,7 @@ import { ipcMain, safeStorage } from 'electron'
 import { getDB } from '../db/index'
 import { trackPerformance } from '../utils/perfMonitor'
 import { assertAllowedProviderBaseUrl } from '../utils/providerSecurity'
+import { friendlyUpstreamError, redirectBlockedError, isRedirect } from '../utils/httpErrors'
 import type { AIConfigRow, AIConfigDecrypted } from '../types/db'
 
 function encryptApiKey(apiKey: string): string {
@@ -210,6 +211,7 @@ export function registerDatabaseIPC(): void {
     try {
       response = await fetch(url, {
         headers: { Authorization: `Bearer ${args.api_key}` },
+        redirect: 'manual',
         signal: AbortSignal.timeout(15000),
       })
     } catch (error) {
@@ -217,12 +219,19 @@ export function registerDatabaseIPC(): void {
       if (msg.includes('abort') || msg.includes('timeout')) {
         throw new Error('获取模型列表超时，请检查网络或 Base URL')
       }
-      throw new Error(`网络连接失败: ${msg}`)
+      console.warn('[ai] fetch-models failed:', msg)
+      throw new Error('网络连接失败，请检查网络或 Base URL')
+    }
+
+    // 出于 SSRF 防护，拒绝跟随上游重定向（可能指向内网/元数据地址）
+    if (isRedirect(response.status)) {
+      throw redirectBlockedError('models')
     }
 
     if (!response.ok) {
       const text = await response.text().catch(() => '')
-      throw new Error(`获取模型列表失败 (${response.status}): ${text.slice(0, 200)}`)
+      console.warn(`[ai] fetch-models error ${response.status}: ${text.slice(0, 500)}`)
+      throw new Error(friendlyUpstreamError(response.status, 'models'))
     }
     const json = (await response.json()) as { data?: { id: string }[] }
     const models = (json.data || []).map((m) => m.id).sort()
