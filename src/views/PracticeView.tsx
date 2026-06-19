@@ -18,6 +18,7 @@ import { WorkspaceView } from './WorkspaceView' // Reusing partially
 import { motion, AnimatePresence } from 'motion/react'
 import { usePracticeData } from '@/hooks/usePracticeData'
 import { consumePendingDeepLink, subscribeDeepLink } from '@/lib/deepLink'
+import { recordRecent } from '@/lib/recentItems'
 
 // ---- Difficulty helpers ----
 
@@ -108,6 +109,7 @@ export function PracticeView() {
   const handleSelectExercise = React.useCallback(
     async (id: string) => {
       await selectExercise(id)
+      recordRecent({ kind: 'exercise', id })
       setDetailTab('desc')
       setViewMode('detail')
     },

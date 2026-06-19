@@ -491,32 +491,47 @@ export function Header() {
                 {filteredItems.length === 0 ? (
                   <li className="px-4 py-3 text-sm text-[var(--color-text-muted)]">无匹配结果</li>
                 ) : (
-                  filteredItems.map((item, index) => (
-                    <li key={item.key}>
-                      <button
-                        onClick={() => runCommand(item)}
-                        onMouseEnter={() => setActiveIndex(index)}
-                        className={cn(
-                          'w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm text-left transition-colors',
-                          index === activeIndex
-                            ? 'bg-[var(--color-bg-hover)] text-white'
-                            : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]',
+                  filteredItems.map((item, index) => {
+                    const group = item.badge ?? KIND_LABELS[item.kind]
+                    const prevGroup =
+                      index > 0
+                        ? (filteredItems[index - 1].badge ??
+                          KIND_LABELS[filteredItems[index - 1].kind])
+                        : null
+                    return (
+                      <React.Fragment key={item.key}>
+                        {group !== prevGroup && (
+                          <li className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                            {group}
+                          </li>
                         )}
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate">{item.label}</span>
-                          {item.sublabel && (
-                            <span className="block truncate text-[11px] text-[var(--color-text-muted)]">
-                              {item.sublabel}
+                        <li>
+                          <button
+                            onClick={() => runCommand(item)}
+                            onMouseEnter={() => setActiveIndex(index)}
+                            className={cn(
+                              'w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm text-left transition-colors',
+                              index === activeIndex
+                                ? 'bg-[var(--color-bg-hover)] text-white'
+                                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]',
+                            )}
+                          >
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate">{item.label}</span>
+                              {item.sublabel && (
+                                <span className="block truncate text-[11px] text-[var(--color-text-muted)]">
+                                  {item.sublabel}
+                                </span>
+                              )}
                             </span>
-                          )}
-                        </span>
-                        <span className="shrink-0 rounded-full border border-[var(--color-border-subtle)] px-2 py-0.5 text-[10px] text-[var(--color-text-muted)]">
-                          {item.badge ?? KIND_LABELS[item.kind]}
-                        </span>
-                      </button>
-                    </li>
-                  ))
+                            <span className="shrink-0 rounded-full border border-[var(--color-border-subtle)] px-2 py-0.5 text-[10px] text-[var(--color-text-muted)]">
+                              {KIND_LABELS[item.kind]}
+                            </span>
+                          </button>
+                        </li>
+                      </React.Fragment>
+                    )
+                  })
                 )}
               </ul>
             </motion.div>
