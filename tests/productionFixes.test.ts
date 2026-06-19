@@ -20,7 +20,7 @@ vi.stubGlobal('window', {
 
 const settingsService = await import('../src/services/settingsService')
 const aiService = await import('../src/services/aiService')
-const { normalizeChatSessions } = await import('../src/hooks/useAIChat')
+const { normalizeChatSessions } = await import('../src/stores/chatStore')
 const { AI_PANEL_MAX_WIDTH, useAppStore } = await import('../src/store')
 
 function emit(channel: string, payload: unknown) {
