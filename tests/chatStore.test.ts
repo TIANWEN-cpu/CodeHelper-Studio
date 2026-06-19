@@ -342,6 +342,120 @@ describe('chatStore', () => {
     })
   })
 
+  describe('sendMessage options', () => {
+    function seedSession() {
+      useChatStore.setState({
+        activeSessionId: 's1',
+        sessions: [
+          { id: 's1', title: 'Existing', system_prompt: '', created_at: '', updated_at: '' },
+        ],
+      })
+    }
+
+    it('sends sendOverride to the model but persists the raw content', async () => {
+      seedSession()
+      mockInvoke.mockResolvedValueOnce(undefined) // chat-message-save (user)
+      mockInvoke.mockResolvedValueOnce([]) // chat-memory-capture
+      mockInvoke.mockResolvedValueOnce(emptyRAGContext) // knowledge-rag-context
+      mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' }) // ai-chat
+
+      await useChatStore.getState().sendMessage('hi', { sendOverride: '【上下文】\nhi' })
+
+      // 入库与显示用原文
+      expect(mockInvoke).toHaveBeenCalledWith('chat-message-save', {
+        session_id: 's1',
+        role: 'user',
+        content: 'hi',
+      })
+      expect(useChatStore.getState().messages[0].content).toBe('hi')
+      // 发给模型的是带前缀的覆盖文本
+      const aiChatCall = mockInvoke.mock.calls.find((c: unknown[]) => c[0] === 'ai-chat')
+      const payload = aiChatCall![1] as { messages: Array<{ role: string; content: string }> }
+      expect(payload.messages[payload.messages.length - 1]).toEqual({
+        role: 'user',
+        content: '【上下文】\nhi',
+      })
+    })
+
+    it('forwards includeMemories and memoryCategories to ai-chat', async () => {
+      seedSession()
+      mockInvoke.mockResolvedValueOnce(undefined)
+      mockInvoke.mockResolvedValueOnce([])
+      mockInvoke.mockResolvedValueOnce(emptyRAGContext)
+      mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' })
+
+      await useChatStore
+        .getState()
+        .sendMessage('hi', { includeMemories: false, memoryCategories: ['tech', 'goal'] })
+
+      const aiChatCall = mockInvoke.mock.calls.find((c: unknown[]) => c[0] === 'ai-chat')
+      const payload = aiChatCall![1] as { includeMemories: boolean; memoryCategories: string[] }
+      expect(payload.includeMemories).toBe(false)
+      expect(payload.memoryCategories).toEqual(['tech', 'goal'])
+    })
+
+    it('uses chat-memory-extract instead of capture when llmExtract is on', async () => {
+      seedSession()
+      mockInvoke.mockResolvedValueOnce(undefined) // chat-message-save
+      mockInvoke.mockResolvedValueOnce([]) // chat-memory-extract
+      mockInvoke.mockResolvedValueOnce(emptyRAGContext) // knowledge-rag-context
+      mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' }) // ai-chat
+
+      await useChatStore.getState().sendMessage('记住我用 Rust', { llmExtract: true, configId: 3 })
+
+      expect(mockInvoke).toHaveBeenCalledWith('chat-memory-extract', {
+        content: '记住我用 Rust',
+        configId: 3,
+        sessionId: 's1',
+      })
+      expect(mockInvoke).not.toHaveBeenCalledWith('chat-memory-capture', expect.anything())
+    })
+
+    it('skips RAG retrieval when includeKnowledge is false', async () => {
+      seedSession()
+      mockInvoke.mockResolvedValueOnce(undefined) // chat-message-save
+      mockInvoke.mockResolvedValueOnce([]) // chat-memory-capture
+      mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' }) // ai-chat
+
+      await useChatStore.getState().sendMessage('hi', { includeKnowledge: false })
+
+      expect(mockInvoke).not.toHaveBeenCalledWith('knowledge-rag-context', expect.anything())
+      const aiChatCall = mockInvoke.mock.calls.find((c: unknown[]) => c[0] === 'ai-chat')
+      expect((aiChatCall![1] as { ragContext: unknown }).ragContext).toBeUndefined()
+    })
+
+    it('does not abort the turn when memory capture throws', async () => {
+      seedSession()
+      mockInvoke.mockResolvedValueOnce(undefined) // chat-message-save
+      mockInvoke.mockRejectedValueOnce(new Error('extract timeout')) // chat-memory-capture fails
+      mockInvoke.mockResolvedValueOnce(emptyRAGContext) // knowledge-rag-context
+      mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' }) // ai-chat
+
+      await useChatStore.getState().sendMessage('hi')
+
+      // 记忆失败被吞掉，对话仍然走到 ai-chat 且无错误
+      expect(mockInvoke).toHaveBeenCalledWith('ai-chat', expect.anything())
+      expect(useChatStore.getState().error).toBeNull()
+    })
+  })
+
+  describe('normalizeChatSessions', () => {
+    it('dedupes by id keeping first occurrence and drops id-less entries', async () => {
+      const { normalizeChatSessions } = await import('../src/stores/chatStore')
+      expect(
+        normalizeChatSessions([
+          { id: 'a', title: 'first' },
+          { id: 'a', title: 'dupe' },
+          { id: 'b', title: 'second' },
+          { title: 'no id' },
+        ]),
+      ).toEqual([
+        { id: 'a', title: 'first' },
+        { id: 'b', title: 'second' },
+      ])
+    })
+  })
+
   describe('appendChunk', () => {
     it('appends chunk to the last assistant message', () => {
       useChatStore.setState({
