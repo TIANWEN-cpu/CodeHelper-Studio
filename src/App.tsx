@@ -4,6 +4,9 @@ import { Sidebar } from './components/layout/Sidebar'
 import { Header } from './components/layout/Header'
 import { AITutorPanel } from './components/layout/AITutorPanel'
 import { AIPet } from './components/AIPet'
+import { ToastContainer } from './components/ToastContainer'
+import { registerToast } from './utils/errorHandler'
+import { toast } from './stores/toastStore'
 import { useAppStore } from './store'
 import {
   loadAppearance,
@@ -54,6 +57,11 @@ const ViewLoader = () => (
 
 function App() {
   const { currentView, showAITutor, setShowAITutor } = useAppStore()
+
+  // 把错误处理器的 toast 出口接到全局通知容器（此前 registerToast 从未被调用）。
+  useEffect(() => {
+    registerToast((_type, message) => toast.error(message))
+  }, [])
 
   // 启动时从数据库读回外观设置并应用到 DOM；"跟随系统"时监听系统主题变化。
   useEffect(() => {
@@ -147,6 +155,7 @@ function App() {
 
       {showAITutor && <AITutorPanel onClose={() => setShowAITutor(false)} />}
       <AIPet />
+      <ToastContainer />
     </div>
   )
 }
