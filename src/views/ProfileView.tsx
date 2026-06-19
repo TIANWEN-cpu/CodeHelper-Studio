@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '../store'
+import { WeeklyReportCard } from '@/components/WeeklyReportCard'
 import * as homeService from '@/services/homeService'
 import type { HomeOverview, AnalyticsSummary } from '@/services/homeService'
 import { getUserProfile, type UserProfileSettings } from '@/services/settingsService'
@@ -133,7 +134,11 @@ function ProfileAvatar({
   }
 
   return (
-    <ProfileAvatarFallback value={imageFailed ? '' : trimmedAvatar} name={name} sizeClass={sizeClass} />
+    <ProfileAvatarFallback
+      value={imageFailed ? '' : trimmedAvatar}
+      name={name}
+      sizeClass={sizeClass}
+    />
   )
 }
 
@@ -441,6 +446,9 @@ export function ProfileView() {
             )}
           </div>
         </div>
+
+        {/* 学习周报 */}
+        <WeeklyReportCard />
 
         {/* 成就 */}
         <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-2xl p-6 shadow-sm">
