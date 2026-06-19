@@ -24,6 +24,18 @@ describe('toastStore', () => {
     expect(useToastStore.getState().toasts).toHaveLength(1)
   })
 
+  it('re-arms the auto-dismiss timer when a duplicate is pushed', () => {
+    vi.useFakeTimers()
+    useToastStore.getState().push('error', 'flaky', 1000)
+    vi.advanceTimersByTime(800)
+    // 重复出现：应把计时重置回 1000ms，而不是让它在原 1000ms 处消失。
+    useToastStore.getState().push('error', 'flaky', 1000)
+    vi.advanceTimersByTime(800) // 距首次 1600ms，但距重置仅 800ms → 仍在
+    expect(useToastStore.getState().toasts).toHaveLength(1)
+    vi.advanceTimersByTime(300) // 距重置 1100ms → 消失
+    expect(useToastStore.getState().toasts).toHaveLength(0)
+  })
+
   it('treats different types as distinct even with same message', () => {
     useToastStore.getState().push('error', 'same', 0)
     useToastStore.getState().push('info', 'same', 0)
