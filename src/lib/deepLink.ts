@@ -56,9 +56,23 @@ export function consumePendingDeepLink(kind: DeepLinkTarget['kind']): string | n
   }
 }
 
+/** 清除与某 kind 匹配的 pending（实时投递后调用，避免重新挂载时重复触发）。 */
+function clearPendingIfKind(kind: DeepLinkTarget['kind']): void {
+  if (!hasWindow()) return
+  try {
+    const raw = window.sessionStorage.getItem(PENDING_KEY)
+    if (!raw) return
+    const parsed = JSON.parse(raw) as DeepLinkTarget
+    if (parsed?.kind === kind) window.sessionStorage.removeItem(PENDING_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * 订阅实时深链事件（视图已挂载时使用）。返回取消订阅函数。
- * 只把匹配 kind 的目标透传给 handler。
+ * 只把匹配 kind 的目标透传给 handler；投递后清掉对应 pending，
+ * 否则视图已挂载时写入的 pending 会残留，下次重新挂载时被误当成新目标重放。
  */
 export function subscribeDeepLink(
   kind: DeepLinkTarget['kind'],
@@ -67,7 +81,10 @@ export function subscribeDeepLink(
   if (!hasWindow()) return () => {}
   const listener = (event: Event) => {
     const detail = (event as CustomEvent<DeepLinkTarget>).detail
-    if (detail?.kind === kind && typeof detail.id === 'string') handler(detail.id)
+    if (detail?.kind === kind && typeof detail.id === 'string') {
+      handler(detail.id)
+      clearPendingIfKind(kind)
+    }
   }
   window.addEventListener(EVENT, listener)
   return () => window.removeEventListener(EVENT, listener)
