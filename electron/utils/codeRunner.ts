@@ -248,6 +248,43 @@ function buildSandboxArgs(cmd: string, args: string[]): { shell: string; shellAr
 }
 
 /**
+ * Forcefully terminate a spawned child and ALL of its descendants.
+ *
+ * On Windows we `taskkill /T` the process tree; on POSIX we SIGKILL the whole
+ * process group (the child is spawned `detached`, so it leads its own group).
+ * Falling back to a direct `proc.kill` keeps us safe if either path throws.
+ *
+ * Used by both the timeout path and the output-overflow path so a runaway
+ * program can't leave orphaned child forks behind in either case.
+ */
+function killProcessTree(proc: ReturnType<typeof spawn>): void {
+  try {
+    if (IS_WIN) {
+      try {
+        execFileSync('taskkill', ['/pid', String(proc.pid), '/T', '/F'], {
+          timeout: 3000,
+          stdio: 'ignore',
+        })
+      } catch {
+        proc.kill()
+      }
+    } else {
+      try {
+        if (proc.pid !== undefined) {
+          process.kill(-proc.pid, 'SIGKILL')
+        } else {
+          proc.kill('SIGKILL')
+        }
+      } catch {
+        proc.kill('SIGKILL')
+      }
+    }
+  } catch {
+    proc.kill('SIGKILL')
+  }
+}
+
+/**
  * Spawn a child process with security sandbox constraints.
  *
  * Safety measures:
@@ -256,7 +293,7 @@ function buildSandboxArgs(cmd: string, args: string[]): { shell: string; shellAr
  * 3. File-size limit via ulimit on POSIX (50 MB)
  * 4. Output cap at 1 MB
  * 5. Concurrency cap (5 simultaneous)
- * 6. Process-group kill on timeout to catch child forks
+ * 6. Process-group kill on timeout AND output overflow to catch child forks
  */
 function runProcess(
   cmd: string,
@@ -291,32 +328,7 @@ function runProcess(
 
     const timer = setTimeout(() => {
       killed = true
-      try {
-        if (IS_WIN) {
-          // Windows: taskkill the tree
-          try {
-            execFileSync('taskkill', ['/pid', String(proc.pid), '/T', '/F'], {
-              timeout: 3000,
-              stdio: 'ignore',
-            })
-          } catch {
-            proc.kill()
-          }
-        } else {
-          // POSIX: kill the entire process group
-          try {
-            if (proc.pid !== undefined) {
-              process.kill(-proc.pid, 'SIGKILL')
-            } else {
-              proc.kill('SIGKILL')
-            }
-          } catch {
-            proc.kill('SIGKILL')
-          }
-        }
-      } catch {
-        proc.kill('SIGKILL')
-      }
+      killProcessTree(proc)
     }, timeout)
 
     proc.stdout.on('data', (chunk: Buffer) => {
@@ -324,7 +336,7 @@ function runProcess(
       if (stdout.length > MAX_OUTPUT_SIZE && !outputExceeded) {
         outputExceeded = true
         clearTimeout(timer)
-        proc.kill()
+        killProcessTree(proc)
       }
     })
     proc.stderr.on('data', (chunk: Buffer) => {
@@ -332,7 +344,7 @@ function runProcess(
       if (stderr.length > MAX_OUTPUT_SIZE && !outputExceeded) {
         outputExceeded = true
         clearTimeout(timer)
-        proc.kill()
+        killProcessTree(proc)
       }
     })
 
