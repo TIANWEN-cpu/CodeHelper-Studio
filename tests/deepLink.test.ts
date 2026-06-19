@@ -75,6 +75,22 @@ describe('deepLink with a window', () => {
     expect(seen).toEqual([])
   })
 
+  it('live delivery clears the pending so it does not replay on remount', () => {
+    // 视图已挂载场景：订阅者实时处理后，pending 必须被清掉，
+    // 否则下次重新挂载 consumePendingDeepLink 会把旧目标当新目标重放。
+    const off = subscribeDeepLink('lesson', () => {})
+    requestDeepLink({ kind: 'lesson', id: 'l9' })
+    off()
+    expect(consumePendingDeepLink('lesson')).toBeNull()
+  })
+
+  it('a non-matching-kind subscriber does not clear another kind pending', () => {
+    const off = subscribeDeepLink('exercise', () => {})
+    requestDeepLink({ kind: 'lesson', id: 'l1' }) // exercise 订阅者应忽略，不得清掉 lesson pending
+    off()
+    expect(consumePendingDeepLink('lesson')).toBe('l1')
+  })
+
   it('treats a corrupted pending record as empty and clears it', () => {
     ;(g.window as { sessionStorage: FakeStorage }).sessionStorage.setItem(
       'codehelper.pendingDeepLink',
