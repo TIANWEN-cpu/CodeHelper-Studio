@@ -453,17 +453,22 @@ describe('codeRunner', () => {
   // ─────────────────────────────────────────────
 
   describe('runProcess 输出溢出', () => {
-    it('stdout 超过 1MB 时终止进程', async () => {
+    it('stdout 超过 1MB 时终止进程树', async () => {
       const proc = Object.assign(new EventEmitter(), {
         stdin: new PassThrough(),
         stdout: new PassThrough(),
         stderr: new PassThrough(),
+        pid: 4321,
         kill: vi.fn(() => {
           proc.emit('close', null)
         }),
       })
 
       vi.mocked(spawn).mockReturnValue(proc as any)
+      // Make execFileSync (taskkill) throw so the fallback proc.kill() emits close on Windows.
+      vi.mocked(execFileSync).mockImplementation(() => {
+        throw new Error('taskkill failed')
+      })
 
       const promise = runCodeSnippet('infinite_print', 'python')
 
@@ -474,19 +479,25 @@ describe('codeRunner', () => {
       const result = await promise
       expect(result.exitCode).toBe(1)
       expect(result.stderr).toContain('1MB')
+      expect(proc.kill).toHaveBeenCalled()
     })
 
-    it('stderr 超过 1MB 时终止进程', async () => {
+    it('stderr 超过 1MB 时终止进程树', async () => {
       const proc = Object.assign(new EventEmitter(), {
         stdin: new PassThrough(),
         stdout: new PassThrough(),
         stderr: new PassThrough(),
+        pid: 8765,
         kill: vi.fn(() => {
           proc.emit('close', null)
         }),
       })
 
       vi.mocked(spawn).mockReturnValue(proc as any)
+      // Make execFileSync (taskkill) throw so the fallback proc.kill() emits close on Windows.
+      vi.mocked(execFileSync).mockImplementation(() => {
+        throw new Error('taskkill failed')
+      })
 
       const promise = runCodeSnippet('bad_code', 'python')
 
@@ -497,6 +508,7 @@ describe('codeRunner', () => {
       const result = await promise
       expect(result.exitCode).toBe(1)
       expect(result.stderr).toContain('1MB')
+      expect(proc.kill).toHaveBeenCalled()
     })
   })
 

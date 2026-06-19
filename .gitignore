@@ -8,6 +8,7 @@ dist-release/
 
 # Build artifacts
 *.tsbuildinfo
+artifacts/
 
 # Claude
 .superpowers/
