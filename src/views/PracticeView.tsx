@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import { WorkspaceView } from './WorkspaceView' // Reusing partially
 import { motion, AnimatePresence } from 'motion/react'
 import { usePracticeData } from '@/hooks/usePracticeData'
+import { consumePendingDeepLink, subscribeDeepLink } from '@/lib/deepLink'
 
 // ---- Difficulty helpers ----
 
@@ -104,11 +105,21 @@ export function PracticeView() {
   } = usePracticeData()
 
   // When exercise is selected, switch to detail view
-  const handleSelectExercise = async (id: string) => {
-    await selectExercise(id)
-    setDetailTab('desc')
-    setViewMode('detail')
-  }
+  const handleSelectExercise = React.useCallback(
+    async (id: string) => {
+      await selectExercise(id)
+      setDetailTab('desc')
+      setViewMode('detail')
+    },
+    [selectExercise],
+  )
+
+  // 命令面板深链：挂载时领取待处理目标，并订阅后续实时事件。
+  React.useEffect(() => {
+    const pending = consumePendingDeepLink('exercise')
+    if (pending) void handleSelectExercise(pending)
+    return subscribeDeepLink('exercise', (id) => void handleSelectExercise(id))
+  }, [handleSelectExercise])
 
   // Filter exercises by search and difficulty
   const trackOptions = Array.from(
@@ -234,7 +245,9 @@ export function PracticeView() {
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => setSourceFilter(sourceFilter === 'problem' ? 'all' : 'problem')}
+                        onClick={() =>
+                          setSourceFilter(sourceFilter === 'problem' ? 'all' : 'problem')
+                        }
                         className={cn(
                           'flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-all',
                           sourceFilter === 'problem'

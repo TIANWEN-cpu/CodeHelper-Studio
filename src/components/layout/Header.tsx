@@ -7,6 +7,15 @@ import { ViewType } from '@/types'
 import * as settingsService from '@/services/settingsService'
 import type { AIConfig } from '@/services/settingsService'
 import * as reviewService from '@/services/reviewService'
+import * as learnService from '@/services/learnService'
+import * as practiceService from '@/services/practiceService'
+import { requestDeepLink } from '@/lib/deepLink'
+import {
+  buildCommandResults,
+  type CommandResult,
+  type LessonItem,
+  type ExerciseItem,
+} from '@/lib/commandPalette'
 
 /** Pages reachable from the command palette. */
 const COMMAND_ITEMS: { view: ViewType; label: string }[] = [
@@ -19,6 +28,12 @@ const COMMAND_ITEMS: { view: ViewType; label: string }[] = [
   { view: 'knowledge', label: '知识库' },
   { view: 'settings', label: '设置' },
 ]
+
+const KIND_LABELS: Record<CommandResult['kind'], string> = {
+  page: '页面',
+  lesson: '课程',
+  exercise: '练习',
+}
 
 export function Header() {
   const setCurrentView = useAppStore((s) => s.setCurrentView)
@@ -39,6 +54,10 @@ export function Header() {
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
+  // 课程/练习作为可搜索内容，首次打开面板时懒加载一次。
+  const [lessons, setLessons] = useState<LessonItem[]>([])
+  const [exercises, setExercises] = useState<ExerciseItem[]>([])
+  const contentLoadedRef = useRef(false)
 
   const currentModelConfig = useMemo(
     () => modelConfigs.find((config) => config.is_default) ?? modelConfigs[0] ?? null,
@@ -84,17 +103,51 @@ export function Header() {
     }
   }, [])
 
-  const filteredItems = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return COMMAND_ITEMS
-    return COMMAND_ITEMS.filter((item) => item.label.toLowerCase().includes(q))
-  }, [query])
+  const filteredItems = useMemo(
+    () => buildCommandResults(query, { pages: COMMAND_ITEMS, lessons, exercises }),
+    [query, lessons, exercises],
+  )
+
+  // 首次打开面板时拉取课程/练习供搜索；失败静默（仍可搜索页面）。
+  const loadSearchableContent = useCallback(async () => {
+    if (contentLoadedRef.current) return
+    contentLoadedRef.current = true
+    try {
+      const [tracks, exerciseList] = await Promise.all([
+        learnService.getTracks().catch(() => []),
+        practiceService.getExercises().catch(() => []),
+      ])
+      const flatLessons: LessonItem[] = tracks.flatMap((track) =>
+        track.modules.flatMap((module) =>
+          module.lessons.map((lesson) => ({
+            id: lesson.id,
+            title: lesson.title,
+            trackTitle: track.title,
+            moduleTitle: module.title,
+          })),
+        ),
+      )
+      setLessons(flatLessons)
+      setExercises(
+        exerciseList.map((ex) => ({
+          id: ex.id,
+          title: ex.title,
+          difficulty: ex.difficulty,
+          trackId: ex.track_id,
+        })),
+      )
+    } catch {
+      // 内容搜索是增量能力，加载失败不影响页面跳转。
+      contentLoadedRef.current = false
+    }
+  }, [])
 
   const openPalette = useCallback(() => {
     setQuery('')
     setActiveIndex(0)
     setPaletteOpen(true)
-  }, [])
+    void loadSearchableContent()
+  }, [loadSearchableContent])
 
   const toggleModelMenu = useCallback(() => {
     setModelMenuOpen((open) => {
@@ -126,9 +179,10 @@ export function Header() {
     setPaletteOpen(false)
   }, [])
 
-  const go = useCallback(
-    (view: ViewType) => {
-      setCurrentView(view)
+  const runCommand = useCallback(
+    (result: CommandResult) => {
+      setCurrentView(result.view)
+      if (result.target) requestDeepLink(result.target)
       setPaletteOpen(false)
     },
     [setCurrentView],
@@ -143,6 +197,7 @@ export function Header() {
           if (prev) return false
           setQuery('')
           setActiveIndex(0)
+          void loadSearchableContent()
           return true
         })
       } else if (e.key === 'Escape') {
@@ -151,7 +206,7 @@ export function Header() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [loadSearchableContent])
 
   // Focus the palette input when it opens; keep the highlight in range.
   useEffect(() => {
@@ -172,7 +227,7 @@ export function Header() {
     } else if (e.key === 'Enter') {
       e.preventDefault()
       const target = filteredItems[activeIndex]
-      if (target) go(target.view)
+      if (target) runCommand(target)
     } else if (e.key === 'Escape') {
       e.preventDefault()
       closePalette()
@@ -399,7 +454,7 @@ export function Header() {
                     setActiveIndex(0)
                   }}
                   onKeyDown={onInputKeyDown}
-                  placeholder="搜索页面或功能..."
+                  placeholder="搜索页面、课程或练习..."
                   className="flex-1 bg-transparent py-3 text-sm text-white placeholder-[var(--color-text-muted)] focus:outline-none"
                 />
                 <kbd className="hidden sm:inline-flex items-center bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] rounded px-1.5 py-0.5 text-[10px] font-mono text-[var(--color-text-muted)]">
@@ -408,23 +463,30 @@ export function Header() {
               </div>
               <ul className="max-h-72 overflow-y-auto py-2">
                 {filteredItems.length === 0 ? (
-                  <li className="px-4 py-3 text-sm text-[var(--color-text-muted)]">无匹配的页面</li>
+                  <li className="px-4 py-3 text-sm text-[var(--color-text-muted)]">无匹配结果</li>
                 ) : (
                   filteredItems.map((item, index) => (
-                    <li key={item.view}>
+                    <li key={item.key}>
                       <button
-                        onClick={() => go(item.view)}
+                        onClick={() => runCommand(item)}
                         onMouseEnter={() => setActiveIndex(index)}
                         className={cn(
-                          'w-full flex items-center justify-between px-4 py-2.5 text-sm text-left transition-colors',
+                          'w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm text-left transition-colors',
                           index === activeIndex
                             ? 'bg-[var(--color-bg-hover)] text-white'
                             : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]',
                         )}
                       >
-                        <span>{item.label}</span>
-                        <span className="text-[10px] text-[var(--color-text-muted)]">
-                          {item.view}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate">{item.label}</span>
+                          {item.sublabel && (
+                            <span className="block truncate text-[11px] text-[var(--color-text-muted)]">
+                              {item.sublabel}
+                            </span>
+                          )}
+                        </span>
+                        <span className="shrink-0 rounded-full border border-[var(--color-border-subtle)] px-2 py-0.5 text-[10px] text-[var(--color-text-muted)]">
+                          {KIND_LABELS[item.kind]}
                         </span>
                       </button>
                     </li>
