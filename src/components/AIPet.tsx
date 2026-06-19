@@ -3,6 +3,8 @@ import { EyeOff, MessageCircle, Move, Sparkles, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
 import { CodexPetSprite } from '@/components/CodexPetSprite'
+import { ACTIVITY_EVENT } from '@/services/analyticsService'
+import { getPetReaction } from '@/lib/petReactions'
 import {
   BUILT_IN_FIREFLY_PET,
   listInstalledPets,
@@ -106,9 +108,11 @@ export function AIPet() {
   const [position, setPosition] = useState<PetPosition>(() => readStoredPosition())
   const [pet, setPet] = useState<CodexPetDefinition>(BUILT_IN_FIREFLY_PET)
   const [petState, setPetState] = useState('idle')
+  const [bubble, setBubble] = useState<string | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<number | null>(null)
   const reactionTimerRef = useRef<number | null>(null)
+  const bubbleTimerRef = useRef<number | null>(null)
   const latestPositionRef = useRef(position)
   const dragRef = useRef<{
     pointerId: number
@@ -210,6 +214,7 @@ export function AIPet() {
     () => () => {
       if (frameRef.current != null) window.cancelAnimationFrame(frameRef.current)
       if (reactionTimerRef.current != null) window.clearTimeout(reactionTimerRef.current)
+      if (bubbleTimerRef.current != null) window.clearTimeout(bubbleTimerRef.current)
     },
     [],
   )
@@ -222,6 +227,26 @@ export function AIPet() {
       setPetState('idle')
     }, duration)
   }, [])
+
+  // 学习里程碑（解题成功、完成课程等）触发桌宠庆祝动画 + 气泡。
+  useEffect(() => {
+    const onActivity = (event: Event) => {
+      const detail = (event as CustomEvent<{ type?: string }>).detail
+      const reaction = detail?.type ? getPetReaction(detail.type) : null
+      if (!reaction) return
+      playReaction(reaction.state, reaction.duration)
+      if (reaction.message) {
+        if (bubbleTimerRef.current != null) window.clearTimeout(bubbleTimerRef.current)
+        setBubble(reaction.message)
+        bubbleTimerRef.current = window.setTimeout(() => {
+          bubbleTimerRef.current = null
+          setBubble(null)
+        }, reaction.duration + 1200)
+      }
+    }
+    window.addEventListener(ACTIVITY_EVENT, onActivity)
+    return () => window.removeEventListener(ACTIVITY_EVENT, onActivity)
+  }, [playReaction])
 
   const handlePointerMove = useCallback(
     (event: PointerEvent) => {
@@ -348,7 +373,15 @@ export function AIPet() {
         </div>
       )}
 
-      <div className="ai-pet-avatar-wrap">
+      <div className="ai-pet-avatar-wrap relative">
+        {bubble && !dragging && (
+          <div
+            role="status"
+            className="ai-pet-bubble pointer-events-none absolute left-1/2 -top-1 z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] px-3 py-1.5 text-xs font-medium text-white shadow-lg"
+          >
+            {bubble}
+          </div>
+        )}
         <button
           type="button"
           onPointerDown={() => playReaction('waving')}

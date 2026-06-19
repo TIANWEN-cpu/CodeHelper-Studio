@@ -8,8 +8,19 @@ import { invoke } from './ipc'
 /** 后端 AnalyticsEventType 对应的四类真实事件。 */
 export type TrackedEvent = 'problem_solved' | 'ai_chat_sent' | 'code_run' | 'lesson_completed'
 
+/** 行为埋点的客户端广播事件名；桌宠等 UI 据此即时反应（无需等 IPC 往返）。 */
+export const ACTIVITY_EVENT = 'codehelper:activity'
+
 /** 记录一次行为埋点（fire-and-forget）。 */
 export function track(type: TrackedEvent, data: Record<string, unknown> = {}): void {
+  // 先在本地广播，让桌宠等 UI 即时反应；与后端埋点互不阻塞。
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent(ACTIVITY_EVENT, { detail: { type, data } }))
+    } catch {
+      /* 广播失败不影响埋点 */
+    }
+  }
   void invoke<void>('analytics-track', type, data).catch(() => {
     /* 埋点失败静默，不影响主流程 */
   })
