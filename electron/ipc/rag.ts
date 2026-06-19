@@ -282,20 +282,26 @@ export function registerRAGIPC(): void {
         // Split into chunks (~500 chars)
         const chunks = splitIntoChunks(content, 500)
 
-        const docResult = db
-          .prepare(
-            'INSERT INTO knowledge_docs (filename, file_type, content, chunk_count) VALUES (?,?,?,?)',
-          )
-          .run(filename, ext, content, chunks.length)
+        // 单文件的 doc + chunks 写入包进事务：避免中途失败留下
+        // chunk_count 与实际 chunk 数不一致的“半截文档”。
+        const insertDoc = db.transaction(
+          (docFilename: string, docExt: string, docContent: string) => {
+            const docResult = db
+              .prepare(
+                'INSERT INTO knowledge_docs (filename, file_type, content, chunk_count) VALUES (?,?,?,?)',
+              )
+              .run(docFilename, docExt, docContent, chunks.length)
 
-        const docId = docResult.lastInsertRowid
-        const insertChunk = db.prepare(
-          'INSERT INTO knowledge_chunks (doc_id, content, chunk_index) VALUES (?,?,?)',
+            const docId = docResult.lastInsertRowid
+            const insertChunk = db.prepare(
+              'INSERT INTO knowledge_chunks (doc_id, content, chunk_index) VALUES (?,?,?)',
+            )
+            chunks.forEach((chunk, i) => {
+              insertChunk.run(docId, chunk, i)
+            })
+          },
         )
-
-        chunks.forEach((chunk, i) => {
-          insertChunk.run(docId, chunk, i)
-        })
+        insertDoc(filename, ext, content)
 
         uploaded.push(filename)
       }

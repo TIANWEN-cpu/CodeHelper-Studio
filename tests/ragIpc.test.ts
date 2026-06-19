@@ -21,6 +21,12 @@ const mockDB = {
   exec: vi.fn(),
   pragma: vi.fn(),
   close: vi.fn(),
+  // better-sqlite3 transaction(fn) 返回一个调用 fn 的函数；测试里同步直通即可。
+  transaction: vi.fn(
+    (fn: (...args: unknown[]) => unknown) =>
+      (...args: unknown[]) =>
+        fn(...args),
+  ),
 }
 
 vi.mock('../electron/db/index', () => ({
@@ -136,6 +142,8 @@ describe('registerRAGIPC', () => {
 
       const result = await handlers['knowledge-upload']()
       expect(result).toEqual(['doc.txt'])
+      // doc + chunks 写入必须在事务内，保证不留半截文档。
+      expect(mockDB.transaction).toHaveBeenCalled()
     })
 
     it('uploads md file successfully', async () => {
