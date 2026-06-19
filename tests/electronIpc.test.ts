@@ -605,7 +605,53 @@ describe('registerDatabaseIPC', () => {
 
       await expect(
         handlers['ai-fetch-models'](null, { api_key: 'bad', base_url: 'https://api.test' }),
-      ).rejects.toThrow('获取模型列表失败 (401)')
+      ).rejects.toThrow('鉴权失败 (401)')
+
+      vi.unstubAllGlobals()
+    })
+
+    it('does not leak upstream error body to the caller', async () => {
+      setupDB({})
+      const { registerDatabaseIPC } = await import('../electron/ipc/database')
+      registerDatabaseIPC()
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: vi.fn().mockResolvedValue('SECRET upstream internal trace details'),
+      })
+      vi.stubGlobal('fetch', mockFetch)
+
+      await expect(
+        handlers['ai-fetch-models'](null, { api_key: 'sk-test', base_url: 'https://api.test' }),
+      ).rejects.toThrow(/Provider 服务异常 \(500\)/)
+      await expect(
+        handlers['ai-fetch-models'](null, { api_key: 'sk-test', base_url: 'https://api.test' }),
+      ).rejects.not.toThrow(/SECRET/)
+
+      vi.unstubAllGlobals()
+    })
+
+    it('blocks upstream redirects (SSRF protection)', async () => {
+      setupDB({})
+      const { registerDatabaseIPC } = await import('../electron/ipc/database')
+      registerDatabaseIPC()
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 302,
+        headers: { get: () => 'http://169.254.169.254/latest/meta-data/' },
+        text: vi.fn().mockResolvedValue(''),
+      })
+      vi.stubGlobal('fetch', mockFetch)
+
+      await expect(
+        handlers['ai-fetch-models'](null, { api_key: 'sk-test', base_url: 'https://api.test' }),
+      ).rejects.toThrow(/重定向/)
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.test/models',
+        expect.objectContaining({ redirect: 'manual' }),
+      )
 
       vi.unstubAllGlobals()
     })

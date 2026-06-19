@@ -2,6 +2,7 @@ import { ipcMain, BrowserWindow } from 'electron'
 import { getDB } from '../db/index'
 import { getRelevantMemories, markMemoriesUsed } from './chat'
 import { assertAllowedProviderBaseUrl } from '../utils/providerSecurity'
+import { friendlyUpstreamError, redirectBlockedError, isRedirect } from '../utils/httpErrors'
 import type { AIConfigForChat, ChatMessage } from '../types/db'
 
 export function registerAIIPC(): void {
@@ -18,6 +19,7 @@ export function registerAIIPC(): void {
         requestId?: string
         includeMemories?: boolean
         sessionId?: string
+        ragContext?: RagContext
       },
     ) => {
       if (firstCall) {
@@ -89,7 +91,8 @@ export function registerAIIPC(): void {
         const url = `${assertAllowedProviderBaseUrl(config.base_url)}/chat/completions`
         const win = BrowserWindow.fromWebContents(event.sender)
         const withHistory = buildSessionMessages(db, args.sessionId, args.messages)
-        const messages = injectMemories(withHistory, args.includeMemories ?? true)
+        const withMemories = injectMemories(withHistory, args.includeMemories ?? true)
+        const messages = injectRagContext(withMemories, args.ragContext)
 
         let response: Response
         try {
@@ -104,6 +107,7 @@ export function registerAIIPC(): void {
               messages,
               stream: true,
             }),
+            redirect: 'manual',
             signal: controller.signal,
           })
         } catch (fetchError) {
@@ -111,12 +115,19 @@ export function registerAIIPC(): void {
           if (msg.includes('abort')) {
             throw new Error('AI 请求已取消或超时')
           }
-          throw new Error(`网络连接失败: ${msg}`)
+          console.warn('[ai] chat fetch failed:', msg)
+          throw new Error('网络连接失败，请检查网络或 Base URL')
+        }
+
+        // 出于 SSRF 防护，拒绝跟随上游重定向（可能指向内网/元数据地址）
+        if (isRedirect(response.status)) {
+          throw redirectBlockedError('chat')
         }
 
         if (!response.ok) {
           const text = await response.text().catch(() => '')
-          throw new Error(`AI API 错误 (${response.status}): ${text.slice(0, 300)}`)
+          console.warn(`[ai] upstream chat error ${response.status}: ${text.slice(0, 500)}`)
+          throw new Error(friendlyUpstreamError(response.status, 'chat'))
         }
 
         const reader = response.body?.getReader()
@@ -233,6 +244,70 @@ function injectMemories(messages: ChatMessage[], includeMemories = false): ChatM
     return [{ role: 'system', content: memoryPrompt }, ...messages]
   } catch (error) {
     console.warn('[ai] Failed to inject memories, proceeding without:', error)
+    return messages
+  }
+}
+
+/** RAG 上下文结构，由渲染层经 knowledge-rag-context 取得后传入。 */
+export type RagContext = {
+  recentProblems?: unknown[]
+  learningHistory?: unknown[]
+  knowledgeChunks?: unknown
+  userProfile?: {
+    preferredLanguage?: string
+    difficultyLevel?: string
+    strongTopics?: string[]
+    weakTopics?: string[]
+  }
+}
+
+const MAX_RAG_CHUNKS = 8
+const MAX_RAG_CHARS = 8000
+
+/**
+ * 将本地学习上下文（知识库片段 + 用户画像）拼成一条 system 消息注入到请求最前面，
+ * 让 AI 回答结合用户的本地学习数据。无有效内容时原样返回。
+ */
+export function injectRagContext(
+  messages: ChatMessage[],
+  rag: RagContext | undefined,
+): ChatMessage[] {
+  if (!rag || typeof rag !== 'object') return messages
+  try {
+    const parts: string[] = []
+
+    const chunks = Array.isArray(rag.knowledgeChunks)
+      ? rag.knowledgeChunks
+          .filter((chunk): chunk is string => typeof chunk === 'string' && chunk.trim().length > 0)
+          .slice(0, MAX_RAG_CHUNKS)
+      : []
+    if (chunks.length > 0) {
+      const joined = chunks
+        .map((chunk, index) => `【片段${index + 1}】${chunk.trim()}`)
+        .join('\n')
+        .slice(0, MAX_RAG_CHARS)
+      parts.push(
+        `以下是与用户问题相关的知识库内容，请优先据此作答，并在使用时自然引用：\n${joined}`,
+      )
+    }
+
+    const profile = rag.userProfile
+    if (profile && typeof profile === 'object') {
+      const bits: string[] = []
+      if (profile.preferredLanguage) bits.push(`偏好语言：${profile.preferredLanguage}`)
+      if (profile.difficultyLevel) bits.push(`水平：${profile.difficultyLevel}`)
+      if (Array.isArray(profile.weakTopics) && profile.weakTopics.length > 0)
+        bits.push(`薄弱点：${profile.weakTopics.slice(0, 10).join('、')}`)
+      if (Array.isArray(profile.strongTopics) && profile.strongTopics.length > 0)
+        bits.push(`擅长：${profile.strongTopics.slice(0, 10).join('、')}`)
+      if (bits.length > 0)
+        parts.push(`用户画像（用于调整讲解深度，不要直接复述）：${bits.join('；')}`)
+    }
+
+    if (parts.length === 0) return messages
+    return [{ role: 'system', content: parts.join('\n\n') }, ...messages]
+  } catch (error) {
+    console.warn('[ai] Failed to inject RAG context, proceeding without:', error)
     return messages
   }
 }

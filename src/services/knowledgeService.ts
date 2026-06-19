@@ -81,8 +81,20 @@ export async function deleteDocument(docId: number): Promise<void> {
   return invoke<void>('knowledge-delete', docId)
 }
 
-export async function getRAGContext(query: string): Promise<string> {
-  return invoke<string>('knowledge-rag-context', query)
+export type RAGContext = {
+  recentProblems: unknown[]
+  learningHistory: unknown[]
+  knowledgeChunks: string[]
+  userProfile: {
+    preferredLanguage: string
+    difficultyLevel: string
+    strongTopics: string[]
+    weakTopics: string[]
+  }
+}
+
+export async function getRAGContext(query: string): Promise<RAGContext> {
+  return invoke<RAGContext>('knowledge-rag-context', query)
 }
 
 export async function summarize(query: string): Promise<string> {
