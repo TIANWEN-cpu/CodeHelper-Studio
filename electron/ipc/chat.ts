@@ -1,6 +1,11 @@
 import { ipcMain } from 'electron'
 import { getDB } from '../db/index'
-import { BUILTIN_PRESETS, extractMemoryCandidates, buildSearchTerms } from '../utils/chatHelpers'
+import {
+  BUILTIN_PRESETS,
+  extractMemoryCandidates,
+  rankMemories,
+  normalizeForDedup,
+} from '../utils/chatHelpers'
 import { trackPerformance } from '../utils/perfMonitor'
 import type { MemoryRow } from '../types/db'
 
@@ -296,42 +301,7 @@ export function registerChatIPC(): void {
 export function getRelevantMemories(query: string, limit = 6): MemoryRow[] {
   const db = getDB()
   const rows = db.prepare('SELECT * FROM memories WHERE enabled = 1').all() as MemoryRow[]
-  const terms = buildSearchTerms(query)
-
-  const scored = rows
-    .map((row) => {
-      let score = row.pinned ? 50 : 0
-      const content = row.content.toLowerCase()
-
-      for (const term of terms) {
-        if (content.includes(term)) {
-          score += Math.max(2, term.length)
-        }
-      }
-
-      if (
-        query &&
-        (content.includes(query.toLowerCase()) || query.toLowerCase().includes(content))
-      ) {
-        score += 20
-      }
-
-      if (!score && row.pinned) {
-        score = 1
-      }
-
-      return { row, score }
-    })
-    .filter((item) => item.score > 0)
-    .sort((a, b) => b.score - a.score || b.row.id - a.row.id)
-
-  if (scored.length > 0) {
-    return scored.slice(0, limit).map((item) => item.row)
-  }
-
-  return rows
-    .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || b.id - a.id)
-    .slice(0, Math.min(limit, 3))
+  return rankMemories(rows, query, Date.now(), limit)
 }
 
 export function markMemoriesUsed(ids: number[]): void {
@@ -345,19 +315,32 @@ export function markMemoriesUsed(ids: number[]): void {
 
 export function captureMemoriesFromMessage(content: string, sessionId?: string): MemoryRow[] {
   const candidates = extractMemoryCandidates(content)
-  const saved: MemoryRow[] = []
+  if (candidates.length === 0) return []
+
   const db = getDB()
+  const saved: MemoryRow[] = []
+
+  // 取现有记忆，按归一化内容建索引，用于近似去重（避免 "我喜欢Python" / "我喜欢 python。" 重复入库）。
+  const existingRows = db.prepare('SELECT id, content FROM memories').all() as Array<{
+    id: number
+    content: string
+  }>
+  const normIndex = new Map<string, number>()
+  for (const row of existingRows) {
+    if (!row || typeof row.content !== 'string') continue
+    const norm = normalizeForDedup(row.content)
+    if (norm) normIndex.set(norm, row.id)
+  }
 
   for (const candidate of candidates) {
-    const existing = db
-      .prepare('SELECT * FROM memories WHERE lower(content) = lower(?) LIMIT 1')
-      .get(candidate.content) as MemoryRow | undefined
+    const norm = normalizeForDedup(candidate.content)
+    const existingId = norm ? normIndex.get(norm) : undefined
 
-    if (existing) {
+    if (existingId !== undefined) {
       db.prepare(
         'UPDATE memories SET category = ?, source = ?, source_ref = ?, enabled = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      ).run(candidate.category, 'chat', sessionId ?? null, existing.id)
-      saved.push(db.prepare('SELECT * FROM memories WHERE id = ?').get(existing.id) as MemoryRow)
+      ).run(candidate.category, 'chat', sessionId ?? null, existingId)
+      saved.push(db.prepare('SELECT * FROM memories WHERE id = ?').get(existingId) as MemoryRow)
       continue
     }
 
@@ -366,10 +349,32 @@ export function captureMemoriesFromMessage(content: string, sessionId?: string):
         'INSERT INTO memories (content, category, source, source_ref, confidence) VALUES (?,?,?,?,?)',
       )
       .run(candidate.content, candidate.category, 'chat', sessionId ?? null, 0.85)
+    if (norm) normIndex.set(norm, Number(result.lastInsertRowid))
     saved.push(
       db.prepare('SELECT * FROM memories WHERE id = ?').get(result.lastInsertRowid) as MemoryRow,
     )
   }
 
+  pruneAutoMemories(db)
   return saved
+}
+
+/** 自动捕获记忆的数量上限：超出后按 置信度→新近度 保留前 N 条，修剪其余非置顶项。 */
+const MAX_AUTO_MEMORIES = 200
+
+/** 防止聊天自动记忆无限增长：仅修剪 source='chat' 且未置顶的记忆，置顶/手动记忆永不删除。 */
+function pruneAutoMemories(db: ReturnType<typeof getDB>): void {
+  const row = db
+    .prepare("SELECT COUNT(*) as c FROM memories WHERE source = 'chat' AND pinned = 0")
+    .get() as { c: number } | undefined
+  const count = row?.c ?? 0
+  if (count <= MAX_AUTO_MEMORIES) return
+  db.prepare(
+    `DELETE FROM memories WHERE id IN (
+       SELECT id FROM memories
+       WHERE source = 'chat' AND pinned = 0
+       ORDER BY confidence DESC, COALESCE(last_used_at, created_at) DESC, id DESC
+       LIMIT -1 OFFSET ?
+     )`,
+  ).run(MAX_AUTO_MEMORIES)
 }

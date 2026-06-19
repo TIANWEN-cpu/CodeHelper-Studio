@@ -761,6 +761,28 @@ describe('registerChatIPC', () => {
       })
       expect(Array.isArray(result)).toBe(true)
     })
+
+    it('merges near-duplicate memories instead of inserting (normalized dedup)', () => {
+      const insertRun = vi.fn(() => ({ lastInsertRowid: 99 }))
+      const updateRun = vi.fn()
+      mockDB.prepare.mockImplementation((sql: string) => {
+        if (sql.includes('COUNT(*)')) return makeStmt({ c: 1 })
+        // 现有记忆与候选归一化后相同（大小写/空格/句号差异）
+        if (sql.includes('SELECT id, content FROM memories'))
+          return makeStmt([{ id: 7, content: '我喜欢 Python。' }])
+        if (sql.includes('INSERT INTO memories'))
+          return { run: insertRun, get: vi.fn(), all: vi.fn() }
+        if (sql.startsWith('UPDATE memories')) return { run: updateRun, get: vi.fn(), all: vi.fn() }
+        if (sql.includes('SELECT * FROM memories WHERE id'))
+          return makeStmt({ id: 7, content: '我喜欢 Python。', category: 'preference' })
+        return makeStmt(undefined)
+      })
+
+      const result = handlers['chat-memory-capture'](null, { content: '记住：我喜欢python' })
+      expect(Array.isArray(result)).toBe(true)
+      expect(updateRun).toHaveBeenCalled()
+      expect(insertRun).not.toHaveBeenCalled()
+    })
   })
 })
 
