@@ -236,6 +236,27 @@ async function invoke(channel: string, ...args: unknown[]) {
       return { totalEvents: 4, byType: { ai_chat_sent: 1 }, dailyCounts: [] }
     case 'analytics-get-streak':
       return 5
+    case 'analytics-get-weekly-report':
+      return {
+        weekStart: '2026-06-15',
+        weekEnd: '2026-06-21 23:59:59',
+        totalEvents: 12,
+        byType: { problem_solved: 4, code_run: 5, ai_chat_sent: 2, lesson_completed: 1 },
+        dailyBreakdown: [
+          { date: '2026-06-15', count: 3 },
+          { date: '2026-06-17', count: 5 },
+          { date: '2026-06-19', count: 4 },
+        ],
+        problemsSolved: 4,
+        codeRuns: 5,
+        aiChatsSent: 2,
+        lessonsCompleted: 1,
+        topLanguages: [
+          { language: 'python', count: 6 },
+          { language: 'javascript', count: 3 },
+        ],
+        avgSessionDuration: 540000,
+      }
     case 'analytics-get-events':
       return []
     case 'review-due':
