@@ -21,6 +21,7 @@ import {
 import { motion } from 'motion/react'
 import { cn } from '@/lib/utils'
 import { useAIChat } from '@/hooks/useAIChat'
+import { SendPreview } from '@/components/SendPreview'
 import { useAppStore, type AIContextSnapshot } from '@/store'
 import { renderMarkdown } from '@/utils/markdown'
 import {
@@ -644,6 +645,7 @@ export function AITutorView() {
                       )
                     })}
                   </div>
+                  <SendPreview query={inputValue} includeMemory={includeMemory} />
                   <div className="flex items-end gap-2 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] p-2 focus-within:border-[var(--color-accent-purple)]">
                     <textarea
                       value={inputValue}

@@ -16,6 +16,7 @@ import {
   getPresets as getPresetsApi,
   quickAsk as quickAskApi,
 } from '../services/aiService'
+import { getSendCategories, getLlmExtractEnabled, extractMemory } from '../services/memoryService'
 
 // --------------- Types ---------------
 
@@ -258,20 +259,28 @@ export function useAIChat(): UseAIChatReturn {
           try {
             await saveMessage(sessionId, 'user', content)
             await saveMessage(sessionId, 'assistant', fullContent)
-            // 自动从用户消息捕获长期记忆（"记住…/以后…"等），跨会话复用。
-            await captureMemory(content, sessionId)
+            // 从用户消息捕获长期记忆：开启 LLM 抽取则智能抽取，否则用本地规则。
+            if (await getLlmExtractEnabled()) {
+              await extractMemory(content, configId, sessionId)
+            } else {
+              await captureMemory(content, sessionId)
+            }
           } catch (saveErr) {
             console.warn('[useAIChat] Failed to persist messages:', saveErr)
           }
         }, requestId)
 
         if (unsubC && unsubD) unsubscribersRef.current.push(unsubC, unsubD)
+        // 读取用户配置的"按类别发送"白名单，仅发送被允许的记忆类别（隐私控制）。
+        const memoryCategories = await getSendCategories()
         await sendMessageApi(
           sessionId,
           sendOverride ?? content,
           configId,
           requestId,
           includeMemories,
+          true,
+          memoryCategories,
         )
       } catch (err) {
         unsubC?.()

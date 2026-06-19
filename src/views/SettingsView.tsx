@@ -16,6 +16,7 @@ import {
   ImagePlus,
   Trash2,
   AlertTriangle,
+  Brain,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSettingsData } from '../hooks/useSettingsData'
@@ -49,6 +50,7 @@ import {
   type VisualTheme,
 } from '../lib/appearance'
 import { AIModelSettings } from './settings/AIModelSettings'
+import { MemorySettings } from './settings/MemorySettings'
 import { REGION_OPTIONS } from '../lib/locale'
 import { CODE_THEME_OPTIONS, DEFAULT_CODE_THEME } from '../lib/codeThemes'
 import { CodeEditor } from '../components/editor/CodeEditor'
@@ -268,7 +270,9 @@ function AvatarPreview({
     )
   }
 
-  return <AvatarFallback value={imageFailed ? '' : trimmedAvatar} name={name} sizeClass={sizeClass} />
+  return (
+    <AvatarFallback value={imageFailed ? '' : trimmedAvatar} name={name} sizeClass={sizeClass} />
+  )
 }
 
 function renderAvatarPreview(avatar: string, name: string, sizeClass = 'h-20 w-20') {
@@ -494,7 +498,7 @@ export function SettingsView() {
     const applySettingsTab = (tab: unknown) => {
       if (
         typeof tab === 'string' &&
-        ['account', 'appearance', 'ai', 'data', 'about'].includes(tab)
+        ['account', 'appearance', 'ai', 'memory', 'data', 'about'].includes(tab)
       ) {
         setActiveTab(tab)
       }
@@ -542,6 +546,7 @@ export function SettingsView() {
     { id: 'account', label: '账户', icon: UserRound },
     { id: 'appearance', label: '外观', icon: Palette },
     { id: 'ai', label: 'AI 模型', icon: Settings },
+    { id: 'memory', label: '记忆', icon: Brain },
     { id: 'data', label: '数据', icon: Download },
     { id: 'about', label: '关于', icon: Info },
   ]
@@ -1027,7 +1032,8 @@ export function SettingsView() {
                     disabled={profileActionStatus.kind === 'loading'}
                     className={cn(
                       'inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-purple)] px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-[#7C3AED] disabled:cursor-not-allowed disabled:opacity-60',
-                      profileActionStatus.kind === 'success' && 'scale-[1.02] ring-2 ring-emerald-400/35',
+                      profileActionStatus.kind === 'success' &&
+                        'scale-[1.02] ring-2 ring-emerald-400/35',
                     )}
                     data-profile-save-button
                   >
@@ -1757,6 +1763,12 @@ export function SettingsView() {
           </div>
         )}
 
+        {activeTab === 'memory' && (
+          <div className="space-y-6 pb-4">
+            <MemorySettings />
+          </div>
+        )}
+
         {activeTab === 'data' && (
           <div className="space-y-6 pb-4">
             <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
@@ -1865,53 +1877,53 @@ export function SettingsView() {
       {/* Footer Actions */}
       <div className="max-w-[1000px] w-full mx-auto px-6 pb-8 lg:px-8">
         <div className="flex items-center justify-between rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)]/80 p-4 shadow-sm backdrop-blur-md">
-        <button
-          onClick={handleResetDefaults}
-          className="flex items-center gap-2 px-4 py-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
-        >
-          <RotateCcw size={16} />
-          重置为默认设置
-        </button>
-        <div className="flex items-center gap-3">
-          {settingsSaveStatus.kind !== 'idle' && (
-            <div
-              role="status"
-              aria-live="polite"
+          <button
+            onClick={handleResetDefaults}
+            className="flex items-center gap-2 px-4 py-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+          >
+            <RotateCcw size={16} />
+            重置为默认设置
+          </button>
+          <div className="flex items-center gap-3">
+            {settingsSaveStatus.kind !== 'idle' && (
+              <div
+                role="status"
+                aria-live="polite"
+                className={cn(
+                  'hidden items-center gap-1.5 text-xs sm:inline-flex',
+                  settingsSaveStatus.kind === 'error'
+                    ? 'text-red-200'
+                    : settingsSaveStatus.kind === 'success'
+                      ? 'text-emerald-200'
+                      : 'text-[var(--color-text-secondary)]',
+                )}
+              >
+                {settingsSaveStatus.kind === 'loading' ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : settingsSaveStatus.kind === 'success' ? (
+                  <Check size={14} />
+                ) : (
+                  <Info size={14} />
+                )}
+                <span>{settingsSaveStatus.message}</span>
+              </div>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={settingsSaveStatus.kind === 'loading'}
               className={cn(
-                'hidden items-center gap-1.5 text-xs sm:inline-flex',
-                settingsSaveStatus.kind === 'error'
-                  ? 'text-red-200'
-                  : settingsSaveStatus.kind === 'success'
-                    ? 'text-emerald-200'
-                    : 'text-[var(--color-text-secondary)]',
+                'bg-[var(--color-accent-purple)] hover:bg-[#7C3AED] text-white px-6 py-2 rounded-lg text-sm font-medium transition-all shadow-sm flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-70',
+                settingsSaveStatus.kind === 'success' && 'scale-[1.03] ring-2 ring-emerald-400/35',
               )}
             >
               {settingsSaveStatus.kind === 'loading' ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : settingsSaveStatus.kind === 'success' ? (
-                <Check size={14} />
+                <Loader2 size={16} className="animate-spin" />
               ) : (
-                <Info size={14} />
+                <Check size={16} />
               )}
-              <span>{settingsSaveStatus.message}</span>
-            </div>
-          )}
-          <button
-            onClick={handleSave}
-            disabled={settingsSaveStatus.kind === 'loading'}
-            className={cn(
-              'bg-[var(--color-accent-purple)] hover:bg-[#7C3AED] text-white px-6 py-2 rounded-lg text-sm font-medium transition-all shadow-sm flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-70',
-              settingsSaveStatus.kind === 'success' && 'scale-[1.03] ring-2 ring-emerald-400/35',
-            )}
-          >
-            {settingsSaveStatus.kind === 'loading' ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Check size={16} />
-            )}
-            保存设置
-          </button>
-        </div>
+              保存设置
+            </button>
+          </div>
         </div>
       </div>
     </div>
