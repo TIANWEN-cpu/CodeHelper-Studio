@@ -94,6 +94,7 @@ export async function sendMessage(
   requestId = createAIRequestId(),
   includeMemories = true,
   includeKnowledge = true,
+  memoryCategories?: string[],
 ): Promise<string> {
   // 埋点：向 AI 发送了一条提问。
   track('ai_chat_sent', {})
@@ -112,6 +113,7 @@ export async function sendMessage(
     requestId,
     includeMemories,
     ragContext,
+    memoryCategories,
   })
   return requestId
 }
