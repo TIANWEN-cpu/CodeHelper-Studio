@@ -27,7 +27,21 @@ export const useToastStore = create<ToastStore>((set, get) => ({
   push: (type, message, duration = DEFAULT_DURATION) => {
     // 去重：避免重复的网络错误等连环弹出刷屏。
     const existing = get().toasts.find((t) => t.type === type && t.message === message)
-    if (existing) return existing.id
+    if (existing) {
+      // 重复出现时重置自动消失计时，让仍在发生的同一错误保持可见。
+      const prev = timers.get(existing.id)
+      if (prev) {
+        clearTimeout(prev)
+        timers.delete(existing.id)
+      }
+      if (duration > 0 && typeof setTimeout !== 'undefined') {
+        timers.set(
+          existing.id,
+          setTimeout(() => get().dismiss(existing.id), duration),
+        )
+      }
+      return existing.id
+    }
 
     const id = ++seq
     set((s) => ({ toasts: [...s.toasts, { id, type, message }] }))

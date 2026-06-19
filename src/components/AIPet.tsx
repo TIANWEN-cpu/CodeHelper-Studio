@@ -114,7 +114,10 @@ export function AIPet() {
   const reactionTimerRef = useRef<number | null>(null)
   const bubbleTimerRef = useRef<number | null>(null)
   const idleTimerRef = useRef<number | null>(null)
-  const petStateRef = useRef(petState)
+  // 空闲调度器在触发时读这里的最新值，从而不必把这些频繁变化的量列进定时器依赖
+  // （否则每次导航/拖动/展开都会重置 12~28s 的计时）。
+  const liveRef = useRef({ dragging, expanded, currentView, aiPetEnabled, petState })
+  liveRef.current = { dragging, expanded, currentView, aiPetEnabled, petState }
   const latestPositionRef = useRef(position)
   const dragRef = useRef<{
     pointerId: number
@@ -222,11 +225,6 @@ export function AIPet() {
     [],
   )
 
-  // 让空闲调度器读到最新状态，又不必把 petState 列进定时器依赖（否则每次反应都会重置）。
-  useEffect(() => {
-    petStateRef.current = petState
-  }, [petState])
-
   const playReaction = useCallback((state: string, duration = 680) => {
     if (reactionTimerRef.current != null) window.clearTimeout(reactionTimerRef.current)
     setPetState(state)
@@ -257,17 +255,25 @@ export function AIPet() {
   }, [playReaction])
 
   // 空闲时每隔一段随机时间播放一个小动作，让桌宠静置时也有生气。
-  // calm 动画档 / reduce-motion / 拖动 / 展开菜单 / 正在反应时都跳过。
+  // 仅依赖 animationLevel/aiPetEnabled 重建；导航、拖动、展开等通过 liveRef 在触发时判断，
+  // 不会重置 12~28s 的计时（否则频繁切换视图的用户几乎看不到空闲动作）。
   useEffect(() => {
-    if (animationLevel === 'calm' || !aiPetEnabled || currentView === 'settings') return
+    if (animationLevel === 'calm' || !aiPetEnabled) return
     let timer: number | null = null
     const schedule = () => {
       const delay = 12000 + Math.random() * 16000 // 12~28s
       timer = window.setTimeout(() => {
+        const live = liveRef.current
         const reduceMotion =
           typeof document !== 'undefined' &&
           document.documentElement.getAttribute('data-reduce-motion') === 'true'
-        if (!reduceMotion && !dragging && !expanded && petStateRef.current === 'idle') {
+        if (
+          !reduceMotion &&
+          !live.dragging &&
+          !live.expanded &&
+          live.currentView !== 'settings' &&
+          live.petState === 'idle'
+        ) {
           const move = pickIdleAnimation(Math.random())
           playReaction(move.state, move.duration)
         }
@@ -278,7 +284,7 @@ export function AIPet() {
     return () => {
       if (timer != null) window.clearTimeout(timer)
     }
-  }, [animationLevel, aiPetEnabled, currentView, dragging, expanded, playReaction])
+  }, [animationLevel, aiPetEnabled, playReaction])
 
   const handlePointerMove = useCallback(
     (event: PointerEvent) => {
