@@ -24,6 +24,7 @@ import { useHomeData } from '../hooks/useHomeData'
 import { useAppStore } from '../store'
 import type { WeekStart } from '../store'
 import { formatDate } from '../lib/locale'
+import { parseDbTimestamp, utcDateKey } from '@/lib/datetime'
 import type { ViewType } from '../types'
 import appIcon from '@/assets/app-icon.png'
 import aiPetFemale from '@/assets/mascot/ai-pet-female.png'
@@ -42,18 +43,13 @@ function getGreeting(): string {
 // 学习热力图：约 90 天 ≈ 13 周。
 const HEATMAP_WEEKS = 13
 
-function dateKey(d: Date): string {
-  const m = d.getMonth() + 1
-  const day = d.getDate()
-  return `${d.getFullYear()}-${m < 10 ? `0${m}` : m}-${day < 10 ? `0${day}` : day}`
-}
-
 type HeatCell = { key: string; date: Date; count: number; future: boolean }
 
 /**
  * 把稀疏的 dailyCounts 零填充并按"周"切成列；每列 7 天按 weekStart 排序，
  * 最右列含今天，今天之后的日期标记 future（渲染为占位空格）。
- * 这样 weekStart（周一/周日）真实决定网格首行与对齐方式。
+ * 全程用 UTC：后端 dailyCounts 的 date 来自 DATE(timestamp)（UTC），
+ * 这里也按 UTC 取日期键，否则 UTC+8 早晨时段当天活动会错位到前一格。
  */
 function buildHeatmapWeeks(
   heatmapData: { date: string; count: number }[],
@@ -61,19 +57,19 @@ function buildHeatmapWeeks(
 ): HeatCell[][] {
   const counts = new Map(heatmapData.map((d) => [d.date, d.count]))
   const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const dow = today.getDay() // 0=周日..6=周六
+  today.setUTCHours(0, 0, 0, 0)
+  const dow = today.getUTCDay() // 0=周日..6=周六
   const offsetInWeek = weekStart === 'mon' ? (dow + 6) % 7 : dow
   const start = new Date(today)
-  start.setDate(start.getDate() - offsetInWeek - (HEATMAP_WEEKS - 1) * 7)
+  start.setUTCDate(start.getUTCDate() - offsetInWeek - (HEATMAP_WEEKS - 1) * 7)
 
   const cols: HeatCell[][] = []
   for (let c = 0; c < HEATMAP_WEEKS; c++) {
     const col: HeatCell[] = []
     for (let r = 0; r < 7; r++) {
       const d = new Date(start)
-      d.setDate(start.getDate() + c * 7 + r)
-      const key = dateKey(d)
+      d.setUTCDate(start.getUTCDate() + c * 7 + r)
+      const key = utcDateKey(d)
       col.push({
         key,
         date: d,
@@ -142,7 +138,7 @@ const ACTIVITY_VIEW: Record<string, ViewType> = {
 }
 
 function getTimeAgo(timestamp: string): string {
-  const diff = Date.now() - new Date(timestamp).getTime()
+  const diff = Date.now() - parseDbTimestamp(timestamp).getTime()
   const minutes = Math.floor(diff / 60000)
   if (minutes < 1) return '刚刚'
   if (minutes < 60) return `${minutes} 分钟前`
@@ -160,7 +156,7 @@ const REVIEW_PRIORITY: Record<string, { label: string; bar: string }> = {
 
 /** 把 SM-2 的 next_review 时间转成到期描述（过去=已到期，未来=N 天后）。 */
 function formatDue(due: string): string {
-  const d = new Date(due)
+  const d = parseDbTimestamp(due)
   if (isNaN(d.getTime())) return '待复习'
   const diff = d.getTime() - Date.now()
   if (diff <= 0) return '已到期'
@@ -312,7 +308,10 @@ export function HomeView() {
   // 能力成长图表数据：无周统计时用最近 7 天 0 分占位，保证坐标轴与基线可见，避免整块空白。
   const chartData =
     weeklyStats.length > 0
-      ? weeklyStats.map((s) => ({ day: DAY_MAP[new Date(s.date).getDay()], score: s.score }))
+      ? weeklyStats.map((s) => ({
+          day: DAY_MAP[parseDbTimestamp(s.date).getUTCDay()],
+          score: s.score,
+        }))
       : Array.from({ length: 7 }).map((_, i) => ({ day: DAY_MAP[i], score: 0 }))
 
   const filteredActivity = recentActivity.filter((item) => {
@@ -320,10 +319,10 @@ export function HomeView() {
     return item.type.startsWith(activityFilter)
   })
 
-  const todayKey = dateKey(new Date())
+  const todayKey = utcDateKey(new Date())
   const todayActivities = recentActivity.filter((item) => {
-    const d = new Date(item.timestamp)
-    return !isNaN(d.getTime()) && dateKey(d) === todayKey
+    const d = parseDbTimestamp(item.timestamp)
+    return !isNaN(d.getTime()) && utcDateKey(d) === todayKey
   })
   const hasTodayLesson = todayActivities.some((item) => item.type === 'lesson_completed')
   const hasTodayPractice = todayActivities.some((item) => item.type === 'problem_solved')
