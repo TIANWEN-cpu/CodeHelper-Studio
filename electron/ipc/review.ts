@@ -25,15 +25,24 @@ interface ReviewScheduleRow {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Return today's date as a YYYY-MM-DD string. */
-function todayISO(): string {
+/** Return today's date as a YYYY-MM-DD string (UTC). */
+export function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-/** Add `days` to a date string (YYYY-MM-DD) and return a new date string. */
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + 'T00:00:00')
-  d.setDate(d.getDate() + Math.round(days))
+/**
+ * Add `days` to a date string (YYYY-MM-DD) and return a new date string.
+ *
+ * Parses and formats entirely in UTC to stay consistent with todayISO().
+ * A previous version parsed `dateStr + 'T00:00:00'` as *local* time but
+ * formatted via toISOString() (UTC); in any positive-offset timezone (e.g.
+ * UTC+8) the conversion swallowed the increment, so addDays(d, 1) could
+ * return the same day — silently shortening every review interval and
+ * leaving interval-1 items permanently due. Keeping everything in UTC fixes it.
+ */
+export function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T00:00:00Z')
+  d.setUTCDate(d.getUTCDate() + Math.round(days))
   return d.toISOString().slice(0, 10)
 }
 
@@ -51,7 +60,7 @@ function addDays(dateStr: string, days: number): string {
  *   1 – incorrect; correct answer felt vaguely familiar
  *   0 – complete blackout
  */
-function computeSM2(
+export function computeSM2(
   quality: number,
   repetitions: number,
   easeFactor: number,
