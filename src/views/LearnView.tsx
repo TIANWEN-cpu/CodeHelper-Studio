@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { useLearnData } from '@/hooks/useLearnData'
 import { getLessonProgress } from '@/services/learnService'
 import { consumePendingDeepLink, subscribeDeepLink } from '@/lib/deepLink'
+import { recordRecent } from '@/lib/recentItems'
 import { renderMarkdown } from '@/utils/markdown'
 import aiTutorIcon from '@/assets/generated/course-icons/ai-tutor.webp'
 import algorithmsIcon from '@/assets/generated/course-icons/algorithms.webp'
@@ -291,6 +292,7 @@ export function LearnView() {
 
       selectLesson(lessonId, trackId)
       markOpened(lessonId, trackId)
+      recordRecent({ kind: 'lesson', id: lessonId })
     },
     [selectLesson, markOpened],
   )

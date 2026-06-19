@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
 import { renderMarkdown } from '@/utils/markdown'
 import { consumePendingDeepLink, subscribeDeepLink } from '@/lib/deepLink'
+import { recordRecent } from '@/lib/recentItems'
 import type { KnowledgeDoc } from '@/services/knowledgeService'
 
 type SortMode = 'recent' | 'name' | 'chunks'
@@ -373,6 +374,7 @@ export function KnowledgeView() {
   const handleSelectItem = async (item: KnowledgeDisplayItem) => {
     setSelectedItem(item)
     await loadDocument(item.id)
+    recordRecent({ kind: 'knowledge', id: String(item.id) })
   }
 
   const handleFilterChange = (filter: ActiveFilter) => {
