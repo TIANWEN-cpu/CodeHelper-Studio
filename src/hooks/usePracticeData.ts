@@ -11,6 +11,7 @@ import {
   type SubmitResult,
   type ReviewItem,
 } from '../services/practiceService'
+import { reportError } from '@/utils/errorHandler'
 
 // ---- Types ----
 
@@ -244,6 +245,7 @@ export function usePracticeData(): UsePracticeDataReturn {
         safeUpdate(setSubmitResult, result)
       } catch (err) {
         safeUpdate(setError, err instanceof Error ? err.message : '提交代码失败')
+        reportError(err, 'practice.submitCode', { showToast: true })
       } finally {
         safeUpdate(setSubmitting, false)
       }
