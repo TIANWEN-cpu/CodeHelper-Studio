@@ -104,7 +104,7 @@ export function getEvents(
 export function getSummary(days = 30): AnalyticsSummary {
   const db = getDB()
   const since = new Date()
-  since.setDate(since.getDate() - days)
+  since.setUTCDate(since.getUTCDate() - days)
   const sinceStr = since.toISOString().slice(0, 10)
 
   const totalRow = db
@@ -145,16 +145,19 @@ export function getSummary(days = 30): AnalyticsSummary {
 export function getWeeklyReport(weekOffset = 0): WeeklyReportData {
   const db = getDB()
 
-  // Calculate week boundaries (Monday to Sunday)
+  // Calculate week boundaries (Monday to Sunday) in UTC.
+  // Stored timestamps use SQLite CURRENT_TIMESTAMP (UTC), so the boundaries
+  // must be UTC too — computing them in local time then formatting via
+  // toISOString() shifts the date string by a day in offset zones (e.g. UTC+8).
   const now = new Date()
-  const dayOfWeek = now.getDay() === 0 ? 7 : now.getDay()
+  const dayOfWeek = now.getUTCDay() === 0 ? 7 : now.getUTCDay()
   const weekStart = new Date(now)
-  weekStart.setDate(now.getDate() - dayOfWeek + 1 + weekOffset * 7)
-  weekStart.setHours(0, 0, 0, 0)
+  weekStart.setUTCDate(now.getUTCDate() - dayOfWeek + 1 + weekOffset * 7)
+  weekStart.setUTCHours(0, 0, 0, 0)
 
   const weekEnd = new Date(weekStart)
-  weekEnd.setDate(weekStart.getDate() + 6)
-  weekEnd.setHours(23, 59, 59, 999)
+  weekEnd.setUTCDate(weekStart.getUTCDate() + 6)
+  weekEnd.setUTCHours(23, 59, 59, 999)
 
   const startStr = weekStart.toISOString().slice(0, 10)
   const endStr = weekEnd.toISOString().slice(0, 10) + ' 23:59:59'
