@@ -18,10 +18,16 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '../store'
+import { toast } from '@/stores/toastStore'
 import { WeeklyReportCard } from '@/components/WeeklyReportCard'
 import * as homeService from '@/services/homeService'
 import type { HomeOverview, AnalyticsSummary } from '@/services/homeService'
-import { getUserProfile, type UserProfileSettings } from '@/services/settingsService'
+import {
+  getUserProfile,
+  getSetting,
+  setSetting,
+  type UserProfileSettings,
+} from '@/services/settingsService'
 
 const PENDING_SETTINGS_TAB_KEY = 'codehelper.pendingSettingsTab'
 
@@ -47,6 +53,70 @@ function levelTitle(level: number): string {
   if (level >= 5) return 'Adept'
   return 'Novice'
 }
+
+/** 成就定义 + 解锁判定，全部由真实指标推导。render 与解锁提示共用此口径。 */
+function buildAchievements(overview: HomeOverview) {
+  return [
+    {
+      id: 'first-lesson',
+      icon: BookOpen,
+      label: '初出茅庐',
+      desc: '完成第一节课程',
+      unlocked: overview.completedLessons >= 1,
+    },
+    {
+      id: 'first-problem',
+      icon: Target,
+      label: '小试牛刀',
+      desc: '解决第一道题目',
+      unlocked: overview.solvedProblems >= 1,
+    },
+    {
+      id: 'streak-3',
+      icon: Flame,
+      label: '渐入佳境',
+      desc: '连续学习 3 天',
+      unlocked: overview.streak >= 3,
+    },
+    {
+      id: 'streak-7',
+      icon: Flame,
+      label: '坚持一周',
+      desc: '连续学习 7 天',
+      unlocked: overview.streak >= 7,
+    },
+    {
+      id: 'solve-10',
+      icon: Trophy,
+      label: '解题能手',
+      desc: '累计解决 10 道题',
+      unlocked: overview.solvedProblems >= 10,
+    },
+    {
+      id: 'solve-50',
+      icon: Award,
+      label: '百炼成钢',
+      desc: '累计解决 50 道题',
+      unlocked: overview.solvedProblems >= 50,
+    },
+    {
+      id: 'half-course',
+      icon: TrendingUp,
+      label: '课程过半',
+      desc: '完成半数课程',
+      unlocked: overview.totalLessons > 0 && overview.completedLessons >= overview.totalLessons / 2,
+    },
+    {
+      id: 'level-5',
+      icon: Star,
+      label: '进阶学者',
+      desc: '达到 Lv.5',
+      unlocked: overview.level >= 5,
+    },
+  ]
+}
+
+const CELEBRATED_ACHIEVEMENTS_KEY = 'achievements_celebrated'
 
 function StatTile({
   icon: Icon,
@@ -180,6 +250,44 @@ export function ProfileView() {
     }
   }, [])
 
+  // 成就解锁提示：与已庆祝集合对比，仅对「新解锁」弹一次。
+  // 首次（无持久化记录）只静默落库做基线，避免老用户一次性刷屏。
+  useEffect(() => {
+    if (!overview) return
+    let cancelled = false
+    const unlockedIds = buildAchievements(overview)
+      .filter((a) => a.unlocked)
+      .map((a) => ({ id: a.id, label: a.label }))
+
+    void (async () => {
+      const raw = await getSetting(CELEBRATED_ACHIEVEMENTS_KEY).catch(() => null)
+      if (cancelled) return
+      const seeded = raw != null
+      let celebrated: string[] = []
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw)
+          if (Array.isArray(parsed))
+            celebrated = parsed.filter((x): x is string => typeof x === 'string')
+        } catch {
+          /* 损坏的记录按空集处理，下面会重新落库 */
+        }
+      }
+      const celebratedSet = new Set(celebrated)
+      const fresh = unlockedIds.filter((a) => !celebratedSet.has(a.id))
+      if (fresh.length === 0) return
+      if (seeded) {
+        fresh.forEach((a) => toast.success(`解锁新成就：${a.label}`))
+      }
+      const next = Array.from(new Set([...celebrated, ...unlockedIds.map((a) => a.id)]))
+      await setSetting(CELEBRATED_ACHIEVEMENTS_KEY, JSON.stringify(next)).catch(() => {})
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [overview])
+
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center bg-[var(--color-bg-base)]">
@@ -213,64 +321,7 @@ export function ProfileView() {
   const maxCount = days.reduce((m, d) => Math.max(m, d.count), 0)
 
   // 成就：全部由真实指标推导（解锁/未解锁）
-  const achievements = [
-    {
-      id: 'first-lesson',
-      icon: BookOpen,
-      label: '初出茅庐',
-      desc: '完成第一节课程',
-      unlocked: overview.completedLessons >= 1,
-    },
-    {
-      id: 'first-problem',
-      icon: Target,
-      label: '小试牛刀',
-      desc: '解决第一道题目',
-      unlocked: overview.solvedProblems >= 1,
-    },
-    {
-      id: 'streak-3',
-      icon: Flame,
-      label: '渐入佳境',
-      desc: '连续学习 3 天',
-      unlocked: overview.streak >= 3,
-    },
-    {
-      id: 'streak-7',
-      icon: Flame,
-      label: '坚持一周',
-      desc: '连续学习 7 天',
-      unlocked: overview.streak >= 7,
-    },
-    {
-      id: 'solve-10',
-      icon: Trophy,
-      label: '解题能手',
-      desc: '累计解决 10 道题',
-      unlocked: overview.solvedProblems >= 10,
-    },
-    {
-      id: 'solve-50',
-      icon: Award,
-      label: '百炼成钢',
-      desc: '累计解决 50 道题',
-      unlocked: overview.solvedProblems >= 50,
-    },
-    {
-      id: 'half-course',
-      icon: TrendingUp,
-      label: '课程过半',
-      desc: '完成半数课程',
-      unlocked: overview.totalLessons > 0 && overview.completedLessons >= overview.totalLessons / 2,
-    },
-    {
-      id: 'level-5',
-      icon: Star,
-      label: '进阶学者',
-      desc: '达到 Lv.5',
-      unlocked: overview.level >= 5,
-    },
-  ]
+  const achievements = buildAchievements(overview)
   const unlockedCount = achievements.filter((a) => a.unlocked).length
   const displayName = profile.name || overview.greetingName || '同学'
 
