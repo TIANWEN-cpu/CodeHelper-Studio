@@ -6,6 +6,23 @@
 /** 记忆类别，用于分类展示与（未来的）按类发送控制。 */
 export type MemoryCategory = 'fact' | 'preference' | 'identity' | 'tech' | 'constraint' | 'goal'
 
+/** 全部记忆类别，供校验与 UI 枚举使用。 */
+export const MEMORY_CATEGORIES: MemoryCategory[] = [
+  'fact',
+  'preference',
+  'identity',
+  'tech',
+  'constraint',
+  'goal',
+]
+
+/** 将任意字符串规整为合法记忆类别，未知值归入 'fact'。 */
+export function normalizeCategory(value: unknown): MemoryCategory {
+  return typeof value === 'string' && (MEMORY_CATEGORIES as string[]).includes(value)
+    ? (value as MemoryCategory)
+    : 'fact'
+}
+
 /** 去掉捕获内容尾部的标点与空白，避免存入 "...回答。" 这类噪声。 */
 function trimTrailingPunctuation(value: string): string {
   return value.replace(/[。.!！?？,，;；、\s]+$/u, '').trim()

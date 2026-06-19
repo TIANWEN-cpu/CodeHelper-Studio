@@ -20,6 +20,7 @@ export function registerAIIPC(): void {
         includeMemories?: boolean
         sessionId?: string
         ragContext?: RagContext
+        memoryCategories?: string[]
       },
     ) => {
       if (firstCall) {
@@ -91,7 +92,14 @@ export function registerAIIPC(): void {
         const url = `${assertAllowedProviderBaseUrl(config.base_url)}/chat/completions`
         const win = BrowserWindow.fromWebContents(event.sender)
         const withHistory = buildSessionMessages(db, args.sessionId, args.messages)
-        const withMemories = injectMemories(withHistory, args.includeMemories ?? true)
+        const memoryCategories = Array.isArray(args.memoryCategories)
+          ? args.memoryCategories.filter((c): c is string => typeof c === 'string')
+          : undefined
+        const withMemories = injectMemories(
+          withHistory,
+          args.includeMemories ?? true,
+          memoryCategories,
+        )
         const messages = injectRagContext(withMemories, args.ragContext)
 
         let response: Response
@@ -217,7 +225,11 @@ function buildSessionMessages(
   }
 }
 
-function injectMemories(messages: ChatMessage[], includeMemories = false): ChatMessage[] {
+function injectMemories(
+  messages: ChatMessage[],
+  includeMemories = false,
+  memoryCategories?: string[],
+): ChatMessage[] {
   if (!includeMemories) {
     return messages
   }
@@ -228,7 +240,7 @@ function injectMemories(messages: ChatMessage[], includeMemories = false): ChatM
         .reverse()
         .find((message) => message.role === 'user')
         ?.content.trim() ?? ''
-    const memories = getRelevantMemories(lastUserMessage)
+    const memories = getRelevantMemories(lastUserMessage, 6, memoryCategories)
 
     if (memories.length === 0) {
       return messages

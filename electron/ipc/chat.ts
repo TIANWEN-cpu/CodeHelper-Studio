@@ -5,9 +5,13 @@ import {
   extractMemoryCandidates,
   rankMemories,
   normalizeForDedup,
+  normalizeCategory,
+  MEMORY_CATEGORIES,
 } from '../utils/chatHelpers'
 import { trackPerformance } from '../utils/perfMonitor'
-import type { MemoryRow } from '../types/db'
+import { assertAllowedProviderBaseUrl } from '../utils/providerSecurity'
+import { friendlyUpstreamError, redirectBlockedError, isRedirect } from '../utils/httpErrors'
+import type { MemoryRow, AIConfigForChat } from '../types/db'
 
 // Re-export for ai.ts which imports getRelevantMemories
 export type { MemoryRow }
@@ -296,11 +300,100 @@ export function registerChatIPC(): void {
     }
     return captureMemoriesFromMessage(args.content, args.session_id)
   })
+
+  // 发送前预览：返回本轮将注入的记忆（按类别过滤），不更新 last_used、不发起任何请求。
+  ipcMain.handle(
+    'chat-context-preview',
+    (
+      _e,
+      args: { query?: string; includeMemories?: boolean; memoryCategories?: string[] },
+    ): { memories: MemoryRow[] } => {
+      if (!args || typeof args !== 'object') throw new Error('参数无效')
+      const query = typeof args.query === 'string' ? args.query.slice(0, 2000) : ''
+      if (args.includeMemories === false) return { memories: [] }
+      const categories = sanitizeCategories(args.memoryCategories)
+      return { memories: getRelevantMemories(query, 6, categories) }
+    },
+  )
+
+  // 批量管理：启用/停用/置顶/取消置顶/删除。
+  ipcMain.handle(
+    'chat-memories-batch',
+    (_e, args: { ids: number[]; action: string }): { affected: number } => {
+      if (!args || typeof args !== 'object') throw new Error('参数无效')
+      if (!Array.isArray(args.ids) || args.ids.length === 0) throw new Error('参数无效: ids')
+      if (args.ids.length > 1000) throw new Error('数量超限')
+      const ids = args.ids.map((id) => {
+        if (typeof id !== 'number' || !Number.isFinite(id) || id < 1)
+          throw new Error('参数无效: ids')
+        return id
+      })
+      const actions: Record<string, string> = {
+        enable: 'UPDATE memories SET enabled = 1, updated_at = CURRENT_TIMESTAMP',
+        disable: 'UPDATE memories SET enabled = 0, updated_at = CURRENT_TIMESTAMP',
+        pin: 'UPDATE memories SET pinned = 1, updated_at = CURRENT_TIMESTAMP',
+        unpin: 'UPDATE memories SET pinned = 0, updated_at = CURRENT_TIMESTAMP',
+        delete: 'DELETE FROM memories',
+      }
+      const sqlHead = actions[args.action]
+      if (!sqlHead) throw new Error('参数无效: action')
+      const db = getDB()
+      const placeholders = ids.map(() => '?').join(',')
+      const run = db.transaction(() => {
+        db.prepare(`${sqlHead} WHERE id IN (${placeholders})`).run(...ids)
+      })
+      run()
+      return { affected: ids.length }
+    },
+  )
+
+  // mem0 式 LLM 抽取：调用已配置的 Provider，从消息中智能抽取长期记忆（含去重合并）。
+  ipcMain.handle(
+    'chat-memory-extract',
+    async (
+      _e,
+      args: { content: string; configId?: number; sessionId?: string },
+    ): Promise<MemoryRow[]> => {
+      if (!args || typeof args !== 'object') throw new Error('参数无效')
+      if (typeof args.content !== 'string' || !args.content.trim())
+        throw new Error('参数无效: content')
+      const content = args.content.trim().slice(0, 10000)
+      let sessionId: string | undefined
+      if (args.sessionId !== undefined) {
+        if (typeof args.sessionId !== 'string') throw new Error('参数无效: sessionId')
+        sessionId = args.sessionId.trim().slice(0, 200)
+      }
+      if (
+        args.configId !== undefined &&
+        (typeof args.configId !== 'number' || !Number.isFinite(args.configId) || args.configId < 1)
+      )
+        throw new Error('参数无效: configId')
+
+      const candidates = await extractMemoriesViaLLM(content, args.configId)
+      return persistMemoryCandidates(candidates, 'chat-llm', sessionId, 0.9)
+    },
+  )
 }
 
-export function getRelevantMemories(query: string, limit = 6): MemoryRow[] {
+/** 过滤出合法记忆类别；输入非数组返回 undefined（表示不限类别）。 */
+function sanitizeCategories(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const allow = new Set<string>(MEMORY_CATEGORIES)
+  return value.filter((item): item is string => typeof item === 'string' && allow.has(item))
+}
+
+export function getRelevantMemories(
+  query: string,
+  limit = 6,
+  allowedCategories?: string[],
+): MemoryRow[] {
   const db = getDB()
-  const rows = db.prepare('SELECT * FROM memories WHERE enabled = 1').all() as MemoryRow[]
+  let rows = db.prepare('SELECT * FROM memories WHERE enabled = 1').all() as MemoryRow[]
+  // allowedCategories 为 undefined 表示不限类别；为数组（含空数组）则仅保留这些类别。
+  if (allowedCategories) {
+    const allow = new Set(allowedCategories)
+    rows = rows.filter((row) => allow.has(row.category))
+  }
   return rankMemories(rows, query, Date.now(), limit)
 }
 
@@ -314,7 +407,19 @@ export function markMemoriesUsed(ids: number[]): void {
 }
 
 export function captureMemoriesFromMessage(content: string, sessionId?: string): MemoryRow[] {
-  const candidates = extractMemoryCandidates(content)
+  return persistMemoryCandidates(extractMemoryCandidates(content), 'chat', sessionId, 0.85)
+}
+
+/**
+ * 把一组记忆候选写入库：归一化近似去重（命中则更新并启用），否则插入；最后做上限修剪。
+ * 供正则捕获（captureMemoriesFromMessage）与 LLM 抽取（chat-memory-extract）共用。
+ */
+function persistMemoryCandidates(
+  candidates: Array<{ content: string; category: string }>,
+  source: string,
+  sessionId?: string,
+  confidence = 0.85,
+): MemoryRow[] {
   if (candidates.length === 0) return []
 
   const db = getDB()
@@ -339,7 +444,7 @@ export function captureMemoriesFromMessage(content: string, sessionId?: string):
     if (existingId !== undefined) {
       db.prepare(
         'UPDATE memories SET category = ?, source = ?, source_ref = ?, enabled = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      ).run(candidate.category, 'chat', sessionId ?? null, existingId)
+      ).run(candidate.category, source, sessionId ?? null, existingId)
       saved.push(db.prepare('SELECT * FROM memories WHERE id = ?').get(existingId) as MemoryRow)
       continue
     }
@@ -348,7 +453,7 @@ export function captureMemoriesFromMessage(content: string, sessionId?: string):
       .prepare(
         'INSERT INTO memories (content, category, source, source_ref, confidence) VALUES (?,?,?,?,?)',
       )
-      .run(candidate.content, candidate.category, 'chat', sessionId ?? null, 0.85)
+      .run(candidate.content, candidate.category, source, sessionId ?? null, confidence)
     if (norm) normIndex.set(norm, Number(result.lastInsertRowid))
     saved.push(
       db.prepare('SELECT * FROM memories WHERE id = ?').get(result.lastInsertRowid) as MemoryRow,
@@ -362,19 +467,116 @@ export function captureMemoriesFromMessage(content: string, sessionId?: string):
 /** 自动捕获记忆的数量上限：超出后按 置信度→新近度 保留前 N 条，修剪其余非置顶项。 */
 const MAX_AUTO_MEMORIES = 200
 
-/** 防止聊天自动记忆无限增长：仅修剪 source='chat' 且未置顶的记忆，置顶/手动记忆永不删除。 */
+/** 防止自动记忆无限增长：仅修剪 source 为 'chat'/'chat-llm' 且未置顶的记忆，置顶/手动记忆永不删除。 */
 function pruneAutoMemories(db: ReturnType<typeof getDB>): void {
   const row = db
-    .prepare("SELECT COUNT(*) as c FROM memories WHERE source = 'chat' AND pinned = 0")
+    .prepare(
+      "SELECT COUNT(*) as c FROM memories WHERE source IN ('chat', 'chat-llm') AND pinned = 0",
+    )
     .get() as { c: number } | undefined
   const count = row?.c ?? 0
   if (count <= MAX_AUTO_MEMORIES) return
   db.prepare(
     `DELETE FROM memories WHERE id IN (
        SELECT id FROM memories
-       WHERE source = 'chat' AND pinned = 0
+       WHERE source IN ('chat', 'chat-llm') AND pinned = 0
        ORDER BY confidence DESC, COALESCE(last_used_at, created_at) DESC, id DESC
        LIMIT -1 OFFSET ?
      )`,
   ).run(MAX_AUTO_MEMORIES)
+}
+
+/** 读取用于记忆抽取的 AI 配置（指定 id 或默认/首个）。 */
+function getConfigForExtraction(configId?: number): AIConfigForChat | undefined {
+  const db = getDB()
+  if (configId) {
+    return db.prepare('SELECT * FROM ai_configs WHERE id = ?').get(configId) as
+      | AIConfigForChat
+      | undefined
+  }
+  return (db.prepare('SELECT * FROM ai_configs WHERE is_default = 1').get() ??
+    db.prepare('SELECT * FROM ai_configs LIMIT 1').get()) as AIConfigForChat | undefined
+}
+
+const EXTRACTION_SYSTEM_PROMPT = `你是一个记忆抽取器。从用户消息中抽取值得长期记住的稳定信息（身份、长期偏好、技术栈、对助手的约束、学习目标、确定的事实）。
+只输出一个 JSON 数组，每个元素形如 {"content": string, "category": "fact"|"preference"|"identity"|"tech"|"constraint"|"goal"}。
+忽略一次性问题、闲聊、临时上下文。没有可记的内容时输出 []。不要输出 JSON 以外的任何文字。`
+
+/** 从模型返回文本中提取第一个 JSON 数组并解析为记忆候选。 */
+export function parseExtractedMemories(text: string): Array<{ content: string; category: string }> {
+  const start = text.indexOf('[')
+  const end = text.lastIndexOf(']')
+  if (start < 0 || end <= start) return []
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text.slice(start, end + 1))
+  } catch {
+    return []
+  }
+  if (!Array.isArray(parsed)) return []
+  const seen = new Set<string>()
+  const out: Array<{ content: string; category: string }> = []
+  for (const item of parsed) {
+    if (!item || typeof item !== 'object') continue
+    const raw = (item as { content?: unknown }).content
+    if (typeof raw !== 'string') continue
+    const content = raw.trim().slice(0, 300)
+    if (content.length < 2) continue
+    const key = content.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push({ content, category: normalizeCategory((item as { category?: unknown }).category) })
+    if (out.length >= 8) break
+  }
+  return out
+}
+
+/** 调用 Provider 的非流式 chat completions 抽取记忆候选；复用出站安全校验与错误脱敏。 */
+async function extractMemoriesViaLLM(
+  content: string,
+  configId?: number,
+): Promise<Array<{ content: string; category: string }>> {
+  const config = getConfigForExtraction(configId)
+  if (!config) throw new Error('未配置AI模型，请先在设置中添加')
+
+  const url = `${assertAllowedProviderBaseUrl(config.base_url)}/chat/completions`
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.api_key}`,
+      },
+      body: JSON.stringify({
+        model: config.model,
+        messages: [
+          { role: 'system', content: EXTRACTION_SYSTEM_PROMPT },
+          { role: 'user', content },
+        ],
+        stream: false,
+        temperature: 0,
+      }),
+      redirect: 'manual',
+      signal: AbortSignal.timeout(30000),
+    })
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    if (msg.includes('abort') || msg.includes('timeout')) throw new Error('记忆抽取超时')
+    console.warn('[memory] extract fetch failed:', msg)
+    throw new Error('网络连接失败，请检查网络或 Base URL')
+  }
+
+  if (isRedirect(response.status)) throw redirectBlockedError('chat')
+  if (!response.ok) {
+    const body = await response.text().catch(() => '')
+    console.warn(`[memory] extract upstream error ${response.status}: ${body.slice(0, 500)}`)
+    throw new Error(friendlyUpstreamError(response.status, 'chat'))
+  }
+
+  const json = (await response.json().catch(() => null)) as {
+    choices?: Array<{ message?: { content?: string } }>
+  } | null
+  const text = json?.choices?.[0]?.message?.content ?? ''
+  return parseExtractedMemories(text)
 }
