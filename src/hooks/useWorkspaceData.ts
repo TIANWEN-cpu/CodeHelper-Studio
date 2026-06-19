@@ -11,6 +11,7 @@ import {
   type ProblemFilters,
   type Submission,
 } from '@/services/workspaceService'
+import { reportError } from '@/utils/errorHandler'
 
 export interface UseWorkspaceDataReturn {
   // Code editor state
@@ -101,6 +102,7 @@ export function useWorkspaceData(
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err)
         setError(message)
+        reportError(err, 'workspace.runCode', { showToast: true })
         return null
       } finally {
         setIsRunning(false)
@@ -128,6 +130,7 @@ export function useWorkspaceData(
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err)
         setError(message)
+        reportError(err, 'workspace.submitToProblem', { showToast: true })
         return null
       } finally {
         setIsSubmitting(false)

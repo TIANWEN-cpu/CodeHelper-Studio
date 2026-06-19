@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { typedInvoke } from '@/api/ipc'
+import { reportError } from '@/utils/errorHandler'
 
 type Role = 'user' | 'assistant' | 'system'
 type Session = {
@@ -205,6 +206,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       })
     } catch (error) {
       const msg = errorMessage(error)
+      reportError(error, 'chat.sendMessage', { showToast: true })
       set((state) => ({
         error: msg,
         streaming: false,
