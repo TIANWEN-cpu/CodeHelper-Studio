@@ -79,10 +79,6 @@ const allowedInvokeChannels = new Set([
   'lessons-notes-save',
   'lessons-search',
   'lesson-get-progress',
-  // Achievements
-  'achievements-list',
-  'achievements-check',
-  'achievements-seed',
   // Review (spaced repetition)
   'review-due',
   'review-update',

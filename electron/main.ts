@@ -12,7 +12,6 @@ import { registerDemoDataIPC } from './ipc/demoData'
 import { registerExportIPC } from './ipc/export'
 import { registerExercisesIPC } from './ipc/exercises'
 import { registerLessonsIPC } from './ipc/lessons'
-import { registerAchievementsIPC } from './ipc/achievements'
 import { registerReviewIPC } from './ipc/review'
 import { registerHomeHandlers } from './ipc/home'
 import { registerPetsIPC } from './ipc/pets'
@@ -434,12 +433,6 @@ function registerDeferredIPC(): void {
     console.log('[IPC] Registered: lessons handlers')
   } catch (e) {
     startupError('registerLessonsIPC', e)
-  }
-  try {
-    registerAchievementsIPC()
-    console.log('[IPC] Registered: achievements handlers')
-  } catch (e) {
-    startupError('registerAchievementsIPC', e)
   }
   try {
     registerReviewIPC()
