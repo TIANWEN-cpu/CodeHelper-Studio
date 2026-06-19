@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'motion/react'
 import { useLearnData } from '@/hooks/useLearnData'
 import { getLessonProgress } from '@/services/learnService'
+import { consumePendingDeepLink, subscribeDeepLink } from '@/lib/deepLink'
 import { renderMarkdown } from '@/utils/markdown'
 import aiTutorIcon from '@/assets/generated/course-icons/ai-tutor.webp'
 import algorithmsIcon from '@/assets/generated/course-icons/algorithms.webp'
@@ -293,6 +294,36 @@ export function LearnView() {
     },
     [selectLesson, markOpened],
   )
+
+  // ---- Open a lesson by id (命令面板深链) ----
+  const openLessonById = useCallback(
+    (lessonId: string) => {
+      for (const track of tracks) {
+        for (const mod of track.modules) {
+          if (mod.lessons.some((l) => l.id === lessonId)) {
+            setLessonQuery('') // 清掉视图内搜索，确保目标可见
+            handleSelectLesson(lessonId, mod.id, track.id)
+            return true
+          }
+        }
+      }
+      return false
+    },
+    [tracks, handleSelectLesson],
+  )
+
+  // 挂载时领取待处理深链，并订阅后续实时事件。
+  const [pendingLessonId, setPendingLessonId] = useState<string | null>(null)
+  useEffect(() => {
+    const pending = consumePendingDeepLink('lesson')
+    if (pending) setPendingLessonId(pending)
+    return subscribeDeepLink('lesson', (id) => setPendingLessonId(id))
+  }, [])
+  // tracks 异步加载，待其就绪后再应用深链。
+  useEffect(() => {
+    if (!pendingLessonId || tracks.length === 0) return
+    if (openLessonById(pendingLessonId)) setPendingLessonId(null)
+  }, [pendingLessonId, tracks, openLessonById])
 
   // ---- Handle module expand/collapse ----
   const toggleModule = useCallback((moduleId: string) => {
