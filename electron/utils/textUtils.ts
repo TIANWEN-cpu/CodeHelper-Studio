@@ -23,3 +23,12 @@ export function splitIntoChunks(text: string, maxLen: number): string[] {
 export function escapeRegExp(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
+
+/**
+ * 转义 SQL LIKE 的通配符（% 与 _）和转义符本身，使输入按字面量匹配。
+ * 用于把外部输入拼进 LIKE pattern 时，防止 % / _ 扩大匹配范围（注入面）。
+ * 需配合 `LIKE ... ESCAPE '\\'` 使用。
+ */
+export function escapeLike(input: string): string {
+  return input.replace(/[\\%_]/g, '\\$&')
+}
