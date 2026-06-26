@@ -100,32 +100,38 @@ describe('analytics IPC handlers', () => {
 
       const result = handle({})
 
-      expect(mockGetEvents).toHaveBeenCalledWith(undefined, undefined, undefined)
+      expect(mockGetEvents).toHaveBeenCalledWith(undefined, undefined, undefined, undefined)
       expect(result).toEqual(mockResult)
     })
 
     it('passes valid eventType filter', () => {
       mockGetEvents.mockReturnValue([])
       handle({}, { eventType: 'problem_solved' })
-      expect(mockGetEvents).toHaveBeenCalledWith('problem_solved', undefined, undefined)
+      expect(mockGetEvents).toHaveBeenCalledWith('problem_solved', undefined, undefined, undefined)
     })
 
     it('ignores invalid eventType filter', () => {
       mockGetEvents.mockReturnValue([])
       handle({}, { eventType: 'fake_event' })
-      expect(mockGetEvents).toHaveBeenCalledWith(undefined, undefined, undefined)
+      expect(mockGetEvents).toHaveBeenCalledWith(undefined, undefined, undefined, undefined)
     })
 
     it('passes since and until filters', () => {
       mockGetEvents.mockReturnValue([])
       handle({}, { since: '2024-01-01', until: '2024-12-31' })
-      expect(mockGetEvents).toHaveBeenCalledWith(undefined, '2024-01-01', '2024-12-31')
+      expect(mockGetEvents).toHaveBeenCalledWith(undefined, '2024-01-01', '2024-12-31', undefined)
     })
 
     it('combines valid eventType with date filters', () => {
       mockGetEvents.mockReturnValue([])
       handle({}, { eventType: 'code_run', since: '2024-06-01', until: '2024-06-30' })
-      expect(mockGetEvents).toHaveBeenCalledWith('code_run', '2024-06-01', '2024-06-30')
+      expect(mockGetEvents).toHaveBeenCalledWith('code_run', '2024-06-01', '2024-06-30', undefined)
+    })
+
+    it('forwards an explicit limit to getEvents', () => {
+      mockGetEvents.mockReturnValue([])
+      handle({}, { eventType: 'code_run', limit: 10 })
+      expect(mockGetEvents).toHaveBeenCalledWith('code_run', undefined, undefined, 10)
     })
 
     it('returns events from getEvents', () => {

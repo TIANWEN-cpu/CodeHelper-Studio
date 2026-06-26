@@ -45,7 +45,7 @@ export function registerAnalyticsIPC(): void {
   // Query events with optional filters
   ipcMain.handle(
     'analytics-get-events',
-    (_e, filters?: { eventType?: string; since?: string; until?: string }) => {
+    (_e, filters?: { eventType?: string; since?: string; until?: string; limit?: number }) => {
       const eventType =
         filters?.eventType && VALID_EVENT_TYPES.has(filters.eventType)
           ? (filters.eventType as AnalyticsEventType)
@@ -58,7 +58,11 @@ export function registerAnalyticsIPC(): void {
         filters?.until && typeof filters.until === 'string'
           ? filters.until.trim().slice(0, 30)
           : undefined
-      return getEvents(eventType, since, until)
+      const limit =
+        typeof filters?.limit === 'number' && Number.isFinite(filters.limit)
+          ? filters.limit
+          : undefined
+      return getEvents(eventType, since, until, limit)
     },
   )
 
