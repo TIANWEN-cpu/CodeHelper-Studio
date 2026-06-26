@@ -128,8 +128,9 @@ const ACTIVITY_LABELS: Record<string, string> = {
 }
 
 export async function getRecentActivity(): Promise<ActivityItem[]> {
-  const events = await invoke<RawAnalyticsEvent[]>('analytics-get-events')
-  return (events || []).slice(0, 10).map((e) => {
+  // 只取 10 条：避免把随使用无限增长的 analytics_events 全表拉到前端再丢弃。
+  const events = await invoke<RawAnalyticsEvent[]>('analytics-get-events', { limit: 10 })
+  return (events || []).map((e) => {
     const label = ACTIVITY_LABELS[e.event_type] ?? e.event_type
     let detail = ''
     try {

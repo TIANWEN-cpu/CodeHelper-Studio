@@ -76,6 +76,7 @@ export function getEvents(
   eventType?: AnalyticsEventType,
   since?: string,
   until?: string,
+  limit?: number,
 ): AnalyticsEvent[] {
   const db = getDB()
   let sql = 'SELECT * FROM analytics_events WHERE 1=1'
@@ -95,6 +96,15 @@ export function getEvents(
   }
 
   sql += ' ORDER BY timestamp DESC'
+  // 限长：默认取最近 200 条，避免活动流等调用方拉取全表（表会随使用无限增长）。
+  // 调用方若显式传入更小的 limit 则覆盖默认。
+  const effectiveLimit =
+    typeof limit === 'number' && Number.isFinite(limit) && limit > 0
+      ? Math.min(Math.trunc(limit), 1000)
+      : 200
+  sql += ' LIMIT ?'
+  params.push(effectiveLimit)
+
   return db.prepare(sql).all(...params) as AnalyticsEvent[]
 }
 
