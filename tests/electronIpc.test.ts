@@ -155,6 +155,48 @@ describe('registerMistakesIPC', () => {
 
     expect(() => handlers['mistakes-delete'](null, 0)).toThrow('参数无效: id')
   })
+
+  it('mistakes-delete clears the review_schedule row (no orphaned review)', async () => {
+    // 捕获每条 prepared SQL 对应的 .run/.get 实参，验证级联删除用 String(problem_id)。
+    const runs: Array<{ sql: string; args: unknown[] }> = []
+    const gets: Array<{ sql: string; args: unknown[] }> = []
+    mockDB.prepare.mockImplementation((sql: string) => ({
+      get: vi.fn((...args: unknown[]) => {
+        gets.push({ sql, args })
+        return { problem_id: 42 } // 该错题对应的 problem_id
+      }),
+      run: vi.fn((...args: unknown[]) => {
+        runs.push({ sql, args })
+        return { changes: 1 }
+      }),
+      all: vi.fn(() => []),
+    }))
+    const { registerMistakesIPC } = await import('../electron/ipc/mistakes')
+    registerMistakesIPC()
+
+    handlers['mistakes-delete'](null, 5)
+
+    // 先按 problem_id 查出错题
+    expect(gets.some((c) => c.sql.includes('SELECT problem_id FROM mistakes'))).toBe(true)
+    // 删 mistakes 行
+    expect(runs.some((c) => c.sql.includes('DELETE FROM mistakes'))).toBe(true)
+    // 用 String(problem_id)='42' 清掉复习排程，避免 review-due 捞出幽灵项
+    const scheduleDelete = runs.find((c) => c.sql.includes('DELETE FROM review_schedule'))
+    expect(scheduleDelete).toBeDefined()
+    expect(scheduleDelete?.args).toEqual(['42'])
+  })
+
+  it('mistakes-delete still removes the mistake row when it has no problem_id', async () => {
+    mockDB.prepare.mockImplementation((_sql: string) => ({
+      get: vi.fn(() => undefined), // 行不存在 / 无 problem_id
+      run: vi.fn(() => ({ changes: 0 })),
+      all: vi.fn(() => []),
+    }))
+    const { registerMistakesIPC } = await import('../electron/ipc/mistakes')
+    registerMistakesIPC()
+
+    expect(() => handlers['mistakes-delete'](null, 5)).not.toThrow()
+  })
 })
 
 describe('registerRunnerIPC', () => {
