@@ -159,6 +159,13 @@ function enrichKnowledgeDoc<T extends KnowledgeDocListRow | KnowledgeDocDetailRo
   ) as unknown as T & KnowledgeDocMetadata
 }
 
+/**
+ * 关键词检索上限：knowledge_chunks 可能很大，而 LIKE '%kw%' 无法走索引，
+ * 会全表扫。这里给 SQL 一个硬上限，避免把数千条 chunk 全部读进内存再做 JS 精排。
+ * 该上限远大于调用方最终需要的 limit（默认 5~10），只用于先收窄候选集。
+ */
+const KEYWORD_SCAN_MAX = 200
+
 function keywordSearch(query: string, limit = 5): ScoredKnowledgeChunk[] {
   const normalizedQuery = validateKnowledgeQuery(query)
   const keywords = normalizedQuery
@@ -172,18 +179,23 @@ function keywordSearch(query: string, limit = 5): ScoredKnowledgeChunk[] {
 
   const conditions = keywords.map(() => 'LOWER(kc.content) LIKE ?').join(' OR ')
   const params = keywords.map((kw) => `%${kw}%`)
+  // 用 SQL LIMIT 收窄候选集（取最近 KEYWORD_SCAN_MAX 条命中），避免全量搬进内存。
   const matchingChunks = db
     .prepare(
-      `SELECT kc.*, kd.filename FROM knowledge_chunks kc JOIN knowledge_docs kd ON kc.doc_id = kd.id WHERE ${conditions}`,
+      `SELECT kc.*, kd.filename FROM knowledge_chunks kc JOIN knowledge_docs kd ON kc.doc_id = kd.id
+       WHERE ${conditions}
+       ORDER BY kc.id DESC
+       LIMIT ?`,
     )
-    .all(...params) as KnowledgeChunkRow[]
+    .all(...params, KEYWORD_SCAN_MAX) as KnowledgeChunkRow[]
 
+  // 预编译关键词正则一次，复用于所有 chunk（原先每个 chunk 都 new RegExp，CPU 热点）。
+  const matchers = keywords.map((kw) => new RegExp(escapeRegExp(kw), 'g'))
   const scored = matchingChunks.map((chunk) => {
     const text = chunk.content.toLowerCase()
     let score = 0
-    for (const kw of keywords) {
-      const matches = (text.match(new RegExp(escapeRegExp(kw), 'g')) || []).length
-      score += matches
+    for (const re of matchers) {
+      score += (text.match(re) || []).length
     }
     return { ...chunk, score }
   })
