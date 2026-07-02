@@ -195,6 +195,29 @@ function getTotalProblems(db: ReturnType<typeof getDB>): number {
  * Current learning streak: consecutive days (ending today or yesterday) that
  * have at least one analytics event. Mirrors the logic of `analytics-get-streak`.
  */
+/**
+ * 计算连续学习天数（streak）。纯函数：给定活动日期集合与"今天"，从今天（或昨天，
+ * 若今天无活动）起向前回溯连续命中天数。
+ *
+ * UTC 一致：today 与迭代都用 UTC 解析/推进；在正偏移时区（如 UTC+8）用本地时间解析
+ * 会把起点整体偏移一天，导致连续天数算错（见历史修复 30d255b）。抽成纯函数便于单测。
+ */
+export function computeStreak(activeDays: string[], today: string): number {
+  if (activeDays.length === 0) return 0
+  const daySet = new Set(activeDays)
+  let streak = 0
+  const d = new Date(today + 'T00:00:00Z')
+  // 今天没活动则从昨天起算（不因"今天还没学"就断掉昨天的连续记录）
+  if (!daySet.has(today)) {
+    d.setUTCDate(d.getUTCDate() - 1)
+  }
+  while (daySet.has(d.toISOString().slice(0, 10))) {
+    streak++
+    d.setUTCDate(d.getUTCDate() - 1)
+  }
+  return streak
+}
+
 function getStreak(db: ReturnType<typeof getDB>): number {
   let rows: Array<{ day: string }> = []
   try {
@@ -210,24 +233,11 @@ function getStreak(db: ReturnType<typeof getDB>): number {
     return 0
   }
 
-  if (rows.length === 0) return 0
-
   const today = new Date().toISOString().slice(0, 10)
-  const daySet = new Set(rows.map((r) => r.day))
-
-  let streak = 0
-  // UTC 一致：today 用 toISOString（UTC），迭代也必须用 UTC 解析/推进，
-  // 否则在正偏移时区（如 UTC+8）本地解析会把起点整体偏移一天，导致连续天数算错。
-  const d = new Date(today + 'T00:00:00Z')
-  // If today has no events, start checking from yesterday.
-  if (!daySet.has(today)) {
-    d.setUTCDate(d.getUTCDate() - 1)
-  }
-  while (daySet.has(d.toISOString().slice(0, 10))) {
-    streak++
-    d.setUTCDate(d.getUTCDate() - 1)
-  }
-  return streak
+  return computeStreak(
+    rows.map((r) => r.day),
+    today,
+  )
 }
 
 /** Total XP accumulated from analytics events, weighted by event type. */

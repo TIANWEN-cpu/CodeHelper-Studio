@@ -8,7 +8,7 @@ vi.mock('../electron/db/index', () => ({ getDB: vi.fn() }))
 vi.mock('../electron/utils/perfMonitor', () => ({ trackPerformance: vi.fn() }))
 
 import { describe, it, expect } from 'vitest'
-import { computeLevel, getFirstLesson } from '../electron/ipc/home'
+import { computeLevel, getFirstLesson, computeStreak } from '../electron/ipc/home'
 
 describe('computeLevel (XP → 等级曲线)', () => {
   it('xp=0 时为 1 级，0/50 进度', () => {
@@ -137,5 +137,42 @@ describe('getFirstLesson', () => {
         tracks: [{ id: 't', title: '', icon: '', summary: '', modules: [] }],
       } as never),
     ).toBeNull()
+  })
+})
+
+describe('computeStreak (连续学习天数，UTC)', () => {
+  it('空活动列表返回 0', () => {
+    expect(computeStreak([], '2026-07-03')).toBe(0)
+  })
+
+  it('今天有活动、昨天也有 → 连续计数含今天', () => {
+    expect(computeStreak(['2026-07-03', '2026-07-02'], '2026-07-03')).toBe(2)
+  })
+
+  it('今天没活动但昨天有 → 从昨天起算（不断 streak）', () => {
+    expect(computeStreak(['2026-07-02', '2026-07-01'], '2026-07-03')).toBe(2)
+  })
+
+  it('今天和昨天都没活动 → 返回 0', () => {
+    expect(computeStreak(['2026-06-01'], '2026-07-03')).toBe(0)
+  })
+
+  it('中间断档则停止计数', () => {
+    // 今天有、昨天没有、前天有 → 只算今天（1）
+    expect(computeStreak(['2026-07-03', '2026-07-01'], '2026-07-03')).toBe(1)
+  })
+
+  it('长连续记录正确累加', () => {
+    const days = ['2026-07-03', '2026-07-02', '2026-07-01', '2026-06-30', '2026-06-29']
+    expect(computeStreak(days, '2026-07-03')).toBe(5)
+  })
+
+  it('今天没活动时，连续记录从昨天起算且跨月正确', () => {
+    // today=2026-07-01（无活动），昨天 06-30、06-29 有 → streak=2
+    expect(computeStreak(['2026-06-30', '2026-06-29'], '2026-07-01')).toBe(2)
+  })
+
+  it('活动日期乱序不影响结果（用 Set 去重）', () => {
+    expect(computeStreak(['2026-07-02', '2026-07-03', '2026-07-01'], '2026-07-03')).toBe(3)
   })
 })
