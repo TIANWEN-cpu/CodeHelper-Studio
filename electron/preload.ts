@@ -106,7 +106,7 @@ const allowedInvokeChannels = new Set([
 
 const allowedEventChannels = new Set(['ai-chat-chunk', 'ai-chat-done'])
 
-function isSerializable(value: unknown, depth = 0): boolean {
+export function isSerializable(value: unknown, depth = 0): boolean {
   if (depth > 10) return false
   if (value === null || value === undefined) return true
   const t = typeof value
