@@ -66,7 +66,7 @@ npm run build:linux   # Linux
 
 1. 启动 CodeHelper 后，你将看到左侧导航栏，包含以下模块入口：
    - **刷题** - 题库练习系统
-   - **编辑器** - Monaco 代码编辑器
+   - **编辑器** - CodeMirror 代码编辑器
    - **AI助手** - AI 智能对话
    - **错题本** - 错题追踪与分析
    - **知识库** - 文档检索系统
@@ -130,7 +130,7 @@ CodeHelper 使用本地 SQLite 数据库存储所有数据：
 
 ## 下一步
 
-- [编辑器指南](editor-guide.md) - 了解 Monaco 编辑器的全部功能
+- [编辑器指南](editor-guide.md) - 了解 CodeMirror 编辑器的全部功能
 - [AI 对话指南](ai-chat-guide.md) - 学习如何与 AI 高效对话
 - [题库指南](problems-guide.md) - 开始刷题练习
 - [设置指南](settings-guide.md) - 自定义你的 CodeHelper
@@ -139,7 +139,7 @@ CodeHelper 使用本地 SQLite 数据库存储所有数据：
 
 ## See Also
 
-- [编辑器指南](editor-guide.md) -- Monaco Editor 详细使用说明
+- [编辑器指南](editor-guide.md) -- CodeMirror 编辑器详细使用说明
 - [题库指南](problems-guide.md) -- 题库系统完整功能
 - [AI 对话指南](ai-chat-guide.md) -- AI 助手高级功能
 - [错题本指南](mistakes-guide.md) -- 错题追踪与复习
