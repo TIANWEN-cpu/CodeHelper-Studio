@@ -333,8 +333,8 @@ describe('memoryRelevance', () => {
 
   it('content 完全包含 query 时额外 +20', () => {
     const score = memoryRelevance('用户喜欢 python 语言', ['python'], 'python')
-    // python 命中 +5，query 'python' 命中 +20
-    expect(score).toBe(25)
+    // python(6字符) 命中 +6，query 'python' 命中 +20
+    expect(score).toBe(26)
   })
 
   it('query 包含 content 时也算匹配（反向子串）', () => {
@@ -344,11 +344,11 @@ describe('memoryRelevance', () => {
   })
 
   it('大小写不敏感', () => {
-    expect(memoryRelevance('PYTHON is great', ['python'], '')).toBe(5)
+    expect(memoryRelevance('PYTHON is great', ['python'], '')).toBe(6)
   })
 
   it('空 query 时不触发 +20', () => {
-    expect(memoryRelevance('python', ['python'], '   ')).toBe(5)
+    expect(memoryRelevance('python', ['python'], '   ')).toBe(6)
   })
 })
 
