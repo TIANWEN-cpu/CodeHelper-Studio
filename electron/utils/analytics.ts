@@ -152,14 +152,20 @@ export function getSummary(days = 30): AnalyticsSummary {
 /**
  * Get weekly report data for the current or specified week.
  */
-export function getWeeklyReport(weekOffset = 0): WeeklyReportData {
-  const db = getDB()
-
-  // Calculate week boundaries (Monday to Sunday) in UTC.
-  // Stored timestamps use SQLite CURRENT_TIMESTAMP (UTC), so the boundaries
-  // must be UTC too — computing them in local time then formatting via
-  // toISOString() shifts the date string by a day in offset zones (e.g. UTC+8).
-  const now = new Date()
+/**
+ * 计算周报的起止边界（周一 00:00:00 到周日 23:59:59，全程 UTC）。
+ *
+ * 后端 SQLite 的 CURRENT_TIMESTAMP 是 UTC，故边界必须用 UTC 计算——若用本地
+ * 时间算再 toISOString() 格式化，在偏移时区（如 UTC+8）会把日期串错移一天。
+ * 抽成纯函数以便单测这层 UTC 周界逻辑（最易出错的正确性点）。
+ *
+ * @param now        基准时刻（默认当前）。注入参数便于测试。
+ * @param weekOffset 周偏移：0=本周，-1=上周，1=下周。
+ */
+export function computeWeekRange(
+  now: Date = new Date(),
+  weekOffset = 0,
+): { startStr: string; endStr: string } {
   const dayOfWeek = now.getUTCDay() === 0 ? 7 : now.getUTCDay()
   const weekStart = new Date(now)
   weekStart.setUTCDate(now.getUTCDate() - dayOfWeek + 1 + weekOffset * 7)
@@ -169,8 +175,17 @@ export function getWeeklyReport(weekOffset = 0): WeeklyReportData {
   weekEnd.setUTCDate(weekStart.getUTCDate() + 6)
   weekEnd.setUTCHours(23, 59, 59, 999)
 
-  const startStr = weekStart.toISOString().slice(0, 10)
-  const endStr = weekEnd.toISOString().slice(0, 10) + ' 23:59:59'
+  return {
+    startStr: weekStart.toISOString().slice(0, 10),
+    endStr: weekEnd.toISOString().slice(0, 10) + ' 23:59:59',
+  }
+}
+
+export function getWeeklyReport(weekOffset = 0): WeeklyReportData {
+  const db = getDB()
+
+  // 周一到周日的 UTC 边界。计算逻辑抽到 computeWeekRange（含 UTC 注意事项）。
+  const { startStr, endStr } = computeWeekRange(new Date(), weekOffset)
 
   const totalRow = db
     .prepare('SELECT COUNT(*) as cnt FROM analytics_events WHERE timestamp BETWEEN ? AND ?')
