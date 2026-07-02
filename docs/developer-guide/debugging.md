@@ -251,7 +251,7 @@ npx electron --version
 | ------------------------- | ---------------------------------------------------------- |
 | 热重载不生效              | 检查终端是否有编译错误，尝试重启 `npm run dev`             |
 | 类型检查通过但运行时报错  | 检查 IPC handler 的返回值类型与 `IpcChannelMap` 是否一致   |
-| Monaco Editor 加载缓慢    | 首次加载需下载语言包，后续会缓存                           |
+| CodeMirror 编辑器加载缓慢 | 首次加载需拉取语言扩展，生产构建体验更佳                   |
 | `better-sqlite3` 编译失败 | 安装 C++ 编译工具链                                        |
 | Electron 窗口白屏         | 删除 `node_modules` 和 `out` 后重新安装                    |
 | 测试失败                  | 确保使用 `npm run test:watch` 查看实时反馈                 |

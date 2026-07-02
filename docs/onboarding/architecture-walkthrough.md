@@ -29,7 +29,7 @@ CodeHelper 基于 **Electron + React + TypeScript** 构建，采用经典的三�
 | 构建     | electron-vite + Vite v7   | 开发服务器和打包 |
 | 前端     | React v19 + TypeScript v6 | UI 渲染          |
 | 状态     | Zustand v5                | 全局状态管理     |
-| 编辑器   | Monaco Editor             | 代码编辑         |
+| 编辑器   | CodeMirror 6              | 代码编辑         |
 | 样式     | Tailwind CSS v4           | 原子化 CSS       |
 | 数据库   | better-sqlite3            | 本地 SQLite      |
 | 测试     | Vitest                    | 单元和集成测试   |

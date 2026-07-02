@@ -219,7 +219,7 @@ extraResources:
 **排查**：
 
 1. 检查是否有大量初始数据加载
-2. 确认 Monaco Editor 是否懒加载
+2. 确认 CodeMirror 编辑器是否懒加载
 3. 查看终端的性能监控日志
 
 ### Q: 编辑器卡顿
