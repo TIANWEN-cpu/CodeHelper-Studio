@@ -175,13 +175,13 @@ describe('buildPythonTestHarness', () => {
     expect(harness).not.toMatch(/inject\s*=\s*1\s*#\s*$/m)
   })
 
-  it('多个测试都被序列化进 harness', () => {
+  it('多个测试都被序列化进 harness（JSON 在 Python 字符串字面量内，故带转义）', () => {
     const harness = buildPythonTestHarness('x=1', [
       { expression: 'x', expected: 1 },
       { expression: 'x+1', expected: 2 },
     ])
-    expect(harness).toContain('"expression":"x"')
-    expect(harness).toContain('"expression":"x+1"')
+    expect(harness).toContain('\\"expression\\":\\"x\\"')
+    expect(harness).toContain('\\"expression\\":\\"x+1\\"')
   })
 
   it('空测试列表仍生成合法 harness', () => {
