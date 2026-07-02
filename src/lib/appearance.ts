@@ -242,9 +242,7 @@ function parseGlassStyle(value: string | null): GlassStyle {
 
 function parseGlassBlur(value: string | null): number {
   const parsed = value ? parseInt(value, 10) : NaN
-  return Number.isFinite(parsed)
-    ? Math.min(32, Math.max(6, parsed))
-    : DEFAULT_APPEARANCE.glassBlur
+  return Number.isFinite(parsed) ? Math.min(32, Math.max(6, parsed)) : DEFAULT_APPEARANCE.glassBlur
 }
 
 function isLegacyLightThemeState(a: Appearance, marker: string | null): boolean {

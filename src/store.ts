@@ -124,7 +124,12 @@ interface AppState {
   hydrateAppearanceControls: (
     appearance: Pick<
       Appearance,
-      'visualTheme' | 'backgroundStyle' | 'animationLevel' | 'glassStyle' | 'glassBlur' | 'aiPetEnabled'
+      | 'visualTheme'
+      | 'backgroundStyle'
+      | 'animationLevel'
+      | 'glassStyle'
+      | 'glassBlur'
+      | 'aiPetEnabled'
     >,
   ) => void
   /** 启动时从数据库读回 UI 偏好（AI 面板/侧边栏/底部面板/标签换行/区域/周起始）。 */
