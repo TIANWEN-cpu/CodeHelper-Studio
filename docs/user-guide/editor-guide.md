@@ -1,12 +1,12 @@
 # 编辑器指南
 
-CodeHelper 内置 Monaco Editor（与 VS Code 同款），提供专业的代码编辑体验。
+CodeHelper 内置 CodeMirror 6 编辑器（@uiw/react-codemirror），提供专业的代码编辑体验。
 
 ## 概览
 
 编辑器模块由以下组件构成：
 
-- **MonacoEditor** - 核心编辑器组件，基于 Monaco Editor 0.55
+- **CodeEditor** - 核心编辑器组件，基于 CodeMirror 6
 - **EditorTabs** - 多标签页管理
 - **Console** - 内置控制台面板，查看代码运行输出
 - **TerminalPanel** - 终端面板集成
@@ -15,7 +15,7 @@ CodeHelper 内置 Monaco Editor（与 VS Code 同款），提供专业的代码�
 
 ### 语法高亮
 
-Monaco Editor 支持主流编程语言的语法高亮，包括但不限于：
+CodeMirror 支持主流编程语言的语法高亮，包括但不限于：
 
 | 语言       | 文件扩展名     |
 | ---------- | -------------- |
@@ -177,4 +177,4 @@ Monaco Editor 支持主流编程语言的语法高亮，包括但不限于：
 - [快速开始](getting-started.md) -- 安装与首次配置
 - [题库指南](problems-guide.md) -- 在刷题中使用编辑器
 - [AI 对话指南](ai-chat-guide.md) -- AI 辅助编码
-- [术语表](../glossary.md) -- Monaco Editor 等术语
+- [术语表](../glossary.md) -- CodeMirror 等术语
