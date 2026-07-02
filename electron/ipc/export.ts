@@ -80,7 +80,7 @@ const ALL_CATEGORIES: ExportCategory[] = Object.keys(TABLE_META) as ExportCatego
 // ---------------------------------------------------------------------------
 
 /** Validate that a file path is safe (no traversal, ends in .json). */
-function validateFilePath(filePath: string): string | null {
+export function validateFilePath(filePath: string): string | null {
   if (typeof filePath !== 'string' || !filePath.trim()) return '文件路径无效'
   const normalized = resolve(filePath)
   // Block null bytes and traversal sequences
@@ -96,7 +96,7 @@ function validateFilePath(filePath: string): string | null {
 // Validation
 // ---------------------------------------------------------------------------
 
-function validateExportData(data: unknown): data is ExportData {
+export function validateExportData(data: unknown): data is ExportData {
   if (!data || typeof data !== 'object') return false
   const obj = data as Record<string, unknown>
   if (typeof obj.version !== 'number' || obj.version < 1) return false
