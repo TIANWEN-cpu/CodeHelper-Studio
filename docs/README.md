@@ -69,7 +69,7 @@
 ```
 前端框架:  React 19 + TypeScript 6
 状态管理:  Zustand 5
-代码编辑:  Monaco Editor 0.55
+代码编辑:  CodeMirror 6 (@uiw/react-codemirror)
 桌面框架:  Electron 41
 构建工具:  electron-vite 5 + Vite 7
 本地数据库: better-sqlite3

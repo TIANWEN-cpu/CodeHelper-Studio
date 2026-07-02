@@ -118,8 +118,8 @@ CodeHelper 使用的图标库，提供 SVG 图标组件。
 **Main Process (主进程)**
 Electron 应用的 Node.js 进程，拥有完整的系统访问权限，负责窗口管理、IPC 处理、数据库操作和代码执行。参见 [架构详解](developer-guide/architecture.md)。
 
-**Monaco Editor**
-VS Code 的核心编辑器组件，CodeHelper 集成用于提供代码编辑功能。支持语法高亮、智能补全、代码折叠等。参见 [编辑器指南](user-guide/editor-guide.md)。
+**CodeMirror**
+CodeHelper 使用的代码编辑器组件（@uiw/react-codemirror，基于 CodeMirror 6），提供代码编辑功能。支持语法高亮、代码折叠等。参见 [编辑器指南](user-guide/editor-guide.md)。
 
 ---
 
