@@ -255,7 +255,7 @@ function getTotalXp(db: ReturnType<typeof getDB>): number {
  * level = floor(sqrt(xp / 50)) + 1
  * Total XP required to reach level L = 50 * L * L  (i.e. floor at level boundary).
  */
-function computeLevel(xp: number): {
+export function computeLevel(xp: number): {
   level: number
   xpInLevel: number
   xpForNextLevel: number
@@ -274,7 +274,7 @@ function computeLevel(xp: number): {
 }
 
 /** First lesson in the course map (used as a fallback suggestion). */
-function getFirstLesson(courseMap: CourseMap): SuggestedLesson | null {
+export function getFirstLesson(courseMap: CourseMap): SuggestedLesson | null {
   for (const track of courseMap.tracks) {
     for (const mod of track.modules) {
       const lesson = mod.lessons[0]
