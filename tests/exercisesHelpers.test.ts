@@ -10,6 +10,7 @@ import {
   difficultyLabel,
   checkKeywords,
   languageForTrack,
+  buildPythonTestHarness,
 } from '../electron/ipc/exercises'
 
 describe('isProblemTestCase', () => {
@@ -149,5 +150,43 @@ describe('languageForTrack', () => {
   it('未知轨道回退 python', () => {
     expect(languageForTrack('rust')).toBe('python')
     expect(languageForTrack('')).toBe('python')
+  })
+})
+
+describe('buildPythonTestHarness', () => {
+  it('包含结果标记前缀，供运行器解析', () => {
+    const harness = buildPythonTestHarness('x=1', [{ expression: 'x', expected: 1 }])
+    expect(harness).toContain('__EXERCISE_RESULT__')
+  })
+
+  it('内嵌用户代码', () => {
+    const harness = buildPythonTestHarness('def add(a,b): return a+b', [])
+    expect(harness).toContain('def add(a,b): return a+b')
+  })
+
+  it('测试数据被双重 JSON 转义（防注入：测试表达式里的引号不会破坏 Python 源）', () => {
+    const harness = buildPythonTestHarness('x=1', [
+      { expression: 'x', expected: 'ha"; inject = 1 #' },
+    ])
+    // 测试 JSON 经 JSON.stringify 后是合法 Python 字符串字面量，
+    // 恶意内容被封装在字符串内，不会被当成 Python 代码执行。
+    expect(harness).toContain('json.loads(')
+    // 原始恶意串不应以"裸代码"形式出现（应在转义后的 JSON 内）
+    expect(harness).not.toMatch(/inject\s*=\s*1\s*#\s*$/m)
+  })
+
+  it('多个测试都被序列化进 harness', () => {
+    const harness = buildPythonTestHarness('x=1', [
+      { expression: 'x', expected: 1 },
+      { expression: 'x+1', expected: 2 },
+    ])
+    expect(harness).toContain('"expression":"x"')
+    expect(harness).toContain('"expression":"x+1"')
+  })
+
+  it('空测试列表仍生成合法 harness', () => {
+    const harness = buildPythonTestHarness('x=1', [])
+    expect(harness).toContain('json.loads(')
+    expect(harness).toContain('__EXERCISE_RESULT__')
   })
 })

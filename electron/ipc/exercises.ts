@@ -213,7 +213,7 @@ function getProblemExercise(id: string): Exercise | null {
  * Build a Python harness that imports the user's code and runs each test
  * expression, printing structured JSON results to stdout.
  */
-function buildPythonTestHarness(userCode: string, tests: ExerciseTest[]): string {
+export function buildPythonTestHarness(userCode: string, tests: ExerciseTest[]): string {
   const testJson = JSON.stringify(tests)
   return `
 import json, sys
