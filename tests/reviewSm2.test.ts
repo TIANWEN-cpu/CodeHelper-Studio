@@ -69,6 +69,52 @@ describe('computeSM2', () => {
     const r = computeSM2(3, 2, 2.5, 6)
     expect(r.easeFactor).toBeLessThan(2.5)
   })
+
+  // --- 边界与精确值补充 ---
+
+  it('quality=3 仍计入成功（>=3 阈值，repetitions 递增）', () => {
+    // quality=3 是"勉强正确"，按 SM-2 标准算通过，不应重置。
+    const r = computeSM2(3, 0, 2.5, 1)
+    expect(r.repetitions).toBe(1) // 不是 0（失败才重置）
+    expect(r.interval).toBe(1)
+  })
+
+  it('quality=2 进入失败路径（<3 阈值，重置）', () => {
+    const r = computeSM2(2, 3, 2.5, 15)
+    expect(r.repetitions).toBe(0)
+    expect(r.interval).toBe(1)
+  })
+
+  it('quality=5 时 ease 恰好上升 +0.1', () => {
+    const r = computeSM2(5, 1, 2.5, 1)
+    expect(r.easeFactor).toBeCloseTo(2.6, 5)
+  })
+
+  it('quality=4 时 ease 保持不变（+0）', () => {
+    const r = computeSM2(4, 1, 2.5, 1)
+    expect(r.easeFactor).toBeCloseTo(2.5, 5)
+  })
+
+  it('quality=3 时 ease 下降 -0.14（精确公式值）', () => {
+    // 0.1 - 2*(0.08 + 2*0.02) = 0.1 - 0.24 = -0.14
+    const r = computeSM2(3, 1, 2.5, 1)
+    expect(r.easeFactor).toBeCloseTo(2.36, 5)
+  })
+
+  it('第二次成功（repetitions=1）走 interval=6 固定档', () => {
+    const r = computeSM2(5, 1, 2.5, 1)
+    expect(r.interval).toBe(6) // 不受 currentInterval 影响
+    expect(r.repetitions).toBe(2)
+  })
+
+  it('失败后再次复习时从 interval=1 重新爬升', () => {
+    // 模拟：失败 → 重新答对，应进入首次成功的轨道
+    const failed = computeSM2(1, 5, 2.6, 30)
+    expect(failed.repetitions).toBe(0)
+    const recovered = computeSM2(5, failed.repetitions, failed.easeFactor, failed.interval)
+    expect(recovered.repetitions).toBe(1)
+    expect(recovered.interval).toBe(1)
+  })
 })
 
 describe('todayISO', () => {
