@@ -9,7 +9,6 @@ import {
   errorMiddleware,
   validationMiddleware,
   rateLimitMiddleware,
-  type MiddlewareContext,
   type MiddlewareFn,
 } from '../electron/utils/middleware'
 
