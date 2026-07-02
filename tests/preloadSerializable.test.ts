@@ -6,7 +6,7 @@ vi.mock('electron', () => ({
 }))
 
 import { describe, it, expect } from 'vitest'
-import { isSerializable } from '../electron/preload'
+import { isSerializable, allowedInvokeChannels, allowedEventChannels } from '../electron/preload'
 
 describe('isSerializable (IPC 安全序列化校验)', () => {
   describe('接受的原始值', () => {
@@ -93,5 +93,30 @@ describe('isSerializable (IPC 安全序列化校验)', () => {
       for (let i = 0; i < 10; i++) v = { a: v }
       expect(isSerializable(v)).toBe(true)
     })
+  })
+})
+
+describe('IPC 通道白名单', () => {
+  it('invoke 白名单包含核心运行/AI/DB 通道', () => {
+    // 关键通道必须在白名单内，否则渲染进程调用会被 preload 拒绝
+    const core = ['run-code', 'ai-chat', 'db-get-setting', 'db-set-setting']
+    for (const ch of core) {
+      expect(allowedInvokeChannels.has(ch)).toBe(true)
+    }
+  })
+
+  it('event 白名单包含 AI 流式事件', () => {
+    expect(allowedEventChannels.has('ai-chat-chunk')).toBe(true)
+    expect(allowedEventChannels.has('ai-chat-done')).toBe(true)
+  })
+
+  it('白名单非空', () => {
+    expect(allowedInvokeChannels.size).toBeGreaterThan(10)
+    expect(allowedEventChannels.size).toBeGreaterThanOrEqual(2)
+  })
+
+  it('未列入白名单的通道被拒绝（白名单语义正确）', () => {
+    expect(allowedInvokeChannels.has('arbitrary-evil-channel')).toBe(false)
+    expect(allowedEventChannels.has('arbitrary-event')).toBe(false)
   })
 })
