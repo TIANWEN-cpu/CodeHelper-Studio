@@ -122,4 +122,47 @@ describe('assertAllowedProviderBaseUrl', () => {
       expect(() => assertAllowedProviderBaseUrl('')).toThrow('参数无效: base_url')
     })
   })
+
+  // Node 的 URL 解析器会把各种 IP 编码技巧（十进制/八进制/十六进制/简写/IPv4-mapped）
+  // 预先规范化成点分十进制或 ::ffff:hex 形式，validator 因此总能在标准形式上拦截。
+  // 这些测试钉死"规范化保证"——一旦 Node 未来改变 URL 规范化行为，这里会先红。
+  describe('IP 编码规范化（防 SSRF 绕过的关键保证）', () => {
+    it('十进制整数 IP 被规范化为 127.0.0.1 → 仅允许 http 回环', () => {
+      // http://2130706433 经 URL 解析 hostname=127.0.0.1 → 回环 → http 允许
+      expect(assertAllowedProviderBaseUrl('http://2130706433')).toBe('http://127.0.0.1')
+    })
+
+    it('八进制 IP 被规范化为 127.0.0.1', () => {
+      expect(assertAllowedProviderBaseUrl('http://0177.0.0.1')).toBe('http://127.0.0.1')
+    })
+
+    it('十六进制 IP 被规范化为 127.0.0.1', () => {
+      expect(assertAllowedProviderBaseUrl('http://0x7f.0.0.1')).toBe('http://127.0.0.1')
+    })
+
+    it('简写 IP（127.1）被规范化为 127.0.0.1', () => {
+      expect(assertAllowedProviderBaseUrl('http://127.1')).toBe('http://127.0.0.1')
+    })
+
+    it('IPv4-mapped IPv6 经规范化后仍按回环处理（http 允许）', () => {
+      // [::ffff:127.0.0.1] → hostname [::ffff:7f00:1] → classifyIPv6 命中 mappedHex → loopback
+      expect(assertAllowedProviderBaseUrl('http://[::ffff:127.0.0.1]')).toBe(
+        'http://[::ffff:7f00:1]',
+      )
+    })
+
+    it('IPv4-mapped 私网地址经规范化后被拒绝', () => {
+      // ::ffff:10.0.0.1 → mappedHex 解析为 10.0.0.1 → blocked
+      expect(() => assertAllowedProviderBaseUrl('https://[::ffff:10.0.0.1]')).toThrow(
+        /私网或元数据/,
+      )
+    })
+
+    it('IPv4-mapped 元数据地址经规范化后被拒绝', () => {
+      // ::ffff:169.254.169.254 → blocked（云元数据端点）
+      expect(() => assertAllowedProviderBaseUrl('https://[::ffff:169.254.169.254]')).toThrow(
+        /私网或元数据/,
+      )
+    })
+  })
 })
