@@ -159,13 +159,10 @@ src/
 │   └── index.ts         # 类型导出
 ├── constants/           # 共享常量
 │   └── index.ts         # IPC 通道名、默认值、主题配置
-├── theme/               # 主题定义
-│   ├── themes.ts        # Catppuccin 配色方案
-│   └── monacoThemes.ts  # Monaco 编辑器主题
 └── utils/
     ├── labels.ts        # 标签映射纯函数
     ├── errors.ts        # 错误消息提取
-    └── monacoConfig.ts  # Monaco 编辑器配置
+    └── errorHandler.ts  # 全局错误捕获与上报
 ```
 
 ---
