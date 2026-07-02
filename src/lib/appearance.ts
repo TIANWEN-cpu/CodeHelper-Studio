@@ -65,11 +65,11 @@ const APPEARANCE_ALIGNMENT_KEY = 'appearance_light_theme_alignment_v1'
 const APPEARANCE_ALIGNMENT_DONE = 'done'
 
 // ---- 颜色工具：按百分比提亮(正)/加深(负) ----
-function clamp255(n: number): number {
+export function clamp255(n: number): number {
   return Math.max(0, Math.min(255, Math.round(n)))
 }
 
-function shade(hex: string, percent: number): string {
+export function shade(hex: string, percent: number): string {
   const m = /^#?([0-9a-fA-F]{6})$/.exec(hex.trim())
   if (!m) return hex
   const int = parseInt(m[1], 16)
