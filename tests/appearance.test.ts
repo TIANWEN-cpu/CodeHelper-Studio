@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { resolveTheme, DEFAULT_APPEARANCE, type ThemeMode } from '../src/lib/appearance'
 
 // appearance.ts 顶层 import 了 settingsService（浏览器端服务），但 resolveTheme /
