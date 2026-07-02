@@ -633,6 +633,31 @@ describe('registerDatabaseIPC', () => {
       vi.unstubAllGlobals()
     })
 
+    it('200 OK 但响应体不是合法 JSON 时给出友好错误（而非原始 SyntaxError）', async () => {
+      setupDB({})
+      const { registerDatabaseIPC } = await import('../electron/ipc/database')
+      registerDatabaseIPC()
+
+      // 某些代理/服务会返回 200 + HTML/纯文本，response.json() 会抛 SyntaxError。
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockRejectedValue(new SyntaxError('Unexpected token < in JSON')),
+        text: vi.fn().mockResolvedValue('<html>not json</html>'),
+      })
+      vi.stubGlobal('fetch', mockFetch)
+
+      await expect(
+        handlers['ai-fetch-models'](null, { api_key: 'sk-test', base_url: 'https://api.test/v1' }),
+      ).rejects.toThrow(/无法解析|不是有效的 JSON|模型列表/)
+      // 且不应泄漏原始 SyntaxError 技术细节
+      await expect(
+        handlers['ai-fetch-models'](null, { api_key: 'sk-test', base_url: 'https://api.test/v1' }),
+      ).rejects.not.toThrow('Unexpected token')
+
+      vi.unstubAllGlobals()
+    })
+
     it('throws on non-ok response', async () => {
       setupDB({})
       const { registerDatabaseIPC } = await import('../electron/ipc/database')

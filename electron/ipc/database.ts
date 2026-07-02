@@ -233,7 +233,15 @@ export function registerDatabaseIPC(): void {
       console.warn(`[ai] fetch-models error ${response.status}: ${text.slice(0, 500)}`)
       throw new Error(friendlyUpstreamError(response.status, 'models'))
     }
-    const json = (await response.json()) as { data?: { id: string }[] }
+    let json: { data?: { id: string }[] }
+    try {
+      json = (await response.json()) as { data?: { id: string }[] }
+    } catch {
+      // 上游返回 200 OK 但响应体不是合法 JSON（如代理返回 HTML 错误页）。
+      // 不把原始 SyntaxError 泄漏给用户。
+      console.warn('[ai] fetch-models: response is not valid JSON')
+      throw new Error('模型列表响应无法解析，请确认 Base URL 指向兼容 OpenAI 的服务')
+    }
     const models = (json.data || []).map((m) => m.id).sort()
     return models
   })
