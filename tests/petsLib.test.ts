@@ -1,8 +1,16 @@
-import { describe, it, expect } from 'vitest'
-import { getPetAtlas, getPetState, type CodexPetManifest } from '../src/lib/pets'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import {
+  getPetAtlas,
+  getPetState,
+  readStoredPetSource,
+  persistPetSource,
+  DEFAULT_PET_ID,
+  PET_SOURCE_STORAGE_KEY,
+  type CodexPetManifest,
+} from '../src/lib/pets'
 
-// 注意：本文件测 src/lib/pets.ts 的纯函数 getPetAtlas / getPetState。
-// 与 tests/petReactions.ts（行为触发）区分开。
+// 注意：本文件测 src/lib/pets.ts 的纯函数 getPetAtlas / getPetState /
+// readStoredPetSource / persistPetSource。与 tests/petReactions.ts（行为触发）区分开。
 
 function manifest(partial: Partial<CodexPetManifest> = {}): CodexPetManifest {
   return { ...partial } as CodexPetManifest
@@ -86,5 +94,64 @@ describe('getPetState', () => {
     const m = manifest({ rows: [{ state: 'happy', row: 2, frames: 8 }] })
     // preferred（默认 idle）不匹配、也没有 idle 行 → 硬编码默认
     expect(getPetState(m)).toEqual({ state: 'idle', row: 0, frames: 6 })
+  })
+})
+
+describe('readStoredPetSource / persistPetSource', () => {
+  const store: Record<string, string> = {}
+  beforeEach(() => {
+    Object.keys(store).forEach((k) => delete store[k])
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: vi.fn((k: string) => store[k] ?? null),
+        setItem: vi.fn((k: string, v: string) => {
+          store[k] = v
+        }),
+      },
+    })
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('未存储时返回默认 pet id', () => {
+    expect(readStoredPetSource()).toBe(DEFAULT_PET_ID)
+  })
+
+  it('读取已存储的 pet id', () => {
+    store[PET_SOURCE_STORAGE_KEY] = 'custom-pet'
+    expect(readStoredPetSource()).toBe('custom-pet')
+  })
+
+  it('空串视为未设置，回退默认', () => {
+    store[PET_SOURCE_STORAGE_KEY] = ''
+    expect(readStoredPetSource()).toBe(DEFAULT_PET_ID)
+  })
+
+  it('persist 后能读回', () => {
+    persistPetSource('happy-dog')
+    expect(readStoredPetSource()).toBe('happy-dog')
+  })
+
+  it('localStorage 抛错时 read 回退默认（不崩溃）', () => {
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: () => {
+          throw new Error('denied')
+        },
+      },
+    })
+    expect(readStoredPetSource()).toBe(DEFAULT_PET_ID)
+  })
+
+  it('localStorage 抛错时 persist 静默忽略（不崩溃）', () => {
+    vi.stubGlobal('window', {
+      localStorage: {
+        setItem: () => {
+          throw new Error('denied')
+        },
+      },
+    })
+    expect(() => persistPetSource('x')).not.toThrow()
   })
 })
