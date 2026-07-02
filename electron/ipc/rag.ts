@@ -110,12 +110,12 @@ function validateKnowledgeQuery(query: string): string {
   return query.trim().slice(0, 1000)
 }
 
-function extractYamlScalar(frontMatter: string, key: string): string | undefined {
+export function extractYamlScalar(frontMatter: string, key: string): string | undefined {
   const match = frontMatter.match(new RegExp(`^${key}:\\s*"?([^"\\r\\n]+)"?\\s*$`, 'm'))
   return match?.[1]?.trim()
 }
 
-function extractYamlTags(frontMatter: string): string[] {
+export function extractYamlTags(frontMatter: string): string[] {
   const tagsBlock = frontMatter.match(/^tags:\s*\r?\n((?:\s+-\s*.*\r?\n?)+)/m)?.[1]
   if (!tagsBlock) return []
   return tagsBlock
@@ -124,9 +124,8 @@ function extractYamlTags(frontMatter: string): string[] {
     .filter((tag): tag is string => Boolean(tag))
 }
 
-function titleFromFilename(filename: string): string {
+export function titleFromFilename(filename: string): string {
   return filename
-    .replace(/\.md$/i, '')
     .replace(/\.md$/i, '')
     .split('__')
     .slice(-1)[0]
