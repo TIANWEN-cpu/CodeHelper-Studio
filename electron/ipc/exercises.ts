@@ -93,13 +93,16 @@ function isString(value: unknown): value is string {
   return typeof value === 'string'
 }
 
-function isProblemTestCase(value: unknown): value is { input: string; expected: string } {
+export function isProblemTestCase(value: unknown): value is { input: string; expected: string } {
   if (!value || typeof value !== 'object') return false
   const item = value as Record<string, unknown>
   return typeof item.input === 'string' && typeof item.expected === 'string'
 }
 
-function parseStarterCode(raw: string | null | undefined, preferredLanguage = 'python'): string {
+export function parseStarterCode(
+  raw: string | null | undefined,
+  preferredLanguage = 'python',
+): string {
   if (!raw) return ''
   try {
     const parsed = JSON.parse(raw) as unknown
@@ -115,7 +118,7 @@ function parseStarterCode(raw: string | null | undefined, preferredLanguage = 'p
   return ''
 }
 
-function difficultyLabel(difficulty: string): string {
+export function difficultyLabel(difficulty: string): string {
   if (difficulty === 'easy') return '基础'
   if (difficulty === 'medium') return '进阶'
   if (difficulty === 'hard') return '综合'
