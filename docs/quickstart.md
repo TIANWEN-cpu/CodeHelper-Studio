@@ -151,7 +151,7 @@ for i, num in enumerate(nums):
 
 - [README.md](../README.md) -- 项目概览与功能特性
 - [FAQ.md](../FAQ.md) -- 常见问题解答
-- [编辑器指南](user-guide/editor-guide.md) -- Monaco Editor 详细使用说明
+- [编辑器指南](user-guide/editor-guide.md) -- CodeMirror 编辑器详细使用说明
 - [题库指南](user-guide/problems-guide.md) -- 题库系统完整功能介绍
 - [AI 对话指南](user-guide/ai-chat-guide.md) -- AI 助手高级功能
 - [错题本指南](user-guide/mistakes-guide.md) -- 错题追踪与复习
