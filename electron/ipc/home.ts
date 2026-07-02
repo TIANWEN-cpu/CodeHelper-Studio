@@ -157,7 +157,7 @@ function getCompletedLessons(db: ReturnType<typeof getDB>): number {
 }
 
 /** Total number of lessons across the whole course map. */
-function getTotalLessons(courseMap: CourseMap): number {
+export function getTotalLessons(courseMap: CourseMap): number {
   let total = 0
   for (const track of courseMap.tracks) {
     for (const mod of track.modules) {
@@ -191,10 +191,6 @@ function getTotalProblems(db: ReturnType<typeof getDB>): number {
   }
 }
 
-/**
- * Current learning streak: consecutive days (ending today or yesterday) that
- * have at least one analytics event. Mirrors the logic of `analytics-get-streak`.
- */
 /**
  * 计算连续学习天数（streak）。纯函数：给定活动日期集合与"今天"，从今天（或昨天，
  * 若今天无活动）起向前回溯连续命中天数。

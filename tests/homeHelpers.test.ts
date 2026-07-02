@@ -8,7 +8,7 @@ vi.mock('../electron/db/index', () => ({ getDB: vi.fn() }))
 vi.mock('../electron/utils/perfMonitor', () => ({ trackPerformance: vi.fn() }))
 
 import { describe, it, expect } from 'vitest'
-import { computeLevel, getFirstLesson, computeStreak } from '../electron/ipc/home'
+import { computeLevel, getFirstLesson, computeStreak, getTotalLessons } from '../electron/ipc/home'
 
 describe('computeLevel (XP → 等级曲线)', () => {
   it('xp=0 时为 1 级，0/50 进度', () => {
@@ -174,5 +174,52 @@ describe('computeStreak (连续学习天数，UTC)', () => {
 
   it('活动日期乱序不影响结果（用 Set 去重）', () => {
     expect(computeStreak(['2026-07-02', '2026-07-03', '2026-07-01'], '2026-07-03')).toBe(3)
+  })
+})
+
+describe('getTotalLessons', () => {
+  const mkMap = (counts: number[][]) => ({
+    tracks: counts.map((mods, ti) => ({
+      id: `t${ti}`,
+      title: '',
+      icon: '',
+      summary: '',
+      modules: mods.map((lc, mi) => ({
+        id: `m${ti}-${mi}`,
+        title: '',
+        summary: '',
+        lessons: Array.from({ length: lc }, (_, li) => ({
+          id: `l${li}`,
+          title: '',
+          summary: '',
+          path: '',
+          difficulty: 'easy',
+          estimated_minutes: 1,
+          tags: [],
+          prerequisites: [],
+          outcomes: [],
+        })),
+      })),
+    })),
+  })
+
+  it('汇总所有轨道/模块的课程数', () => {
+    // track0: [3, 2]=5, track1: [1, 4]=5 → 总10
+    expect(
+      getTotalLessons(
+        mkMap([
+          [3, 2],
+          [1, 4],
+        ]) as never,
+      ),
+    ).toBe(10)
+  })
+
+  it('空课程地图返回 0', () => {
+    expect(getTotalLessons({ tracks: [] } as never)).toBe(0)
+  })
+
+  it('含空模块时正确跳过', () => {
+    expect(getTotalLessons(mkMap([[0, 3], [0]]) as never)).toBe(3)
   })
 })
