@@ -384,13 +384,13 @@ const saving = useSettingsStore((s) => s.saving)
 
 Store 之间通过直接引用其他 Store 的 `getState()` 方法进行协作，无需事件总线：
 
-| 场景       | 协作方式                                                                           |
-| ---------- | ---------------------------------------------------------------------------------- |
-| 主题切换   | `appStore.setTheme` 同时更新 DOM 和数据库                                          |
-| 发送消息   | `chatStore.sendMessage` 自动创建会话、保存消息、提取记忆                           |
-| 提交代码   | `problemStore.submit` 完成后刷新题目列表以更新 `solved` 计数                       |
-| 编辑器主题 | `monacoConfig.ts` 中的 `useMonacoTheme` 从 `appStore` 读取主题并映射到 Monaco 主题 |
-| 编辑器标签 | `monacoConfig.ts` 中的 `useActiveTab` 从 `editorStore` 读取当前标签页              |
+| 场景       | 协作方式                                                             |
+| ---------- | -------------------------------------------------------------------- |
+| 主题切换   | `appStore.setTheme` 同时更新 DOM 和数据库                            |
+| 发送消息   | `chatStore.sendMessage` 自动创建会话、保存消息、提取记忆             |
+| 提交代码   | `problemStore.submit` 完成后刷新题目列表以更新 `solved` 计数         |
+| 编辑器主题 | 应用主题经 `appStore` 持有，编辑器（CodeMirror）据其应用对应代码主题 |
+| 编辑器标签 | `editorStore` 持有标签页状态，编辑器组件读取当前标签页代码           |
 
 ---
 
