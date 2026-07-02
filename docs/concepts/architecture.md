@@ -9,7 +9,7 @@ CodeHelper 是一个基于 Electron 的桌面编程辅助工具，采用经典�
 ```
 +----------------------------------------------------------+
 |                    渲染进程 (Renderer)                      |
-|  React 19 + Zustand + Monaco Editor + Tailwind CSS        |
+|  React 19 + Zustand + CodeMirror + Tailwind CSS           |
 |  +----------+  +----------+  +----------+  +----------+  |
 |  | Problems |  | Editor   |  | AI Chat  |  | Mistakes |  |
 |  +----------+  +----------+  +----------+  +----------+  |
@@ -41,7 +41,7 @@ CodeHelper 是一个基于 Electron 的桌面编程辅助工具，采用经典�
 | 前端框架   | React               | 19.x       | UI 组件与渲染             |
 | 类型系统   | TypeScript          | 6.x        | 类型安全                  |
 | 状态管理   | Zustand             | 5.x        | 轻量级全局状态            |
-| 代码编辑器 | Monaco Editor       | 0.55.x     | VS Code 同款编辑器        |
+| 代码编辑器 | CodeMirror 6        | 6.x        | 轻量可扩展的编辑引擎      |
 | 本地数据库 | better-sqlite3      | 12.x       | 同步 SQLite 访问          |
 | CSS 框架   | Tailwind CSS        | 4.x        | 原子化 CSS                |
 | 测试框架   | Vitest              | 3.x        | 快速单元/集成测试         |
@@ -121,11 +121,8 @@ D:\codehelper\
 │   ├── utils/
 │   │   ├── errors.ts          # 错误处理工具
 │   │   ├── labels.ts          # UI 标签常量
-│   │   ├── monacoConfig.ts    # Monaco 编辑器配置
 │   │   └── snippets.ts        # 代码片段管理
-│   └── theme/
-│       ├── themes.ts          # 主题定义（Mocha/Fjord/Ember）
-│       └── monacoThemes.ts    # Monaco 编辑器主题映射
+│   └── (主题与外观逻辑位于 src/lib/appearance.ts、src/lib/codeThemes.ts)
 ├── tests/                     # 测试文件
 ├── scripts/                   # 构建脚本
 ├── resources/                 # 打包资源
@@ -220,16 +217,16 @@ const renderModule = () => {
 
 每个模块位于 `src/modules/<name>/` 目录下，通常包含：
 
-| 模块      | 核心组件                                                     | 功能说明                       |
-| --------- | ------------------------------------------------------------ | ------------------------------ |
-| problems  | ProblemsView, ProblemList, ProblemDetail, AISidebar          | 刷题、题目浏览、提交、AI 提示  |
-| editor    | EditorView, MonacoEditor, EditorTabs, Console, TerminalPanel | 代码编辑、多标签、控制台、终端 |
-| ai-chat   | ChatView, MessageBubble, SessionList                         | AI 对话、会话管理、流式响应    |
-| mistakes  | MistakesView                                                 | 错题回顾、AI 分析              |
-| knowledge | KnowledgeView                                                | 文档上传、知识库检索           |
-| settings  | SettingsView                                                 | AI 模型配置、主题切换          |
-| stats     | StatsView                                                    | 学习统计、图表展示             |
-| search    | GlobalSearchView, GlobalSearch                               | 全局搜索（Ctrl+P）             |
+| 模块      | 核心组件                                                   | 功能说明                       |
+| --------- | ---------------------------------------------------------- | ------------------------------ |
+| problems  | ProblemsView, ProblemList, ProblemDetail, AISidebar        | 刷题、题目浏览、提交、AI 提示  |
+| editor    | EditorView, CodeEditor, EditorTabs, Console, TerminalPanel | 代码编辑、多标签、控制台、终端 |
+| ai-chat   | ChatView, MessageBubble, SessionList                       | AI 对话、会话管理、流式响应    |
+| mistakes  | MistakesView                                               | 错题回顾、AI 分析              |
+| knowledge | KnowledgeView                                              | 文档上传、知识库检索           |
+| settings  | SettingsView                                               | AI 模型配置、主题切换          |
+| stats     | StatsView                                                  | 学习统计、图表展示             |
+| search    | GlobalSearchView, GlobalSearch                             | 全局搜索（Ctrl+P）             |
 
 ## 通信架构
 
@@ -269,7 +266,7 @@ CodeHelper 支持三种深色主题：Mocha（默认）、Fjord、Ember。主题
 
 1. **数据库优化**：WAL 模式 + 预编译语句 + 合适的索引
 2. **渲染优化**：`React.memo` + `useMemo` + `useCallback` 减少不必要的重渲染
-3. **编辑器优化**：Monaco Editor 按需加载，标签页状态持久化
+3. **编辑器优化**：CodeMirror 按需加载，标签页状态持久化
 4. **IPC 监控**：`perfMonitor.ts` 自动记录慢操作并定期输出统计
 5. **代码执行**：并发限制（最多 5 个进程）+ 超时控制（10 秒）+ 输出限制（1MB）
 
