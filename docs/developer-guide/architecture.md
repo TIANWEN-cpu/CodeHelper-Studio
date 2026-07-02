@@ -4,21 +4,21 @@
 
 ## 技术栈总览
 
-| 类别       | 技术                            | 版本   |
-| ---------- | ------------------------------- | ------ |
-| 桌面框架   | Electron                        | 41     |
-| 前端框架   | React                           | 19     |
-| 类型系统   | TypeScript（strict 模式）       | 6      |
-| 构建工具   | Vite + electron-vite            | 8 / 5  |
-| 状态管理   | Zustand                         | 5      |
-| 代码编辑器 | Monaco Editor                   | 0.55   |
-| 样式方案   | TailwindCSS                     | 4      |
-| 数据库     | better-sqlite3 (SQLite)         | 12     |
-| 图标库     | Lucide React                    | 1.7    |
-| 文档渲染   | react-markdown + remark-gfm     | 10 / 4 |
-| 测试框架   | Vitest                          | 3      |
-| 代码规范   | ESLint (flat config) + Prettier | 9 / 3  |
-| 打包工具   | electron-builder                | 26     |
+| 类别       | 技术                                 | 版本   |
+| ---------- | ------------------------------------ | ------ |
+| 桌面框架   | Electron                             | 41     |
+| 前端框架   | React                                | 19     |
+| 类型系统   | TypeScript（strict 模式）            | 6      |
+| 构建工具   | Vite + electron-vite                 | 8 / 5  |
+| 状态管理   | Zustand                              | 5      |
+| 代码编辑器 | @uiw/react-codemirror (CodeMirror 6) | 6      |
+| 样式方案   | TailwindCSS                          | 4      |
+| 数据库     | better-sqlite3 (SQLite)              | 12     |
+| 图标库     | Lucide React                         | 1.7    |
+| 文档渲染   | react-markdown + remark-gfm          | 10 / 4 |
+| 测试框架   | Vitest                               | 3      |
+| 代码规范   | ESLint (flat config) + Prettier      | 9 / 3  |
+| 打包工具   | electron-builder                     | 26     |
 
 ## 三进程模型
 
@@ -51,7 +51,7 @@ CodeHelper 遵循 Electron 的标准三进程架构：
 |  src/                                    |
 |  ├─ React 19 SPA                         |
 |  ├─ Zustand 状态管理                     |
-|  ├─ Monaco Editor                        |
+|  ├─ CodeMirror 编辑器                     |
 |  └─ 功能模块组件                         |
 +------------------------------------------+
 ```
@@ -90,7 +90,7 @@ Renderer 进程运行在 Chromium 沙箱中：
 - 通过 `window.api.invoke()` 调用 Main 进程功能
 - 通过 `window.api.on()` 监听 Main 进程推送的事件
 - 使用 Zustand 进行客户端状态管理
-- Monaco Editor 提供代码编辑功能
+- CodeMirror 6（@uiw/react-codemirror）提供代码编辑功能
 
 ## 目录结构
 
@@ -130,7 +130,7 @@ codehelper/
 │   │   ├── StatusBar.tsx        # 底部状态栏
 │   │   └── ErrorBoundary.tsx    # React 错误边界
 │   ├── modules/                 # 功能模块
-│   │   ├── editor/              # Monaco 编辑器
+│   │   ├── editor/              # CodeMirror 编辑器
 │   │   ├── problems/            # 刷题系统
 │   │   ├── ai-chat/             # AI 助手对话
 │   │   ├── mistakes/            # 错题本
@@ -277,7 +277,7 @@ if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
 - **React.memo** - 侧栏按钮等静态组件使用 memo 避免不必要的重渲染
 - **useMemo/useCallback** - 缓存计算结果和回调函数
 - **Zustand 选择器** - 使用细粒度选择器减少订阅范围
-- **Monaco Editor 懒加载** - 按需加载编辑器组件
+- **CodeMirror 懒加载** - 按需加载编辑器组件
 
 ### 后端优化
 
