@@ -4,7 +4,13 @@ vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
 vi.mock('../electron/db/index', () => ({ getDB: vi.fn() }))
 
 import { describe, it, expect } from 'vitest'
-import { isProblemTestCase, parseStarterCode, difficultyLabel } from '../electron/ipc/exercises'
+import {
+  isProblemTestCase,
+  parseStarterCode,
+  difficultyLabel,
+  checkKeywords,
+  languageForTrack,
+} from '../electron/ipc/exercises'
 
 describe('isProblemTestCase', () => {
   it('接受含 input 与 expected 字符串的对象', () => {
@@ -81,5 +87,67 @@ describe('difficultyLabel', () => {
   it('未知难度原样返回', () => {
     expect(difficultyLabel('extreme')).toBe('extreme')
     expect(difficultyLabel('')).toBe('')
+  })
+})
+
+describe('checkKeywords', () => {
+  it('所有必需关键字都在、无禁止关键字时通过', () => {
+    const r = checkKeywords('def solve():\n    return 42', ['def', 'return'], ['exec'])
+    expect(r.passed).toBe(true)
+    expect(r.feedback_lines).toEqual([])
+  })
+
+  it('缺少必需关键字时给出反馈且不通过', () => {
+    const r = checkKeywords('x = 1', ['def', 'class'], [])
+    expect(r.passed).toBe(false)
+    expect(r.feedback_lines).toContain('缺少必需关键字: def')
+    expect(r.feedback_lines).toContain('缺少必需关键字: class')
+  })
+
+  it('出现禁止关键字时不通过', () => {
+    const r = checkKeywords('import os; os.system("rm")', [], ['os.system'])
+    expect(r.passed).toBe(false)
+    expect(r.feedback_lines).toContain('使用了禁止的关键字: os.system')
+  })
+
+  it('必需关键字大小写不敏感', () => {
+    const r = checkKeywords('DEF Solve(): pass', ['def'], [])
+    expect(r.passed).toBe(true)
+  })
+
+  it('禁止关键字大小写不敏感', () => {
+    const r = checkKeywords('EXEC(x)', [], ['exec'])
+    expect(r.passed).toBe(false)
+  })
+
+  it('空约束直接通过', () => {
+    expect(checkKeywords('any code', [], []).passed).toBe(true)
+  })
+
+  it('同时缺必需又含禁止时两类反馈都给出', () => {
+    const r = checkKeywords('eval(x)', ['def'], ['eval'])
+    expect(r.passed).toBe(false)
+    expect(r.feedback_lines).toHaveLength(2)
+  })
+})
+
+describe('languageForTrack', () => {
+  it('python/integration 轨道 → python', () => {
+    expect(languageForTrack('python')).toBe('python')
+    expect(languageForTrack('integration')).toBe('python')
+  })
+
+  it('database 轨道 → sql', () => {
+    expect(languageForTrack('database')).toBe('sql')
+  })
+
+  it('c / csharp 轨道各自映射', () => {
+    expect(languageForTrack('c')).toBe('c')
+    expect(languageForTrack('csharp')).toBe('csharp')
+  })
+
+  it('未知轨道回退 python', () => {
+    expect(languageForTrack('rust')).toBe('python')
+    expect(languageForTrack('')).toBe('python')
   })
 })

@@ -246,7 +246,7 @@ interface TestCaseResult {
  * Check keyword constraints in the user's code (case-insensitive for
  * required_keywords, exact for forbidden_keywords).
  */
-function checkKeywords(
+export function checkKeywords(
   code: string,
   required: string[],
   forbidden: string[],
@@ -270,7 +270,7 @@ function checkKeywords(
 }
 
 /** Map difficulty to language (C# and C tracks use keyword-only evaluation). */
-function languageForTrack(trackId: string): string {
+export function languageForTrack(trackId: string): string {
   switch (trackId) {
     case 'python':
     case 'integration':
