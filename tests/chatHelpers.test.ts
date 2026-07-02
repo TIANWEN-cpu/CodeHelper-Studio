@@ -7,6 +7,8 @@ import {
   recencyWeight,
   parseSqliteTime,
   normalizeForDedup,
+  memoryRelevance,
+  normalizeCategory,
   type ScorableMemory,
 } from '../electron/utils/chatHelpers'
 
@@ -311,5 +313,61 @@ describe('BUILTIN_PRESETS', () => {
     expect(names).toContain('代码专家')
     expect(names).toContain('面试官')
     expect(names).toContain('学习导师')
+  })
+})
+
+describe('memoryRelevance', () => {
+  it('无 term 命中且查询不匹配时相关性为 0', () => {
+    expect(memoryRelevance('今天天气不错', ['python'], '数据库')).toBe(0)
+  })
+
+  it('每个命中的 term 贡献 max(2, term.length) 分', () => {
+    // "react"(5) 命中 → +5；"js"(2) 命中 → +2
+    const score = memoryRelevance('react and js basics', ['react', 'js'], '')
+    expect(score).toBe(7)
+  })
+
+  it('term 短于 2 字符时按 2 分计', () => {
+    expect(memoryRelevance('a b', ['a', 'b'], '')).toBe(4)
+  })
+
+  it('content 完全包含 query 时额外 +20', () => {
+    const score = memoryRelevance('用户喜欢 python 语言', ['python'], 'python')
+    // python 命中 +5，query 'python' 命中 +20
+    expect(score).toBe(25)
+  })
+
+  it('query 包含 content 时也算匹配（反向子串）', () => {
+    // query 是长句，content 是其子串
+    const score = memoryRelevance('python', [], 'how to learn python today')
+    expect(score).toBe(20)
+  })
+
+  it('大小写不敏感', () => {
+    expect(memoryRelevance('PYTHON is great', ['python'], '')).toBe(5)
+  })
+
+  it('空 query 时不触发 +20', () => {
+    expect(memoryRelevance('python', ['python'], '   ')).toBe(5)
+  })
+})
+
+describe('normalizeCategory', () => {
+  it('合法类别原样返回', () => {
+    for (const c of ['fact', 'preference', 'identity', 'tech', 'constraint', 'goal']) {
+      expect(normalizeCategory(c)).toBe(c)
+    }
+  })
+
+  it('未知字符串归入 fact', () => {
+    expect(normalizeCategory('unknown')).toBe('fact')
+    expect(normalizeCategory('')).toBe('fact')
+  })
+
+  it('非字符串归入 fact', () => {
+    expect(normalizeCategory(null)).toBe('fact')
+    expect(normalizeCategory(undefined)).toBe('fact')
+    expect(normalizeCategory(123)).toBe('fact')
+    expect(normalizeCategory({ a: 1 })).toBe('fact')
   })
 })
