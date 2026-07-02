@@ -7,7 +7,7 @@
 ## 目录
 
 - [安装与环境](#安装与环境)
-- [Monaco 编辑器](#monaco-编辑器)
+- [代码编辑器](#代码编辑器)
 - [代码运行器](#代码运行器)
 - [AI 对话](#ai-对话)
 - [题库系统](#题库系统)
@@ -73,27 +73,23 @@ npm config set registry https://registry.npmmirror.com
 
 ---
 
-## Monaco 编辑器
+## 代码编辑器
 
-### Q: Monaco Editor 和 VS Code 有什么关系？
+### Q: CodeHelper 用的是什么编辑器引擎？
 
-Monaco Editor 是 VS Code 的核心编辑器组件。CodeHelper 直接使用了这个编辑器引擎，因此提供与 VS Code 相同的编辑体验：语法高亮、智能补全、代码折叠、括号匹配等。
-
-### Q: 如何切换小地图 (Minimap)？
-
-在编辑器中右键点击，或使用设置面板中的 Minimap 开关。偏好会自动保存到 localStorage。
+CodeHelper 使用 CodeMirror 6（通过 `@uiw/react-codemirror` 集成），支持 Python、C/C++、JavaScript、SQL 等语言的语法高亮、代码折叠、括号匹配等编辑能力。它轻量且可扩展。
 
 ### Q: 编辑器标签页关闭后能恢复吗？
 
 标签页状态通过 localStorage 持久化，包括代码内容、光标位置和滚动位置。重启应用后自动恢复。清除浏览器数据会导致标签页丢失。
 
-### Q: Monaco Editor 加载缓慢？
+### Q: 编辑器加载缓慢？
 
-首次加载需下载语言包和编辑器 worker，后续会缓存。如持续缓慢，检查网络连接。
+CodeMirror 6 体积小、按需懒加载，通常首次进入编辑模块即可使用。若仍感觉慢，检查是否处于开发模式（`npm run dev`）——生产构建体验更佳。
 
 ### Q: 如何自定义编辑器字体？
 
-当前支持的字体族为 `'Cascadia Code', 'Fira Code', Consolas, monospace`。字体大小和 Tab 宽度可在设置中调整。
+字体大小和 Tab 宽度可在设置中调整。代码主题（Dracula / Cobalt / Tomorrow 等）可在设置页的代码主题选项中切换。
 
 ---
 
@@ -388,7 +384,7 @@ CodeHelper 采用 Electron 三进程模型：
 
 - **Main Process**（`electron/`）：窗口管理、IPC 路由、数据库、代码执行
 - **Preload Script**（`electron/preload.ts`）：安全桥接、通道白名单
-- **Renderer Process**（`src/`）：React SPA、Zustand 状态管理、Monaco Editor
+- **Renderer Process**（`src/`）：React SPA、Zustand 状态管理、CodeMirror 编辑器
 
 详细架构参见 [docs/architecture.md](architecture.md)。
 
@@ -402,9 +398,9 @@ CodeHelper 采用 Electron 三进程模型：
 2. 确认没有杀毒软件扫描 Electron 目录
 3. 开发模式下比生产模式慢，使用 `npm run build` 后体验更佳
 
-### Q: Monaco Editor 占用内存很高？
+### Q: 编辑器占用内存很高？
 
-Monaco Editor 会为每种语言加载语法解析器。关闭不用的标签页可释放内存。编辑器已启用大文件优化（`largeFileOptimizations: true`）。
+编辑器会为打开的语言加载语法扩展。关闭不用的标签页可释放内存。CodeMirror 6 本身较为轻量，若内存持续偏高，检查是否打开了超大文件或过多标签页。
 
 ### Q: AI 对话响应很慢？
 
