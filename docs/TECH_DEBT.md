@@ -28,12 +28,12 @@
 
 `electron/utils/codeRunner.ts` 的 `resolvedPaths` 与 `electron/utils/perfMonitor.ts` 的 `ipcStatsMap` 都用 Map 做"满了淘汰最旧"的简易 LRU。但 Map 在 `set` 已存在的 key 时**不重排插入顺序**，导致频繁使用的命令会一直停留在"最旧"位置、被优先淘汰——只是缓存命中率不理想，无正确性问题。如需真正 LRU，命中时应先 `delete` 再 `set`。
 
-## 4. docs 中残留的 Monaco 引用（大部分为历史性，保留）
+## 4. ~~docs 中残留的 Monaco 引用~~（已清理完毕）
 
 项目实际使用 `@uiw/react-codemirror`（CodeMirror 6），`src/theme/monacoThemes.ts` 与 `src/utils/monacoConfig.ts` 已作为死代码删除。
 
-**已修正为 CodeMirror 的「现行/面向用户」文档**：`architecture.md`、`quickstart.md`、`glossary.md`、`docs/README.md`、`developer-guide/architecture.md`、`concepts/architecture.md`、`comparison.md`、`user-guide/editor-guide.md`、`accessibility.md`、`api/utilities.md`、`api/state-management.md`。
+**所有「现行/面向用户」文档的 Monaco 编辑器引用已修正为 CodeMirror**：architecture、quickstart、glossary、docs/README、developer-guide/architecture、concepts/architecture、comparison、user-guide/editor-guide、accessibility、api/utilities、api/state-management、faq、features-showcase、onboarding/_、troubleshooting_、reference/components、performance-budgets、developer-guide/debugging、user-guide/getting-started、user-guide/settings 等。
 
-**有意保留 Monaco 引用的「历史/审计」文档**（按其撰写时的事实记录，改动会篡改历史）：`adr/*`、`changelog-extended.md`、`release-notes-v1.1.0.md`、`MATURITY_SCORECARD.md`、`PRODUCT_AUDIT.md`、`QUALITY_AUDIT.md`、`STRATEGIC_ASSESSMENT.md`、`improvement-plan.md`、`maturity-plan.md`、`dependency-audit.md`、`security-audit.md`、`project-info/*`、`superpowers/*`、`search-index.md`、`project-info/context/git-log.txt`。
+**有意保留 Monaco 的「历史/审计」文档**（按其撰写时的事实记录，改动会篡改历史）：`adr/*`、`changelog-extended.md`、`release-notes-v1.1.0.md`、`MATURITY_SCORECARD.md`、`PRODUCT_AUDIT.md`、`QUALITY_AUDIT.md`、`STRATEGIC_ASSESSMENT.md`、`improvement-plan.md`、`maturity-plan.md`、`dependency-audit.md`、`security-audit.md`、`project-info/*`、`superpowers/*`、`search-index.md`。
 
-**可选的后续清理**（现行文档，优先级低）：`faq.md`、`features-showcase.md`、`onboarding/*`、`troubleshooting*`、`user-guide/getting-started.md`、`user-guide/settings-guide.md`、`reference/components.md`、`platform-notes.md`、`performance-budgets.md`、`developer-guide/debugging.md` 中仍有零散 Monaco 提及，可按需逐个判断清理。
+**保留**：`platform-notes.md` 中的 "Monaco" 指 macOS 字体（非编辑器），正确，保留。
