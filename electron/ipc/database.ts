@@ -38,7 +38,7 @@ function decryptConfigRow(row: AIConfigRow | undefined | null): AIConfigDecrypte
   return { ...row, api_key: decryptApiKey(row.api_key) }
 }
 
-function maskApiKey(apiKey: string): string {
+export function maskApiKey(apiKey: string): string {
   if (!apiKey) return ''
   if (apiKey.length <= 6) return '*'.repeat(apiKey.length)
   return `${apiKey.slice(0, 3)}${'*'.repeat(Math.min(8, apiKey.length - 6))}${apiKey.slice(-4)}`
@@ -54,7 +54,7 @@ function publicConfigRow(row: AIConfigRow | undefined | null): AIConfigPublic | 
   }
 }
 
-function isMaskedApiKey(value: string): boolean {
+export function isMaskedApiKey(value: string): boolean {
   return value.includes('*')
 }
 
