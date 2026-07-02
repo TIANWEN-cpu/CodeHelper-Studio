@@ -218,7 +218,7 @@ const error = useChatStore((s) => s.error)
 interface EditorTab {
   id: string // 标签页唯一 ID
   filename: string // 文件名（用于显示和语言推断）
-  language: string // 编程语言（Monaco 语法高亮）
+  language: string // 编程语言（CodeMirror 语法高亮）
   content: string // 编辑器内容
   cursorPosition?: { lineNumber: number; column: number } // 光标位置（持久化恢复用）
   scrollTop?: number // 滚动位置（持久化恢复用）
