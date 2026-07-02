@@ -3,7 +3,17 @@ vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() }, dialog: { showOpenDia
 vi.mock('../electron/db/index', () => ({ getDB: vi.fn(), initKnowledgeDB: vi.fn() }))
 
 import { describe, it, expect } from 'vitest'
-import { extractYamlScalar, extractYamlTags, titleFromFilename } from '../electron/ipc/rag'
+import {
+  extractYamlScalar,
+  extractYamlTags,
+  titleFromFilename,
+  topConceptsFromChunks,
+  type ScoredKnowledgeChunk,
+} from '../electron/ipc/rag'
+
+function chunk(content: string, score = 1): ScoredKnowledgeChunk {
+  return { content, score } as ScoredKnowledgeChunk
+}
 
 describe('extractYamlScalar', () => {
   it('提取无引号的标量值', () => {
@@ -79,5 +89,56 @@ describe('titleFromFilename', () => {
 
   it('去除结果两端空白', () => {
     expect(titleFromFilename('  spaced  .md')).toBe('spaced')
+  })
+})
+
+describe('topConceptsFromChunks', () => {
+  it('按词频降序返回 top N 概念', () => {
+    const result = topConceptsFromChunks([
+      chunk('python python data'),
+      chunk('data structure python'),
+    ])
+    // python 出现3次，data 2次，structure 1次
+    expect(result[0]).toBe('python')
+    expect(result[1]).toBe('data')
+    expect(result).toContain('structure')
+  })
+
+  it('过滤英文停用词（the/and/for/with 等）', () => {
+    const result = topConceptsFromChunks([
+      chunk('the algorithm and the data with for this that from are was were'),
+    ])
+    expect(result).not.toContain('the')
+    expect(result).not.toContain('and')
+    expect(result).toContain('algorithm')
+    expect(result).toContain('data')
+  })
+
+  it('支持中文词（按字符匹配 一-龥）', () => {
+    const result = topConceptsFromChunks([chunk('算法 数据结构 算法')])
+    expect(result).toContain('算法')
+  })
+
+  it('limit 限制返回数量', () => {
+    const result = topConceptsFromChunks([chunk('aa bb cc dd ee ff gg hh')], 3)
+    expect(result).toHaveLength(3)
+  })
+
+  it('空 chunks 返回空数组', () => {
+    expect(topConceptsFromChunks([])).toEqual([])
+  })
+
+  it('忽略单字符词（只保留长度>=2）', () => {
+    // "a" "x" 单字符被过滤；"ab" "xy" 保留
+    const result = topConceptsFromChunks([chunk('a x ab xy')])
+    expect(result).not.toContain('a')
+    expect(result).toContain('ab')
+    expect(result).toContain('xy')
+  })
+
+  it('大小写不敏感（统一小写统计）', () => {
+    const result = topConceptsFromChunks([chunk('Python PYTHON python')])
+    // 三种写法合并计数
+    expect(result[0]).toBe('python')
   })
 })

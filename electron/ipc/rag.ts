@@ -7,7 +7,7 @@ import { trackPerformance } from '../utils/perfMonitor'
 import type { KnowledgeChunkRow } from '../types/db'
 import type Database from 'better-sqlite3'
 
-type ScoredKnowledgeChunk = KnowledgeChunkRow & { score: number }
+export type ScoredKnowledgeChunk = KnowledgeChunkRow & { score: number }
 type KnowledgeDocListRow = {
   id: number
   filename: string
@@ -203,7 +203,7 @@ function keywordSearch(query: string, limit = 5): ScoredKnowledgeChunk[] {
   return scored.slice(0, limit)
 }
 
-function topConceptsFromChunks(chunks: ScoredKnowledgeChunk[], limit = 8): string[] {
+export function topConceptsFromChunks(chunks: ScoredKnowledgeChunk[], limit = 8): string[] {
   const counts = new Map<string, number>()
   const stopWords = new Set([
     'the',
