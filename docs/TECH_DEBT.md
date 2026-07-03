@@ -37,3 +37,11 @@
 **有意保留 Monaco 的「历史/审计」文档**（按其撰写时的事实记录，改动会篡改历史）：`adr/*`、`changelog-extended.md`、`release-notes-v1.1.0.md`、`MATURITY_SCORECARD.md`、`PRODUCT_AUDIT.md`、`QUALITY_AUDIT.md`、`STRATEGIC_ASSESSMENT.md`、`improvement-plan.md`、`maturity-plan.md`、`dependency-audit.md`、`security-audit.md`、`project-info/*`、`superpowers/*`、`search-index.md`。
 
 **保留**：`platform-notes.md` 中的 "Monaco" 指 macOS 字体（非编辑器），正确，保留。
+
+## 5. Verilog/硬件题可在题库浏览，但无法在应用内运行
+
+`resources/problems/` 中存在 Verilog/HDL 题目（`ic-job-hdlbits.json`、`ic-job-nowcoder-verilog.json`、`ic-job-simulation.json`），`src/utils/labels.ts` 也包含 verilog 标签。但 `electron/utils/codeRunner.ts` 的 `runCodeSnippet` 调度没有 verilog 分支，因此这些题目**只能浏览和交给 AI 辅助，无法在应用内运行判题**。
+
+**为何未自动补**：补 Verilog 运行需假设用户本机装了 Icarus Verilog（`iverilog`/`vvp`），并设计 HDL 仿真判题的输入/输出契约（时序、波形 vs 文本），属于产品层面的功能决策与工具链假设，不宜自动添加。
+
+**建议**：若要支持，在 `runCodeSnippet` 增加 `case 'verilog'`，调用 `iverilog` 编译 + `vvp` 运行，并明确 HDL 题的判题格式（建议约定为 `$display` 文本输出，与现有逐用例输出比较复用）。
