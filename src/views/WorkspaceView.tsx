@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   Play,
   Save,
@@ -137,13 +137,13 @@ export function WorkspaceView({
     })
   }, [getProblems, isExerciseMode, setWorkspaceCode, workspaceLanguage])
 
-  const handleRun = async () => {
+  const handleRun = useCallback(async () => {
     setTerminalCollapsed(false)
     clearError()
     await runCode(code, language)
-  }
+  }, [clearError, runCode, code, language])
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     setTerminalCollapsed(false)
     clearError()
     if (exerciseContext) {
@@ -152,7 +152,7 @@ export function WorkspaceView({
     }
     if (!problemId) return
     await submitToProblem(problemId, code, language)
-  }
+  }, [clearError, exerciseContext, problemId, submitToProblem, code, language])
 
   // 把当前题目/练习与编辑器代码写入 AI 上下文，使 AI 面板提问时自动带入。
   useEffect(() => {
@@ -162,6 +162,23 @@ export function WorkspaceView({
     setAIContext({ kind: isExerciseMode ? 'exercise' : 'problem', title, language, code })
   }, [isExerciseMode, exerciseContext?.title, workspaceFileBaseName, language, code, setAIContext])
   useEffect(() => () => setAIContext(null), [setAIContext])
+
+  // 全局快捷键：Ctrl/Cmd+Enter 运行代码；Ctrl/Cmd+Shift+Enter 提交（练习/题目模式）。
+  // 在编辑器内输入时同样生效（这是它的主要价值），故不像视图切换那样让位输入框。
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return
+      if (e.key !== 'Enter') return
+      e.preventDefault()
+      if (e.shiftKey) {
+        void handleSubmit()
+      } else {
+        void handleRun()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [handleRun, handleSubmit])
 
   // 运行/提交报错时，一键把代码与报错交给 AI 诊断（打开 AI 面板并发送）。
   const runStderr = runResult && runResult.exitCode !== 0 ? runResult.stderr : ''
