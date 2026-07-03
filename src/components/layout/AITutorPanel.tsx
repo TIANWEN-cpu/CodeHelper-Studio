@@ -368,6 +368,27 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
     loadPresets()
   }, [loadSessions, loadPresets])
 
+  // Esc 关闭面板（焦点在输入框/编辑器内时不拦截，留给输入行为）。
+  useEffect(() => {
+    if (!onClose) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      const t = e.target as HTMLElement | null
+      const tag = t?.tagName
+      if (
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        t?.isContentEditable ||
+        t?.closest('.cm-content')
+      ) {
+        return
+      }
+      onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
   // 读取隐私「按类别发送」白名单与 LLM 抽取开关，传给 chatStore.sendMessage。
   const resolveMemoryFlags = useCallback(async () => {
     const [memoryCategories, llmExtract] = await Promise.all([
