@@ -9,11 +9,13 @@ import {
   PanelLeftClose,
   PanelLeft,
   Sparkles,
+  Copy,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'motion/react'
 import { useWorkspaceData } from '@/hooks/useWorkspaceData'
 import { useAppStore } from '@/store'
+import { toast } from '@/stores/toastStore'
 import { CodeEditor } from '@/components/editor/CodeEditor'
 import type { SubmitResult as ExerciseSubmitResult } from '@/services/practiceService'
 
@@ -153,6 +155,18 @@ export function WorkspaceView({
     if (!problemId) return
     await submitToProblem(problemId, code, language)
   }, [clearError, exerciseContext, problemId, submitToProblem, code, language])
+
+  // 复制运行输出（stdout + stderr）到剪贴板，失败时给 toast 反馈。
+  const copyRunOutput = useCallback(async () => {
+    if (!runResult) return
+    const text = [runResult.stdout, runResult.stderr].filter(Boolean).join('\n')
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success('已复制运行输出')
+    } catch {
+      toast.error('复制失败，请手动选择文本复制')
+    }
+  }, [runResult])
 
   // 把当前题目/练习与编辑器代码写入 AI 上下文，使 AI 面板提问时自动带入。
   useEffect(() => {
@@ -400,6 +414,14 @@ export function WorkspaceView({
                           <span className="text-[var(--color-text-muted)]">
                             耗时 {runResult.duration_ms}ms
                           </span>
+                          <button
+                            type="button"
+                            onClick={copyRunOutput}
+                            className="ml-auto flex items-center gap-1 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+                            title="复制运行输出"
+                          >
+                            <Copy size={12} /> 复制
+                          </button>
                         </div>
                       </motion.div>
                     ) : null}
