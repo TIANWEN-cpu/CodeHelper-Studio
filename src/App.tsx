@@ -8,6 +8,7 @@ import { ToastContainer } from './components/ToastContainer'
 import { registerToast } from './utils/errorHandler'
 import { toast } from './stores/toastStore'
 import { useAppStore } from './store'
+import { useViewShortcuts } from './hooks/useViewShortcuts'
 import {
   loadAppearance,
   applyAll,
@@ -57,6 +58,9 @@ const ViewLoader = () => (
 
 function App() {
   const { currentView, showAITutor, setShowAITutor } = useAppStore()
+
+  // Alt+1..8 快速切换主视图（与侧边栏顺序一致）。
+  useViewShortcuts()
 
   // 把错误处理器的 toast 出口接到全局通知容器（此前 registerToast 从未被调用）。
   useEffect(() => {
