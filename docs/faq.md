@@ -62,7 +62,6 @@ npm config set registry https://registry.npmmirror.com
 | C          | gcc（MinGW-w64 等） | Windows 推荐 MSYS2          |
 | C++        | g++（同 gcc）       | 与 C 共享编译器             |
 | C#         | .NET SDK >= 6       | `dotnet.microsoft.com`      |
-| Java       | JDK >= 11           | 推荐 Adoptium               |
 | JavaScript | Node.js             | 已随 Node.js 安装           |
 | SQL        | 无需额外安装        | 使用内置 SQLite             |
 | Verilog    | Icarus Verilog      | 可选，用于硬件题            |
