@@ -47,11 +47,14 @@ function resolveCommand(cmd: string): string {
 }
 
 function setResolvedPath(cmd: string, resolved: string): void {
-  // Evict oldest entries if cache is full
+  // Evict oldest entries if cache is full (Map 维持插入顺序，作为简易 LRU)
   if (resolvedPaths.size >= MAX_RESOLVED_PATHS) {
     const oldest = resolvedPaths.keys().next()
     if (!oldest.done) resolvedPaths.delete(oldest.value)
   }
+  // 先 delete 再 set：让重新解析的命令排到队尾，避免它一直停留在"最旧"位置
+  // 被优先淘汰（真正的 LRU 语义）。对全新 key，delete 是 no-op。
+  resolvedPaths.delete(cmd)
   resolvedPaths.set(cmd, resolved)
 }
 

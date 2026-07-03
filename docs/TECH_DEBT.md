@@ -24,9 +24,9 @@
 
 **建议**：若要修，用 `package.json` 的 `overrides` 字段定点升级这三个传递依赖，并在升级后跑 `npm run build` + `npm run test` + 实际打包验证。这些漏洞对桌面学习应用的实际风险很低（仅构建机/CI 上存在）。
 
-## 3. 历史中的 LRU 式缓存淘汰的"插入顺序"细节（低优先）
+## 3. ~~LRU 式缓存淘汰的"插入顺序"细节~~（已修复）
 
-`electron/utils/codeRunner.ts` 的 `resolvedPaths` 与 `electron/utils/perfMonitor.ts` 的 `ipcStatsMap` 都用 Map 做"满了淘汰最旧"的简易 LRU。但 Map 在 `set` 已存在的 key 时**不重排插入顺序**，导致频繁使用的命令会一直停留在"最旧"位置、被优先淘汰——只是缓存命中率不理想，无正确性问题。如需真正 LRU，命中时应先 `delete` 再 `set`。
+`electron/utils/codeRunner.ts` 的 `setResolvedPath` 与 `electron/utils/perfMonitor.ts` 的 `recordIpcCall` 已改为「命中时先 `delete` 再 `set`」，让活跃 key 排到队尾，实现真正的 LRU 语义。原有"满了淘汰最旧"的容量上限逻辑不变。
 
 ## 4. ~~docs 中残留的 Monaco 引用~~（已清理完毕）
 

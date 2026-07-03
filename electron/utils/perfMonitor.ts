@@ -56,8 +56,11 @@ function recordIpcCall(channel: string, duration: number): void {
       if (!oldest.done) ipcStatsMap.delete(oldest.value)
     }
     stats = { callCount: 0, totalDuration: 0, slowCalls: 0, lastCalledAt: 0 }
-    ipcStatsMap.set(channel, stats)
   }
+  // 先 delete 再 set：把活跃 channel 排到队尾，避免高频频道一直停留在"最旧"位置
+  // 被优先淘汰（真正的 LRU 语义）。
+  ipcStatsMap.delete(channel)
+  ipcStatsMap.set(channel, stats)
   stats.callCount++
   stats.totalDuration += duration
   stats.lastCalledAt = Date.now()
