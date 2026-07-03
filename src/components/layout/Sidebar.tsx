@@ -148,10 +148,12 @@ export function Sidebar() {
           collapsed ? 'px-2' : 'px-3',
         )}
       >
-        {navItems.map((item) => {
+        {navItems.map((item, index) => {
           const Icon = item.icon
           const isActive = currentView === item.id
           const showActiveIndicator = isActive
+          // Alt+N 快捷键提示（与 useViewShortcuts 的 VIEW_SHORTCUT_ORDER 对应，1-based）。
+          const shortcutDigit = index + 1
 
           return (
             <button
@@ -164,7 +166,7 @@ export function Sidebar() {
                   ? 'bg-gradient-to-r from-[var(--color-accent-primary)]/10 to-[var(--color-accent-purple)]/10 text-white'
                   : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]',
               )}
-              title={collapsed ? item.label : undefined}
+              title={`${item.label} (Alt+${shortcutDigit})`}
             >
               <Icon
                 size={18}
@@ -178,6 +180,12 @@ export function Sidebar() {
               />
 
               {!collapsed && <span className="whitespace-nowrap">{item.label}</span>}
+
+              {!collapsed && (
+                <kbd className="ml-auto px-1.5 py-0.5 text-[10px] font-mono rounded bg-[var(--color-bg-hover)] text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity">
+                  {shortcutDigit}
+                </kbd>
+              )}
 
               {showActiveIndicator && !collapsed && (
                 <motion.div
