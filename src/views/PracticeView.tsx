@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { usePracticeData } from '@/hooks/usePracticeData'
 import { consumePendingDeepLink, subscribeDeepLink } from '@/lib/deepLink'
 import { recordRecent } from '@/lib/recentItems'
+import { readPracticeSession, writePracticeSession } from '@/utils/practiceSession'
 
 // ---- Difficulty helpers ----
 
@@ -105,6 +106,9 @@ export function PracticeView() {
     draftSaving,
     draftDirty,
     draftError,
+    draftConflict,
+    keepLocalDraft,
+    reloadPersistedDraft,
   } = usePracticeData()
 
   // When exercise is selected, switch to detail view
@@ -113,6 +117,7 @@ export function PracticeView() {
       const selected = await selectExercise(id)
       if (!selected) return
       recordRecent({ kind: 'exercise', id })
+      writePracticeSession(id)
       setDetailTab('desc')
       setViewMode('detail')
     },
@@ -122,7 +127,8 @@ export function PracticeView() {
   // 命令面板深链：挂载时领取待处理目标，并订阅后续实时事件。
   React.useEffect(() => {
     const pending = consumePendingDeepLink('exercise')
-    if (pending) void handleSelectExercise(pending)
+    const target = pending ?? readPracticeSession()?.exerciseId
+    if (target) void handleSelectExercise(target)
     return subscribeDeepLink('exercise', (id) => void handleSelectExercise(id))
   }, [handleSelectExercise])
 
@@ -562,6 +568,9 @@ export function PracticeView() {
                   draftSaving,
                   draftDirty,
                   draftError,
+                  draftConflict,
+                  keepLocalDraft,
+                  reloadPersistedDraft,
                 }
               : null
           }

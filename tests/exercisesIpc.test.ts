@@ -27,6 +27,15 @@ vi.mock('../electron/utils/codeRunner', () => ({
   runCodeSnippet: (...args: unknown[]) => mockRunCodeSnippet(...args),
 }))
 
+const mockGetExerciseDraft = vi.fn()
+const mockSaveExerciseDraft = vi.fn()
+const mockClearExerciseDraft = vi.fn()
+vi.mock('../electron/db/exerciseDraftRepository', () => ({
+  getExerciseDraft: (...args: unknown[]) => mockGetExerciseDraft(...args),
+  saveExerciseDraft: (...args: unknown[]) => mockSaveExerciseDraft(...args),
+  clearExerciseDraft: (...args: unknown[]) => mockClearExerciseDraft(...args),
+}))
+
 const problemRows = [
   {
     id: 1,
@@ -143,6 +152,9 @@ describe('registerExercisesIPC imported problems', () => {
     writes.correctUpdates.length = 0
     mockDB.prepare.mockClear()
     mockRunCodeSnippet.mockReset()
+    mockGetExerciseDraft.mockReset()
+    mockSaveExerciseDraft.mockReset()
+    mockClearExerciseDraft.mockReset()
     vi.resetModules()
     const { registerExercisesIPC } = await import('../electron/ipc/exercises')
     registerExercisesIPC()
@@ -165,16 +177,45 @@ describe('registerExercisesIPC imported problems', () => {
     })
   })
 
-  it('returns only the saved draft code', async () => {
-    const fallback = mockDB.prepare.getMockImplementation()!
-    mockDB.prepare.mockImplementation((sql: string) => {
-      if (sql.includes('SELECT code, updated_at FROM exercise_drafts')) {
-        return { get: vi.fn(() => ({ code: 'saved code', updated_at: '2026-01-01' })) }
-      }
-      return fallback(sql)
+  it('returns the complete versioned draft record', async () => {
+    mockGetExerciseDraft.mockReturnValue({
+      exerciseId: 'problem:1',
+      title: null,
+      code: 'saved code',
+      language: 'python',
+      revision: 4,
+      updatedAt: '2026-01-01',
+      deleted: false,
     })
 
-    await expect(handlers['exercises-draft-get'](null, 'problem:1')).resolves.toBe('saved code')
+    await expect(handlers['exercises-draft-get'](null, 'problem:1')).resolves.toMatchObject({
+      code: 'saved code',
+      language: 'python',
+      revision: 4,
+    })
+    expect(mockGetExerciseDraft).toHaveBeenCalledWith(mockDB, 'problem:1')
+  })
+
+  it('passes language and base revision to the atomic draft repository', async () => {
+    mockSaveExerciseDraft.mockReturnValue({
+      status: 'saved',
+      draft: { revision: 5 },
+    })
+
+    await handlers['exercises-draft-save'](null, {
+      exerciseId: 'problem:1',
+      code: 'print(1)',
+      language: 'python',
+      baseRevision: 4,
+    })
+
+    expect(mockSaveExerciseDraft).toHaveBeenCalledWith(mockDB, {
+      exerciseId: 'problem:1',
+      title: undefined,
+      code: 'print(1)',
+      language: 'python',
+      baseRevision: 4,
+    })
   })
 
   it('rejects oversized drafts instead of silently truncating them', async () => {
@@ -182,8 +223,27 @@ describe('registerExercisesIPC imported problems', () => {
       handlers['exercises-draft-save'](null, {
         exerciseId: 'problem:1',
         code: 'x'.repeat(100_001),
+        language: 'python',
+        baseRevision: 0,
       }),
     ).rejects.toThrow('草稿超过 100000 字符')
+  })
+
+  it('requires a safe base revision for save and clear', async () => {
+    await expect(
+      handlers['exercises-draft-save'](null, {
+        exerciseId: 'problem:1',
+        code: 'print(1)',
+        language: 'python',
+        baseRevision: -1,
+      }),
+    ).rejects.toThrow('baseRevision')
+    await expect(
+      handlers['exercises-draft-clear'](null, {
+        exerciseId: 'problem:1',
+        baseRevision: Number.NaN,
+      }),
+    ).rejects.toThrow('baseRevision')
   })
 
   it('evaluates imported Python problems and records accepted submissions', async () => {

@@ -12,6 +12,8 @@ import {
   Copy,
   Plus,
   Undo2,
+  RefreshCw,
+  Upload,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'motion/react'
@@ -82,6 +84,9 @@ interface WorkspaceExerciseContext {
   draftSaving?: boolean
   draftDirty?: boolean
   draftError?: string | null
+  draftConflict?: boolean
+  keepLocalDraft?: () => void
+  reloadPersistedDraft?: () => void
 }
 
 interface WorkspaceViewProps {
@@ -777,15 +782,39 @@ export function WorkspaceView({
             <span>{languageMeta(language).label} ready</span>
           </div>
           <div className="flex items-center gap-4">
+            {exerciseContext?.draftConflict && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={exerciseContext.reloadPersistedDraft}
+                  title="重新加载已保存草稿"
+                  aria-label="重新加载已保存草稿"
+                  className="rounded p-1 text-[var(--color-text-muted)] hover:bg-white/10 hover:text-white"
+                >
+                  <RefreshCw size={12} />
+                </button>
+                <button
+                  type="button"
+                  onClick={exerciseContext.keepLocalDraft}
+                  title="保留本地草稿并覆盖已保存版本"
+                  aria-label="保留本地草稿并覆盖已保存版本"
+                  className="rounded p-1 text-[var(--color-text-muted)] hover:bg-white/10 hover:text-white"
+                >
+                  <Upload size={12} />
+                </button>
+              </div>
+            )}
             <span title={editorPersistenceError ?? undefined}>
               {isExerciseMode
                 ? exerciseContext?.draftSaving
                   ? '草稿保存中'
-                  : exerciseContext?.draftError
-                    ? '草稿保存失败'
-                    : exerciseContext?.draftDirty
-                      ? '草稿待保存'
-                      : '草稿已同步'
+                  : exerciseContext?.draftConflict
+                    ? '草稿版本冲突'
+                    : exerciseContext?.draftError
+                      ? '草稿保存失败'
+                      : exerciseContext?.draftDirty
+                        ? '草稿待保存'
+                        : '草稿已同步'
                 : editorPersistenceError
                   ? '工作区保存失败'
                   : editorDirty

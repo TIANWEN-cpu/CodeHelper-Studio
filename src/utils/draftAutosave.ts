@@ -1,108 +1,165 @@
-export type DraftSaveFunction = (exerciseId: string, code: string) => Promise<void>
+export interface DraftSnapshot {
+  code: string
+  language: string
+}
+
+export interface DraftSaveReceipt {
+  revision: number
+  updatedAt: string
+}
+
+export interface DraftSavedEvent extends DraftSaveReceipt {
+  exerciseId: string
+  saved: DraftSnapshot
+  pending: DraftSnapshot | null
+  pendingLocalVersion: number | null
+}
+
+export type DraftSaveFunction = (
+  exerciseId: string,
+  snapshot: DraftSnapshot,
+  baseRevision: number,
+) => Promise<DraftSaveReceipt>
 
 interface DraftAutosaveOptions {
   delayMs?: number
   onSavingChange?: (saving: boolean) => void
   onError?: (error: unknown) => void
-  onSaved?: (exerciseId: string, code: string) => void
+  onSaved?: (event: DraftSavedEvent) => void
+}
+
+export class DraftConflictError extends Error {
+  constructor(message = '草稿版本冲突，请选择保留本地修改或重新加载已保存版本') {
+    super(message)
+    this.name = 'DraftConflictError'
+  }
+}
+
+interface ActiveDraftState {
+  exerciseId: string
+  snapshot: DraftSnapshot
+  localVersion: number
+  persistedLocalVersion: number
+  baseRevision: number
+  conflict: DraftConflictError | null
 }
 
 const DEFAULT_DELAY_MS = 2_000
 
-/** Serializes draft writes and keeps an edit dirty until that exact revision is persisted. */
+function sameSnapshot(left: DraftSnapshot, right: DraftSnapshot): boolean {
+  return left.code === right.code && left.language === right.language
+}
+
+/** Serializes draft writes and always advances the latest local snapshot from the newest server revision. */
 export class DraftAutosaveCoordinator {
-  private exerciseId: string | null = null
-  private code = ''
-  private revision = 0
-  private persistedRevision = 0
+  private active: ActiveDraftState | null = null
   private timer: ReturnType<typeof setTimeout> | null = null
-  private saveChain: Promise<void> = Promise.resolve()
-  private inFlight: { exerciseId: string; revision: number; promise: Promise<void> } | null = null
-  private savingCount = 0
+  private worker: Promise<void> | null = null
+  private clearing = false
+  private retryBlocked = false
 
   constructor(
     private readonly save: DraftSaveFunction,
     private readonly options: DraftAutosaveOptions = {},
   ) {}
 
-  setActive(exerciseId: string, code: string): void {
+  setActive(
+    exerciseId: string,
+    snapshot: DraftSnapshot,
+    baseRevision: number,
+    options: {
+      dirty?: boolean
+      localVersion?: number
+      autosave?: boolean
+      conflict?: boolean
+    } = {},
+  ): void {
     this.clearTimer()
-    this.exerciseId = exerciseId
-    this.code = code
-    this.revision += 1
-    this.persistedRevision = this.revision
+    const localVersion = Math.max(1, options.localVersion ?? 1)
+    this.active = {
+      exerciseId,
+      snapshot,
+      localVersion,
+      persistedLocalVersion: options.dirty ? localVersion - 1 : localVersion,
+      baseRevision,
+      conflict: options.conflict ? new DraftConflictError() : null,
+    }
+    this.retryBlocked = false
+    if (options.dirty && options.autosave !== false) this.schedule()
   }
 
-  update(code: string): void {
-    this.code = code
-    this.revision += 1
-    this.schedule()
+  update(snapshot: DraftSnapshot): void {
+    if (!this.active || sameSnapshot(this.active.snapshot, snapshot)) return
+    this.active.snapshot = snapshot
+    this.active.localVersion += 1
+    this.retryBlocked = false
+    if (!this.active.conflict && !this.clearing) this.schedule()
   }
-  async clearActive(
-    clear: (exerciseId: string) => Promise<void>,
-  ): Promise<{ exerciseId: string; code: string } | null> {
-    this.clearTimer()
-    const exerciseId = this.exerciseId
-    if (!exerciseId) return null
 
-    const revision = this.revision
-    const code = this.code
-    const previousPersistedRevision = this.persistedRevision
-    this.persistedRevision = Math.max(this.persistedRevision, revision)
-
-    const task = this.saveChain.catch(() => undefined).then(() => clear(exerciseId))
-    this.saveChain = task
-    try {
-      await task
-      return { exerciseId, code }
-    } catch (error) {
-      if (this.exerciseId === exerciseId && this.revision === revision) {
-        this.persistedRevision = previousPersistedRevision
-      }
-      throw error
+  getState(): Readonly<ActiveDraftState> | null {
+    if (!this.active) return null
+    return {
+      ...this.active,
+      snapshot: { ...this.active.snapshot },
     }
   }
 
   hasPending(): boolean {
-    return Boolean(this.exerciseId) && this.persistedRevision < this.revision
+    return Boolean(this.active && this.active.persistedLocalVersion < this.active.localVersion)
   }
 
-  flush(): Promise<void> {
+  hasConflict(): boolean {
+    return Boolean(this.active?.conflict)
+  }
+
+  resolveConflict(baseRevision: number): void {
+    if (!this.active?.conflict) return
+    this.active.baseRevision = baseRevision
+    this.active.conflict = null
+    this.retryBlocked = false
+    if (this.hasPending()) this.schedule()
+  }
+
+  async flush(): Promise<void> {
     this.clearTimer()
-    const exerciseId = this.exerciseId
-    const revision = this.revision
-    const code = this.code
-    if (!exerciseId || this.persistedRevision >= revision) return Promise.resolve()
-    if (this.inFlight?.exerciseId === exerciseId && this.inFlight.revision === revision) {
-      return this.inFlight.promise
-    }
-
-    const operation = this.persist(exerciseId, code, revision)
-    const tracked = operation.finally(() => {
-      if (this.inFlight?.promise === tracked) this.inFlight = null
-    })
-    this.inFlight = { exerciseId, revision, promise: tracked }
-    return tracked
+    if (this.active?.conflict) throw this.active.conflict
+    if (!this.hasPending()) return
+    this.retryBlocked = false
+    this.startWorker()
+    await this.worker
+    if (this.active?.conflict) throw this.active.conflict
   }
 
-  private async persist(exerciseId: string, code: string, revision: number): Promise<void> {
-    this.savingCount += 1
-    if (this.savingCount === 1) this.options.onSavingChange?.(true)
-    const task = this.saveChain.catch(() => undefined).then(() => this.save(exerciseId, code))
-    this.saveChain = task
-
+  async clearActive(
+    clear: (exerciseId: string, baseRevision: number) => Promise<DraftSaveReceipt>,
+  ): Promise<{ exerciseId: string; snapshot: DraftSnapshot; receipt: DraftSaveReceipt } | null> {
+    const active = this.active
+    if (!active) return null
+    this.clearing = true
+    this.clearTimer()
     try {
-      await task
-      if (this.exerciseId === exerciseId) {
-        this.persistedRevision = Math.max(this.persistedRevision, revision)
-      }
-      this.options.onSaved?.(exerciseId, code)
+      await this.flush()
+      if (!this.active || this.active.exerciseId !== active.exerciseId) return null
+      const clearedLocalVersion = this.active.localVersion
+      const snapshot = { ...this.active.snapshot }
+      const receipt = await clear(this.active.exerciseId, this.active.baseRevision)
+      if (!this.active || this.active.exerciseId !== active.exerciseId) return null
+      this.active.baseRevision = receipt.revision
+      this.active.persistedLocalVersion = Math.max(
+        this.active.persistedLocalVersion,
+        clearedLocalVersion,
+      )
+      this.active.conflict = null
+      return { exerciseId: active.exerciseId, snapshot, receipt }
     } catch (error) {
+      if (error instanceof DraftConflictError && this.active?.exerciseId === active.exerciseId) {
+        this.active.conflict = error
+      }
       this.options.onError?.(error)
       throw error
     } finally {
-      this.savingCount -= 1
-      if (this.savingCount === 0) this.options.onSavingChange?.(false)
+      this.clearing = false
+      if (this.hasPending() && !this.hasConflict()) this.schedule()
     }
   }
 
@@ -111,9 +168,57 @@ export class DraftAutosaveCoordinator {
     return this.flush()
   }
 
+  private startWorker(): void {
+    if (this.worker) return
+    this.worker = this.runWorker().finally(() => {
+      this.worker = null
+      this.options.onSavingChange?.(false)
+      if (this.hasPending() && !this.hasConflict() && !this.clearing && !this.retryBlocked) {
+        this.schedule()
+      }
+    })
+  }
+
+  private async runWorker(): Promise<void> {
+    this.options.onSavingChange?.(true)
+    while (this.active && this.hasPending() && !this.active.conflict) {
+      const exerciseId = this.active.exerciseId
+      const localVersion = this.active.localVersion
+      const snapshot = { ...this.active.snapshot }
+      const baseRevision = this.active.baseRevision
+      try {
+        const receipt = await this.save(exerciseId, snapshot, baseRevision)
+        this.retryBlocked = false
+        if (!this.active || this.active.exerciseId !== exerciseId) continue
+        this.active.baseRevision = receipt.revision
+        this.active.persistedLocalVersion = Math.max(
+          this.active.persistedLocalVersion,
+          localVersion,
+        )
+        const stillPending = this.hasPending()
+        this.options.onSaved?.({
+          exerciseId,
+          saved: snapshot,
+          revision: receipt.revision,
+          updatedAt: receipt.updatedAt,
+          pending: stillPending ? { ...this.active.snapshot } : null,
+          pendingLocalVersion: stillPending ? this.active.localVersion : null,
+        })
+      } catch (error) {
+        if (error instanceof DraftConflictError && this.active?.exerciseId === exerciseId) {
+          this.active.conflict = error
+        } else {
+          this.retryBlocked = true
+        }
+        this.options.onError?.(error)
+        throw error
+      }
+    }
+  }
+
   private schedule(): void {
     this.clearTimer()
-    if (!this.exerciseId) return
+    if (!this.active || this.active.conflict || this.clearing || this.retryBlocked) return
     this.timer = setTimeout(() => {
       void this.flush().catch(() => undefined)
     }, this.options.delayMs ?? DEFAULT_DELAY_MS)

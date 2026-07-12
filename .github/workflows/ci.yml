@@ -105,6 +105,24 @@ jobs:
           path: coverage/
           retention-days: 14
 
+  electron-draft-test:
+    name: Electron Draft Persistence
+    runs-on: windows-latest
+    needs: lint-format-typecheck
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies with Electron native modules
+        run: npm ci
+
+      - name: Verify exercise drafts in Electron
+        run: npm run test:electron-drafts
+
   # ---------------------------------------------------------------
   # 4. Bundle size check
   # ---------------------------------------------------------------

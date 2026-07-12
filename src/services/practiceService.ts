@@ -34,6 +34,20 @@ export interface SubmitResult {
   duration_sec: number
 }
 
+export interface PracticeDraft {
+  exerciseId: string
+  title: string | null
+  code: string
+  language: string | null
+  revision: number
+  updatedAt: string
+  deleted: boolean
+}
+
+export type DraftMutationResult =
+  | { status: 'saved'; draft: PracticeDraft }
+  | { status: 'conflict'; current: PracticeDraft | null }
+
 export interface ReviewItem {
   exercise_id: string
   title: string
@@ -72,19 +86,32 @@ export async function submitCode(
 
 // --------------- Drafts ---------------
 
-/** Retrieve the saved draft code for an exercise, or null if none exists. */
-export async function getDraft(exerciseId: string): Promise<string | null> {
-  return invoke<string | null>('exercises-draft-get', exerciseId)
+/** Retrieve the versioned draft record for an exercise, including tombstones. */
+export async function getDraft(exerciseId: string): Promise<PracticeDraft | null> {
+  return invoke<PracticeDraft | null>('exercises-draft-get', exerciseId)
 }
 
 /** Persist a draft of the user's code for an exercise. */
-export async function saveDraft(exerciseId: string, code: string): Promise<void> {
-  return invoke<void>('exercises-draft-save', { exerciseId, code })
+export async function saveDraft(
+  exerciseId: string,
+  code: string,
+  language: string,
+  baseRevision: number,
+): Promise<DraftMutationResult> {
+  return invoke<DraftMutationResult>('exercises-draft-save', {
+    exerciseId,
+    code,
+    language,
+    baseRevision,
+  })
 }
 
-/** Delete the saved draft for an exercise. */
-export async function clearDraft(exerciseId: string): Promise<void> {
-  return invoke<void>('exercises-draft-clear', exerciseId)
+/** Replace the current draft with a revisioned tombstone. */
+export async function clearDraft(
+  exerciseId: string,
+  baseRevision: number,
+): Promise<DraftMutationResult> {
+  return invoke<DraftMutationResult>('exercises-draft-clear', { exerciseId, baseRevision })
 }
 
 // --------------- Spaced-Repetition Review ---------------

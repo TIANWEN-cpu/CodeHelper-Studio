@@ -199,8 +199,11 @@ CREATE TABLE IF NOT EXISTS review_schedule (
 CREATE TABLE IF NOT EXISTS exercise_drafts (
   exercise_id TEXT PRIMARY KEY,
   title TEXT,
-  code TEXT,
-  updated_at TEXT
+  code TEXT NOT NULL DEFAULT '',
+  language TEXT,
+  revision INTEGER NOT NULL DEFAULT 1,
+  updated_at TEXT,
+  deleted INTEGER NOT NULL DEFAULT 0
 );
 
 -- Exercise timer/hint tracking

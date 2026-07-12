@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  LEGACY_PRACTICE_DRAFT_RECOVERY_KEY,
   MAX_PRACTICE_DRAFT_LENGTH,
   MAX_PRACTICE_RECOVERY_ENTRIES,
   MAX_PRACTICE_RECOVERY_TOTAL_LENGTH,
@@ -27,28 +28,70 @@ afterEach(() => {
 })
 
 describe('practice draft recovery', () => {
-  it('writes synchronously and restores the latest code after a renderer restart', () => {
-    expect(writeDraftRecovery('exercise-a', 'latest code')).toBeNull()
+  it('writes and restores the complete local snapshot contract', () => {
+    expect(
+      writeDraftRecovery('exercise-a', { code: 'latest code', language: 'javascript' }, 4, 7),
+    ).toBeNull()
 
     expect(readDraftRecovery('exercise-a')).toEqual({
       code: 'latest code',
+      language: 'javascript',
+      baseRevision: 4,
+      localVersion: 7,
       updatedAt: expect.any(Number),
+      legacy: false,
     })
     expect(values.has(PRACTICE_DRAFT_RECOVERY_KEY)).toBe(true)
   })
 
-  it('only clears the recovery entry that matches the persisted code', () => {
-    writeDraftRecovery('exercise-a', 'newer code')
+  it('does not clear a newer recovery entry with the same code but another language', () => {
+    writeDraftRecovery('exercise-a', { code: 'same', language: 'javascript' }, 4, 8)
 
-    clearDraftRecovery('exercise-a', 'older code')
-    expect(readDraftRecovery('exercise-a')?.code).toBe('newer code')
+    clearDraftRecovery('exercise-a', {
+      snapshot: { code: 'same', language: 'python' },
+      baseRevision: 4,
+      localVersion: 7,
+    })
+    expect(readDraftRecovery('exercise-a')?.language).toBe('javascript')
 
-    clearDraftRecovery('exercise-a', 'newer code')
+    clearDraftRecovery('exercise-a', {
+      snapshot: { code: 'same', language: 'javascript' },
+      baseRevision: 4,
+      localVersion: 8,
+    })
     expect(readDraftRecovery('exercise-a')).toBeNull()
   })
 
+  it('reads v1 code-only recovery without inventing a database revision', () => {
+    values.set(
+      LEGACY_PRACTICE_DRAFT_RECOVERY_KEY,
+      JSON.stringify({ 'exercise-a': { code: 'legacy code', updatedAt: 123 } }),
+    )
+
+    expect(readDraftRecovery('exercise-a')).toEqual({
+      code: 'legacy code',
+      language: '',
+      baseRevision: null,
+      localVersion: 1,
+      updatedAt: 123,
+      legacy: true,
+    })
+
+    writeDraftRecovery('exercise-a', { code: 'migrated', language: 'python' }, 0, 2)
+    expect(readDraftRecovery('exercise-a')).toMatchObject({
+      code: 'migrated',
+      baseRevision: 0,
+      legacy: false,
+    })
+  })
+
   it('reports oversized drafts instead of truncating them', () => {
-    const error = writeDraftRecovery('exercise-a', 'x'.repeat(MAX_PRACTICE_DRAFT_LENGTH + 1))
+    const error = writeDraftRecovery(
+      'exercise-a',
+      { code: 'x'.repeat(MAX_PRACTICE_DRAFT_LENGTH + 1), language: 'python' },
+      0,
+      1,
+    )
 
     expect(error).toContain('无法自动保存')
     expect(readDraftRecovery('exercise-a')).toBeNull()
@@ -59,7 +102,14 @@ describe('practice draft recovery', () => {
     const draftCount = MAX_PRACTICE_RECOVERY_ENTRIES + 5
     for (let index = 0; index < draftCount; index += 1) {
       vi.setSystemTime(new Date(2026, 0, 1, 0, 0, index))
-      expect(writeDraftRecovery(`exercise-${index}`, 'x'.repeat(60_000))).toBeNull()
+      expect(
+        writeDraftRecovery(
+          `exercise-${index}`,
+          { code: 'x'.repeat(60_000), language: 'python' },
+          0,
+          1,
+        ),
+      ).toBeNull()
     }
 
     const stored = JSON.parse(values.get(PRACTICE_DRAFT_RECOVERY_KEY) ?? '{}') as Record<

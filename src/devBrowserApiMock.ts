@@ -62,6 +62,16 @@ const messages: Record<
   'browser-session-1': [],
 }
 const settingsStore: Record<string, string> = {}
+interface BrowserPracticeDraft {
+  exerciseId: string
+  title: string | null
+  code: string
+  language: string | null
+  revision: number
+  updatedAt: string
+  deleted: boolean
+}
+const practiceDrafts = new Map<string, BrowserPracticeDraft>()
 const mockKnowledgeDocs = [
   {
     id: 1,
@@ -337,10 +347,54 @@ async function invoke(channel: string, ...args: unknown[]) {
       return exercise
     }
     case 'exercises-draft-get':
-      return null
-    case 'exercises-draft-save':
-    case 'exercises-draft-clear':
-      return { ok: true }
+      return practiceDrafts.get(String(args[0] ?? '')) ?? null
+    case 'exercises-draft-save': {
+      const input = args[0] as {
+        exerciseId: string
+        code: string
+        language: string
+        baseRevision: number
+      }
+      const current = practiceDrafts.get(input.exerciseId) ?? null
+      if (
+        (!current && input.baseRevision !== 0) ||
+        (current && current.revision !== input.baseRevision)
+      ) {
+        return { status: 'conflict', current }
+      }
+      const draft: BrowserPracticeDraft = {
+        exerciseId: input.exerciseId,
+        title: null,
+        code: input.code,
+        language: input.language,
+        revision: (current?.revision ?? 0) + 1,
+        updatedAt: new Date().toISOString(),
+        deleted: false,
+      }
+      practiceDrafts.set(input.exerciseId, draft)
+      return { status: 'saved', draft }
+    }
+    case 'exercises-draft-clear': {
+      const input = args[0] as { exerciseId: string; baseRevision: number }
+      const current = practiceDrafts.get(input.exerciseId) ?? null
+      if (
+        (!current && input.baseRevision !== 0) ||
+        (current && current.revision !== input.baseRevision)
+      ) {
+        return { status: 'conflict', current }
+      }
+      const draft: BrowserPracticeDraft = {
+        exerciseId: input.exerciseId,
+        title: null,
+        code: '',
+        language: null,
+        revision: (current?.revision ?? 0) + 1,
+        updatedAt: new Date().toISOString(),
+        deleted: true,
+      }
+      practiceDrafts.set(input.exerciseId, draft)
+      return { status: 'saved', draft }
+    }
     case 'exercises-evaluate':
       return {
         passed: false,
