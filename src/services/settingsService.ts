@@ -117,8 +117,16 @@ export async function getDefaultAIConfig(): Promise<AIConfig> {
   return invoke<AIConfig>('db-get-default-ai-config')
 }
 
-export async function fetchModels(baseUrl: string, apiKey: string): Promise<string[]> {
-  return invoke<string[]>('ai-fetch-models', { base_url: baseUrl, api_key: apiKey })
+export async function fetchModels(
+  baseUrl: string,
+  apiKey: string,
+  configId?: number,
+): Promise<string[]> {
+  return invoke<string[]>('ai-fetch-models', {
+    base_url: baseUrl,
+    api_key: apiKey,
+    config_id: configId,
+  })
 }
 
 export async function getPlatformInfo(): Promise<PlatformInfo> {

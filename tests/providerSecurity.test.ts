@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { assertAllowedProviderBaseUrl } from '../electron/utils/providerSecurity'
+import {
+  assertAllowedProviderBaseUrl,
+  assertAllowedProviderBaseUrlResolved,
+  resolveAllowedProviderTarget,
+} from '../electron/utils/providerSecurity'
 
 describe('assertAllowedProviderBaseUrl', () => {
   describe('允许的地址', () => {
@@ -46,6 +50,9 @@ describe('assertAllowedProviderBaseUrl', () => {
   describe('IPv4 私网 / 保留地址（SSRF 防护）', () => {
     it.each([
       'https://10.0.0.1',
+      'https://198.18.0.1',
+      'https://198.51.100.1',
+      'https://203.0.113.1',
       'https://10.255.255.255',
       'https://172.16.0.1',
       'https://172.31.255.255',
@@ -64,6 +71,9 @@ describe('assertAllowedProviderBaseUrl', () => {
       expect(assertAllowedProviderBaseUrl('https://172.32.0.1')).toBe('https://172.32.0.1')
       expect(assertAllowedProviderBaseUrl('https://172.15.0.1')).toBe('https://172.15.0.1')
       expect(assertAllowedProviderBaseUrl('https://11.0.0.1')).toBe('https://11.0.0.1')
+      expect(assertAllowedProviderBaseUrl('https://192.0.3.1')).toBe('https://192.0.3.1')
+      expect(assertAllowedProviderBaseUrl('https://198.51.101.1')).toBe('https://198.51.101.1')
+      expect(assertAllowedProviderBaseUrl('https://203.0.114.1')).toBe('https://203.0.114.1')
     })
   })
 
@@ -84,6 +94,17 @@ describe('assertAllowedProviderBaseUrl', () => {
   describe('IPv6 私网绕过', () => {
     it.each([
       'https://[fc00::1]', // ULA
+      'https://[fec0::1]',
+      'https://[ff02::1]',
+      'https://[100::1]',
+      'https://[64:ff9b:1::1]',
+      'https://[2001:db8::1]',
+      'https://[2001:10::1]',
+      'https://[2001:0:0:1:2:3:4:5]',
+      'https://[2002:a9fe:a9fe::1]',
+      'https://[3ffe::1]',
+      'https://[3fff::1]',
+      'https://[4000::1]',
       'https://[fd12:3456:789a::1]', // ULA
       'https://[fe80::1]', // 链路本地
       'https://[::]', // 未指定
@@ -163,6 +184,55 @@ describe('assertAllowedProviderBaseUrl', () => {
       expect(() => assertAllowedProviderBaseUrl('https://[::ffff:169.254.169.254]')).toThrow(
         /私网或元数据/,
       )
+    })
+  })
+})
+
+describe('base URL structural restrictions', () => {
+  it('rejects embedded credentials, query parameters, and fragments', () => {
+    expect(() => assertAllowedProviderBaseUrl('https://user:pass@example.com/v1')).toThrow()
+    expect(() => assertAllowedProviderBaseUrl('https://example.com/v1?target=internal')).toThrow()
+    expect(() => assertAllowedProviderBaseUrl('https://example.com/v1#models')).toThrow()
+  })
+})
+
+describe('assertAllowedProviderBaseUrlResolved', () => {
+  it('times out a resolver that never settles', async () => {
+    await expect(
+      resolveAllowedProviderTarget(
+        'https://provider.example/v1',
+        async () => new Promise<never>(() => undefined),
+        5,
+      ),
+    ).rejects.toThrow()
+  })
+
+  it('rejects a public hostname that resolves to a private address', async () => {
+    await expect(
+      assertAllowedProviderBaseUrlResolved('https://provider.example/v1', async () => [
+        { address: '169.254.169.254', family: 4 },
+      ]),
+    ).rejects.toThrow()
+  })
+
+  it('accepts a hostname when every resolved address is public', async () => {
+    await expect(
+      assertAllowedProviderBaseUrlResolved('https://provider.example/v1', async () => [
+        { address: '93.184.216.34', family: 4 },
+      ]),
+    ).resolves.toBe('https://provider.example/v1')
+  })
+
+  it('returns the exact public address that must be used for the connection', async () => {
+    await expect(
+      resolveAllowedProviderTarget('https://provider.example/v1', async () => [
+        { address: '93.184.216.34', family: 4 },
+      ]),
+    ).resolves.toEqual({
+      url: 'https://provider.example/v1',
+      address: '93.184.216.34',
+      family: 4,
+      addresses: [{ address: '93.184.216.34', family: 4 }],
     })
   })
 })

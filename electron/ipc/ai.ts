@@ -1,9 +1,16 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { getDB } from '../db/index'
 import { getRelevantMemories, markMemoriesUsed } from './chat'
-import { assertAllowedProviderBaseUrl } from '../utils/providerSecurity'
-import { friendlyUpstreamError, redirectBlockedError, isRedirect } from '../utils/httpErrors'
+import { resolveAllowedProviderTarget } from '../utils/providerSecurity'
+import { fetchResolvedProvider } from '../utils/providerFetch'
+import {
+  discardResponseBody,
+  friendlyUpstreamError,
+  redirectBlockedError,
+  isRedirect,
+} from '../utils/httpErrors'
 import type { AIConfigForChat, ChatMessage } from '../types/db'
+import { decryptApiKey } from '../utils/apiKeyStorage'
 
 export function registerAIIPC(): void {
   const activeRequests = new Map<string, AbortController>()
@@ -89,7 +96,10 @@ export function registerAIIPC(): void {
           throw new Error('未配置AI模型，请先在设置中添加')
         }
 
-        const url = `${assertAllowedProviderBaseUrl(config.base_url)}/chat/completions`
+        config = { ...config, api_key: decryptApiKey(config.api_key) }
+        if (!config.api_key) throw new Error('API key could not be decrypted')
+        const provider = await resolveAllowedProviderTarget(config.base_url)
+        const requestTarget = { ...provider, url: `${provider.url}/chat/completions` }
         const win = BrowserWindow.fromWebContents(event.sender)
         const withHistory = buildSessionMessages(db, args.sessionId, args.messages)
         const memoryCategories = Array.isArray(args.memoryCategories)
@@ -104,7 +114,7 @@ export function registerAIIPC(): void {
 
         let response: Response
         try {
-          response = await fetch(url, {
+          response = await fetchResolvedProvider(requestTarget, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -129,12 +139,13 @@ export function registerAIIPC(): void {
 
         // 出于 SSRF 防护，拒绝跟随上游重定向（可能指向内网/元数据地址）
         if (isRedirect(response.status)) {
+          await discardResponseBody(response)
           throw redirectBlockedError('chat')
         }
 
         if (!response.ok) {
-          const text = await response.text().catch(() => '')
-          console.warn(`[ai] upstream chat error ${response.status}: ${text.slice(0, 500)}`)
+          await discardResponseBody(response)
+          console.warn(`[ai] upstream chat error ${response.status}`)
           throw new Error(friendlyUpstreamError(response.status, 'chat'))
         }
 

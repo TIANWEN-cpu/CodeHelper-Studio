@@ -444,6 +444,7 @@ describe('codeRunner', () => {
       const result = await promise
       expect(result.exitCode).toBe(1)
       expect(result.stderr).toContain('超时')
+      expect(result.timedOut).toBe(true)
       expect(proc.kill).toHaveBeenCalled()
     })
   })

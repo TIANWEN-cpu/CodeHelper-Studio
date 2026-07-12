@@ -15,9 +15,10 @@ describe('maskApiKey', () => {
     expect(maskApiKey('')).toBe('')
   })
 
-  it('短 key（<=6 位）全部遮蔽为星号', () => {
-    expect(maskApiKey('abc')).toBe('***')
-    expect(maskApiKey('abcdef')).toBe('******') // 恰好6位
+  it('短 key 使用固定长度完全遮蔽', () => {
+    expect(maskApiKey('abc')).toBe('********')
+    expect(maskApiKey('abcdefghijklmno')).toBe('********')
+    expect(maskApiKey('abcdefg').replaceAll('*', '')).not.toContain('abcdefg')
   })
 
   it('长 key 保留首3位 + 星号 + 末4位', () => {
@@ -41,9 +42,10 @@ describe('maskApiKey', () => {
 })
 
 describe('isMaskedApiKey', () => {
-  it('含星号判定为已遮蔽', () => {
-    expect(isMaskedApiKey('sk-***7890')).toBe(true)
-    expect(isMaskedApiKey('***')).toBe(true)
+  it('只识别本应用生成的遮蔽格式', () => {
+    expect(isMaskedApiKey('sk-********7890')).toBe(true)
+    expect(isMaskedApiKey('********')).toBe(true)
+    expect(isMaskedApiKey('sk-*literal-star')).toBe(false)
   })
 
   it('不含星号判定为真实 key', () => {

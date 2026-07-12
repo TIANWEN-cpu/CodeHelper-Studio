@@ -76,7 +76,11 @@ export function AIModelSettings() {
     setError(null)
     setNotice(null)
     try {
-      const list = await fetchModels(form.base_url.trim(), (form.api_key || '').trim())
+      const list = await fetchModels(
+        form.base_url.trim(),
+        (form.api_key || '').trim(),
+        editingId ?? undefined,
+      )
       const arr = Array.isArray(list) ? list : []
       setModels(arr)
       setSelectedModels(form.model && arr.includes(form.model) ? [form.model] : [])

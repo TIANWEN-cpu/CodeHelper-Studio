@@ -65,6 +65,7 @@ export interface CodeRunResult {
   stderr: string
   exitCode: number
   stage: CodeRunStage
+  timedOut?: boolean
 }
 
 function getTempDir(): string {
@@ -303,7 +304,7 @@ function runProcess(
   args: string[],
   stdin?: string,
   timeout = DEFAULT_TIMEOUT,
-): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+): Promise<{ stdout: string; stderr: string; exitCode: number; timedOut?: boolean }> {
   if (activeProcesses >= MAX_CONCURRENT) {
     return Promise.resolve({
       stdout: '',
@@ -375,6 +376,7 @@ function runProcess(
           stdout,
           stderr: `执行超时（${timeout / 1000}s），进程已终止。可能原因：死循环或计算量过大`,
           exitCode: 1,
+          timedOut: true,
         })
       } else {
         resolve({ stdout, stderr, exitCode: code ?? 1 })

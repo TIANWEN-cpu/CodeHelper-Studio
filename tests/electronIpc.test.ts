@@ -19,7 +19,7 @@ vi.mock('electron', () => ({
     showOpenDialog: vi.fn(),
   },
   safeStorage: {
-    isEncryptionAvailable: vi.fn(() => false),
+    isEncryptionAvailable: vi.fn(() => true),
     encryptString: vi.fn((s: string) => Buffer.from(s)),
     decryptString: vi.fn((b: Buffer) => b.toString()),
   },
@@ -27,6 +27,12 @@ vi.mock('electron', () => ({
     getPath: vi.fn(() => '/tmp/test-user-data'),
   },
 }))
+
+vi.mock('dns/promises', () => ({
+  lookup: vi.fn(async () => [{ address: '93.184.216.34', family: 4 }]),
+}))
+
+import { safeStorage } from 'electron'
 
 // Mock better-sqlite3 via db/index
 const mockDB = {
@@ -262,6 +268,7 @@ describe('registerDatabaseIPC', () => {
   beforeEach(() => {
     Object.keys(handlers).forEach((k) => delete handlers[k])
     mockDB.prepare.mockReset()
+    vi.mocked(safeStorage.isEncryptionAvailable).mockReturnValue(true)
   })
 
   it('registers all database handlers', async () => {
@@ -373,7 +380,7 @@ describe('registerDatabaseIPC', () => {
       const result = await handlers['db-get-ai-configs']()
       expect(result).toHaveLength(1)
       expect(result[0].api_key).not.toBe('sk-live-secret')
-      expect(result[0].api_key).toBe('sk-********cret')
+      expect(result[0].api_key).toBe('********')
       expect(result[0].has_api_key).toBe(true)
     })
   })
@@ -436,6 +443,37 @@ describe('registerDatabaseIPC', () => {
       })
       expect(result).toBe(3)
     })
+
+    it('requires the API key again before reusing a masked credential on a new Base URL', async () => {
+      const mockRun = vi.fn()
+      mockDB.prepare.mockImplementation((sql: string) => {
+        if (sql.startsWith('SELECT * FROM ai_configs')) {
+          return {
+            get: vi.fn(() => ({
+              id: 3,
+              api_key: 'enc:c2stc2VjcmV0',
+              base_url: 'https://api.original.test/v1',
+            })),
+            run: mockRun,
+            all: vi.fn(),
+          }
+        }
+        return { run: mockRun, get: vi.fn(), all: vi.fn() }
+      })
+      const { registerDatabaseIPC } = await import('../electron/ipc/database')
+      registerDatabaseIPC()
+
+      expect(() =>
+        handlers['db-save-ai-config'](null, {
+          id: 3,
+          name: 'Updated',
+          api_key: 'sk-********cret',
+          base_url: 'https://attacker.example/v1',
+          model: 'model',
+        }),
+      ).toThrow('Base URL')
+      expect(mockRun).not.toHaveBeenCalled()
+    })
   })
 
   describe('db-delete-ai-config', () => {
@@ -471,7 +509,7 @@ describe('registerDatabaseIPC', () => {
       const result = handlers['db-get-default-ai-config']()
       expect(result).toBeTruthy() // returns the default config object
       expect(result.name).toBe('Default')
-      expect(result.api_key).toBe('******')
+      expect(result.api_key).toBe('********')
       expect(result.has_api_key).toBe(true)
     })
 
@@ -565,6 +603,60 @@ describe('registerDatabaseIPC', () => {
       await expect(
         handlers['ai-fetch-models'](null, { api_key: 'sk-test', base_url: '' }),
       ).rejects.toThrow('参数无效: base_url')
+    })
+
+    it('does not send a stored masked credential to a different Base URL', async () => {
+      const fetchMock = vi.fn()
+      vi.stubGlobal('fetch', fetchMock)
+      mockDB.prepare.mockReturnValue({
+        get: vi.fn(() => ({
+          api_key: 'enc:c2stc2VjcmV0',
+          base_url: 'https://api.original.test/v1',
+        })),
+        run: vi.fn(),
+        all: vi.fn(),
+      })
+      const { registerDatabaseIPC } = await import('../electron/ipc/database')
+      registerDatabaseIPC()
+
+      await expect(
+        handlers['ai-fetch-models'](null, {
+          api_key: 'sk-********cret',
+          base_url: 'https://attacker.example/v1',
+          config_id: 1,
+        }),
+      ).rejects.toThrow('Base URL')
+      expect(fetchMock).not.toHaveBeenCalled()
+      vi.unstubAllGlobals()
+    })
+
+    it('reuses a stored masked credential only for the same normalized Base URL', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ data: [] }),
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      mockDB.prepare.mockReturnValue({
+        get: vi.fn(() => ({
+          api_key: 'enc:c2stc2VjcmV0',
+          base_url: 'https://api.original.test/v1/',
+        })),
+        run: vi.fn(),
+        all: vi.fn(),
+      })
+      const { registerDatabaseIPC } = await import('../electron/ipc/database')
+      registerDatabaseIPC()
+
+      await handlers['ai-fetch-models'](null, {
+        api_key: 'sk-********cret',
+        base_url: 'https://api.original.test/v1',
+        config_id: 1,
+      })
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://api.original.test/v1/models',
+        expect.objectContaining({ headers: { Authorization: 'Bearer sk-secret' } }),
+      )
+      vi.unstubAllGlobals()
     })
 
     it('rejects metadata and private network base_url', async () => {
@@ -704,9 +796,11 @@ describe('registerDatabaseIPC', () => {
       const { registerDatabaseIPC } = await import('../electron/ipc/database')
       registerDatabaseIPC()
 
+      const cancelBody = vi.fn().mockResolvedValue(undefined)
       const mockFetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 302,
+        body: { cancel: cancelBody },
         headers: { get: () => 'http://169.254.169.254/latest/meta-data/' },
         text: vi.fn().mockResolvedValue(''),
       })
@@ -719,6 +813,7 @@ describe('registerDatabaseIPC', () => {
         'https://api.test/models',
         expect.objectContaining({ redirect: 'manual' }),
       )
+      expect(cancelBody).toHaveBeenCalledOnce()
 
       vi.unstubAllGlobals()
     })
@@ -745,6 +840,22 @@ describe('registerDatabaseIPC', () => {
   })
 
   describe('encryption handling', () => {
+    it('rejects API key persistence when secure storage is unavailable', async () => {
+      vi.mocked(safeStorage.isEncryptionAvailable).mockReturnValue(false)
+      mockDB.prepare.mockReturnValue({ run: vi.fn(), get: vi.fn(), all: vi.fn() })
+      const { registerDatabaseIPC } = await import('../electron/ipc/database')
+      registerDatabaseIPC()
+      const config = {
+        name: 'Unsafe',
+        api_key: 'sk-secret',
+        base_url: 'https://api.test',
+        model: 'gpt-4',
+      }
+      expect(() => handlers['db-save-ai-config'](null, config)).toThrow(
+        'Secure API key storage is unavailable',
+      )
+    })
+
     it('encrypts api key when encryption is available', async () => {
       const electron = await import('electron')
       const origIsEncryption = electron.safeStorage.isEncryptionAvailable as ReturnType<
@@ -853,7 +964,7 @@ describe('registerDatabaseIPC', () => {
       registerDatabaseIPC()
 
       const result = await handlers['db-get-ai-configs']()
-      expect(result[0].api_key).toBe('sk-******-key')
+      expect(result[0].api_key).toBe('********')
       expect(result[0].has_api_key).toBe(true)
     })
   })

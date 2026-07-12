@@ -9,9 +9,16 @@ import {
   MEMORY_CATEGORIES,
 } from '../utils/chatHelpers'
 import { trackPerformance } from '../utils/perfMonitor'
-import { assertAllowedProviderBaseUrl } from '../utils/providerSecurity'
-import { friendlyUpstreamError, redirectBlockedError, isRedirect } from '../utils/httpErrors'
+import { resolveAllowedProviderTarget } from '../utils/providerSecurity'
+import { fetchResolvedProvider } from '../utils/providerFetch'
+import {
+  discardResponseBody,
+  friendlyUpstreamError,
+  redirectBlockedError,
+  isRedirect,
+} from '../utils/httpErrors'
 import type { MemoryRow, AIConfigForChat } from '../types/db'
+import { decryptApiKey } from '../utils/apiKeyStorage'
 
 // Re-export for ai.ts which imports getRelevantMemories
 export type { MemoryRow }
@@ -490,12 +497,14 @@ function pruneAutoMemories(db: ReturnType<typeof getDB>): void {
 function getConfigForExtraction(configId?: number): AIConfigForChat | undefined {
   const db = getDB()
   if (configId) {
-    return db.prepare('SELECT * FROM ai_configs WHERE id = ?').get(configId) as
+    const config = db.prepare('SELECT * FROM ai_configs WHERE id = ?').get(configId) as
       | AIConfigForChat
       | undefined
+    return config ? { ...config, api_key: decryptApiKey(config.api_key) } : undefined
   }
-  return (db.prepare('SELECT * FROM ai_configs WHERE is_default = 1').get() ??
+  const config = (db.prepare('SELECT * FROM ai_configs WHERE is_default = 1').get() ??
     db.prepare('SELECT * FROM ai_configs LIMIT 1').get()) as AIConfigForChat | undefined
+  return config ? { ...config, api_key: decryptApiKey(config.api_key) } : undefined
 }
 
 const EXTRACTION_SYSTEM_PROMPT = `你是一个记忆抽取器。从用户消息中抽取值得长期记住的稳定信息（身份、长期偏好、技术栈、对助手的约束、学习目标、确定的事实）。
@@ -538,11 +547,13 @@ async function extractMemoriesViaLLM(
 ): Promise<Array<{ content: string; category: string }>> {
   const config = getConfigForExtraction(configId)
   if (!config) throw new Error('未配置AI模型，请先在设置中添加')
+  if (!config.api_key) throw new Error('API key could not be decrypted')
 
-  const url = `${assertAllowedProviderBaseUrl(config.base_url)}/chat/completions`
+  const provider = await resolveAllowedProviderTarget(config.base_url)
+  const requestTarget = { ...provider, url: `${provider.url}/chat/completions` }
   let response: Response
   try {
-    response = await fetch(url, {
+    response = await fetchResolvedProvider(requestTarget, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -567,10 +578,13 @@ async function extractMemoriesViaLLM(
     throw new Error('网络连接失败，请检查网络或 Base URL')
   }
 
-  if (isRedirect(response.status)) throw redirectBlockedError('chat')
+  if (isRedirect(response.status)) {
+    await discardResponseBody(response)
+    throw redirectBlockedError('chat')
+  }
   if (!response.ok) {
-    const body = await response.text().catch(() => '')
-    console.warn(`[memory] extract upstream error ${response.status}: ${body.slice(0, 500)}`)
+    await discardResponseBody(response)
+    console.warn(`[memory] extract upstream error ${response.status}`)
     throw new Error(friendlyUpstreamError(response.status, 'chat'))
   }
 

@@ -36,3 +36,11 @@ export function redirectBlockedError(context: UpstreamContext): Error {
 export function isRedirect(status: number): boolean {
   return status >= 300 && status < 400
 }
+
+export async function discardResponseBody(response: Response): Promise<void> {
+  try {
+    await response.body?.cancel()
+  } catch {
+    // The caller is already handling an upstream failure; cleanup must not replace it.
+  }
+}
