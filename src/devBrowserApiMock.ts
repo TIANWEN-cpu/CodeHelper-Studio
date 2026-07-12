@@ -55,6 +55,7 @@ const sessions = [
     updated_at: new Date().toISOString(),
   },
 ]
+let nextChatMessageId = 1
 const messages: Record<
   string,
   Array<{ id: string; role: 'user' | 'assistant'; content: string; created_at: string }>
@@ -427,14 +428,15 @@ async function invoke(channel: string, ...args: unknown[]) {
       return messages[String(args[0])] ?? []
     case 'chat-message-save': {
       const payload = args[0] as { session_id: string; role: 'user' | 'assistant'; content: string }
+      const messageId = nextChatMessageId++
       messages[payload.session_id] ??= []
       messages[payload.session_id].push({
-        id: `message-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        id: `message-${messageId}`,
         role: payload.role,
         content: payload.content,
         created_at: new Date().toISOString(),
       })
-      return undefined
+      return messageId
     }
     case 'chat-memory-capture':
       return undefined

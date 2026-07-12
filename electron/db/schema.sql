@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS ai_configs (
 
 CREATE TABLE IF NOT EXISTS chat_history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  session_id TEXT NOT NULL,
+  session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
   role TEXT CHECK(role IN ('user','assistant','system')),
   content TEXT NOT NULL,
   model TEXT,

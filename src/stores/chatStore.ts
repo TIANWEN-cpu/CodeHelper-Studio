@@ -68,6 +68,9 @@ function makeTitle(content: string) {
   return content.length > 30 ? `${content.slice(0, 30)}...` : content
 }
 
+let sessionSwitchRequestId = 0
+let pendingSessionSwitchId: string | null = null
+
 /** 去重会话列表（按 id，保留首次出现），避免重复 key 渲染。 */
 export function normalizeChatSessions<T extends { id?: string }>(list: T[]): T[] {
   const seen = new Set<string>()
@@ -108,9 +111,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     return id
   },
   switchSession: async (id) => {
+    const requestId = ++sessionSwitchRequestId
+    pendingSessionSwitchId = id
     set({ loading: true })
     try {
       const rows = await typedInvoke<Message[]>('chat-messages-load', id)
+      if (sessionSwitchRequestId !== requestId) return
       set({
         activeSessionId: id,
         messages: Array.isArray(rows) ? rows : [],
@@ -119,12 +125,19 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         error: null,
         loading: false,
       })
+      pendingSessionSwitchId = null
     } catch (error) {
+      if (sessionSwitchRequestId !== requestId) return
+      pendingSessionSwitchId = null
       console.error('[ChatStore.switchSession]', error)
       set({ error: errorMessage(error), streaming: false, currentRequestId: null, loading: false })
     }
   },
   deleteSession: async (id) => {
+    if (pendingSessionSwitchId === id) {
+      sessionSwitchRequestId += 1
+      pendingSessionSwitchId = null
+    }
     const wasActive = get().activeSessionId === id
     await typedInvoke('chat-session-delete', id)
     await get().loadSessions()
@@ -166,7 +179,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }))
 
     try {
-      await typedInvoke('chat-message-save', { session_id: sessionId, role: 'user', content })
+      const currentUserMessageId = await typedInvoke<number>('chat-message-save', {
+        session_id: sessionId,
+        role: 'user',
+        content,
+      })
+      if (!Number.isSafeInteger(currentUserMessageId) || currentUserMessageId < 1) {
+        throw new Error('消息保存未返回有效 ID')
+      }
       // 从用户消息捕获长期记忆：开启 LLM 抽取则智能抽取，否则用本地正则规则。
       // best-effort：抽取失败（如网络超时）不应中断本轮对话。
       try {
@@ -203,6 +223,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         includeMemories,
         ragContext: rag,
         memoryCategories,
+        currentUserMessageId,
       })
     } catch (error) {
       const msg = errorMessage(error)
@@ -237,16 +258,27 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (state.currentRequestId !== requestId) return
     const last = state.messages[state.messages.length - 1]
     const finalContent = content || (last?.role === 'assistant' ? last.content : '')
+    let persistenceError: string | null = null
     if (state.activeSessionId && finalContent) {
-      await typedInvoke('chat-message-save', {
-        session_id: state.activeSessionId,
-        role: 'assistant',
-        content: finalContent,
-      })
+      try {
+        await typedInvoke('chat-message-save', {
+          session_id: state.activeSessionId,
+          role: 'assistant',
+          content: finalContent,
+        })
+      } catch (error) {
+        persistenceError = errorMessage(error)
+        reportError(error, 'chat.finishStream', { showToast: true })
+      }
     }
-    set({ streaming: false, currentRequestId: null })
-    await get().loadSessions()
-    await get().loadMemories()
+    if (get().currentRequestId !== requestId) return
+    await Promise.allSettled([get().loadSessions(), get().loadMemories()])
+    if (get().currentRequestId !== requestId) return
+    set({
+      streaming: false,
+      currentRequestId: null,
+      ...(persistenceError ? { error: persistenceError } : {}),
+    })
   },
   loadPresets: async () => {
     const presets = await typedInvoke<Preset[]>('chat-presets-list')
@@ -297,7 +329,9 @@ export function initChatStreaming(): void {
   api.on('ai-chat-done', (...args: unknown[]) => {
     const data = args[0] as { requestId?: string; content?: string } | undefined
     if (data && typeof data.requestId === 'string' && typeof data.content === 'string') {
-      useChatStore.getState().finishStream({ requestId: data.requestId, content: data.content })
+      void useChatStore
+        .getState()
+        .finishStream({ requestId: data.requestId, content: data.content })
     }
   })
 }

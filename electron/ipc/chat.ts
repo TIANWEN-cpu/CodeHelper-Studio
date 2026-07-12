@@ -113,8 +113,11 @@ export function registerChatIPC(): void {
   ipcMain.handle('chat-session-delete', (_e, id: string) => {
     if (typeof id !== 'string' || !id.trim()) throw new Error('参数无效: id')
     id = id.trim().slice(0, 200)
-    getDB().prepare('DELETE FROM chat_history WHERE session_id = ?').run(id)
-    getDB().prepare('DELETE FROM chat_sessions WHERE id = ?').run(id)
+    const db = getDB()
+    db.transaction(() => {
+      db.prepare('DELETE FROM chat_history WHERE session_id = ?').run(id)
+      db.prepare('DELETE FROM chat_sessions WHERE id = ?').run(id)
+    })()
   })
 
   ipcMain.handle(
@@ -143,12 +146,22 @@ export function registerChatIPC(): void {
         if (typeof msg.model !== 'string') throw new Error('参数无效: model')
         msg.model = msg.model.trim().slice(0, 200)
       }
-      getDB()
-        .prepare('INSERT INTO chat_history (session_id, role, content, model) VALUES (?,?,?,?)')
-        .run(msg.session_id, msg.role, msg.content, msg.model || null)
-      getDB()
-        .prepare('UPDATE chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-        .run(msg.session_id)
+      const db = getDB()
+      return db.transaction(() => {
+        const session = db.prepare('SELECT 1 FROM chat_sessions WHERE id = ?').get(msg.session_id)
+        if (!session) throw new Error('浼氳瘽涓嶅瓨鍦?')
+        const inserted = db
+          .prepare('INSERT INTO chat_history (session_id, role, content, model) VALUES (?,?,?,?)')
+          .run(msg.session_id, msg.role, msg.content, msg.model || null)
+        db.prepare('UPDATE chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(
+          msg.session_id,
+        )
+        const messageId = Number(inserted.lastInsertRowid)
+        if (!Number.isSafeInteger(messageId) || messageId < 1) {
+          throw new Error('消息保存未返回有效 ID')
+        }
+        return messageId
+      })()
     },
   )
 

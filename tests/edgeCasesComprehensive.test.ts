@@ -493,7 +493,7 @@ describe('2. Boundary tests', () => {
         sessions: [{ id: 's1', title: 'Test', system_prompt: '', created_at: '', updated_at: '' }],
       })
       const longContent = 'A'.repeat(10_000)
-      mockInvoke.mockResolvedValueOnce(undefined) // chat-message-save
+      mockInvoke.mockResolvedValueOnce(1) // chat-message-save
       mockInvoke.mockResolvedValueOnce([]) // chat-memory-capture
       mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' }) // ai-chat
 
@@ -509,7 +509,7 @@ describe('2. Boundary tests', () => {
         sessions: [{ id: 's1', title: 'Test', system_prompt: '', created_at: '', updated_at: '' }],
       })
       const hugeContent = 'B'.repeat(100_000)
-      mockInvoke.mockResolvedValueOnce(undefined)
+      mockInvoke.mockResolvedValueOnce(1)
       mockInvoke.mockResolvedValueOnce([])
       mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' })
 
@@ -525,7 +525,7 @@ describe('2. Boundary tests', () => {
           { id: 's1', title: '新对话', system_prompt: '', created_at: '', updated_at: '' },
         ],
       })
-      mockInvoke.mockResolvedValueOnce(undefined)
+      mockInvoke.mockResolvedValueOnce(1)
       mockInvoke.mockResolvedValueOnce([])
       mockInvoke.mockResolvedValueOnce(undefined)
       mockInvoke.mockResolvedValueOnce([])
@@ -775,7 +775,7 @@ describe('3. Error recovery tests', () => {
         activeSessionId: 's1',
         sessions: [{ id: 's1', title: 'Test', system_prompt: '', created_at: '', updated_at: '' }],
       })
-      mockInvoke.mockResolvedValueOnce(undefined) // chat-message-save
+      mockInvoke.mockResolvedValueOnce(1) // chat-message-save
       mockInvoke.mockResolvedValueOnce([]) // chat-memory-capture
       mockInvoke.mockResolvedValueOnce({
         recentProblems: [],
@@ -818,7 +818,7 @@ describe('3. Error recovery tests', () => {
         activeSessionId: 's1',
         sessions: [{ id: 's1', title: 'Test', system_prompt: '', created_at: '', updated_at: '' }],
       })
-      mockInvoke.mockResolvedValueOnce(undefined)
+      mockInvoke.mockResolvedValueOnce(1)
       mockInvoke.mockResolvedValueOnce([])
       mockInvoke.mockResolvedValueOnce({
         recentProblems: [],
@@ -1146,12 +1146,12 @@ describe('4. Concurrent operation tests', () => {
       })
 
       // First message
-      mockInvoke.mockResolvedValueOnce(undefined) // save
+      mockInvoke.mockResolvedValueOnce(1) // save
       mockInvoke.mockResolvedValueOnce([]) // memory capture
       mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' }) // ai-chat
 
       // Second message
-      mockInvoke.mockResolvedValueOnce(undefined)
+      mockInvoke.mockResolvedValueOnce(2)
       mockInvoke.mockResolvedValueOnce([])
       mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r2', content: '' })
 
@@ -1585,7 +1585,7 @@ describe('5. Unicode / special character tests', () => {
         activeSessionId: 's1',
         sessions: [{ id: 's1', title: 'Test', system_prompt: '', created_at: '', updated_at: '' }],
       })
-      mockInvoke.mockResolvedValueOnce(undefined)
+      mockInvoke.mockResolvedValueOnce(1)
       mockInvoke.mockResolvedValueOnce([])
       mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' })
 
@@ -1599,7 +1599,7 @@ describe('5. Unicode / special character tests', () => {
         activeSessionId: 's1',
         sessions: [{ id: 's1', title: 'Test', system_prompt: '', created_at: '', updated_at: '' }],
       })
-      mockInvoke.mockResolvedValueOnce(undefined)
+      mockInvoke.mockResolvedValueOnce(1)
       mockInvoke.mockResolvedValueOnce([])
       mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' })
 
@@ -1617,7 +1617,7 @@ describe('5. Unicode / special character tests', () => {
           { id: 's1', title: '新对话', system_prompt: '', created_at: '', updated_at: '' },
         ],
       })
-      mockInvoke.mockResolvedValueOnce(undefined)
+      mockInvoke.mockResolvedValueOnce(1)
       mockInvoke.mockResolvedValueOnce([])
       mockInvoke.mockResolvedValueOnce(undefined)
       mockInvoke.mockResolvedValueOnce([])
@@ -1656,7 +1656,7 @@ describe('5. Unicode / special character tests', () => {
         activeSessionId: 's1',
         sessions: [{ id: 's1', title: 'Test', system_prompt: '', created_at: '', updated_at: '' }],
       })
-      mockInvoke.mockResolvedValueOnce(undefined)
+      mockInvoke.mockResolvedValueOnce(1)
       mockInvoke.mockResolvedValueOnce([])
       mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' })
 
@@ -1962,7 +1962,7 @@ describe('5. Unicode / special character tests', () => {
         activeSessionId: 's1',
         sessions: [{ id: 's1', title: 'Test', system_prompt: '', created_at: '', updated_at: '' }],
       })
-      mockInvoke.mockResolvedValueOnce(undefined)
+      mockInvoke.mockResolvedValueOnce(1)
       mockInvoke.mockResolvedValueOnce([])
       mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' })
 

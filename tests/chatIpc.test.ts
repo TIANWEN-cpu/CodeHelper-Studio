@@ -196,7 +196,7 @@ describe('registerChatIPC', () => {
     })
 
     it('updates title only', () => {
-      const runFn = vi.fn()
+      const runFn = vi.fn(() => ({ lastInsertRowid: 7 }))
       mockDB.prepare.mockImplementation((sql: string) => {
         if (sql.includes('COUNT(*)')) return makeStmt({ c: 1 })
         return { get: vi.fn(), all: vi.fn(), run: runFn }
@@ -346,41 +346,57 @@ describe('registerChatIPC', () => {
       ).toThrow('参数无效: model')
     })
 
+    it('rejects messages for a missing session', () => {
+      mockDB.prepare.mockImplementation(() => makeStmt(undefined))
+      expect(() =>
+        handlers['chat-message-save'](null, {
+          session_id: 'missing',
+          role: 'user',
+          content: 'hi',
+        }),
+      ).toThrow()
+    })
+
     it('saves message with valid data', () => {
-      const runFn = vi.fn()
+      const runFn = vi.fn(() => ({ lastInsertRowid: 7 }))
       mockDB.prepare.mockImplementation((sql: string) => {
         if (sql.includes('COUNT(*)')) return makeStmt({ c: 1 })
+        if (sql.includes('SELECT 1 FROM chat_sessions')) return makeStmt({ id: 's1' })
         return { get: vi.fn(), all: vi.fn(), run: runFn }
       })
 
-      handlers['chat-message-save'](null, {
+      const result = handlers['chat-message-save'](null, {
         session_id: 's1',
         role: 'user',
         content: 'Hello',
         model: 'gpt-4',
       })
       expect(runFn).toHaveBeenCalledTimes(2) // INSERT + UPDATE timestamp
+      expect(result).toBe(7)
     })
 
     it('saves message without model', () => {
-      const runFn = vi.fn()
+      const runFn = vi.fn(() => ({ lastInsertRowid: 8 }))
       mockDB.prepare.mockImplementation((sql: string) => {
         if (sql.includes('COUNT(*)')) return makeStmt({ c: 1 })
+        if (sql.includes('SELECT 1 FROM chat_sessions')) return makeStmt({ id: 's1' })
         return { get: vi.fn(), all: vi.fn(), run: runFn }
       })
 
-      handlers['chat-message-save'](null, {
+      const result = handlers['chat-message-save'](null, {
         session_id: 's1',
         role: 'assistant',
         content: 'Hi',
       })
       expect(runFn).toHaveBeenCalledTimes(2)
+      expect(result).toBe(8)
     })
 
     it('truncates content to 100000 chars', () => {
-      const runFn = vi.fn()
+      const runFn = vi.fn(() => ({ lastInsertRowid: 9 }))
       mockDB.prepare.mockImplementation((sql: string) => {
         if (sql.includes('COUNT(*)')) return makeStmt({ c: 1 })
+        if (sql.includes('SELECT 1 FROM chat_sessions')) return makeStmt({ id: 's1' })
         return { get: vi.fn(), all: vi.fn(), run: runFn }
       })
 

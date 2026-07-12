@@ -320,7 +320,7 @@ describe('State consistency: chatStore', () => {
         activeSessionId: 's1',
         sessions: [{ id: 's1', title: 'Chat', system_prompt: '', created_at: '', updated_at: '' }],
       })
-      mockInvoke.mockResolvedValueOnce(undefined) // chat-message-save
+      mockInvoke.mockResolvedValueOnce(1) // chat-message-save
       mockInvoke.mockResolvedValueOnce([]) // chat-memory-capture
       mockInvoke.mockResolvedValueOnce(emptyRAGContext) // knowledge-rag-context (RAG enrichment)
       mockInvoke.mockRejectedValueOnce(new Error('network timeout')) // ai-chat
