@@ -152,6 +152,14 @@ jobs:
       - name: Build renderer & main
         run: npm run build
 
+      - name: Verify SQL utility process
+        if: runner.os != 'Linux'
+        run: npm run test:electron-sql
+
+      - name: Verify SQL utility process (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm run test:electron-sql
+
       - name: Build Electron packages
         run: npx electron-builder --${{ matrix.platform }} --publish never
         env:

@@ -10,6 +10,7 @@ import { PassThrough } from 'stream'
 const mockState = vi.hoisted(() => ({
   queryResults: [] as Record<string, unknown>[],
   execError: null as string | null,
+  sqlHang: false,
 }))
 
 // ─────────────────────────────────────────────
@@ -19,6 +20,9 @@ const mockState = vi.hoisted(() => ({
 vi.mock('electron', () => ({
   app: {
     getPath: vi.fn().mockReturnValue('/tmp'),
+  },
+  utilityProcess: {
+    fork: vi.fn(),
   },
 }))
 
@@ -56,6 +60,7 @@ vi.mock('better-sqlite3', () => {
 // ─────────────────────────────────────────────
 
 import { spawn, execFileSync } from 'child_process'
+import { utilityProcess } from 'electron'
 import { rm } from 'fs/promises'
 import { runCodeSnippet } from '../electron/utils/codeRunner'
 
@@ -82,6 +87,43 @@ function mockChildProcess(exitCode = 0, stdoutData = '', stderrData = '') {
   return proc
 }
 
+function mockSqlUtilityProcess() {
+  const child = Object.assign(new EventEmitter(), {
+    pid: 12_345 as number | undefined,
+    kill: vi.fn(() => {
+      process.nextTick(() => {
+        child.pid = undefined
+        child.emit('exit', 1)
+      })
+      return true
+    }),
+    postMessage: vi.fn((request: { queryLast: boolean }) => {
+      if (mockState.sqlHang) return
+      process.nextTick(() => {
+        const response = mockState.execError
+          ? { ok: false, error: mockState.execError }
+          : request.queryLast
+            ? {
+                ok: true,
+                stdout:
+                  mockState.queryResults.length === 0
+                    ? '查询成功，结果为空'
+                    : JSON.stringify(mockState.queryResults, null, 2),
+              }
+            : { ok: true, stdout: '执行成功' }
+        child.emit('message', response)
+        process.nextTick(() => {
+          child.pid = undefined
+          child.emit('exit', response.ok ? 0 : 1)
+        })
+      })
+    }),
+  })
+
+  process.nextTick(() => child.emit('spawn'))
+  return child
+}
+
 // ─────────────────────────────────────────────
 // Tests
 // ─────────────────────────────────────────────
@@ -92,7 +134,9 @@ describe('codeRunner', () => {
     vi.useRealTimers()
     mockState.queryResults = []
     mockState.execError = null
+    mockState.sqlHang = false
     vi.mocked(execFileSync).mockReturnValue('C:\\resolved\\cmd.exe\n')
+    vi.mocked(utilityProcess.fork).mockImplementation(() => mockSqlUtilityProcess() as any)
   })
 
   afterEach(() => {
@@ -139,7 +183,7 @@ describe('codeRunner', () => {
 
     it('无效 SQL 返回错误', async () => {
       mockState.execError = 'near "INVALID": syntax error'
-      const result = await runCodeSnippet('INVALID SQL', 'sql')
+      const result = await runCodeSnippet('SELECT FROM', 'sql')
       expect(result.stage).toBe('sql')
       expect(result.exitCode).toBe(1)
       expect(result.stderr).toContain('syntax error')
@@ -218,6 +262,101 @@ describe('codeRunner', () => {
       const result = await runCodeSnippet('-- just a comment\n', 'sql')
       expect(result.exitCode).toBe(0)
       expect(result.stage).toBe('sql')
+    })
+
+    it('rejects file access and writable pragmas before forking', async () => {
+      await expect(
+        runCodeSnippet("ATTACH DATABASE 'secret.db' AS secret", 'sql'),
+      ).resolves.toMatchObject({ exitCode: 1, stderr: expect.stringContaining('禁止') })
+      await expect(runCodeSnippet('PRAGMA schema_version(123)', 'sql')).resolves.toMatchObject({
+        exitCode: 1,
+        stderr: expect.stringContaining('只读'),
+      })
+      expect(utilityProcess.fork).not.toHaveBeenCalled()
+    })
+
+    it('rejects oversized UTF-8 SQL input before forking', async () => {
+      const result = await runCodeSnippet(`SELECT '${'界'.repeat(100_000)}'`, 'sql')
+
+      expect(result).toMatchObject({ exitCode: 1, stderr: expect.stringContaining('256KB') })
+      expect(utilityProcess.fork).not.toHaveBeenCalled()
+    })
+
+    it('keeps timeout authoritative when a late utility response arrives', async () => {
+      vi.useFakeTimers()
+      const child = Object.assign(new EventEmitter(), {
+        pid: 2_147_480_001 as number | undefined,
+        kill: vi.fn(() => true),
+        postMessage: vi.fn(),
+      })
+      vi.mocked(utilityProcess.fork).mockReturnValue(child as any)
+      process.nextTick(() => child.emit('spawn'))
+
+      const promise = runCodeSnippet(
+        'WITH cnt(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM cnt) SELECT * FROM cnt',
+        'sql',
+      )
+      await vi.advanceTimersByTimeAsync(3_001)
+      child.emit('message', { ok: true, stdout: 'late success' })
+      child.pid = undefined
+      child.emit('exit', 1)
+
+      await expect(promise).resolves.toMatchObject({ exitCode: 1, timedOut: true })
+      expect(child.postMessage).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not post SQL after timing out before the utility process spawns', async () => {
+      vi.useFakeTimers()
+      const child = Object.assign(new EventEmitter(), {
+        pid: 2_147_480_002 as number | undefined,
+        kill: vi.fn(() => false),
+        postMessage: vi.fn(),
+      })
+      vi.mocked(utilityProcess.fork).mockReturnValue(child as any)
+
+      const promise = runCodeSnippet('SELECT 1', 'sql')
+      await vi.advanceTimersByTimeAsync(5_001)
+      await expect(promise).resolves.toMatchObject({ exitCode: 1, timedOut: true })
+      child.emit('spawn')
+      expect(child.postMessage).not.toHaveBeenCalled()
+
+      child.pid = undefined
+      child.emit('exit', 1)
+      await Promise.resolve()
+    })
+
+    it('does not release concurrency slots for utility processes that never exit', async () => {
+      vi.useFakeTimers()
+      const children = Array.from({ length: 5 }, (_, index) =>
+        Object.assign(new EventEmitter(), {
+          pid: (2_147_480_100 + index) as number | undefined,
+          kill: vi.fn(() => false),
+          postMessage: vi.fn(),
+        }),
+      )
+      let childIndex = 0
+      vi.mocked(utilityProcess.fork).mockImplementation(() => {
+        const child = children[childIndex++]
+        process.nextTick(() => child.emit('spawn'))
+        return child as any
+      })
+
+      const pending = children.map(() => runCodeSnippet('SELECT 1', 'sql'))
+      await vi.advanceTimersByTimeAsync(5_001)
+      const timedOut = await Promise.all(pending)
+      expect(timedOut.every((result) => result.timedOut)).toBe(true)
+
+      await expect(runCodeSnippet('SELECT 2', 'sql')).resolves.toMatchObject({
+        exitCode: 1,
+        stderr: expect.stringContaining('并发'),
+      })
+      expect(utilityProcess.fork).toHaveBeenCalledTimes(5)
+
+      for (const child of children) {
+        child.pid = undefined
+        child.emit('exit', 1)
+      }
+      await Promise.resolve()
     })
   })
 

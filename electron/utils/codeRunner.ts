@@ -1,11 +1,21 @@
-import Database from 'better-sqlite3'
 import { spawn, execFileSync, type ChildProcessWithoutNullStreams } from 'child_process'
 import { mkdirSync, writeFileSync } from 'fs'
 import { rm } from 'fs/promises'
-import { app } from 'electron'
+import { app, utilityProcess, type UtilityProcess } from 'electron'
 import { randomUUID } from 'crypto'
 import { join } from 'path'
-import { splitSqlStatements, isQueryStatement, formatRows } from './sqlUtils'
+import { splitSqlStatements, isQueryStatement } from './sqlUtils'
+import {
+  SQL_MAX_CELL_BYTES,
+  SQL_MAX_INPUT_BYTES,
+  SQL_MAX_OUTPUT_BYTES,
+  SQL_MAX_ROWS,
+  SQL_TIMEOUT_MS,
+  type SqlRunnerRequest,
+  type SqlRunnerResponse,
+  isSqlRunnerResponse,
+  validateSqlStatements,
+} from './sqlRunnerProtocol'
 
 // ---------------------------------------------------------------------------
 // Local execution guardrail constants
@@ -88,21 +98,30 @@ async function cleanupRunDir(runDir: string): Promise<void> {
   }
 }
 
-interface ProcessRunResult {
-  stdout: string
-  stderr: string
-  exitCode: number
-  timedOut?: boolean
+interface ExecutionLifecycle {
   processExited: boolean
   exited: Promise<void>
 }
 
-async function cleanupAfterProcess(
+interface ProcessRunResult extends ExecutionLifecycle {
+  stdout: string
+  stderr: string
+  exitCode: number
+  timedOut?: boolean
+}
+
+interface SqlUtilityRunResult extends ExecutionLifecycle {
+  response?: SqlRunnerResponse
+  error?: string
+  timedOut?: boolean
+}
+
+async function cleanupAfterExecution(
   runDir: string,
-  processResult: ProcessRunResult | null,
+  execution: ExecutionLifecycle | null,
 ): Promise<void> {
-  if (processResult && !processResult.processExited) {
-    void processResult.exited.then(() => cleanupRunDir(runDir))
+  if (execution && !execution.processExited) {
+    void execution.exited.then(() => cleanupRunDir(runDir))
     return
   }
   await cleanupRunDir(runDir)
@@ -192,7 +211,7 @@ async function runPython(code: string, stdin?: string): Promise<CodeRunResult> {
     )
     return toCodeRunResult(processResult, 'run')
   } finally {
-    await cleanupAfterProcess(runDir, processResult)
+    await cleanupAfterExecution(runDir, processResult)
   }
 }
 
@@ -212,7 +231,7 @@ async function runNode(code: string, stdin?: string): Promise<CodeRunResult> {
     )
     return toCodeRunResult(processResult, 'run')
   } finally {
-    await cleanupAfterProcess(runDir, processResult)
+    await cleanupAfterExecution(runDir, processResult)
   }
 }
 
@@ -243,7 +262,7 @@ async function runCFamily(
     processResult = await runProcess(outFile, [], stdin, DEFAULT_TIMEOUT, runDir)
     return toCodeRunResult(processResult, 'run')
   } finally {
-    await cleanupAfterProcess(runDir, processResult)
+    await cleanupAfterExecution(runDir, processResult)
   }
 }
 
@@ -274,45 +293,206 @@ async function runCSharp(code: string, stdin?: string): Promise<CodeRunResult> {
     processResult = await runProcess(runCommand, runArgs, stdin, DEFAULT_TIMEOUT, runDir)
     return toCodeRunResult(processResult, 'run')
   } finally {
-    await cleanupAfterProcess(runDir, processResult)
+    await cleanupAfterExecution(runDir, processResult)
   }
 }
 
-async function runSql(code: string): Promise<CodeRunResult> {
-  const db = new Database(':memory:')
-
+function forceKillUtilityProcess(child: UtilityProcess): boolean {
+  const pid = child.pid
+  if (pid === undefined) return true
   try {
-    const statements = splitSqlStatements(code)
-    if (statements.length === 0) {
-      return { stdout: '', stderr: '', exitCode: 0, stage: 'sql' }
+    process.kill(pid, 'SIGKILL')
+    return true
+  } catch {
+    return child.kill()
+  }
+}
+
+function runSqlUtility(request: SqlRunnerRequest, runDir: string): Promise<SqlUtilityRunResult> {
+  if (activeProcesses >= MAX_CONCURRENT) {
+    return Promise.resolve({
+      error: '并发执行数量已达上限，请稍后重试',
+      processExited: true,
+      exited: Promise.resolve(),
+    })
+  }
+
+  activeProcesses++
+  let resolveExited: () => void = () => undefined
+  const exited = new Promise<void>((resolve) => {
+    resolveExited = resolve
+  })
+
+  return new Promise((resolve) => {
+    let child: UtilityProcess
+    let settled = false
+    let processExited = false
+    let slotReleased = false
+    let timedOut = false
+    let killRequested: boolean | undefined
+    let fatalError: string | undefined
+    const timers: {
+      run?: NodeJS.Timeout
+      termination?: NodeJS.Timeout
+      responseExit?: NodeJS.Timeout
+    } = {}
+
+    const releaseSlot = () => {
+      if (slotReleased) return
+      slotReleased = true
+      activeProcesses--
+      resolveExited()
     }
 
-    for (const statement of statements.slice(0, -1)) {
-      db.exec(statement)
+    const settle = (result: Omit<SqlUtilityRunResult, keyof ExecutionLifecycle>) => {
+      if (settled) return
+      settled = true
+      if (timers.run) clearTimeout(timers.run)
+      if (timers.termination) clearTimeout(timers.termination)
+      resolve({ ...result, processExited, exited })
     }
 
-    const last = statements[statements.length - 1]
-    if (isQueryStatement(last)) {
-      const rows = db.prepare(last).all() as Record<string, unknown>[]
-      return {
-        stdout: formatRows(rows),
-        stderr: '',
-        exitCode: 0,
-        stage: 'sql',
+    const timeoutError = () =>
+      processExited
+        ? 'SQL 执行超时，辅助进程已终止'
+        : killRequested === false
+          ? 'SQL 执行超时，终止辅助进程失败，已停止等待'
+          : 'SQL 执行超时，未收到辅助进程退出确认，已停止等待'
+
+    const terminate = () => {
+      if (timers.termination || processExited) return
+      timers.termination = setTimeout(() => {
+        if (!processExited) killRequested = forceKillUtilityProcess(child)
+        settle({ error: timeoutError(), timedOut: true })
+      }, TERMINATION_GRACE_MS)
+      killRequested = child.kill()
+    }
+
+    const ensureExit = () => {
+      if (processExited) return
+      child.kill()
+      if (!timers.responseExit) {
+        timers.responseExit = setTimeout(() => forceKillUtilityProcess(child), 1_000)
       }
     }
 
-    db.exec(last)
-    return { stdout: '执行成功', stderr: '', exitCode: 0, stage: 'sql' }
-  } catch (error) {
+    try {
+      child = utilityProcess.fork(join(__dirname, 'sqlRunnerUtility.js'), [], {
+        cwd: runDir,
+        env: buildChildEnv(runDir) as Record<string, string>,
+        execArgv: ['--max-old-space-size=128'],
+        serviceName: 'CodeHelper SQL Runner',
+        stdio: 'ignore',
+        disclaim: true,
+      })
+    } catch (error) {
+      processExited = true
+      releaseSlot()
+      settle({ error: error instanceof Error ? error.message : String(error) })
+      return
+    }
+
+    timers.run = setTimeout(() => {
+      timedOut = true
+      terminate()
+    }, SQL_TIMEOUT_MS)
+
+    child.once('spawn', () => {
+      if (timedOut || settled) {
+        ensureExit()
+        return
+      }
+      try {
+        child.postMessage(request)
+      } catch (error) {
+        settle({ error: error instanceof Error ? error.message : String(error) })
+        ensureExit()
+      }
+    })
+
+    child.once('message', (message) => {
+      if (settled || timedOut) return
+      if (!isSqlRunnerResponse(message)) {
+        settle({ error: 'SQL 辅助进程返回了无效响应' })
+        ensureExit()
+        return
+      }
+      settle({ response: message })
+      timers.responseExit = setTimeout(() => forceKillUtilityProcess(child), 1_000)
+    })
+
+    child.on('error', (type, location) => {
+      fatalError = `SQL 辅助进程错误: ${type}${location ? ` (${location})` : ''}`
+    })
+
+    child.on('exit', (code) => {
+      processExited = true
+      if (timers.responseExit) clearTimeout(timers.responseExit)
+      releaseSlot()
+      if (timedOut) settle({ error: timeoutError(), timedOut: true })
+      else if (!settled) settle({ error: fatalError ?? `SQL 辅助进程异常退出 (${code})` })
+    })
+  })
+}
+
+async function runSql(code: string): Promise<CodeRunResult> {
+  if (Buffer.byteLength(code, 'utf8') > SQL_MAX_INPUT_BYTES) {
     return {
       stdout: '',
-      stderr: error instanceof Error ? error.message : String(error),
+      stderr: `SQL 输入不能超过 ${Math.floor(SQL_MAX_INPUT_BYTES / 1024)}KB`,
       exitCode: 1,
       stage: 'sql',
     }
+  }
+
+  const statements = splitSqlStatements(code)
+  if (statements.length === 0) {
+    return { stdout: '', stderr: '', exitCode: 0, stage: 'sql' }
+  }
+
+  const validationError = validateSqlStatements(statements)
+  if (validationError) {
+    return { stdout: '', stderr: validationError, exitCode: 1, stage: 'sql' }
+  }
+
+  const request: SqlRunnerRequest = {
+    statements,
+    queryLast: isQueryStatement(statements[statements.length - 1]),
+    maxRows: SQL_MAX_ROWS,
+    maxOutputBytes: SQL_MAX_OUTPUT_BYTES,
+    maxCellBytes: SQL_MAX_CELL_BYTES,
+  }
+  const runDir = createRunDir()
+  let utilityResult: SqlUtilityRunResult | null = null
+
+  try {
+    utilityResult = await runSqlUtility(request, runDir)
+    if (utilityResult.timedOut || utilityResult.error) {
+      const failure: CodeRunResult = {
+        stdout: '',
+        stderr: utilityResult.error ?? 'SQL 执行失败',
+        exitCode: 1,
+        stage: 'sql',
+      }
+      if (utilityResult.timedOut !== undefined) failure.timedOut = utilityResult.timedOut
+      return failure
+    }
+
+    const response = utilityResult.response
+    if (!response) {
+      return { stdout: '', stderr: 'SQL 辅助进程未返回结果', exitCode: 1, stage: 'sql' }
+    }
+    if (!response.ok) {
+      return { stdout: '', stderr: response.error, exitCode: 1, stage: 'sql' }
+    }
+    return {
+      stdout: response.stdout,
+      stderr: response.warning ?? '',
+      exitCode: 0,
+      stage: 'sql',
+    }
   } finally {
-    db.close()
+    await cleanupAfterExecution(runDir, utilityResult)
   }
 }
 

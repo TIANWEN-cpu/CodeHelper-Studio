@@ -76,6 +76,10 @@ export default defineConfig(async () => {
         rollupOptions: {
           input: {
             index: resolve(__dirname, 'electron/main.ts'),
+            sqlRunnerUtility: resolve(__dirname, 'electron/utils/sqlRunnerUtility.ts'),
+          },
+          output: {
+            entryFileNames: '[name].js',
           },
           external: ['electron', 'better-sqlite3'],
         },
