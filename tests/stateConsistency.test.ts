@@ -32,7 +32,7 @@ vi.stubGlobal('document', {
 })
 
 const { useAppStore } = await import('../src/stores/appStore')
-const { useEditorStore } = await import('../src/stores/editorStore')
+const { MAX_EDITOR_TABS, useEditorStore } = await import('../src/stores/editorStore')
 const { useChatStore } = await import('../src/stores/chatStore')
 
 const emptyRAGContext = {
@@ -149,7 +149,7 @@ describe('State consistency: editorStore', () =>
           .getState()
           .addTab({ id: `tab-${i}`, filename: `f${i}.py`, language: 'python', content: `c${i}` })
       }
-      expect(useEditorStore.getState().tabs).toHaveLength(51) // 50 + welcome
+      expect(useEditorStore.getState().tabs).toHaveLength(MAX_EDITOR_TABS)
 
       // Close all
       const allTabs = [...useEditorStore.getState().tabs]

@@ -61,7 +61,7 @@ vi.stubGlobal('localStorage', mockLocalStorage)
 // ---------------------------------------------------------------------------
 
 const { useChatStore } = await import('../src/stores/chatStore')
-const { useEditorStore } = await import('../src/stores/editorStore')
+const { MAX_EDITOR_TABS, useEditorStore } = await import('../src/stores/editorStore')
 const { useProblemStore } = await import('../src/stores/problemStore')
 const { useSettingsStore } = await import('../src/stores/settingsStore')
 const { useAppStore } = await import('../src/stores/appStore')
@@ -313,7 +313,7 @@ describe('1. Empty state tests', () => {
 
     it('setActiveTab on non-existent tab sets it anyway', () => {
       useEditorStore.getState().setActiveTab('ghost-tab')
-      expect(useEditorStore.getState().activeTabId).toBe('ghost-tab')
+      expect(useEditorStore.getState().activeTabId).toBe('welcome')
     })
 
     it('updateCursorPosition on non-existent tab does not throw', () => {
@@ -570,7 +570,7 @@ describe('2. Boundary tests', () => {
   })
 
   describe('2.3 Maximum number of tabs', () => {
-    it('adding 100 tabs works', () => {
+    it('caps the workspace at the supported number of tabs', () => {
       for (let i = 0; i < 100; i++) {
         useEditorStore.getState().addTab({
           id: `tab-${i}`,
@@ -579,10 +579,11 @@ describe('2. Boundary tests', () => {
           content: `# Tab ${i}`,
         })
       }
-      expect(useEditorStore.getState().tabs).toHaveLength(101) // 100 + welcome
+      expect(useEditorStore.getState().tabs).toHaveLength(MAX_EDITOR_TABS)
+      expect(useEditorStore.getState().persistenceError).toContain(String(MAX_EDITOR_TABS))
     })
 
-    it('adding 500 tabs works', () => {
+    it('keeps rejecting tabs after the cap without corrupting the active id', () => {
       for (let i = 0; i < 500; i++) {
         useEditorStore.getState().addTab({
           id: `tab-${i}`,
@@ -591,8 +592,8 @@ describe('2. Boundary tests', () => {
           content: `console.log(${i})`,
         })
       }
-      expect(useEditorStore.getState().tabs).toHaveLength(501)
-      expect(useEditorStore.getState().activeTabId).toBe('tab-499')
+      expect(useEditorStore.getState().tabs).toHaveLength(MAX_EDITOR_TABS)
+      expect(useEditorStore.getState().activeTabId).toBe(`tab-${MAX_EDITOR_TABS - 2}`)
     })
 
     it('closing tabs from 500 back to 0 works', () => {
@@ -646,9 +647,16 @@ describe('2. Boundary tests', () => {
         language: 'python',
         content: 'second',
       })
-      // Both are added (no dedup logic in addTab)
       const tabs = useEditorStore.getState().tabs
-      expect(tabs.filter((t) => t.id === 'dup')).toHaveLength(2)
+      expect(tabs.filter((t) => t.id === 'dup')).toEqual([
+        {
+          id: 'dup',
+          filename: 'second.py',
+          language: 'python',
+          content: 'second',
+        },
+      ])
+      expect(useEditorStore.getState().activeTabId).toBe('dup')
     })
   })
 
@@ -1288,7 +1296,7 @@ describe('4. Concurrent operation tests', () => {
       const remaining = useEditorStore
         .getState()
         .tabs.filter((t) => ids.includes(t.id) && ids.indexOf(t.id) % 2 !== 0)
-      expect(remaining).toHaveLength(25)
+      expect(remaining).toHaveLength(Math.floor((MAX_EDITOR_TABS - 1) / 2))
     })
 
     it('rapid module switching in appStore', () => {

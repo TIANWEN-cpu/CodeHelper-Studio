@@ -220,24 +220,25 @@ interface EditorTab {
   filename: string // 文件名（用于显示和语言推断）
   language: string // 编程语言（CodeMirror 语法高亮）
   content: string // 编辑器内容
-  cursorPosition?: { lineNumber: number; column: number } // 光标位置（持久化恢复用）
-  scrollTop?: number // 滚动位置（持久化恢复用）
+  cursorPosition?: { lineNumber: number; column: number } // 光标位置（Store 预留字段）
+  scrollTop?: number // 滚动位置（Store 预留字段）
 }
 ```
 
-**默认标签页：** 应用启动时包含一个 `welcome.py` 标签页，内容为示例代码。标签页状态通过 localStorage 持久化，写入时有 500ms 防抖。页面 `beforeunload` 时通过 `flushPersistTabs()` 强制同步写入。
+**默认标签页：** 应用启动时包含一个 `welcome.py` 标签页，内容为示例代码。标签页状态通过版本化 localStorage 快照（`codehelper-editor-workspace`）持久化，写入时有 500ms 防抖，同时兼容旧的 `codehelper-editor-tabs` 数组格式。页面 `pagehide` / `beforeunload` 时通过 `flushPersistTabs()` 强制同步写入。内容超过 5 MB 或存储配额不足时会保留内存内容并显示保存失败状态。工作区最多保留 50 个标签；关闭的标签会进入最近关闭列表，最多保留 10 个，可通过编辑器标签栏的恢复按钮重新打开。
 
 ### 操作 (Actions)
 
 | 操作                   | 参数                                             | 返回值 | 说明                                             |
 | ---------------------- | ------------------------------------------------ | ------ | ------------------------------------------------ |
 | `addTab`               | `tab: EditorTab`                                 | `void` | 添加新标签页并自动切换到它                       |
-| `closeTab`             | `id: string`                                     | `void` | 关闭标签页。若关闭的是当前标签，自动切换到第一个 |
-| `setActiveTab`         | `id: string`                                     | `void` | 切换到指定标签页                                 |
+| `closeTab`             | `id: string`                                     | `void` | 关闭标签页。若关闭的是当前标签，优先切换到前一个 |
+| `reopenLastClosed`     | 无                                               | `void` | 恢复最近关闭列表中的第一个标签页                 |
+| `setActiveTab`         | `id: string`                                     | `void` | 只允许切换到当前存在的标签页                     |
 | `updateContent`        | `id: string, content: string`                    | `void` | 更新指定标签页的编辑器内容                       |
-| `updateCursorPosition` | `id: string, lineNumber: number, column: number` | `void` | 更新光标位置（持久化）                           |
-| `updateScrollTop`      | `id: string, scrollTop: number`                  | `void` | 更新滚动位置（持久化）                           |
-| `restoreTabs`          | 无                                               | `void` | 从 localStorage 恢复标签页状态                   |
+| `updateCursorPosition` | `id: string, lineNumber: number, column: number` | `void` | 更新 Store 中的光标位置预留字段                  |
+| `updateScrollTop`      | `id: string, scrollTop: number`                  | `void` | 更新 Store 中的滚动位置预留字段                  |
+| `restoreTabs`          | 无                                               | `void` | 校验并从版本化 localStorage 恢复标签页状态       |
 
 **导出函数：**
 

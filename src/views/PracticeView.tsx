@@ -103,12 +103,15 @@ export function PracticeView() {
     submitting,
     submitCode,
     draftSaving,
+    draftDirty,
+    draftError,
   } = usePracticeData()
 
   // When exercise is selected, switch to detail view
   const handleSelectExercise = React.useCallback(
     async (id: string) => {
-      await selectExercise(id)
+      const selected = await selectExercise(id)
+      if (!selected) return
       recordRecent({ kind: 'exercise', id })
       setDetailTab('desc')
       setViewMode('detail')
@@ -557,6 +560,8 @@ export function PracticeView() {
                   isSubmitting: submitting,
                   submitCode,
                   draftSaving,
+                  draftDirty,
+                  draftError,
                 }
               : null
           }

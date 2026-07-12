@@ -165,6 +165,27 @@ describe('registerExercisesIPC imported problems', () => {
     })
   })
 
+  it('returns only the saved draft code', async () => {
+    const fallback = mockDB.prepare.getMockImplementation()!
+    mockDB.prepare.mockImplementation((sql: string) => {
+      if (sql.includes('SELECT code, updated_at FROM exercise_drafts')) {
+        return { get: vi.fn(() => ({ code: 'saved code', updated_at: '2026-01-01' })) }
+      }
+      return fallback(sql)
+    })
+
+    await expect(handlers['exercises-draft-get'](null, 'problem:1')).resolves.toBe('saved code')
+  })
+
+  it('rejects oversized drafts instead of silently truncating them', async () => {
+    await expect(
+      handlers['exercises-draft-save'](null, {
+        exerciseId: 'problem:1',
+        code: 'x'.repeat(100_001),
+      }),
+    ).rejects.toThrow('草稿超过 100000 字符')
+  })
+
   it('evaluates imported Python problems and records accepted submissions', async () => {
     mockRunCodeSnippet
       .mockResolvedValueOnce({ stdout: '1\n', stderr: '', exitCode: 0, stage: 'run' })
@@ -177,13 +198,26 @@ describe('registerExercisesIPC imported problems', () => {
     })) as { passed: boolean; score: number }
 
     expect(result).toEqual(expect.objectContaining({ passed: true, score: 1 }))
-    expect(writes.submissions[0]).toEqual([1, 'python', 'print(input())', 'accepted', 2, 2, expect.any(Number)])
+    expect(writes.submissions[0]).toEqual([
+      1,
+      'python',
+      'print(input())',
+      'accepted',
+      2,
+      2,
+      expect.any(Number),
+    ])
     expect(writes.mistakes).toEqual([])
     expect(writes.correctUpdates[0]).toEqual(['print(input())', 1])
   })
 
   it('records failed imported problem attempts into mistakes and review queue', async () => {
-    mockRunCodeSnippet.mockResolvedValueOnce({ stdout: '0\n', stderr: '', exitCode: 0, stage: 'run' })
+    mockRunCodeSnippet.mockResolvedValueOnce({
+      stdout: '0\n',
+      stderr: '',
+      exitCode: 0,
+      stage: 'run',
+    })
 
     const result = (await handlers['exercises-evaluate'](null, {
       exerciseId: 'problem:1',
@@ -192,7 +226,15 @@ describe('registerExercisesIPC imported problems', () => {
     })) as { passed: boolean; score: number }
 
     expect(result.passed).toBe(false)
-    expect(writes.submissions[0]).toEqual([1, 'python', 'print(0)', 'wrong_answer', 0, 2, expect.any(Number)])
+    expect(writes.submissions[0]).toEqual([
+      1,
+      'python',
+      'print(0)',
+      'wrong_answer',
+      0,
+      2,
+      expect.any(Number),
+    ])
     expect(writes.mistakes[0]).toEqual([1, 'print(0)', '["wrong_answer"]'])
     expect(writes.reviews[0]).toEqual(['1'])
   })
@@ -206,6 +248,14 @@ describe('registerExercisesIPC imported problems', () => {
 
     expect(result).toEqual(expect.objectContaining({ passed: true, score: 1 }))
     expect(mockRunCodeSnippet).not.toHaveBeenCalled()
-    expect(writes.submissions[0]).toEqual([2, 'sql', 'SELECT * FROM users;', 'accepted', 1, 1, expect.any(Number)])
+    expect(writes.submissions[0]).toEqual([
+      2,
+      'sql',
+      'SELECT * FROM users;',
+      'accepted',
+      1,
+      1,
+      expect.any(Number),
+    ])
   })
 })

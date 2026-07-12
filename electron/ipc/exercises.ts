@@ -359,7 +359,7 @@ async function evaluateProblemExercise(args: {
         status =
           result.stage === 'compile'
             ? 'compile_error'
-            : result.stderr.toLowerCase().includes('timed out')
+            : result.timedOut
               ? 'timeout'
               : 'runtime_error'
         break
@@ -500,7 +500,7 @@ export function registerExercisesIPC(): void {
         .prepare('SELECT code, updated_at FROM exercise_drafts WHERE exercise_id = ?')
         .get(exerciseId) as { code: string; updated_at: string } | undefined
 
-      return row ?? null
+      return row?.code ?? null
     }),
   )
 
@@ -514,9 +514,9 @@ export function registerExercisesIPC(): void {
         if (typeof args.exerciseId !== 'string' || !args.exerciseId.trim())
           throw new Error('参数无效: exerciseId')
         if (typeof args.code !== 'string') throw new Error('参数无效: code')
+        if (args.code.length > 100_000) throw new Error('草稿超过 100000 字符，无法保存')
 
         args.exerciseId = args.exerciseId.trim().slice(0, 200)
-        args.code = args.code.slice(0, 100_000)
         if (args.title !== undefined) {
           if (typeof args.title !== 'string') throw new Error('参数无效: title')
           args.title = args.title.trim().slice(0, 500)

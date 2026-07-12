@@ -30,6 +30,7 @@ function resetStore() {
       },
     ],
     activeTabId: 'welcome',
+    recentlyClosedTabs: [],
   })
   mockInvoke.mockReset()
 }
@@ -284,13 +285,14 @@ describe('Integration: editor flow', () => {
 
   // ---- Tab deduplication (same id) ---------------------------------------
   describe('tab id uniqueness', () => {
-    it('adding a tab with an existing id appends it (no dedup)', () => {
-      // The store does not enforce id uniqueness -- it just appends
+    it('adding a tab with an existing id replaces it and keeps one active tab', () => {
       useEditorStore
         .getState()
         .addTab({ id: 'welcome', filename: 'welcome2.py', language: 'python', content: 'second' })
       const welcomeTabs = useEditorStore.getState().tabs.filter((t) => t.id === 'welcome')
-      expect(welcomeTabs).toHaveLength(2)
+      expect(welcomeTabs).toHaveLength(1)
+      expect(welcomeTabs[0].filename).toBe('welcome2.py')
+      expect(useEditorStore.getState().activeTabId).toBe('welcome')
     })
   })
 
