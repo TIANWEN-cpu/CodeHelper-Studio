@@ -725,7 +725,7 @@ export function WorkspaceView({
                       <button
                         onClick={handleRun}
                         disabled={isRunning || !code.trim()}
-                        className="w-full bg-[var(--color-accent-primary)] hover:bg-[#4F46E5] active:scale-95 text-white py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-70 disabled:pointer-events-none"
+                        className="w-full bg-[var(--color-accent-solid)] hover:bg-[var(--color-accent-solid-hover)] active:scale-95 text-[var(--color-on-accent)] py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-70 disabled:pointer-events-none"
                       >
                         {isRunning ? (
                           <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -755,7 +755,7 @@ export function WorkspaceView({
         </AnimatePresence>
 
         {/* Status Bar */}
-        <div className="h-6 bg-[var(--color-accent-primary)] flex items-center justify-between px-3 text-[11px] text-white/90 font-medium tracking-wide z-10 shrink-0">
+        <div className="h-6 bg-[var(--color-accent-solid)] flex items-center justify-between px-3 text-[11px] text-[var(--color-on-accent)] font-medium tracking-wide z-10 shrink-0">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1">
               <X size={12} className="text-white" />{' '}

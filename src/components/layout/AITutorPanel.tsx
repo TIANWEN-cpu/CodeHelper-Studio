@@ -887,7 +887,7 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
                     className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}
                   >
                     {msg.role === 'user' ? (
-                      <div className="bg-[var(--color-accent-primary)] text-white px-4 py-2.5 rounded-2xl rounded-tr-sm max-w-[85%] text-sm leading-relaxed shadow-sm">
+                      <div className="bg-[var(--color-accent-solid)] text-[var(--color-on-accent)] px-4 py-2.5 rounded-2xl rounded-tr-sm max-w-[85%] text-sm leading-relaxed shadow-sm">
                         {msg.content}
                       </div>
                     ) : (
@@ -1021,7 +1021,7 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
                 className={cn(
                   'w-8 h-8 flex items-center justify-center rounded-lg transition-all shadow-sm',
                   inputValue.trim() && !streaming
-                    ? 'bg-[var(--color-accent-primary)] hover:bg-[#4F46E5] active:scale-90 text-white'
+                    ? 'bg-[var(--color-accent-solid)] hover:bg-[var(--color-accent-solid-hover)] active:scale-90 text-[var(--color-on-accent)]'
                     : 'bg-[var(--color-bg-card)] text-[var(--color-text-muted)] cursor-not-allowed',
                 )}
                 title="发送 (Enter)"

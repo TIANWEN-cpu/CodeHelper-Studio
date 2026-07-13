@@ -560,7 +560,7 @@ export function ProfileView() {
         <div className="flex items-center justify-center">
           <button
             onClick={() => setCurrentView('learn')}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[var(--color-accent-primary)] to-[var(--color-accent-purple)] hover:from-[#4F46E5] hover:to-[#7C3AED] text-white text-sm font-medium transition-all shadow-md hover:shadow-[0_0_15px_rgba(139,92,246,0.4)]"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[var(--color-accent-solid)] to-[var(--color-accent-secondary-solid)] hover:from-[var(--color-accent-solid-hover)] hover:to-[var(--color-accent-secondary-solid-hover)] text-[var(--color-on-accent)] text-sm font-medium transition-all shadow-md hover:shadow-[0_0_15px_rgba(139,92,246,0.4)]"
           >
             继续学习
             <ChevronRight size={16} />

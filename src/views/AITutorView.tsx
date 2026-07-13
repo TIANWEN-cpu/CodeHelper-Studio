@@ -621,7 +621,7 @@ export function AITutorView() {
                           className={cn(
                             'max-w-[86%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm',
                             message.role === 'user'
-                              ? 'rounded-tr-sm bg-[var(--color-accent-primary)] text-white'
+                              ? 'rounded-tr-sm bg-[var(--color-accent-solid)] text-[var(--color-on-accent)]'
                               : 'rounded-tl-sm border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] text-[#E5E7EB]',
                           )}
                         >
@@ -684,7 +684,7 @@ export function AITutorView() {
                       type="button"
                       onClick={() => handleSend()}
                       disabled={!inputValue.trim() || streaming}
-                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-accent-primary)] text-white transition-colors hover:bg-[#4F46E5] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-card)] disabled:text-[var(--color-text-muted)]"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-accent-solid)] text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-solid-hover)] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-card)] disabled:text-[var(--color-text-muted)]"
                       title="发送"
                     >
                       {streaming ? (
@@ -744,7 +744,7 @@ export function AITutorView() {
                     type="button"
                     onClick={() => handleSend()}
                     disabled={!inputValue.trim() || streaming}
-                    className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-primary)] px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-[var(--color-bg-hover)] disabled:text-[var(--color-text-muted)]"
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-solid)] px-4 py-2 text-sm font-medium text-[var(--color-on-accent)] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-hover)] disabled:text-[var(--color-text-muted)]"
                   >
                     <GraduationCap size={16} />
                     开始辅导
@@ -928,7 +928,7 @@ export function AITutorView() {
                                         data-agent-approve-tool={approval.toolId}
                                         onClick={() => handleApproveAgentRun(latestAgentRun.id)}
                                         disabled={streaming}
-                                        className="rounded-lg bg-[var(--color-accent-primary)] px-3 py-1.5 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                        className="rounded-lg bg-[var(--color-accent-solid)] px-3 py-1.5 text-xs font-medium text-[var(--color-on-accent)] disabled:cursor-not-allowed disabled:opacity-50"
                                       >
                                         批准并继续
                                       </button>
@@ -980,7 +980,7 @@ export function AITutorView() {
                     type="button"
                     onClick={handleAgentRun}
                     disabled={!agentGoal.trim() || streaming || Boolean(activeAgentRun)}
-                    className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-primary)] px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-[var(--color-bg-hover)] disabled:text-[var(--color-text-muted)]"
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-solid)] px-4 py-2 text-sm font-medium text-[var(--color-on-accent)] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-hover)] disabled:text-[var(--color-text-muted)]"
                   >
                     {activeAgentRun?.status === 'needsApproval' ? (
                       <ShieldCheck size={16} />
@@ -1033,7 +1033,7 @@ export function AITutorView() {
                     type="button"
                     onClick={() => createSession(undefined, '新对话')}
                     disabled={streaming}
-                    className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-primary)] px-3 py-2 text-xs font-medium text-white disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-solid)] px-3 py-2 text-xs font-medium text-[var(--color-on-accent)] disabled:opacity-50"
                   >
                     <Plus size={14} />
                     新建

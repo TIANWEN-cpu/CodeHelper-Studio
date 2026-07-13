@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect } from 'react'
-import { motion } from 'motion/react'
+import { MotionConfig, motion } from 'motion/react'
 import { Sidebar } from './components/layout/Sidebar'
 import { Header } from './components/layout/Header'
 import { AITutorPanel } from './components/layout/AITutorPanel'
@@ -56,8 +56,28 @@ const ViewLoader = () => (
   </div>
 )
 
+function useAppReducedMotion(): boolean {
+  const [reduced, setReduced] = React.useState(
+    () =>
+      typeof document !== 'undefined' &&
+      document.documentElement.getAttribute('data-reduce-motion') === 'true',
+  )
+
+  useEffect(() => {
+    const root = document.documentElement
+    const sync = () => setReduced(root.getAttribute('data-reduce-motion') === 'true')
+    const observer = new MutationObserver(sync)
+    observer.observe(root, { attributes: true, attributeFilter: ['data-reduce-motion'] })
+    sync()
+    return () => observer.disconnect()
+  }, [])
+
+  return reduced
+}
+
 function App() {
   const { currentView, showAITutor, setShowAITutor } = useAppStore()
+  const reducedMotion = useAppReducedMotion()
 
   // Alt+1..8 快速切换主视图（与侧边栏顺序一致）。
   useViewShortcuts()
@@ -138,29 +158,31 @@ function App() {
   const hideHeader = currentView === 'workspace' || currentView === 'practice'
 
   return (
-    <div className="app-shell flex h-screen w-full text-[var(--color-text-primary)] overflow-hidden font-sans">
-      <div className="app-ambient-layer" aria-hidden="true" />
-      <Sidebar />
+    <MotionConfig reducedMotion={reducedMotion ? 'always' : 'user'}>
+      <div className="app-shell flex h-screen w-full text-[var(--color-text-primary)] overflow-hidden font-sans">
+        <div className="app-ambient-layer" aria-hidden="true" />
+        <Sidebar />
 
-      <div className="relative z-10 flex-1 flex flex-col min-w-0">
-        {!hideHeader && <Header />}
-        <main className="app-main flex-1 overflow-hidden relative">
-          <motion.div
-            key={currentView}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="w-full h-full flex flex-col pt-1"
-          >
-            {renderView()}
-          </motion.div>
-        </main>
+        <div className="relative z-10 flex-1 flex flex-col min-w-0">
+          {!hideHeader && <Header />}
+          <main className="app-main flex-1 overflow-hidden relative">
+            <motion.div
+              key={currentView}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.22, ease: [0.22, 0.61, 0.36, 1] }}
+              className="w-full h-full flex flex-col pt-1"
+            >
+              {renderView()}
+            </motion.div>
+          </main>
+        </div>
+
+        {showAITutor && <AITutorPanel onClose={() => setShowAITutor(false)} />}
+        <AIPet />
+        <ToastContainer />
       </div>
-
-      {showAITutor && <AITutorPanel onClose={() => setShowAITutor(false)} />}
-      <AIPet />
-      <ToastContainer />
-    </div>
+    </MotionConfig>
   )
 }
 

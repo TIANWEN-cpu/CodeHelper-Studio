@@ -39,8 +39,21 @@ const KIND_LABELS: Record<CommandResult['kind'], string> = {
   knowledge: '知识',
 }
 
+const VIEW_LABELS: Record<ViewType, string> = {
+  home: '首页概览',
+  learn: '课程学习',
+  practice: '题库练习',
+  workspace: '编程工作区',
+  'ai-tutor': 'AI 助手',
+  review: '复习与错题',
+  knowledge: '知识库',
+  settings: '设置',
+  profile: '个人中心',
+}
+
 export function Header() {
   const setCurrentView = useAppStore((s) => s.setCurrentView)
+  const currentView = useAppStore((s) => s.currentView)
   const theme = useAppStore((s) => s.theme)
   const toggleTheme = useAppStore((s) => s.toggleTheme)
 
@@ -261,15 +274,15 @@ export function Header() {
   }
 
   return (
-    <header className="h-16 flex-shrink-0 flex items-center gap-4 px-6 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]/80 backdrop-blur-md z-30 relative text-[var(--color-text-primary)]">
-      <div className="hidden w-[220px] min-w-0 items-center gap-2 text-sm text-[var(--color-text-muted)] xl:flex">
-        <Sparkles size={15} className="text-[var(--color-accent-purple)]" />
-        <span className="truncate">CodeHelper Studio</span>
+    <header className="app-header h-16 flex-shrink-0 flex items-center gap-3 px-5 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]/80 backdrop-blur-md z-30 relative text-[var(--color-text-primary)] lg:px-6">
+      <div className="hidden w-[170px] min-w-0 items-center gap-2 text-sm text-[var(--color-text-secondary)] xl:flex">
+        <Sparkles size={15} className="text-[var(--color-accent-primary)]" />
+        <span className="truncate font-medium">{VIEW_LABELS[currentView]}</span>
       </div>
 
       {/* Center / Quick switcher */}
       <div className="flex min-w-0 flex-1 items-center justify-start">
-        <div className="relative group w-full max-w-[420px] transition-all duration-200 focus-within:max-w-[460px]">
+        <div className="relative group w-full max-w-[460px]">
           <Command
             size={16}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] group-focus-within:text-[var(--color-accent-primary)] group-hover:text-[var(--color-text-secondary)] transition-colors"
@@ -300,15 +313,15 @@ export function Header() {
         {/* Workspace terminal shortcut */}
         <button
           onClick={() => setCurrentView('workspace')}
-          className="hidden h-9 items-center gap-2 whitespace-nowrap rounded-lg border border-[var(--color-border-subtle)] px-3 text-sm text-[var(--color-text-secondary)] transition-all hover:bg-[var(--color-bg-hover)] active:scale-95 md:flex"
+          aria-label="打开工作区终端"
+          className="hidden h-9 w-9 items-center justify-center rounded-lg border border-[var(--color-border-subtle)] text-[var(--color-text-secondary)] transition-all hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)] active:scale-95 md:flex"
           title="打开工作区终端"
         >
-          <Terminal size={14} />
-          <span>终端</span>
+          <Terminal size={16} />
         </button>
 
         {/* AI Model Switcher */}
-        <div ref={modelMenuRef} className="relative">
+        <div ref={modelMenuRef} className="relative hidden min-[721px]:block">
           <button
             onClick={toggleModelMenu}
             title={currentModelConfig ? '切换当前 AI 模型' : '前往设置配置 AI 模型'}
@@ -426,11 +439,12 @@ export function Header() {
           </AnimatePresence>
         </div>
 
-        <div className="w-px h-6 bg-[var(--color-border-subtle)] mx-0.5" />
+        <div className="hidden h-6 w-px bg-[var(--color-border-subtle)] mx-0.5 min-[721px]:block" />
 
         {/* Icons */}
         <button
           onClick={() => setCurrentView('review')}
+          aria-label={dueCount > 0 ? `${dueCount} 个待复习` : '打开复习'}
           className="relative p-2 text-[var(--color-text-secondary)] hover:text-white hover:bg-[var(--color-bg-hover)] active:scale-95 rounded-md transition-all"
           title={dueCount > 0 ? `${dueCount} 个待复习` : '复习'}
         >
@@ -443,6 +457,7 @@ export function Header() {
         </button>
         <button
           onClick={toggleTheme}
+          aria-label={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
           className="p-2 text-[var(--color-text-secondary)] hover:text-white hover:bg-[var(--color-bg-hover)] active:scale-95 rounded-md transition-all"
           title={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
         >

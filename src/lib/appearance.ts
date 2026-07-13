@@ -14,6 +14,7 @@
 // ============================================================
 
 import { getSetting, setSetting } from '../services/settingsService'
+import { createSerialTaskQueue } from './serialTaskQueue'
 export type ThemeMode = 'dark' | 'light'
 export type VisualTheme =
   | 'codex'
@@ -27,10 +28,12 @@ export type BackgroundStyle = 'soft' | 'aurora' | 'grid' | 'none'
 export type AnimationLevel = 'calm' | 'balanced' | 'expressive'
 export type GlassStyle = 'frosted' | 'layered'
 
+export const DEFAULT_ACCENT_COLOR = '#2FB7A5'
+
 export interface Appearance {
   theme: ThemeMode
   followSystem: boolean
-  themeColor: string // accent 主题色，如 "#6366F1"
+  themeColor: string // accent 主题色，如 "#2FB7A5"
   uiScale: string // 如 "100%"
   fontSize: number // px，范围 12–24，14 为中性基准
   reduceMotion: boolean
@@ -47,7 +50,7 @@ export interface Appearance {
 export const DEFAULT_APPEARANCE: Appearance = {
   theme: 'dark',
   followSystem: false,
-  themeColor: '#6366F1',
+  themeColor: DEFAULT_ACCENT_COLOR,
   uiScale: '100%',
   fontSize: 14,
   reduceMotion: false,
@@ -63,6 +66,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
 
 const APPEARANCE_ALIGNMENT_KEY = 'appearance_light_theme_alignment_v1'
 const APPEARANCE_ALIGNMENT_DONE = 'done'
+const appearanceWriteQueue = createSerialTaskQueue()
 
 // ---- 颜色工具：按百分比提亮(正)/加深(负) ----
 export function clamp255(n: number): number {
@@ -105,8 +109,6 @@ export function applyTheme(theme: ThemeMode): void {
 }
 
 // 默认招牌靛色：选它时回到 @theme 原始的"靛(primary)→紫(purple)"双色，不做内联覆盖。
-const DEFAULT_ACCENT = '#6366f1'
-
 export function applyThemeColor(color: string): void {
   if (typeof document === 'undefined') return
   const root = document.documentElement
@@ -122,7 +124,7 @@ export function applyThemeColor(color: string): void {
     return
   }
   const c = raw.startsWith('#') ? raw : `#${raw}`
-  if (c.toLowerCase() === DEFAULT_ACCENT) {
+  if (c.toLowerCase() === DEFAULT_ACCENT_COLOR.toLowerCase()) {
     clearAccent()
     return
   }
@@ -332,9 +334,13 @@ export async function loadAppearance(): Promise<Appearance> {
   }
 }
 
-/** 持久化单个外观 key（与设置页 save 同一通道）。 */
-export function persistAppearance(key: string, value: string): void {
-  setSetting(key, value).catch(() => {})
+/** Persist appearance and layout settings through one ordered queue. */
+export function persistAppearance(key: string, value: string): Promise<void> {
+  return appearanceWriteQueue.enqueue(() => setSetting(key, value))
+}
+
+export function flushAppearanceWrites(): Promise<void> {
+  return appearanceWriteQueue.drain()
 }
 
 /** 监听系统主题变化（仅在"跟随系统"开启时使用）。返回取消函数。 */

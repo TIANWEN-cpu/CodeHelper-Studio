@@ -284,7 +284,7 @@ export function PracticeView() {
                           className={cn(
                             'flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-all',
                             trackFilter === 'ai-tutor'
-                              ? 'border-[var(--color-accent-purple)] bg-gradient-to-r from-[var(--color-accent-primary)] to-[var(--color-accent-purple)] text-white shadow-lg shadow-[var(--color-accent-purple)]/20'
+                              ? 'border-[var(--color-accent-secondary-solid)] bg-gradient-to-r from-[var(--color-accent-solid)] to-[var(--color-accent-secondary-solid)] text-[var(--color-on-accent)] shadow-lg shadow-[var(--color-accent-purple)]/20'
                               : 'border-[var(--color-accent-purple)]/40 bg-[var(--color-accent-purple)]/10 text-[var(--color-accent-purple)] hover:bg-[var(--color-accent-purple)]/16',
                           )}
                           aria-pressed={trackFilter === 'ai-tutor'}

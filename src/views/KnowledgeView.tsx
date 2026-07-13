@@ -509,7 +509,7 @@ export function KnowledgeView() {
             <button
               onClick={() => void upload()}
               disabled={uploading}
-              className="bg-[var(--color-accent-purple)] hover:bg-[#7C3AED] text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1 disabled:opacity-50"
+              className="bg-[var(--color-accent-secondary-solid)] hover:bg-[var(--color-accent-secondary-solid-hover)] text-[var(--color-on-accent)] px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1 disabled:opacity-50"
             >
               <Upload size={14} /> {uploading ? '上传中...' : '上传文档'}
             </button>
@@ -714,7 +714,7 @@ export function KnowledgeView() {
                     className="group w-full rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] p-3 text-left transition-colors hover:border-[var(--color-accent-purple)]/45 hover:bg-[var(--color-bg-hover)]"
                   >
                     <div className="flex items-start gap-3">
-                      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--color-accent-purple)] text-white">
+                      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--color-accent-secondary-solid)] text-[var(--color-on-accent)]">
                         <FileText size={18} />
                       </div>
                       <div className="min-w-0 flex-1">

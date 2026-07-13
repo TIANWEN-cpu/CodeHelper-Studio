@@ -16,7 +16,7 @@ import {
   Loader2,
   Route,
   Target,
-  WandSparkles,
+  CalendarDays,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion } from 'motion/react'
@@ -198,15 +198,15 @@ function heroModeFromView(view: ViewType): HeroWorkbenchMode {
 }
 
 const pageMotion = {
-  initial: { opacity: 0, y: 10 },
+  initial: { opacity: 0, y: 6 },
   animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.36, ease: 'easeOut' as const },
+  transition: { duration: 0.28, ease: [0.22, 0.61, 0.36, 1] as const },
 }
 
 const cardMotion = {
-  initial: { opacity: 0, y: 14 },
+  initial: { opacity: 0, y: 8 },
   animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.42, ease: 'easeOut' as const },
+  transition: { duration: 0.3, ease: [0.22, 0.61, 0.36, 1] as const },
 }
 
 /** 能力成长面积图：先用 ResizeObserver 测得容器宽度，再以固定像素尺寸渲染。
@@ -545,12 +545,17 @@ export function HomeView() {
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-3 py-1.5">
-              <WandSparkles size={13} className="text-[var(--color-accent-purple)]" />
-              视觉体验已升级
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-2.5 py-1.5">
+              <CalendarDays size={13} className="text-[var(--color-accent-primary)]" />
+              {formatDate(new Date(), dateRegion, {
+                month: 'long',
+                day: 'numeric',
+                weekday: 'long',
+              })}
             </span>
-            <span className="hidden sm:inline-flex rounded-full border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-3 py-1.5">
-              课程 + 练习联动
+            <span className="hidden items-center gap-1.5 rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-2.5 py-1.5 sm:inline-flex">
+              <Flame size={13} className="text-[#F59E0B]" />
+              {streak > 0 ? `连续学习 ${streak} 天` : `今日 ${todayActivities.length} 条记录`}
             </span>
           </div>
         </div>
@@ -563,7 +568,7 @@ export function HomeView() {
             data-active-mode={activeHeroMode}
             data-active-view={activeHeroPanel.view}
             data-has-review={reviewReminders.length > 0}
-            className="home-hero-card lg:col-span-2 xl:col-span-4 min-h-[340px] rounded-2xl border border-[var(--color-border-subtle)] hover:border-[var(--color-accent-primary)]/40 p-5 md:p-6 relative overflow-hidden shadow-sm transition-all group"
+            className="home-hero-card lg:col-span-2 xl:col-span-4 min-h-[340px] rounded-xl border border-[var(--color-border-subtle)] hover:border-[var(--color-accent-primary)]/40 p-5 md:p-6 relative overflow-hidden shadow-sm transition-all group"
           >
             <div className="absolute inset-0 opacity-[0.1] bg-[linear-gradient(135deg,transparent_0,transparent_24px,rgba(255,255,255,0.8)_25px,transparent_26px)] bg-[length:36px_36px] pointer-events-none"></div>
             <div className="home-hero-scanline pointer-events-none"></div>
@@ -582,7 +587,7 @@ export function HomeView() {
                       {nextActionSubtitle}
                     </p>
                   </div>
-                  <div className="hidden sm:flex w-16 h-16 rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]/70 items-center justify-center shrink-0">
+                  <div className="hidden sm:flex w-14 h-14 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]/70 items-center justify-center shrink-0">
                     <Route
                       size={34}
                       className="text-[var(--color-accent-purple)] drop-shadow-[0_0_14px_rgba(139,92,246,0.35)]"
@@ -598,8 +603,8 @@ export function HomeView() {
                       <motion.button
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.05 * index, duration: 0.28 }}
-                        whileHover={{ y: -2 }}
+                        transition={{ delay: 0.04 * index, duration: 0.22 }}
+                        whileHover={{ y: -1 }}
                         whileTap={{ scale: 0.98 }}
                         key={step.title}
                         data-home-hero-step={step.view}
@@ -611,7 +616,7 @@ export function HomeView() {
                         onMouseLeave={() => setActiveHeroMode(heroModeFromView(nextActionView))}
                         onBlur={() => setActiveHeroMode(heroModeFromView(nextActionView))}
                         onClick={() => setCurrentView(step.view)}
-                        className="home-action-step flex items-center gap-3 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]/70 p-3 text-left hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-hover)] transition-colors group/step"
+                        className="home-action-step flex items-center gap-3 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]/70 p-3 text-left hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-hover)] transition-colors group/step"
                       >
                         <div
                           className={cn(
@@ -643,7 +648,7 @@ export function HomeView() {
                 <div className="home-hero-footer flex items-center justify-between mt-auto pt-6">
                   <button
                     onClick={() => setCurrentView(nextActionView)}
-                    className="relative overflow-hidden bg-gradient-to-r from-[var(--color-accent-primary)] to-[var(--color-accent-purple)] hover:from-[#4F46E5] hover:to-[#7C3AED] text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-all shadow-md flex items-center gap-2 hover:gap-3 group/btn hover:shadow-[0_0_15px_rgba(139,92,246,0.4)] hover:scale-105 active:scale-95"
+                    className="relative overflow-hidden bg-[var(--color-accent-solid)] hover:bg-[var(--color-accent-solid-hover)] text-[var(--color-on-accent)] px-5 py-2.5 rounded-lg text-sm font-medium transition-all shadow-md flex items-center gap-2 hover:gap-3 group/btn hover:shadow-[0_10px_24px_color-mix(in_srgb,var(--color-accent-primary)_24%,transparent)] active:scale-[0.98]"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:animate-shimmer z-0 pointer-events-none"></div>
                     <span className="relative z-10">{nextActionLabel}</span>
@@ -905,64 +910,66 @@ export function HomeView() {
                 title: '继续课程',
                 subtitle: '从上次位置继续',
                 icon: BookOpen,
-                color: 'from-[var(--color-accent-primary)] to-[var(--color-accent-purple)]',
-                textColor: 'text-white',
-                bg: 'bg-gradient-to-br',
+                iconClass:
+                  'text-[var(--color-accent-primary)] border-[var(--color-accent-primary)]/25 bg-[var(--color-accent-primary)]/10',
+                accentClass: 'text-[var(--color-accent-primary)]',
                 view: 'learn',
               },
               {
                 title: '继续刷题',
                 subtitle: '从未完成题目',
                 icon: FileCode,
-                color: 'from-[#10B981] to-[#059669]',
-                textColor: 'text-white',
-                bg: 'bg-gradient-to-br',
+                iconClass: 'text-[#10B981] border-[#10B981]/25 bg-[#10B981]/10',
+                accentClass: 'text-[#10B981]',
                 view: 'practice',
               },
               {
                 title: '打开工作区',
                 subtitle: '编写代码',
                 icon: FolderCode,
-                color: 'from-[#3B82F6] to-[#2563EB]',
-                textColor: 'text-white',
-                bg: 'bg-gradient-to-br',
+                iconClass: 'text-[#3B82F6] border-[#3B82F6]/25 bg-[#3B82F6]/10',
+                accentClass: 'text-[#3B82F6]',
                 view: 'workspace',
               },
               {
                 title: '错题本',
                 subtitle: '复习薄弱点',
                 icon: RotateCcw,
-                color: 'from-[#F59E0B] to-[#D97706]',
-                textColor: 'text-white',
-                bg: 'bg-gradient-to-br',
+                iconClass: 'text-[#F59E0B] border-[#F59E0B]/25 bg-[#F59E0B]/10',
+                accentClass: 'text-[#F59E0B]',
                 view: 'review',
               },
             ] as const
           ).map((item, i) => (
             <motion.button
-              whileHover={{ y: -4, scale: 1.02 }}
+              whileHover={{ y: -2 }}
               whileTap={{ scale: 0.98 }}
               key={i}
               onClick={() => setCurrentView(item.view)}
               className={cn(
-                'quick-action-card relative overflow-hidden rounded-2xl border border-[var(--color-border-subtle)] p-5 text-left group shadow-sm hover:shadow-[0_8px_30px_rgba(0,0,0,0.12)] transition-shadow',
-                item.bg,
-                item.color,
+                'quick-action-card surface-card relative overflow-hidden rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] p-5 text-left group shadow-sm hover:bg-[var(--color-bg-hover)]',
               )}
             >
-              <div className="absolute right-0 bottom-0 opacity-10 group-hover:opacity-20 transition-opacity transform translate-x-1/4 translate-y-1/4">
+              <div
+                className={cn(
+                  'absolute right-0 bottom-0 opacity-[0.06] group-hover:opacity-10 transition-opacity transform translate-x-1/4 translate-y-1/4',
+                  item.accentClass,
+                )}
+              >
                 <item.icon size={80} />
               </div>
               <div
                 className={cn(
-                  'w-10 h-10 rounded-xl flex items-center justify-center mb-4 bg-white/20 backdrop-blur-md border border-white/10 group-hover:bg-white/30 transition-colors',
-                  item.textColor,
+                  'w-10 h-10 rounded-lg flex items-center justify-center mb-4 border transition-colors',
+                  item.iconClass,
                 )}
               >
                 <item.icon size={20} />
               </div>
-              <h3 className={cn('font-bold text-base mb-1', item.textColor)}>{item.title}</h3>
-              <p className={cn('text-xs opacity-80', item.textColor)}>{item.subtitle}</p>
+              <h3 className="font-semibold text-sm text-[var(--color-text-primary)] mb-1">
+                {item.title}
+              </h3>
+              <p className="text-xs text-[var(--color-text-muted)]">{item.subtitle}</p>
             </motion.button>
           ))}
         </motion.div>

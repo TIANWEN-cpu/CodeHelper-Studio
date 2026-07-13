@@ -198,7 +198,9 @@ export function MemorySettings() {
           onClick={toggleLlm}
           className={cn(
             'shrink-0 relative w-11 h-6 rounded-full transition-colors',
-            llmExtract ? 'bg-[var(--color-accent-purple)]' : 'bg-[var(--color-border-subtle)]',
+            llmExtract
+              ? 'bg-[var(--color-accent-secondary-solid)]'
+              : 'bg-[var(--color-border-subtle)]',
           )}
           aria-pressed={llmExtract}
           aria-label="智能记忆抽取开关"
@@ -239,7 +241,7 @@ export function MemorySettings() {
           <button
             onClick={addMemory}
             disabled={busy || !newContent.trim()}
-            className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-[var(--color-accent-purple)] px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-[var(--color-accent-secondary-solid)] px-3 py-2 text-sm font-medium text-[var(--color-on-accent)] disabled:opacity-50"
           >
             <Plus size={15} /> 添加
           </button>

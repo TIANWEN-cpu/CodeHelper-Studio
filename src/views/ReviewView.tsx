@@ -719,7 +719,7 @@ export function ReviewView() {
                 <button
                   onClick={handleRedoPractice}
                   disabled={!selected}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-[var(--color-accent-purple)] hover:bg-[#7C3AED] text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-40"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-[var(--color-accent-secondary-solid)] hover:bg-[var(--color-accent-secondary-solid-hover)] text-[var(--color-on-accent)] rounded-lg text-sm font-medium transition-colors disabled:opacity-40"
                 >
                   <Play size={14} /> 重新练习
                 </button>

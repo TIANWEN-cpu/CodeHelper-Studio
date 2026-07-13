@@ -34,6 +34,7 @@ import {
   type CodexPetDefinition,
 } from '../lib/pets'
 import {
+  DEFAULT_ACCENT_COLOR,
   applyThemeColor,
   applyScale,
   applyFontSize,
@@ -42,6 +43,8 @@ import {
   applyGlassBlur,
   applyHighContrast,
   applyTheme,
+  flushAppearanceWrites,
+  persistAppearance,
   resolveTheme,
   type AnimationLevel,
   type BackgroundStyle,
@@ -84,7 +87,7 @@ const VISUAL_THEMES: Array<{
     id: 'codex',
     label: '深空专注',
     desc: '靛紫科技感，适合长时间编码',
-    swatches: ['#6366F1', '#8B5CF6', '#22D3EE'],
+    swatches: [DEFAULT_ACCENT_COLOR, '#8587F2', '#22D3EE'],
   },
   {
     id: 'aurora',
@@ -155,7 +158,7 @@ function ToggleSwitch({ active, onToggle }: { active: boolean; onToggle: () => v
       onClick={onToggle}
       className={cn(
         'w-10 h-6 rounded-full relative flex items-center shrink-0 transition-colors',
-        active ? 'bg-[var(--color-accent-purple)]' : 'bg-[#3A405A]',
+        active ? 'bg-[var(--color-accent-secondary-solid)]' : 'bg-[#3A405A]',
       )}
     >
       <div
@@ -327,7 +330,7 @@ async function fileToCompactAvatarDataUrl(file: File): Promise<string> {
 // ---- Component ----
 
 export function SettingsView() {
-  const { getSetting, setSetting, platformInfo, exportData, importData } = useSettingsData()
+  const { getSetting, platformInfo, exportData, importData } = useSettingsData()
 
   // 主题(dark/light)由全局 store 统一管理，使侧边栏/Header/设置页三处同步。
   const theme = useAppStore((s) => s.theme)
@@ -401,7 +404,7 @@ export function SettingsView() {
 
   // ---- Appearance ----
   // 默认招牌靛色：与 @theme 的 --color-accent-primary 一致；选它时 applyThemeColor 回退原始靛→紫双色。
-  const [themeColor, setThemeColor] = React.useState('#6366F1')
+  const [themeColor, setThemeColor] = React.useState(DEFAULT_ACCENT_COLOR)
   const [followSystem, setFollowSystem] = React.useState(false)
 
   // ---- Code / Display ----
@@ -534,12 +537,13 @@ export function SettingsView() {
   }, [refreshPets])
 
   // ---- Persist helper ----
-  const save = React.useCallback(
-    (key: string, value: string) => {
-      setSetting(key, value).catch(() => {})
-    },
-    [setSetting],
-  )
+  const save = React.useCallback((key: string, value: string) => {
+    return persistAppearance(key, value)
+  }, [])
+
+  const flushSettingsWrites = React.useCallback(async () => {
+    await flushAppearanceWrites()
+  }, [])
 
   // ---- Constants ----
   const tabs = [
@@ -551,7 +555,15 @@ export function SettingsView() {
     { id: 'about', label: '关于', icon: Info },
   ]
 
-  const themeColors = ['#6366F1', '#8B5CF6', '#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#EC4899']
+  const themeColors = [
+    DEFAULT_ACCENT_COLOR,
+    '#8B5CF6',
+    '#10B981',
+    '#3B82F6',
+    '#F59E0B',
+    '#EF4444',
+    '#EC4899',
+  ]
 
   const scaleOptions = ['90%', '100%', '110%', '125%', '150%']
 
@@ -608,7 +620,7 @@ export function SettingsView() {
 
   const handleResetDefaults = () => {
     setTheme('dark')
-    setThemeColor('#6366F1')
+    setThemeColor(DEFAULT_ACCENT_COLOR)
     setFollowSystem(false)
     setUiScale('100%')
     setFontSize(14)
@@ -632,7 +644,7 @@ export function SettingsView() {
 
     const defaults: Record<string, string> = {
       theme_mode: 'dark',
-      theme_color: '#6366F1',
+      theme_color: DEFAULT_ACCENT_COLOR,
       follow_system: 'false',
       ui_scale: '100%',
       font_size: '14',
@@ -652,7 +664,7 @@ export function SettingsView() {
     }
     Object.entries(defaults).forEach(([k, v]) => save(k, v))
     // 立即把默认外观应用到 DOM
-    applyThemeColor('#6366F1')
+    applyThemeColor(DEFAULT_ACCENT_COLOR)
     applyScale('100%')
     applyFontSize(14)
     applyReduceMotion(false)
@@ -668,6 +680,7 @@ export function SettingsView() {
     setSettingsSaveStatus({ kind: 'loading', message: '正在保存账户资料...' })
     try {
       await waitForSaveFeedbackFrame()
+      await flushSettingsWrites()
       await saveUserProfile({ name, avatar })
       setProfileName(name)
       setProfileAvatar(avatar)
@@ -686,7 +699,7 @@ export function SettingsView() {
       })
       setSettingsSaveStatus({ kind: 'error', message })
     }
-  }, [profileAvatar, profileName])
+  }, [flushSettingsWrites, profileAvatar, profileName])
 
   const handleAvatarFileChange = React.useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -748,20 +761,8 @@ export function SettingsView() {
     setSettingsSaveStatus({ kind: 'loading', message: '正在保存设置...' })
     try {
       await waitForSaveFeedbackFrame()
-      // 各项已即时持久化并应用；此处再整体重应用一次，作为"保存"的明确反馈。
-      applyTheme(followSystem ? resolveTheme(theme, true) : theme)
-      applyThemeColor(themeColor)
-      applyScale(uiScale)
-      applyFontSize(fontSize)
-      applyReduceMotion(reduceMotion)
-      applyGlassEffect(glassEffect)
-      applyHighContrast(highContrast)
-      setVisualTheme(visualTheme)
-      setBackgroundStyle(backgroundStyle)
-      setAnimationLevel(animationLevel)
-      setGlassStyle(glassStyle)
-      setGlassBlur(glassBlur)
-      setAIPetEnabled(aiPetEnabled)
+      await flushSettingsWrites()
+      // Controls apply immediately; a successful drain means every change made while saving is durable.
       clearIpcCache()
       window.dispatchEvent(new Event('codehelper:settings-saved'))
       setSettingsSaveStatus({ kind: 'success', message: '设置已保存。' })
@@ -1031,7 +1032,7 @@ export function SettingsView() {
                     onClick={handleSaveProfile}
                     disabled={profileActionStatus.kind === 'loading'}
                     className={cn(
-                      'inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-purple)] px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:bg-[#7C3AED] disabled:cursor-not-allowed disabled:opacity-60',
+                      'inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-secondary-solid)] px-4 py-2 text-sm font-medium text-[var(--color-on-accent)] shadow-sm transition-all hover:bg-[var(--color-accent-secondary-solid-hover)] disabled:cursor-not-allowed disabled:opacity-60',
                       profileActionStatus.kind === 'success' &&
                         'scale-[1.02] ring-2 ring-emerald-400/35',
                     )}
@@ -1260,7 +1261,7 @@ export function SettingsView() {
                             className={cn(
                               'flex-1 rounded-md px-2 py-2 text-xs font-medium transition-colors',
                               animationLevel === item.id
-                                ? 'bg-[var(--color-accent-purple)] text-white shadow-sm'
+                                ? 'bg-[var(--color-accent-secondary-solid)] text-[var(--color-on-accent)] shadow-sm'
                                 : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]',
                             )}
                             title={item.desc}
@@ -1335,7 +1336,7 @@ export function SettingsView() {
                           type="button"
                           onClick={handleInstallPetSlug}
                           disabled={petActionStatus.kind === 'loading'}
-                          className="rounded-lg bg-[var(--color-accent-purple)] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#7C3AED] disabled:opacity-60"
+                          className="rounded-lg bg-[var(--color-accent-secondary-solid)] px-3 py-2 text-xs font-semibold text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-secondary-solid-hover)] disabled:opacity-60"
                         >
                           安装
                         </button>
@@ -1408,7 +1409,7 @@ export function SettingsView() {
                         <p className="text-[10px] text-[var(--color-text-muted)]">护眼舒适</p>
                       </div>
                       {theme === 'dark' && (
-                        <div className="absolute top-2 right-2 w-5 h-5 bg-[var(--color-accent-purple)] rounded-full flex items-center justify-center text-white">
+                        <div className="absolute top-2 right-2 w-5 h-5 bg-[var(--color-accent-secondary-solid)] rounded-full flex items-center justify-center text-[var(--color-on-accent)]">
                           <Check size={12} />
                         </div>
                       )}
@@ -1433,7 +1434,7 @@ export function SettingsView() {
                         <p className="text-[10px] text-[var(--color-text-muted)]">清爽明亮</p>
                       </div>
                       {theme === 'light' && (
-                        <div className="absolute top-2 right-2 w-5 h-5 bg-[var(--color-accent-purple)] rounded-full flex items-center justify-center text-white">
+                        <div className="absolute top-2 right-2 w-5 h-5 bg-[var(--color-accent-secondary-solid)] rounded-full flex items-center justify-center text-[var(--color-on-accent)]">
                           <Check size={12} />
                         </div>
                       )}
@@ -1492,7 +1493,7 @@ export function SettingsView() {
                         className={cn(
                           'flex-1 py-1.5 text-xs font-medium rounded-md transition-colors',
                           weekStart === val
-                            ? 'bg-[var(--color-accent-purple)] text-white shadow-sm'
+                            ? 'bg-[var(--color-accent-secondary-solid)] text-[var(--color-on-accent)] shadow-sm'
                             : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]',
                         )}
                       >
@@ -1556,7 +1557,7 @@ export function SettingsView() {
                         className={cn(
                           'flex-1 py-1.5 text-xs font-medium rounded-md transition-colors',
                           uiScale === scale
-                            ? 'bg-[var(--color-accent-purple)] text-white shadow-sm'
+                            ? 'bg-[var(--color-accent-secondary-solid)] text-[var(--color-on-accent)] shadow-sm'
                             : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]',
                         )}
                       >
@@ -1912,7 +1913,7 @@ export function SettingsView() {
               onClick={handleSave}
               disabled={settingsSaveStatus.kind === 'loading'}
               className={cn(
-                'bg-[var(--color-accent-purple)] hover:bg-[#7C3AED] text-white px-6 py-2 rounded-lg text-sm font-medium transition-all shadow-sm flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-70',
+                'bg-[var(--color-accent-secondary-solid)] hover:bg-[var(--color-accent-secondary-solid-hover)] text-[var(--color-on-accent)] px-6 py-2 rounded-lg text-sm font-medium transition-all shadow-sm flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-70',
                 settingsSaveStatus.kind === 'success' && 'scale-[1.03] ring-2 ring-emerald-400/35',
               )}
             >

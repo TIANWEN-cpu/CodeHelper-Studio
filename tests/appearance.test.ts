@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import {
   resolveTheme,
   DEFAULT_APPEARANCE,
+  DEFAULT_ACCENT_COLOR,
   shade,
   clamp255,
   type ThemeMode,
@@ -34,6 +35,18 @@ describe('DEFAULT_APPEARANCE', () => {
     expect(DEFAULT_APPEARANCE).toHaveProperty('visualTheme')
     expect(DEFAULT_APPEARANCE).toHaveProperty('backgroundStyle')
     expect(DEFAULT_APPEARANCE).toHaveProperty('animationLevel')
+  })
+
+  it('keeps the persisted default accent aligned with the CSS default', () => {
+    expect(DEFAULT_APPEARANCE.themeColor).toBe(DEFAULT_ACCENT_COLOR)
+    expect(DEFAULT_ACCENT_COLOR).toBe('#2FB7A5')
+  })
+
+  it('keeps the worst-case solid accent mix readable against white text', () => {
+    const channel = 0.45
+    const linear = channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+    const contrast = 1.05 / (linear + 0.05)
+    expect(contrast).toBeGreaterThanOrEqual(4.5)
   })
 })
 

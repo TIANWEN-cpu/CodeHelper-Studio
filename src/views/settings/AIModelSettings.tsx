@@ -499,7 +499,7 @@ export function AIModelSettings() {
             <button
               onClick={handleSave}
               disabled={!canSave}
-              className="bg-[var(--color-accent-purple)] hover:bg-[#7C3AED] disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              className="bg-[var(--color-accent-secondary-solid)] hover:bg-[var(--color-accent-secondary-solid-hover)] disabled:opacity-50 disabled:cursor-not-allowed text-[var(--color-on-accent)] px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
             >
               {saving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
               {editingId != null ? '更新' : '添加'}
