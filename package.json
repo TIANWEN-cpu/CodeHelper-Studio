@@ -25,6 +25,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,json,css}\" \"electron/**/*.ts\"",
     "test": "vitest run",
     "test:electron-drafts": "node scripts/run-electron-draft-test.cjs",
+    "test:electron-workspace": "node scripts/run-editor-workspace-electron-test.cjs",
     "test:electron-sql": "electron-vite build && electron tests/electronSqlUtilitySmoke.cjs",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",

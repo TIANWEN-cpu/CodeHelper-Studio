@@ -149,6 +149,10 @@ jobs:
         if: matrix.platform == 'win'
         run: npm run test:electron-drafts
 
+      - name: Verify editor workspaces in Electron
+        if: matrix.platform == 'win'
+        run: npm run test:electron-workspace
+
       - name: Build renderer & main
         run: npm run build
 

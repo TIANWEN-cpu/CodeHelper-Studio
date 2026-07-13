@@ -17,6 +17,7 @@ import { registerHomeHandlers } from './ipc/home'
 import { registerPetsIPC } from './ipc/pets'
 import { registerResourcePackIPC } from './ipc/resourcePack'
 import { registerLearningRecordsIPC } from './ipc/learningRecords'
+import { registerEditorWorkspaceIPC } from './ipc/editorWorkspace'
 import { logIpcStatsSummary, getIpcStats } from './utils/perfMonitor'
 import { registerIpcHandler, rateLimitMiddleware } from './utils/middleware'
 import { buildContentSecurityPolicy } from './utils/contentSecurityPolicy'
@@ -463,6 +464,12 @@ function registerDeferredIPC(): void {
     console.log('[IPC] Registered: learning records handlers')
   } catch (e) {
     startupError('registerLearningRecordsIPC', e)
+  }
+  try {
+    registerEditorWorkspaceIPC()
+    console.log('[IPC] Registered: editor workspace handlers')
+  } catch (e) {
+    startupError('registerEditorWorkspaceIPC', e)
   }
   startupLog('All deferred IPC handlers registered')
 }

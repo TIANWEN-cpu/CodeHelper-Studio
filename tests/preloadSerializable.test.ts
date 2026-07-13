@@ -110,6 +110,22 @@ describe('IPC 通道白名单', () => {
     expect(allowedEventChannels.has('ai-chat-done')).toBe(true)
   })
 
+  it('工作区持久化通道只通过显式白名单暴露', () => {
+    const workspaceChannels = [
+      'editor-workspace-load',
+      'editor-tab-save',
+      'editor-tab-update-view-state',
+      'editor-tab-close',
+      'editor-tab-reopen',
+      'editor-tab-delete',
+      'editor-workspace-set-active',
+    ]
+    for (const channel of workspaceChannels) {
+      expect(allowedInvokeChannels.has(channel)).toBe(true)
+    }
+    expect(allowedEventChannels.has('editor-workspace-changed')).toBe(true)
+  })
+
   it('白名单非空', () => {
     expect(allowedInvokeChannels.size).toBeGreaterThan(10)
     expect(allowedEventChannels.size).toBeGreaterThanOrEqual(2)

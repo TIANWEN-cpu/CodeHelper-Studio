@@ -106,7 +106,7 @@ jobs:
           retention-days: 14
 
   electron-draft-test:
-    name: Electron Draft Persistence
+    name: Electron Persistence
     runs-on: windows-latest
     needs: lint-format-typecheck
     steps:
@@ -122,6 +122,9 @@ jobs:
 
       - name: Verify exercise drafts in Electron
         run: npm run test:electron-drafts
+
+      - name: Verify editor workspaces in Electron
+        run: npm run test:electron-workspace
 
   # ---------------------------------------------------------------
   # 4. Bundle size check
