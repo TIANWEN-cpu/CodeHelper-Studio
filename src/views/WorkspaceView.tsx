@@ -122,6 +122,8 @@ export function WorkspaceView({
   const setActiveTab = useEditorStore((state) => state.setActiveTab)
   const updateTab = useEditorStore((state) => state.updateTab)
   const updateContent = useEditorStore((state) => state.updateContent)
+  const updateCursorPosition = useEditorStore((state) => state.updateCursorPosition)
+  const updateScrollTop = useEditorStore((state) => state.updateScrollTop)
   const restoreTabs = useEditorStore((state) => state.restoreTabs)
   const recentlyClosedTabs = useEditorStore((state) => state.recentlyClosedTabs)
   const reopenLastClosed = useEditorStore((state) => state.reopenLastClosed)
@@ -145,6 +147,20 @@ export function WorkspaceView({
       })
     },
     [activeTab, activeTabId, updateTab],
+  )
+  const handleCursorPositionChange = useCallback(
+    ({ lineNumber, column }: { lineNumber: number; column: number }) => {
+      if (!isExerciseMode && activeTabId) {
+        updateCursorPosition(activeTabId, lineNumber, column)
+      }
+    },
+    [activeTabId, isExerciseMode, updateCursorPosition],
+  )
+  const handleScrollTopChange = useCallback(
+    (nextScrollTop: number) => {
+      if (!isExerciseMode && activeTabId) updateScrollTop(activeTabId, nextScrollTop)
+    },
+    [activeTabId, isExerciseMode, updateScrollTop],
   )
 
   const code = exerciseContext?.code ?? workspaceCode
@@ -469,11 +485,16 @@ export function WorkspaceView({
         {/* Editor：CodeMirror 语法高亮，含行号；code_theme 驱动配色，Ctrl/Cmd+Enter 运行 */}
         <div className="flex-1 overflow-hidden relative">
           <CodeEditor
+            key={executionScopeId}
             value={code}
             onChange={setCode}
             language={language}
             themeId={codeTheme}
             onRun={handleRun}
+            initialCursorPosition={isExerciseMode ? undefined : activeTab?.cursorPosition}
+            initialScrollTop={isExerciseMode ? 0 : (activeTab?.scrollTop ?? 0)}
+            onCursorPositionChange={isExerciseMode ? undefined : handleCursorPositionChange}
+            onScrollTopChange={isExerciseMode ? undefined : handleScrollTopChange}
           />
         </div>
 

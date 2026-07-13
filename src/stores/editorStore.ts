@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { normalizeEditorCursorPosition, type EditorCursorPosition } from '@/utils/editorViewState'
 
 export type EditorTab = {
   id: string
@@ -6,7 +7,7 @@ export type EditorTab = {
   language: string
   content: string
   problemId?: string
-  cursorPosition?: { lineNumber: number; column: number }
+  cursorPosition?: EditorCursorPosition
   scrollTop?: number
 }
 
@@ -69,17 +70,14 @@ function normalizeTab(value: unknown): EditorTab | null {
   if (typeof raw.id !== 'string' || !raw.id.trim()) return null
   if (typeof raw.filename !== 'string' || typeof raw.language !== 'string') return null
   if (typeof raw.content !== 'string' || raw.content.length > MAX_CONTENT_LENGTH) return null
+  const cursorPosition = normalizeEditorCursorPosition(raw.cursorPosition)
   return {
     id: raw.id.trim().slice(0, 200),
     filename: raw.filename.slice(0, MAX_FILENAME_LENGTH),
     language: raw.language.slice(0, 40),
     content: raw.content,
     ...(typeof raw.problemId === 'string' ? { problemId: raw.problemId.slice(0, 200) } : {}),
-    ...(raw.cursorPosition &&
-    Number.isInteger(raw.cursorPosition.lineNumber) &&
-    Number.isInteger(raw.cursorPosition.column)
-      ? { cursorPosition: raw.cursorPosition }
-      : {}),
+    ...(cursorPosition ? { cursorPosition } : {}),
     ...(typeof raw.scrollTop === 'number' && Number.isFinite(raw.scrollTop)
       ? { scrollTop: Math.max(0, raw.scrollTop) }
       : {}),
@@ -258,17 +256,31 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   setCursorPosition: (cursorPosition) => set({ cursorPosition }),
   setScrollTop: (scrollTop) => set({ scrollTop }),
   updateCursorPosition: (id, lineNumber, column) => {
+    const cursorPosition = normalizeEditorCursorPosition({ lineNumber, column })
+    if (!cursorPosition) return
+    const current = get().tabs.find((tab) => tab.id === id)?.cursorPosition
+    if (
+      !get().tabs.some((tab) => tab.id === id) ||
+      (current?.lineNumber === cursorPosition.lineNumber &&
+        current.column === cursorPosition.column)
+    ) {
+      return
+    }
     set((state) => ({
-      tabs: state.tabs.map((tab) =>
-        tab.id === id ? { ...tab, cursorPosition: { lineNumber, column } } : tab,
-      ),
+      tabs: state.tabs.map((tab) => (tab.id === id ? { ...tab, cursorPosition } : tab)),
       dirty: true,
     }))
     schedulePersistTabs()
   },
   updateScrollTop: (id, scrollTop) => {
+    if (!Number.isFinite(scrollTop)) return
+    const normalizedScrollTop = Math.max(0, scrollTop)
+    const current = get().tabs.find((tab) => tab.id === id)
+    if (!current || current.scrollTop === normalizedScrollTop) return
     set((state) => ({
-      tabs: state.tabs.map((tab) => (tab.id === id ? { ...tab, scrollTop } : tab)),
+      tabs: state.tabs.map((tab) =>
+        tab.id === id ? { ...tab, scrollTop: normalizedScrollTop } : tab,
+      ),
       dirty: true,
     }))
     schedulePersistTabs()

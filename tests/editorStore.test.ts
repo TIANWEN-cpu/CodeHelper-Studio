@@ -212,6 +212,8 @@ describe('editorStore', () => {
       useEditorStore
         .getState()
         .addTab({ id: 'second', filename: 'second.py', language: 'python', content: 'saved' })
+      useEditorStore.getState().updateCursorPosition('second', 8, 4)
+      useEditorStore.getState().updateScrollTop('second', 320)
       flushPersistTabs()
 
       resetStore()
@@ -220,7 +222,25 @@ describe('editorStore', () => {
       expect(values.has(EDITOR_STORAGE_KEY)).toBe(true)
       expect(useEditorStore.getState().activeTabId).toBe('second')
       expect(useEditorStore.getState().tabs[1].content).toBe('saved')
+      expect(useEditorStore.getState().tabs[1].cursorPosition).toEqual({
+        lineNumber: 8,
+        column: 4,
+      })
+      expect(useEditorStore.getState().tabs[1].scrollTop).toBe(320)
       expect(useEditorStore.getState().hydrated).toBe(true)
+    })
+
+    it('normalizes invalid viewport state and ignores updates for missing tabs', () => {
+      useEditorStore.getState().updateCursorPosition('welcome', 0, -5)
+      useEditorStore.getState().updateScrollTop('welcome', -100)
+      useEditorStore.getState().updateCursorPosition('missing', 9, 9)
+      useEditorStore.getState().updateScrollTop('missing', 900)
+
+      expect(useEditorStore.getState().tabs[0]).toMatchObject({
+        cursorPosition: { lineNumber: 1, column: 1 },
+        scrollTop: 0,
+      })
+      expect(useEditorStore.getState().tabs).toHaveLength(1)
     })
 
     it('ignores duplicate and malformed tabs during restore', () => {

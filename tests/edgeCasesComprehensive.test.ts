@@ -733,11 +733,11 @@ describe('2. Boundary tests', () => {
       expect(parsed[0].nan).toBeNull()
     })
 
-    it('editor cursor at line 0, column 0', () => {
+    it('normalizes editor cursor coordinates to CodeMirror one-based positions', () => {
       useEditorStore.getState().updateCursorPosition('welcome', 0, 0)
       expect(useEditorStore.getState().tabs[0].cursorPosition).toEqual({
-        lineNumber: 0,
-        column: 0,
+        lineNumber: 1,
+        column: 1,
       })
     })
 
