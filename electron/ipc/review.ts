@@ -225,12 +225,11 @@ export function registerReviewIPC(): void {
           .get(today) as { cnt: number }
       ).cnt
 
-      const totalScheduled = (
-        db.prepare('SELECT COUNT(*) AS cnt FROM review_schedule').get() as { cnt: number }
+      const mastered = (
+        db.prepare('SELECT COUNT(*) AS cnt FROM review_schedule WHERE repetitions >= 3').get() as {
+          cnt: number
+        }
       ).cnt
-
-      // "mastered" = scheduled items that are NOT currently due
-      const mastered = totalScheduled - dueToday
 
       return {
         totalDue: dueToday,

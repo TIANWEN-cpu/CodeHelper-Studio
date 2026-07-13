@@ -166,14 +166,16 @@ export function registerProblemsIPC(): void {
 
           const result = await runCodeSnippet(args.code, args.language, tc.input)
           const actual = result.stdout.trim()
-          const passed = normalizeOutput(actual) === normalizeOutput(String(tc.expected))
+          const passed =
+            result.exitCode === 0 &&
+            normalizeOutput(actual) === normalizeOutput(String(tc.expected))
           results.push({ input: tc.input, expected: tc.expected, actual, passed })
 
           if (result.exitCode !== 0) {
             status =
               result.stage === 'compile'
                 ? 'compile_error'
-                : result.stderr.toLowerCase().includes('timed out')
+                : result.timedOut
                   ? 'timeout'
                   : 'runtime_error'
             break
@@ -187,9 +189,6 @@ export function registerProblemsIPC(): void {
 
         const duration = Date.now() - startTime
         const passedCount = results.filter((r) => r.passed).length
-        if (passedCount === testCases.length) {
-          status = 'accepted'
-        }
 
         // Record submission
         getDB()

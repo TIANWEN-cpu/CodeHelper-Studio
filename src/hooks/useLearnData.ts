@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import {
   Track,
   LessonProgress,
@@ -72,6 +72,8 @@ export function useLearnData(): UseLearnDataReturn {
   // Search state
   const [searchResults, setSearchResults] = useState<string[]>([])
   const [searching, setSearching] = useState(false)
+  const lessonRequestId = useRef(0)
+  const searchRequestId = useRef(0)
 
   // ---- Actions ----
 
@@ -89,6 +91,7 @@ export function useLearnData(): UseLearnDataReturn {
   }, [])
 
   const selectLesson = useCallback(async (lessonId: string, trackId?: string) => {
+    const requestId = ++lessonRequestId.current
     setLoadingLesson(true)
     setError(null)
     try {
@@ -103,17 +106,20 @@ export function useLearnData(): UseLearnDataReturn {
         progress = progressList.find((p) => p.lesson_id === lessonId) ?? null
       }
 
-      setCurrentLesson({
-        lessonId,
-        markdown: content.markdown,
-        title: content.title,
-        progress,
-        note,
-      })
+      if (lessonRequestId.current === requestId) {
+        setCurrentLesson({
+          lessonId,
+          markdown: content.markdown,
+          title: content.title,
+          progress,
+          note,
+        })
+      }
     } catch (err) {
+      if (lessonRequestId.current !== requestId) return
       setError(err instanceof Error ? err.message : '加载课程内容失败')
     } finally {
-      setLoadingLesson(false)
+      if (lessonRequestId.current === requestId) setLoadingLesson(false)
     }
   }, [])
 
@@ -179,19 +185,22 @@ export function useLearnData(): UseLearnDataReturn {
   }, [])
 
   const search = useCallback(async (query: string) => {
+    const requestId = ++searchRequestId.current
     if (!query.trim()) {
       setSearchResults([])
+      setSearching(false)
       return
     }
     setSearching(true)
     setError(null)
     try {
       const results = await searchLessons(query)
-      setSearchResults(results)
+      if (searchRequestId.current === requestId) setSearchResults(results)
     } catch (err) {
+      if (searchRequestId.current !== requestId) return
       setError(err instanceof Error ? err.message : '搜索失败')
     } finally {
-      setSearching(false)
+      if (searchRequestId.current === requestId) setSearching(false)
     }
   }, [])
 

@@ -328,14 +328,20 @@ describe('export IPC', () => {
       )
 
       const mockRun = vi.fn()
+      const mutationSql: string[] = []
       mockDB.prepare.mockImplementation((sql: string) => {
         if (sql.includes('PRAGMA table_info')) {
-          return makeStmt([{ name: 'key' }, { name: 'value' }])
+          return makeStmt([
+            { name: 'key', notnull: 1, dflt_value: null, pk: 1 },
+            { name: 'value', notnull: 0, dflt_value: null, pk: 0 },
+            { name: 'scope', notnull: 1, dflt_value: "'global'", pk: 0 },
+          ])
         }
         if (sql.includes('SELECT 1 FROM')) {
           return makeStmt({}) // existing record
         }
         if (sql.includes('UPDATE')) {
+          mutationSql.push(sql)
           return { get: vi.fn(), all: vi.fn(), run: mockRun }
         }
         return makeStmt(undefined)
@@ -348,10 +354,13 @@ describe('export IPC', () => {
 
       expect(result.success).toBe(true)
       expect(result.imported.settings).toBe(1)
-      expect(mockRun).toHaveBeenCalled()
+      expect(mutationSql).toHaveLength(1)
+      expect(mutationSql[0]).toContain('UPDATE settings SET value = ? WHERE key = ?')
+      expect(mutationSql[0]).not.toContain('scope')
+      expect(mockRun).toHaveBeenCalledWith('dark', 'theme')
     })
 
-    it('overwrites existing records with overwrite resolution', async () => {
+    it('overwrites existing records in place without deleting related data', async () => {
       readSpy.mockReturnValueOnce(
         JSON.stringify({
           version: 1,
@@ -361,17 +370,20 @@ describe('export IPC', () => {
       )
 
       const mockRun = vi.fn()
+      const mutationSql: string[] = []
       mockDB.prepare.mockImplementation((sql: string) => {
         if (sql.includes('PRAGMA table_info')) {
-          return makeStmt([{ name: 'key' }, { name: 'value' }])
+          return makeStmt([
+            { name: 'key', notnull: 1, dflt_value: null, pk: 1 },
+            { name: 'value', notnull: 0, dflt_value: null, pk: 0 },
+            { name: 'scope', notnull: 1, dflt_value: "'global'", pk: 0 },
+          ])
         }
         if (sql.includes('SELECT 1 FROM')) {
           return makeStmt({}) // existing record
         }
-        if (sql.includes('DELETE FROM')) {
-          return { get: vi.fn(), all: vi.fn(), run: mockRun }
-        }
-        if (sql.includes('INSERT INTO')) {
+        if (sql.includes('UPDATE') || sql.includes('DELETE FROM') || sql.includes('INSERT INTO')) {
+          mutationSql.push(sql)
           return { get: vi.fn(), all: vi.fn(), run: mockRun }
         }
         return makeStmt(undefined)
@@ -384,6 +396,42 @@ describe('export IPC', () => {
 
       expect(result.success).toBe(true)
       expect(result.imported.settings).toBe(1)
+      expect(mutationSql).toHaveLength(1)
+      expect(mutationSql[0]).toContain(
+        "UPDATE settings SET value = ?, scope = 'global' WHERE key = ?",
+      )
+      expect(mockRun).toHaveBeenCalledWith('dark', 'theme')
+    })
+
+    it('rejects an overwrite that omits a required column without a default', async () => {
+      readSpy.mockReturnValueOnce(
+        JSON.stringify({
+          version: 1,
+          exportedAt: '2024-01-01',
+          settings: [{ key: 'theme' }],
+        }),
+      )
+
+      mockDB.prepare.mockImplementation((sql: string) => {
+        if (sql.includes('PRAGMA table_info')) {
+          return makeStmt([
+            { name: 'key', notnull: 1, dflt_value: null, pk: 1 },
+            { name: 'value', notnull: 1, dflt_value: null, pk: 0 },
+          ])
+        }
+        if (sql.includes('SELECT 1 FROM')) return makeStmt({})
+        return makeStmt(undefined)
+      })
+
+      const result = await handlers['import-data-from-path'](null, '/tmp/data.json', {
+        conflictResolution: 'overwrite',
+        selectedData: ['settings'],
+      })
+
+      expect(result.success).toBe(false)
+      expect(result.imported.settings).toBe(0)
+      expect(result.skipped.settings).toBe(1)
+      expect(result.errors[0]).toContain('missing required column "value"')
     })
 
     it('defaults to skip resolution when options not provided', async () => {

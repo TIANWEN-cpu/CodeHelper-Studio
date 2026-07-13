@@ -90,7 +90,7 @@ export const useProblemStore = create<ProblemStore>((set, get) => ({
     set({ submitting: true, submitResult: null })
     try {
       const submitResult = await typedInvoke<SubmitResult>('problems-submit', {
-        id,
+        problemId: id,
         code,
         language,
       })

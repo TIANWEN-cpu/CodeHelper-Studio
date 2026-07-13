@@ -103,13 +103,27 @@ describe('registerMistakesIPC', () => {
   })
 
   it('mistakes-list calls DB', async () => {
-    const mockRows = [{ id: 1, problem_id: 1, title: 'Test' }]
+    const mockRows = [
+      {
+        id: 1,
+        problem_id: 1,
+        problem_title: 'Test',
+        tags: '["array"]',
+        error_types: '["wrong_answer"]',
+      },
+    ]
     setupDB({ mistakes: mockRows })
     const { registerMistakesIPC } = await import('../electron/ipc/mistakes')
     registerMistakesIPC()
 
     const result = handlers['mistakes-list']()
-    expect(result).toEqual(mockRows)
+    expect(result).toEqual([
+      expect.objectContaining({
+        problem_title: 'Test',
+        tags: ['array'],
+        error_types: ['wrong_answer'],
+      }),
+    ])
   })
 
   it('mistakes-get validates id', async () => {
@@ -122,13 +136,24 @@ describe('registerMistakesIPC', () => {
   })
 
   it('mistakes-get returns mistake by id', async () => {
-    const mockMistake = { id: 1, problem_id: 1, title: 'Test', description: 'Desc' }
+    const mockMistake = {
+      id: 1,
+      problem_id: 1,
+      problem_title: 'Test',
+      description: 'Desc',
+      tags: '[]',
+      error_types: '["runtime_error"]',
+    }
     setupDB({ mistakes: mockMistake })
     const { registerMistakesIPC } = await import('../electron/ipc/mistakes')
     registerMistakesIPC()
 
     const result = handlers['mistakes-get'](null, 1)
-    expect(result).toEqual(mockMistake)
+    expect(result).toEqual({
+      ...mockMistake,
+      tags: [],
+      error_types: ['runtime_error'],
+    })
   })
 
   it('mistakes-update-analysis validates inputs', async () => {

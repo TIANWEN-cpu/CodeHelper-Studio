@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import {
   Mistake,
   MistakeDetail,
@@ -38,12 +38,12 @@ export interface UseReviewDataReturn {
   // Current mistake detail
   currentMistake: MistakeDetail | null
   isLoadingDetail: boolean
-  selectMistake: (id: string) => Promise<void>
+  selectMistake: (id: number) => Promise<void>
   clearMistake: () => void
 
   // Mutation
-  updateAnalysis: (id: string, text: string) => Promise<void>
-  deleteMistake: (id: string) => Promise<void>
+  updateAnalysis: (id: number, text: string) => Promise<void>
+  deleteMistake: (id: number) => Promise<void>
 
   // Review schedule
   dueReviews: ReviewItem[]
@@ -94,6 +94,7 @@ export function useReviewData(): UseReviewDataReturn {
 
   // Shared error
   const [error, setError] = useState<string | null>(null)
+  const detailRequestId = useRef(0)
 
   const clearError = useCallback(() => setError(null), [])
 
@@ -114,26 +115,29 @@ export function useReviewData(): UseReviewDataReturn {
 
   // ---- Select / clear detail ----
 
-  const selectMistake = useCallback(async (id: string) => {
+  const selectMistake = useCallback(async (id: number) => {
+    const requestId = ++detailRequestId.current
     setIsLoadingDetail(true)
     setError(null)
     try {
       const detail = await getMistake(id)
-      setCurrentMistake(detail)
+      if (detailRequestId.current === requestId) setCurrentMistake(detail)
     } catch (err) {
+      if (detailRequestId.current !== requestId) return
       setError(err instanceof Error ? err.message : '加载错题详情失败')
     } finally {
-      setIsLoadingDetail(false)
+      if (detailRequestId.current === requestId) setIsLoadingDetail(false)
     }
   }, [])
 
   const clearMistake = useCallback(() => {
+    detailRequestId.current++
     setCurrentMistake(null)
   }, [])
 
   // ---- Mutations ----
 
-  const handleUpdateAnalysis = useCallback(async (id: string, text: string) => {
+  const handleUpdateAnalysis = useCallback(async (id: number, text: string) => {
     setError(null)
     try {
       await updateAnalysisService(id, text)
@@ -144,7 +148,7 @@ export function useReviewData(): UseReviewDataReturn {
     }
   }, [])
 
-  const handleDeleteMistake = useCallback(async (id: string) => {
+  const handleDeleteMistake = useCallback(async (id: number) => {
     setError(null)
     try {
       await deleteMistakeService(id)

@@ -56,6 +56,13 @@ interface ImportResult {
   errors: string[]
 }
 
+interface TableColumnInfo {
+  name: string
+  notnull: number
+  dflt_value: string | null
+  pk: number
+}
+
 // Map from category to its table and unique key
 const TABLE_META: Record<
   ExportCategory,
@@ -152,8 +159,49 @@ function importCategory(
   const errors: string[] = []
 
   // Get column names for the table
-  const columns = db.prepare(`PRAGMA table_info(${meta.table})`).all() as Array<{ name: string }>
+  const columns = db.prepare(`PRAGMA table_info(${meta.table})`).all() as TableColumnInfo[]
   const validColumns = new Set(columns.map((c) => c.name))
+
+  const updateExisting = (
+    filteredRow: Record<string, unknown>,
+    keyName: string,
+    keyValue: unknown,
+    overwrite: boolean,
+  ) => {
+    const immutableColumns = new Set([
+      keyName,
+      ...columns.filter((column) => column.pk > 0).map((column) => column.name),
+    ])
+    const updateColumns = overwrite
+      ? columns.filter((column) => !immutableColumns.has(column.name))
+      : columns.filter(
+          (column) =>
+            !immutableColumns.has(column.name) &&
+            Object.prototype.hasOwnProperty.call(filteredRow, column.name),
+        )
+
+    if (updateColumns.length === 0) return
+
+    const values: unknown[] = []
+    const assignments = updateColumns.map((column) => {
+      if (Object.prototype.hasOwnProperty.call(filteredRow, column.name)) {
+        values.push(filteredRow[column.name])
+        return `${column.name} = ?`
+      }
+      if (column.dflt_value !== null && column.dflt_value !== undefined) {
+        return `${column.name} = ${column.dflt_value}`
+      }
+      if (column.notnull) {
+        throw new Error(`cannot overwrite missing required column "${column.name}"`)
+      }
+      return `${column.name} = NULL`
+    })
+
+    db.prepare(`UPDATE ${meta.table} SET ${assignments.join(', ')} WHERE ${keyName} = ?`).run(
+      ...values,
+      keyValue,
+    )
+  }
 
   for (const row of rows) {
     try {
@@ -186,22 +234,11 @@ function importCategory(
           if (conflictResolution === 'skip') {
             skipped++
             continue
-          } else if (conflictResolution === 'merge') {
-            // For merge, update non-key fields
-            const updateCols = colNames.filter((c) => c !== meta.key)
-            if (updateCols.length > 0) {
-              const setClauses = updateCols.map((c) => `${c} = ?`).join(', ')
-              const values = updateCols.map((c) => filteredRow[c])
-              db.prepare(`UPDATE ${meta.table} SET ${setClauses} WHERE ${meta.key} = ?`).run(
-                ...values,
-                keyVal,
-              )
-            }
+          } else if (conflictResolution === 'merge' || conflictResolution === 'overwrite') {
+            updateExisting(filteredRow, meta.key, keyVal, conflictResolution === 'overwrite')
             imported++
             continue
           }
-          // overwrite: delete then insert
-          db.prepare(`DELETE FROM ${meta.table} WHERE ${meta.key} = ?`).run(keyVal)
         }
       }
 
@@ -215,21 +252,11 @@ function importCategory(
             if (conflictResolution === 'skip') {
               skipped++
               continue
-            } else if (conflictResolution === 'merge') {
-              const updateCols = colNames.filter((c) => c !== 'id')
-              if (updateCols.length > 0) {
-                const setClauses = updateCols.map((c) => `${c} = ?`).join(', ')
-                const values = updateCols.map((c) => filteredRow[c])
-                db.prepare(`UPDATE ${meta.table} SET ${setClauses} WHERE id = ?`).run(
-                  ...values,
-                  existingId,
-                )
-              }
+            } else if (conflictResolution === 'merge' || conflictResolution === 'overwrite') {
+              updateExisting(filteredRow, 'id', existingId, conflictResolution === 'overwrite')
               imported++
               continue
             }
-            // overwrite
-            db.prepare(`DELETE FROM ${meta.table} WHERE id = ?`).run(existingId)
           }
         }
       }

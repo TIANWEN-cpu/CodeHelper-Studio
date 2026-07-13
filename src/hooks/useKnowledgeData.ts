@@ -35,16 +35,20 @@ export function useKnowledgeData(): UseKnowledgeDataReturn {
   const [selectedDocument, setSelectedDocument] = useState<KnowledgeDocDetail | null>(null)
   const [loadingDocument, setLoadingDocument] = useState(false)
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loadingDocuments, setLoadingDocuments] = useState(false)
+  const [searching, setSearching] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [importingResourcePack, setImportingResourcePack] = useState(false)
   const [lastResourcePackImport, setLastResourcePackImport] =
     useState<ResourcePackImportResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const detailRequestId = useRef(0)
+  const searchRequestId = useRef(0)
+  const loading = loadingDocuments || searching || deleting
 
   const loadDocuments = useCallback(async () => {
-    setLoading(true)
+    setLoadingDocuments(true)
     setError(null)
     try {
       const docs = await getDocuments()
@@ -52,24 +56,27 @@ export function useKnowledgeData(): UseKnowledgeDataReturn {
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载文档列表失败')
     } finally {
-      setLoading(false)
+      setLoadingDocuments(false)
     }
   }, [])
 
   const search = useCallback(async (query: string) => {
+    const requestId = ++searchRequestId.current
     if (!query.trim()) {
       setSearchResults([])
+      setSearching(false)
       return
     }
-    setLoading(true)
+    setSearching(true)
     setError(null)
     try {
       const results = await searchDocuments(query)
-      setSearchResults(results)
+      if (searchRequestId.current === requestId) setSearchResults(results)
     } catch (err) {
+      if (searchRequestId.current !== requestId) return
       setError(err instanceof Error ? err.message : '搜索失败')
     } finally {
-      setLoading(false)
+      if (searchRequestId.current === requestId) setSearching(false)
     }
   }, [])
 
@@ -126,7 +133,7 @@ export function useKnowledgeData(): UseKnowledgeDataReturn {
 
   const handleDelete = useCallback(
     async (id: number) => {
-      setLoading(true)
+      setDeleting(true)
       setError(null)
       try {
         await deleteDocument(id)
@@ -135,7 +142,7 @@ export function useKnowledgeData(): UseKnowledgeDataReturn {
       } catch (err) {
         setError(err instanceof Error ? err.message : '删除失败')
       } finally {
-        setLoading(false)
+        setDeleting(false)
       }
     },
     [loadDocuments],

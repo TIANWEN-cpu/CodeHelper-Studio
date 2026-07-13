@@ -371,6 +371,7 @@ describe('registerProblemsIPC', () => {
         stderr: 'timed out',
         exitCode: 1,
         stage: 'run',
+        timedOut: true,
       })
 
       mockDB.prepare.mockImplementation((sql: string) => {
@@ -385,6 +386,36 @@ describe('registerProblemsIPC', () => {
         language: 'python',
       })
       expect(result.status).toBe('timeout')
+    })
+
+    it('does not accept a timed-out run that printed the expected output', async () => {
+      const problem = {
+        id: 1,
+        title: 'Test',
+        test_cases: JSON.stringify([{ input: '', expected: '10' }]),
+      }
+      mockRunCodeSnippet.mockResolvedValue({
+        stdout: '10',
+        stderr: 'timed out',
+        exitCode: 1,
+        stage: 'run',
+        timedOut: true,
+      })
+
+      mockDB.prepare.mockImplementation((sql: string) => {
+        if (sql.includes('WHERE id = ?') && sql.includes('problems')) return makeStmt(problem)
+        if (sql.includes('SELECT * FROM mistakes WHERE problem_id')) return makeStmt(undefined)
+        return { get: vi.fn(), all: vi.fn(), run: vi.fn(() => ({ lastInsertRowid: 1 })) }
+      })
+
+      const result = await handlers['problems-submit'](null, {
+        problemId: 1,
+        code: 'print(10); while True: pass',
+        language: 'python',
+      })
+      expect(result.status).toBe('timeout')
+      expect(result.passed).toBe(0)
+      expect(result.results).toEqual([expect.objectContaining({ actual: '10', passed: false })])
     })
 
     it('detects runtime_error', async () => {
