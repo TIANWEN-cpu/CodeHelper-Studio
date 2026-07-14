@@ -1,315 +1,502 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  getExercises,
-  getExercise,
-  submitCode as svcSubmitCode,
-  getDraft,
-  saveDraft as svcSaveDraft,
   clearDraft,
+  getDraft,
+  getExercise,
+  getExercises,
   getReviewDue as svcGetReviewDue,
+  saveDraft as svcSaveDraft,
+  submitCode as svcSubmitCode,
   type Exercise,
-  type SubmitResult,
+  type PracticeDraft,
   type ReviewItem,
+  type SubmitResult,
 } from '../services/practiceService'
+import { reportError } from '@/utils/errorHandler'
+import {
+  DraftAutosaveCoordinator,
+  DraftConflictError,
+  type DraftSnapshot,
+} from '@/utils/draftAutosave'
+import {
+  clearDraftRecovery,
+  readDraftRecoveryWithStatus,
+  writeDraftRecovery,
+} from '@/utils/draftRecovery'
+import { resolvePracticeDraft } from '@/utils/practiceDraftResolution'
+import { bindDraftFlushLifecycle } from '@/utils/draftLifecycle'
+import { registerAppCloseFlushHandler } from '@/services/appCloseLifecycle'
 
-// ---- Types ----
+interface DraftConflictState {
+  current: PracticeDraft | null
+}
+
+export type DraftDurability = 'database' | 'recovery' | 'none'
+
+export interface DraftFlushResult {
+  durability: DraftDurability
+  error: string | null
+}
 
 export interface UsePracticeDataReturn {
-  // Exercise list
   exercises: Exercise[]
   loading: boolean
   error: string | null
   loadExercises: (trackId?: string, difficulty?: string) => Promise<void>
-
-  // Current exercise
   currentExercise: Exercise | null
   loadingExercise: boolean
-  selectExercise: (id: string) => Promise<void>
-
-  // Code draft (auto-saved)
+  selectExercise: (id: string) => Promise<boolean>
   code: string
   setCode: (code: string) => void
   language: string
   setLanguage: (lang: string) => void
   draftSaving: boolean
-  saveDraft: (exerciseId: string, code: string) => Promise<void>
-  loadDraft: (exerciseId: string) => Promise<string | null>
+  draftDirty: boolean
+  draftError: string | null
+  draftConflict: boolean
+  flushDraft: () => Promise<DraftFlushResult>
+  deactivateExercise: () => Promise<DraftFlushResult>
   clearCurrentDraft: () => Promise<void>
-
-  // Submission
+  keepLocalDraft: () => void
+  reloadPersistedDraft: () => void
   submitResult: SubmitResult | null
   submitting: boolean
   submitCode: (exerciseId: string, code: string, language: string) => Promise<void>
   clearSubmitResult: () => void
-
-  // Review
   reviewDue: ReviewItem[]
   getReviewDue: () => Promise<void>
-
-  // Utility
   clearError: () => void
 }
 
-// ---- Constants ----
-
-const AUTO_SAVE_DELAY_MS = 2000
-
-// ---- Hook ----
-
 export function usePracticeData(): UsePracticeDataReturn {
-  // ---- Exercise list state ----
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  // ---- Current exercise state ----
   const [currentExercise, setCurrentExercise] = useState<Exercise | null>(null)
   const [loadingExercise, setLoadingExercise] = useState(false)
-
-  // ---- Code draft state ----
   const [code, setCode] = useState('')
   const [language, setLanguage] = useState('python')
   const [draftSaving, setDraftSaving] = useState(false)
-
-  // ---- Submission state ----
+  const [draftDirty, setDraftDirty] = useState(false)
+  const [draftError, setDraftError] = useState<string | null>(null)
+  const [draftConflict, setDraftConflict] = useState<DraftConflictState | null>(null)
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null)
   const [submitting, setSubmitting] = useState(false)
-
-  // ---- Review state ----
   const [reviewDue, setReviewDue] = useState<ReviewItem[]>([])
 
-  // ---- Refs ----
   const mountedRef = useRef(true)
-  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const activeExerciseId = useRef<string | null>(null)
-  const latestCode = useRef('')
+  const codeRef = useRef('')
+  const languageRef = useRef('python')
+  const exerciseRequestId = useRef(0)
+  const listRequestId = useRef(0)
+  const submitRequestId = useRef(0)
+  const autosaveRef = useRef<DraftAutosaveCoordinator | null>(null)
 
-  // ---- Cleanup on unmount ----
+  if (!autosaveRef.current) {
+    autosaveRef.current = new DraftAutosaveCoordinator(
+      async (exerciseId, snapshot, baseRevision) => {
+        const result = await svcSaveDraft(
+          exerciseId,
+          snapshot.code,
+          snapshot.language,
+          baseRevision,
+        )
+        if (result.status === 'conflict') {
+          if (mountedRef.current) setDraftConflict({ current: result.current })
+          throw new DraftConflictError()
+        }
+        return { revision: result.draft.revision, updatedAt: result.draft.updatedAt }
+      },
+      {
+        onSavingChange: (saving) => {
+          if (!mountedRef.current) return
+          setDraftSaving(saving)
+          if (!saving) setDraftDirty(autosaveRef.current?.hasPending() ?? false)
+        },
+        onError: (autosaveError) => {
+          if (!mountedRef.current) return
+          setDraftError(
+            autosaveError instanceof DraftConflictError
+              ? autosaveError.message
+              : autosaveError instanceof Error
+                ? `自动保存草稿失败：${autosaveError.message}`
+                : '自动保存草稿失败，将在下次编辑时重试',
+          )
+          setDraftDirty(true)
+        },
+        onSaved: (event) => {
+          if (event.pending && event.pendingLocalVersion) {
+            writeDraftRecovery(
+              event.exerciseId,
+              event.pending,
+              event.revision,
+              event.pendingLocalVersion,
+            )
+          } else {
+            clearDraftRecovery(event.exerciseId, { snapshot: event.saved })
+          }
+          if (mountedRef.current) {
+            setDraftError(null)
+            setDraftConflict(null)
+          }
+        },
+      },
+    )
+  }
+
   useEffect(() => {
     mountedRef.current = true
     return () => {
       mountedRef.current = false
-      if (autoSaveTimer.current) {
-        clearTimeout(autoSaveTimer.current)
-      }
+      exerciseRequestId.current += 1
+      listRequestId.current += 1
+      submitRequestId.current += 1
+      void autosaveRef.current?.dispose().catch(() => undefined)
     }
   }, [])
-
-  // ---- Internal helpers ----
 
   const safeUpdate = useCallback(<T>(setter: React.Dispatch<React.SetStateAction<T>>, value: T) => {
     if (mountedRef.current) setter(value)
   }, [])
 
-  const performAutoSave = useCallback(async () => {
-    const exerciseId = activeExerciseId.current
-    if (!exerciseId) return
-    safeUpdate(setDraftSaving, true)
-    try {
-      await svcSaveDraft(exerciseId, latestCode.current)
-    } catch {
-      // Auto-save failure is non-critical; silently ignore
-    } finally {
-      safeUpdate(setDraftSaving, false)
+  const flushPendingDraft = useCallback(async (): Promise<DraftFlushResult> => {
+    const coordinator = autosaveRef.current
+    const state = coordinator?.getState()
+    if (!coordinator || !state || !coordinator.hasPending()) {
+      return { durability: 'database', error: null }
     }
-  }, [safeUpdate])
 
-  // ---- Public: loadExercises ----
+    const recoveryError = writeDraftRecovery(
+      state.exerciseId,
+      state.snapshot,
+      state.baseRevision,
+      state.localVersion,
+    )
+    try {
+      await coordinator.flush()
+      if (!coordinator.hasPending()) return { durability: 'database', error: null }
+      return recoveryError
+        ? { durability: 'none', error: recoveryError }
+        : { durability: 'recovery', error: null }
+    } catch (flushError) {
+      const message = flushError instanceof Error ? flushError.message : '练习草稿数据库保存失败'
+      return recoveryError
+        ? { durability: 'none', error: `${message}；${recoveryError}` }
+        : { durability: 'recovery', error: message }
+    }
+  }, [])
+
+  useEffect(
+    () =>
+      bindDraftFlushLifecycle(async () => {
+        await flushPendingDraft()
+      }),
+    [flushPendingDraft],
+  )
+
+  useEffect(
+    () =>
+      registerAppCloseFlushHandler('practice-draft', async () => {
+        const result = await flushPendingDraft()
+        return result.durability !== 'none'
+          ? { ok: true }
+          : { ok: false, error: result.error ?? '练习草稿仍未完成持久化' }
+      }),
+    [flushPendingDraft],
+  )
 
   const loadExercises = useCallback(
     async (trackId?: string, difficulty?: string) => {
+      const requestId = ++listRequestId.current
       safeUpdate(setLoading, true)
       safeUpdate(setError, null)
       try {
         const data = await getExercises(trackId, difficulty)
-        safeUpdate(setExercises, data)
+        if (listRequestId.current === requestId) safeUpdate(setExercises, data)
       } catch (err) {
+        if (listRequestId.current !== requestId) return
         safeUpdate(setError, err instanceof Error ? err.message : '加载练习列表失败')
       } finally {
-        safeUpdate(setLoading, false)
+        if (listRequestId.current === requestId) safeUpdate(setLoading, false)
       }
     },
     [safeUpdate],
   )
 
-  // ---- Public: selectExercise ----
-
   const selectExercise = useCallback(
     async (id: string) => {
-      // Flush any pending auto-save for the previous exercise
-      if (autoSaveTimer.current) {
-        clearTimeout(autoSaveTimer.current)
-        autoSaveTimer.current = null
+      if (activeExerciseId.current === id) {
+        const result = await flushPendingDraft()
+        return result.durability !== 'none'
       }
-      await performAutoSave()
 
+      const requestId = ++exerciseRequestId.current
+      if ((await flushPendingDraft()).durability === 'none') return false
+      if (exerciseRequestId.current !== requestId) return false
+
+      submitRequestId.current += 1
+      safeUpdate(setSubmitting, false)
       safeUpdate(setLoadingExercise, true)
       safeUpdate(setError, null)
       safeUpdate(setSubmitResult, null)
 
       try {
         const [exercise, draft] = await Promise.all([getExercise(id), getDraft(id)])
+        if (exerciseRequestId.current !== requestId) return false
+        if ((await flushPendingDraft()).durability === 'none') return false
+        if (exerciseRequestId.current !== requestId) return false
+        const preferredLanguage = exercise.languages?.[0] || 'python'
+        const recoveryResult = readDraftRecoveryWithStatus(id)
+        const recovery = recoveryResult.entry
+        const resolved = resolvePracticeDraft(
+          draft,
+          recovery,
+          exercise.starter_code ?? '',
+          preferredLanguage,
+        )
+
+        if (resolved.discardRecovery) clearDraftRecovery(id)
+        autosaveRef.current?.setActive(id, resolved.snapshot, resolved.baseRevision, {
+          dirty: resolved.dirty,
+          localVersion: resolved.localVersion,
+          autosave: resolved.autosave,
+          conflict: resolved.conflict,
+        })
+        const recoveryWriteError =
+          resolved.dirty && !resolved.conflict
+            ? writeDraftRecovery(
+                id,
+                resolved.snapshot,
+                resolved.baseRevision,
+                resolved.localVersion,
+              )
+            : null
+
         activeExerciseId.current = id
-        const initialCode = draft ?? exercise.starter_code ?? ''
-        latestCode.current = initialCode
+        codeRef.current = resolved.snapshot.code
+        languageRef.current = resolved.snapshot.language
+        safeUpdate(setCode, resolved.snapshot.code)
+        safeUpdate(setLanguage, resolved.snapshot.language)
+        safeUpdate(setDraftDirty, resolved.dirty)
+        safeUpdate(
+          setDraftError,
+          resolved.conflict
+            ? '检测到本地草稿与已保存版本冲突，请选择处理方式'
+            : (recoveryResult.error ?? recoveryWriteError),
+        )
+        safeUpdate(setDraftConflict, resolved.conflict ? { current: draft } : null)
         safeUpdate(setCurrentExercise, exercise)
-        safeUpdate(setCode, initialCode)
+        return true
       } catch (err) {
+        if (exerciseRequestId.current !== requestId) return false
         safeUpdate(setError, err instanceof Error ? err.message : '加载题目失败')
+        return false
       } finally {
-        safeUpdate(setLoadingExercise, false)
+        if (exerciseRequestId.current === requestId) safeUpdate(setLoadingExercise, false)
       }
     },
-    [safeUpdate, performAutoSave],
+    [flushPendingDraft, safeUpdate],
   )
 
-  // ---- Public: setCode (with auto-save debounce) ----
+  const persistRecoverySnapshot = useCallback(
+    (snapshot: DraftSnapshot) => {
+      const exerciseId = activeExerciseId.current
+      const state = autosaveRef.current?.getState()
+      if (!exerciseId || !state || state.exerciseId !== exerciseId) return
+      safeUpdate(
+        setDraftError,
+        writeDraftRecovery(exerciseId, snapshot, state.baseRevision, state.localVersion),
+      )
+    },
+    [safeUpdate],
+  )
 
   const handleSetCode = useCallback(
     (newCode: string) => {
+      codeRef.current = newCode
       safeUpdate(setCode, newCode)
-      latestCode.current = newCode
-
-      // Debounce auto-save
-      if (autoSaveTimer.current) {
-        clearTimeout(autoSaveTimer.current)
-      }
-      if (activeExerciseId.current) {
-        autoSaveTimer.current = setTimeout(() => {
-          performAutoSave()
-        }, AUTO_SAVE_DELAY_MS)
-      }
+      const snapshot = { code: newCode, language: languageRef.current }
+      autosaveRef.current?.update(snapshot)
+      safeUpdate(setDraftDirty, true)
+      persistRecoverySnapshot(snapshot)
     },
-    [safeUpdate, performAutoSave],
+    [persistRecoverySnapshot, safeUpdate],
   )
 
-  // ---- Public: saveDraft ----
-
-  const saveDraft = useCallback(
-    async (exerciseId: string, codeToSave: string) => {
-      safeUpdate(setDraftSaving, true)
-      try {
-        await svcSaveDraft(exerciseId, codeToSave)
-      } catch (err) {
-        safeUpdate(setError, err instanceof Error ? err.message : '保存草稿失败')
-      } finally {
-        safeUpdate(setDraftSaving, false)
-      }
+  const handleSetLanguage = useCallback(
+    (newLanguage: string) => {
+      const normalized = newLanguage.trim()
+      if (!normalized) return
+      languageRef.current = normalized
+      safeUpdate(setLanguage, normalized)
+      const snapshot = { code: codeRef.current, language: normalized }
+      autosaveRef.current?.update(snapshot)
+      safeUpdate(setDraftDirty, true)
+      persistRecoverySnapshot(snapshot)
     },
-    [safeUpdate],
+    [persistRecoverySnapshot, safeUpdate],
   )
-
-  // ---- Public: loadDraft ----
-
-  const loadDraft = useCallback(
-    async (exerciseId: string): Promise<string | null> => {
-      try {
-        const draft = await getDraft(exerciseId)
-        if (mountedRef.current && draft !== null) {
-          setCode(draft)
-          latestCode.current = draft
-        }
-        return draft
-      } catch (err) {
-        safeUpdate(setError, err instanceof Error ? err.message : '加载草稿失败')
-        return null
-      }
-    },
-    [safeUpdate],
-  )
-
-  // ---- Public: clearCurrentDraft ----
 
   const clearCurrentDraft = useCallback(async () => {
-    const exerciseId = activeExerciseId.current
-    if (!exerciseId) return
     try {
-      await clearDraft(exerciseId)
-    } catch {
-      // Non-critical
+      const cleared = await autosaveRef.current?.clearActive(async (exerciseId, baseRevision) => {
+        const result = await clearDraft(exerciseId, baseRevision)
+        if (result.status === 'conflict') {
+          safeUpdate(setDraftConflict, { current: result.current })
+          throw new DraftConflictError()
+        }
+        return { revision: result.draft.revision, updatedAt: result.draft.updatedAt }
+      })
+      if (!cleared) return
+      const coordinator = autosaveRef.current
+      const state = coordinator?.getState()
+      const hasPending = coordinator?.hasPending() ?? false
+      if (hasPending && state?.exerciseId === cleared.exerciseId) {
+        writeDraftRecovery(state.exerciseId, state.snapshot, state.baseRevision, state.localVersion)
+      } else {
+        clearDraftRecovery(cleared.exerciseId)
+      }
+      safeUpdate(setDraftDirty, hasPending)
+      safeUpdate(setDraftError, null)
+      safeUpdate(setDraftConflict, null)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '清除草稿失败'
+      safeUpdate(setDraftError, message)
+      safeUpdate(setError, message)
     }
-  }, [])
+  }, [safeUpdate])
 
-  // ---- Public: submitCode ----
+  const keepLocalDraft = useCallback(() => {
+    const state = autosaveRef.current?.getState()
+    if (!state || !draftConflict) return
+    const nextBaseRevision = draftConflict.current?.revision ?? 0
+    autosaveRef.current?.resolveConflict(nextBaseRevision)
+    writeDraftRecovery(state.exerciseId, state.snapshot, nextBaseRevision, state.localVersion)
+    setDraftConflict(null)
+    setDraftError(null)
+    setDraftDirty(true)
+  }, [draftConflict])
+
+  const reloadPersistedDraft = useCallback(() => {
+    const exerciseId = activeExerciseId.current
+    if (!exerciseId || !currentExercise || !draftConflict) return
+    const persisted = draftConflict.current
+    const snapshot: DraftSnapshot =
+      persisted && !persisted.deleted
+        ? {
+            code: persisted.code,
+            language: persisted.language || currentExercise.languages?.[0] || 'python',
+          }
+        : {
+            code: currentExercise.starter_code ?? '',
+            language: currentExercise.languages?.[0] || 'python',
+          }
+    const baseRevision = persisted?.revision ?? 0
+    autosaveRef.current?.setActive(exerciseId, snapshot, baseRevision)
+    clearDraftRecovery(exerciseId)
+    codeRef.current = snapshot.code
+    languageRef.current = snapshot.language
+    setCode(snapshot.code)
+    setLanguage(snapshot.language)
+    setDraftDirty(false)
+    setDraftError(null)
+    setDraftConflict(null)
+  }, [currentExercise, draftConflict])
+
+  const deactivateExercise = useCallback(async (): Promise<DraftFlushResult> => {
+    exerciseRequestId.current += 1
+    submitRequestId.current += 1
+    const result = await flushPendingDraft()
+    if (result.durability === 'none') {
+      safeUpdate(setDraftError, result.error ?? '练习草稿未能写入数据库或恢复区')
+      return result
+    }
+    autosaveRef.current?.deactivate()
+    activeExerciseId.current = null
+    codeRef.current = ''
+    languageRef.current = 'python'
+    safeUpdate(setCurrentExercise, null)
+    safeUpdate(setCode, '')
+    safeUpdate(setLanguage, 'python')
+    safeUpdate(setDraftDirty, false)
+    safeUpdate(setDraftConflict, null)
+    safeUpdate(setSubmitResult, null)
+    safeUpdate(setSubmitting, false)
+    if (result.durability === 'database') safeUpdate(setDraftError, null)
+    return result
+  }, [flushPendingDraft, safeUpdate])
 
   const submitCode = useCallback(
     async (exerciseId: string, codeToSubmit: string, lang: string) => {
       safeUpdate(setSubmitting, true)
+      const requestId = ++submitRequestId.current
       safeUpdate(setSubmitResult, null)
       safeUpdate(setError, null)
       try {
         const result = await svcSubmitCode(exerciseId, codeToSubmit, lang)
+        if (submitRequestId.current !== requestId || activeExerciseId.current !== exerciseId) return
         safeUpdate(setSubmitResult, result)
       } catch (err) {
+        if (submitRequestId.current !== requestId || activeExerciseId.current !== exerciseId) return
         safeUpdate(setError, err instanceof Error ? err.message : '提交代码失败')
+        reportError(err, 'practice.submitCode', { showToast: true })
       } finally {
-        safeUpdate(setSubmitting, false)
+        if (submitRequestId.current === requestId) safeUpdate(setSubmitting, false)
       }
     },
     [safeUpdate],
   )
 
-  // ---- Public: clearSubmitResult ----
-
   const clearSubmitResult = useCallback(() => {
+    submitRequestId.current += 1
+    setSubmitting(false)
     setSubmitResult(null)
   }, [])
-
-  // ---- Public: getReviewDue ----
 
   const getReviewDue = useCallback(async () => {
     try {
       const items = await svcGetReviewDue()
       safeUpdate(setReviewDue, items)
     } catch {
-      // Non-critical; review data is supplementary
+      // Review data is supplementary.
     }
   }, [safeUpdate])
 
-  // ---- Public: clearError ----
-
   const clearError = useCallback(() => setError(null), [])
 
-  // ---- Auto-load on mount ----
-
   useEffect(() => {
-    loadExercises()
-    getReviewDue()
+    void loadExercises()
+    void getReviewDue()
   }, [loadExercises, getReviewDue])
 
   return {
-    // Exercise list
     exercises,
     loading,
     error,
     loadExercises,
-
-    // Current exercise
     currentExercise,
     loadingExercise,
     selectExercise,
-
-    // Code draft (auto-saved)
     code,
     setCode: handleSetCode,
     language,
-    setLanguage,
+    setLanguage: handleSetLanguage,
     draftSaving,
-    saveDraft,
-    loadDraft,
+    draftDirty,
+    draftError,
+    draftConflict: Boolean(draftConflict),
+    flushDraft: flushPendingDraft,
+    deactivateExercise,
     clearCurrentDraft,
-
-    // Submission
+    keepLocalDraft,
+    reloadPersistedDraft,
     submitResult,
     submitting,
     submitCode,
     clearSubmitResult,
-
-    // Review
     reviewDue,
     getReviewDue,
-
-    // Utility
     clearError,
   }
 }

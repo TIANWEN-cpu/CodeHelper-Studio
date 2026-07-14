@@ -3,8 +3,8 @@ import { invoke } from './ipc'
 // --------------- Types ---------------
 
 export interface Mistake {
-  id: string
-  problem_id: string
+  id: number
+  problem_id: number
   problem_title: string
   difficulty: string
   tags: string[]
@@ -36,17 +36,17 @@ export async function getMistakes(): Promise<Mistake[]> {
 }
 
 /** Fetch a single mistake by ID with full detail. */
-export async function getMistake(id: string): Promise<MistakeDetail> {
+export async function getMistake(id: number): Promise<MistakeDetail> {
   return invoke<MistakeDetail>('mistakes-get', id)
 }
 
 /** Update the AI analysis for a mistake. */
-export async function updateAnalysis(id: string, analysis: string): Promise<void> {
+export async function updateAnalysis(id: number, analysis: string): Promise<void> {
   return invoke<void>('mistakes-update-analysis', id, analysis)
 }
 
 /** Delete a mistake by ID. */
-export async function deleteMistake(id: string): Promise<void> {
+export async function deleteMistake(id: number): Promise<void> {
   return invoke<void>('mistakes-delete', id)
 }
 

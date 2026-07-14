@@ -45,7 +45,7 @@ export function registerAnalyticsIPC(): void {
   // Query events with optional filters
   ipcMain.handle(
     'analytics-get-events',
-    (_e, filters?: { eventType?: string; since?: string; until?: string }) => {
+    (_e, filters?: { eventType?: string; since?: string; until?: string; limit?: number }) => {
       const eventType =
         filters?.eventType && VALID_EVENT_TYPES.has(filters.eventType)
           ? (filters.eventType as AnalyticsEventType)
@@ -58,7 +58,11 @@ export function registerAnalyticsIPC(): void {
         filters?.until && typeof filters.until === 'string'
           ? filters.until.trim().slice(0, 30)
           : undefined
-      return getEvents(eventType, since, until)
+      const limit =
+        typeof filters?.limit === 'number' && Number.isFinite(filters.limit)
+          ? filters.limit
+          : undefined
+      return getEvents(eventType, since, until, limit)
     },
   )
 
@@ -99,14 +103,16 @@ export function registerAnalyticsIPC(): void {
     const daySet = new Set(rows.map((r) => r.day))
 
     let streak = 0
-    const d = new Date(today + 'T00:00:00')
+    // UTC 一致：today 用 toISOString（UTC），迭代也必须用 UTC 解析/推进，
+    // 否则在正偏移时区（如 UTC+8）本地解析会把起点整体偏移一天，导致连续天数算错。
+    const d = new Date(today + 'T00:00:00Z')
     // If today has no events, start checking from yesterday
     if (!daySet.has(today)) {
-      d.setDate(d.getDate() - 1)
+      d.setUTCDate(d.getUTCDate() - 1)
     }
     while (daySet.has(d.toISOString().slice(0, 10))) {
       streak++
-      d.setDate(d.getDate() - 1)
+      d.setUTCDate(d.getUTCDate() - 1)
     }
     return streak
   })

@@ -18,6 +18,7 @@ const mockDB = {
   exec: vi.fn(),
   pragma: vi.fn(),
   close: vi.fn(),
+  transaction: vi.fn((fn: () => void) => () => fn()),
 }
 
 vi.mock('../electron/db/index', () => ({
@@ -195,7 +196,7 @@ describe('registerChatIPC', () => {
     })
 
     it('updates title only', () => {
-      const runFn = vi.fn()
+      const runFn = vi.fn(() => ({ lastInsertRowid: 7 }))
       mockDB.prepare.mockImplementation((sql: string) => {
         if (sql.includes('COUNT(*)')) return makeStmt({ c: 1 })
         return { get: vi.fn(), all: vi.fn(), run: runFn }
@@ -345,41 +346,57 @@ describe('registerChatIPC', () => {
       ).toThrow('参数无效: model')
     })
 
+    it('rejects messages for a missing session', () => {
+      mockDB.prepare.mockImplementation(() => makeStmt(undefined))
+      expect(() =>
+        handlers['chat-message-save'](null, {
+          session_id: 'missing',
+          role: 'user',
+          content: 'hi',
+        }),
+      ).toThrow()
+    })
+
     it('saves message with valid data', () => {
-      const runFn = vi.fn()
+      const runFn = vi.fn(() => ({ lastInsertRowid: 7 }))
       mockDB.prepare.mockImplementation((sql: string) => {
         if (sql.includes('COUNT(*)')) return makeStmt({ c: 1 })
+        if (sql.includes('SELECT 1 FROM chat_sessions')) return makeStmt({ id: 's1' })
         return { get: vi.fn(), all: vi.fn(), run: runFn }
       })
 
-      handlers['chat-message-save'](null, {
+      const result = handlers['chat-message-save'](null, {
         session_id: 's1',
         role: 'user',
         content: 'Hello',
         model: 'gpt-4',
       })
       expect(runFn).toHaveBeenCalledTimes(2) // INSERT + UPDATE timestamp
+      expect(result).toBe(7)
     })
 
     it('saves message without model', () => {
-      const runFn = vi.fn()
+      const runFn = vi.fn(() => ({ lastInsertRowid: 8 }))
       mockDB.prepare.mockImplementation((sql: string) => {
         if (sql.includes('COUNT(*)')) return makeStmt({ c: 1 })
+        if (sql.includes('SELECT 1 FROM chat_sessions')) return makeStmt({ id: 's1' })
         return { get: vi.fn(), all: vi.fn(), run: runFn }
       })
 
-      handlers['chat-message-save'](null, {
+      const result = handlers['chat-message-save'](null, {
         session_id: 's1',
         role: 'assistant',
         content: 'Hi',
       })
       expect(runFn).toHaveBeenCalledTimes(2)
+      expect(result).toBe(8)
     })
 
     it('truncates content to 100000 chars', () => {
-      const runFn = vi.fn()
+      const runFn = vi.fn(() => ({ lastInsertRowid: 9 }))
       mockDB.prepare.mockImplementation((sql: string) => {
         if (sql.includes('COUNT(*)')) return makeStmt({ c: 1 })
+        if (sql.includes('SELECT 1 FROM chat_sessions')) return makeStmt({ id: 's1' })
         return { get: vi.fn(), all: vi.fn(), run: runFn }
       })
 
@@ -761,6 +778,28 @@ describe('registerChatIPC', () => {
       })
       expect(Array.isArray(result)).toBe(true)
     })
+
+    it('merges near-duplicate memories instead of inserting (normalized dedup)', () => {
+      const insertRun = vi.fn(() => ({ lastInsertRowid: 99 }))
+      const updateRun = vi.fn()
+      mockDB.prepare.mockImplementation((sql: string) => {
+        if (sql.includes('COUNT(*)')) return makeStmt({ c: 1 })
+        // 现有记忆与候选归一化后相同（大小写/空格/句号差异）
+        if (sql.includes('SELECT id, content FROM memories'))
+          return makeStmt([{ id: 7, content: '我喜欢 Python。' }])
+        if (sql.includes('INSERT INTO memories'))
+          return { run: insertRun, get: vi.fn(), all: vi.fn() }
+        if (sql.startsWith('UPDATE memories')) return { run: updateRun, get: vi.fn(), all: vi.fn() }
+        if (sql.includes('SELECT * FROM memories WHERE id'))
+          return makeStmt({ id: 7, content: '我喜欢 Python。', category: 'preference' })
+        return makeStmt(undefined)
+      })
+
+      const result = handlers['chat-memory-capture'](null, { content: '记住：我喜欢python' })
+      expect(Array.isArray(result)).toBe(true)
+      expect(updateRun).toHaveBeenCalled()
+      expect(insertRun).not.toHaveBeenCalled()
+    })
   })
 })
 
@@ -944,5 +983,163 @@ describe('captureMemoriesFromMessage', () => {
 
     const result = captureMemoriesFromMessage('记住：Python最好')
     expect(result.length).toBeGreaterThan(0)
+  })
+})
+
+describe('getRelevantMemories category filter', () => {
+  it('keeps only memories in allowed categories', async () => {
+    const memories = [
+      { id: 1, content: 'python tip', category: 'tech', pinned: 0, enabled: 1, confidence: 1 },
+      { id: 2, content: 'python note', category: 'fact', pinned: 0, enabled: 1, confidence: 1 },
+    ]
+    mockDB.prepare.mockImplementation((sql: string) => {
+      if (sql.includes('COUNT(*)')) return makeStmt({ c: 1 })
+      if (sql.includes('enabled = 1')) return makeStmt(memories)
+      return makeStmt(undefined)
+    })
+    const { registerChatIPC, getRelevantMemories } = await import('../electron/ipc/chat')
+    registerChatIPC()
+
+    const result = getRelevantMemories('python', 6, ['tech'])
+    expect(result).toHaveLength(1)
+    expect(result[0].category).toBe('tech')
+  })
+
+  it('empty allowed list yields no memories', async () => {
+    const memories = [
+      { id: 1, content: 'python tip', category: 'tech', pinned: 1, enabled: 1, confidence: 1 },
+    ]
+    mockDB.prepare.mockImplementation((sql: string) => {
+      if (sql.includes('COUNT(*)')) return makeStmt({ c: 1 })
+      if (sql.includes('enabled = 1')) return makeStmt(memories)
+      return makeStmt(undefined)
+    })
+    const { registerChatIPC, getRelevantMemories } = await import('../electron/ipc/chat')
+    registerChatIPC()
+
+    expect(getRelevantMemories('python', 6, [])).toEqual([])
+  })
+})
+
+describe('parseExtractedMemories', () => {
+  it('extracts a JSON array embedded in model text', async () => {
+    const { parseExtractedMemories } = await import('../electron/ipc/chat')
+    const text =
+      '好的：[{"content":"用户用 Rust","category":"tech"},{"content":"叫小明","category":"identity"}] 完成'
+    expect(parseExtractedMemories(text)).toEqual([
+      { content: '用户用 Rust', category: 'tech' },
+      { content: '叫小明', category: 'identity' },
+    ])
+  })
+
+  it('returns [] when there is no array', async () => {
+    const { parseExtractedMemories } = await import('../electron/ipc/chat')
+    expect(parseExtractedMemories('没有可记内容')).toEqual([])
+    expect(parseExtractedMemories('[broken json')).toEqual([])
+  })
+
+  it('coerces unknown categories to fact and drops invalid items', async () => {
+    const { parseExtractedMemories } = await import('../electron/ipc/chat')
+    const result = parseExtractedMemories(
+      '[{"content":"坏类别也保留","category":"weird"},{"content":"x"},{"content":1},{"content":"目标内容","category":"goal"}]',
+    )
+    expect(result).toEqual([
+      { content: '坏类别也保留', category: 'fact' },
+      { content: '目标内容', category: 'goal' },
+    ])
+  })
+})
+
+describe('chat-context-preview', () => {
+  beforeEach(async () => {
+    mockDB.prepare.mockImplementation((sql: string) => {
+      if (sql.includes('COUNT(*)')) return makeStmt({ c: 1 })
+      return makeStmt(undefined)
+    })
+    const { registerChatIPC } = await import('../electron/ipc/chat')
+    registerChatIPC()
+  })
+
+  it('returns no memories when includeMemories is false', () => {
+    const result = handlers['chat-context-preview'](null, {
+      query: 'python',
+      includeMemories: false,
+    }) as { memories: unknown[] }
+    expect(result.memories).toEqual([])
+  })
+
+  it('returns category-filtered memories without marking them used', () => {
+    const memories = [
+      { id: 1, content: 'python tech', category: 'tech', pinned: 0, enabled: 1, confidence: 1 },
+      { id: 2, content: 'python fact', category: 'fact', pinned: 0, enabled: 1, confidence: 1 },
+    ]
+    const usedRun = vi.fn()
+    mockDB.prepare.mockImplementation((sql: string) => {
+      if (sql.includes('COUNT(*)')) return makeStmt({ c: 1 })
+      if (sql.includes('enabled = 1')) return makeStmt(memories)
+      if (sql.includes('last_used_at')) return { get: vi.fn(), all: vi.fn(), run: usedRun }
+      return makeStmt(undefined)
+    })
+
+    const result = handlers['chat-context-preview'](null, {
+      query: 'python',
+      includeMemories: true,
+      memoryCategories: ['tech'],
+    }) as { memories: Array<{ category: string }> }
+    expect(result.memories).toHaveLength(1)
+    expect(result.memories[0].category).toBe('tech')
+    expect(usedRun).not.toHaveBeenCalled() // 预览无副作用
+  })
+})
+
+describe('chat-memories-batch', () => {
+  beforeEach(async () => {
+    mockDB.prepare.mockImplementation((sql: string) => {
+      if (sql.includes('COUNT(*)')) return makeStmt({ c: 1 })
+      return makeStmt(undefined)
+    })
+    const { registerChatIPC } = await import('../electron/ipc/chat')
+    registerChatIPC()
+  })
+
+  it('validates ids and action', () => {
+    expect(() => handlers['chat-memories-batch'](null, { ids: [], action: 'delete' })).toThrow(
+      '参数无效: ids',
+    )
+    expect(() => handlers['chat-memories-batch'](null, { ids: [1], action: 'nope' })).toThrow(
+      '参数无效: action',
+    )
+    expect(() => handlers['chat-memories-batch'](null, { ids: [0], action: 'delete' })).toThrow(
+      '参数无效: ids',
+    )
+  })
+
+  it('runs a delete over the given ids in a transaction', () => {
+    const run = vi.fn()
+    mockDB.prepare.mockImplementation((sql: string) => {
+      if (sql.includes('COUNT(*)')) return makeStmt({ c: 1 })
+      if (sql.startsWith('DELETE FROM memories')) return { get: vi.fn(), all: vi.fn(), run }
+      return makeStmt(undefined)
+    })
+
+    const result = handlers['chat-memories-batch'](null, {
+      ids: [3, 4],
+      action: 'delete',
+    }) as { affected: number }
+    expect(result.affected).toBe(2)
+    expect(run).toHaveBeenCalledWith(3, 4)
+  })
+
+  it('runs pin via an UPDATE', () => {
+    const run = vi.fn()
+    mockDB.prepare.mockImplementation((sql: string) => {
+      if (sql.includes('COUNT(*)')) return makeStmt({ c: 1 })
+      if (sql.startsWith('UPDATE memories SET pinned = 1'))
+        return { get: vi.fn(), all: vi.fn(), run }
+      return makeStmt(undefined)
+    })
+
+    handlers['chat-memories-batch'](null, { ids: [7], action: 'pin' })
+    expect(run).toHaveBeenCalledWith(7)
   })
 })

@@ -19,6 +19,8 @@ CodeHelper 使用 better-sqlite3 作为嵌入式数据库，存储所有本地�
   - [settings — 设置表](#settings--设置表)
   - [prompt_presets — 提示词预设表](#prompt_presets--提示词预设表)
   - [memories — 长期记忆表](#memories--长期记忆表)
+  - [editor_workspaces — 编辑器工作区表](#editor_workspaces--编辑器工作区表)
+  - [editor_tabs — 编辑器标签表](#editor_tabs--编辑器标签表)
 - [关系图](#关系图)
 - [索引](#索引)
 - [常用查询](#常用查询)
@@ -251,6 +253,48 @@ AI 对话的跨会话长期记忆存储。
 
 ---
 
+### editor_workspaces — 编辑器工作区表
+
+保存工作区级激活状态、连续 generation 和旧 localStorage 导入版本。`generation` 用于发现跨窗口事件缺口；`legacy_storage_version` 使 v1/v2 本地数据迁移保持原子且幂等。
+
+| 列名                     | 类型 | 约束        | 默认值   | 说明                     |
+| ------------------------ | ---- | ----------- | -------- | ------------------------ |
+| `workspace_id`           | TEXT | PRIMARY KEY | —        | 工作区 ID                |
+| `last_active_tab_id`     | TEXT | —           | `NULL`   | 最近激活标签             |
+| `generation`             | INT  | `>= 0`      | `0`      | 工作区变更序号           |
+| `legacy_storage_version` | INT  | `>= 0`      | `0`      | 已导入的本地快照格式版本 |
+| `updated_at`             | TEXT | NOT NULL    | 当前时间 | 工作区最后更新时间       |
+
+### editor_tabs — 编辑器标签表
+
+保存普通文件、题目和练习标签的内容及视图状态。内容 mutation 使用 `revision` CAS；`last_mutation_*` 与 `last_view_mutation_*` 让响应丢失后的同 ID 重试保持幂等。
+
+| 列名                                            | 类型 | 约束/取值                       | 说明                   |
+| ----------------------------------------------- | ---- | ------------------------------- | ---------------------- |
+| `workspace_id`                                  | TEXT | FK + 复合主键                   | 所属工作区             |
+| `tab_id`                                        | TEXT | 复合主键                        | 标签 ID                |
+| `filename`                                      | TEXT | NOT NULL                        | 文件名                 |
+| `language`                                      | TEXT | NOT NULL                        | 运行/高亮语言          |
+| `content`                                       | TEXT | NOT NULL                        | 用户代码               |
+| `tab_kind`                                      | TEXT | `file` / `problem` / `exercise` | 标签类型               |
+| `problem_id`                                    | TEXT | 可空                            | 关联题目               |
+| `cursor_line`                                   | INT  | 可空                            | 光标行                 |
+| `cursor_column`                                 | INT  | 可空                            | 光标列                 |
+| `scroll_top`                                    | REAL | `>= 0`                          | 滚动位置               |
+| `tab_position`                                  | INT  | `>= 0`                          | 标签顺序               |
+| `status`                                        | TEXT | `open` / `closed` / `deleted`   | 生命周期状态           |
+| `revision`                                      | INT  | `>= 1`                          | 内容 CAS 版本          |
+| `last_mutation_*`                               | TEXT | 可空                            | 内容 mutation 幂等记录 |
+| `last_view_mutation_*`                          | TEXT | 可空                            | 视图 mutation 幂等记录 |
+| `created_at` / `updated_at` / `view_updated_at` | TEXT | NOT NULL                        | 内容与视图时间戳       |
+| `closed_at` / `deleted_at`                      | TEXT | 可空                            | 关闭/删除时间          |
+
+旧版缺少 `tab_kind` 的表会在启动时原地 `ALTER TABLE`，已有行按 `file` 迁移；更早的 draft schema 会在事务内重建并保留内容。`legacy_storage_version = 0` 表示尚未从 localStorage 导入；Renderer 仅在该状态下调用 `migrateLegacyEditorWorkspace` 灌入本地快照，**不会**因应用侧存储格式升到 v3 就用空/过期本地数据覆盖已有 SQLite 标签。迁移前 localStorage 快照会另存备份；ID 的内容或 `open` / `closed` 状态不一致时创建确定性的 `recovered-*` 副本，不覆盖任一版本或吞掉关闭状态。
+
+**练习标签：** `tab_kind = 'exercise'` 行应持久化空 `content`（拓扑与视图状态）；用户代码权威在练习草稿表/恢复区。若旧数据在 exercise 行内仍存代码，导入路径会拆出恢复副本并清空 content。
+
+---
+
 ## 关系图
 
 ```
@@ -272,6 +316,7 @@ settings           —— 独立键值表
 ai_configs         —— 独立配置表
 prompt_presets     —— 独立预设表
 memories           —— 独立记忆表
+editor_workspaces (1) ── (N) editor_tabs（ON DELETE CASCADE）
 ```
 
 ---
@@ -293,6 +338,8 @@ memories           —— 独立记忆表
 | `idx_memories_enabled_pinned`    | memories         | `enabled, pinned DESC, updated_at DESC` | 记忆列表查询与排序           |
 | `idx_memories_category`          | memories         | `category`                              | 按分类筛选记忆               |
 | `idx_memories_content_lower`     | memories         | `lower(content)`                        | 记忆去重（大小写不敏感匹配） |
+| `idx_editor_tabs_open_position`  | editor_tabs      | `workspace_id, status, tab_position`    | 恢复打开标签顺序             |
+| `idx_editor_tabs_closed_at`      | editor_tabs      | `workspace_id, status, closed_at`       | 恢复最近关闭标签             |
 
 ---
 

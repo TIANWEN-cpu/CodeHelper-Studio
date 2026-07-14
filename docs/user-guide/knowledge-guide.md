@@ -13,6 +13,38 @@ CodeHelper 内置知识库 RAG（检索增强生成）系统，支持导入本�
 
 ## 导入文档
 
+### 资源包批次导入
+
+CodeHelper 支持导入外部 `import-ready` 或 `import-batches` 资源包目录。推荐把大型第三方学习资料保留在项目外部，只按需导入到本地数据库，避免让应用仓库和安装包变大。
+
+资源包目录需要包含以下任一子目录：
+
+```text
+knowledge-docs/
+problems/
+```
+
+推荐导入顺序：
+
+1. `01-core-cs-foundation`
+2. `02-ai-deep-learning`
+3. `03-interview-career`
+4. `04-cs408-and-courses`
+5. `00-problem-seeds`
+6. `05-roadmap-and-bug-manual`
+7. `07-language-specific`
+8. `06-book-resource-indexes`
+
+导入步骤：
+
+1. 点击左侧栏的 **知识库** 图标。
+2. 点击 **导入资源包**。
+3. 选择某个批次目录，例如 `D:\coderhelperresource\import-batches\01-core-cs-foundation`。
+4. 等待导入摘要出现。
+5. 每导入一批后，先搜索几个关键词确认结果可用，再继续下一批。
+
+重复导入同一批次时，已导入的知识文档会跳过；同名同来源题目会更新，不会重复创建。
+
 ### 支持的文件格式
 
 | 格式     | 扩展名 | 最大大小 | 说明             |

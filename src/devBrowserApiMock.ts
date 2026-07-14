@@ -55,6 +55,7 @@ const sessions = [
     updated_at: new Date().toISOString(),
   },
 ]
+let nextChatMessageId = 1
 const messages: Record<
   string,
   Array<{ id: string; role: 'user' | 'assistant'; content: string; created_at: string }>
@@ -62,6 +63,86 @@ const messages: Record<
   'browser-session-1': [],
 }
 const settingsStore: Record<string, string> = {}
+interface BrowserPracticeDraft {
+  exerciseId: string
+  title: string | null
+  code: string
+  language: string | null
+  revision: number
+  updatedAt: string
+  deleted: boolean
+}
+const practiceDrafts = new Map<string, BrowserPracticeDraft>()
+interface BrowserEditorTab {
+  workspaceId: string
+  id: string
+  filename: string
+  language: string
+  content: string
+  kind: 'file' | 'problem' | 'exercise'
+  problemId: string | null
+  cursorPosition: { lineNumber: number; column: number } | null
+  scrollTop: number
+  position: number
+  status: 'open' | 'closed' | 'deleted'
+  revision: number
+  updatedAt: string
+  viewUpdatedAt: string
+  closedAt: string | null
+  deletedAt: string | null
+}
+const browserEditorTabs = new Map<string, BrowserEditorTab>()
+let browserEditorActiveTabId: string | null = null
+let browserEditorGeneration = 0
+let browserEditorLegacyStorageVersion = 0
+
+function browserEditorWorkspace() {
+  const tabs = [...browserEditorTabs.values()]
+  return {
+    workspaceId: 'default',
+    tabs: tabs.filter((tab) => tab.status === 'open').sort((a, b) => a.position - b.position),
+    activeTabId: browserEditorActiveTabId,
+    recentlyClosedTabs: tabs
+      .filter((tab) => tab.status === 'closed')
+      .sort((a, b) => (b.closedAt ?? '').localeCompare(a.closedAt ?? '')),
+    generation: browserEditorGeneration,
+    legacyStorageVersion: browserEditorLegacyStorageVersion,
+  }
+}
+const mockKnowledgeDocs = [
+  {
+    id: 1,
+    filename: 'PKUFlyingPig__cs-self-learning__15445.en__c0ddc5a9ab.md',
+    file_type: 'md',
+    chunk_count: 12,
+    created_at: new Date().toISOString(),
+    content_preview:
+      '---\ntitle: "CMU 15-445: Database Systems"\nsource_repo: "PKUFlyingPig/cs-self-learning"\ncategory: "计算机基础"\ncategory_dir: "01-cs-foundation"\ntags:\n  - "knowledge"\n  - "database"\n---\n# CMU 15-445: Database Systems\n\n数据库系统课程资料示例。',
+    display_title: 'CMU 15-445: Database Systems',
+    source_repo: 'PKUFlyingPig/cs-self-learning',
+    source_url: 'https://github.com/PKUFlyingPig/cs-self-learning',
+    source_path: 'docs/数据库系统/15445.en.md',
+    category: '计算机基础',
+    category_dir: '01-cs-foundation',
+    tags: ['knowledge', 'database'],
+  },
+  {
+    id: 2,
+    filename: 'CyC2018__CS-Notes__10.1__1ad438f87c.md',
+    file_type: 'md',
+    chunk_count: 8,
+    created_at: new Date().toISOString(),
+    content_preview:
+      '---\ntitle: "10.1 斐波那契数列"\nsource_repo: "CyC2018/CS-Notes"\ncategory: "算法与数据结构"\ncategory_dir: "01-cs-foundation"\ntags:\n  - "knowledge"\n  - "algorithm"\n---\n# 10.1 斐波那契数列\n\n动态规划与递归优化示例。',
+    display_title: '10.1 斐波那契数列',
+    source_repo: 'CyC2018/CS-Notes',
+    source_url: 'https://github.com/CyC2018/CS-Notes',
+    source_path: 'notes/10.1 斐波那契数列.md',
+    category: '算法与数据结构',
+    category_dir: '01-cs-foundation',
+    tags: ['knowledge', 'algorithm'],
+  },
+]
 
 function cloneSession(session: (typeof sessions)[number]) {
   return { ...session }
@@ -202,16 +283,73 @@ async function invoke(channel: string, ...args: unknown[]) {
       return { totalEvents: 4, byType: { ai_chat_sent: 1 }, dailyCounts: [] }
     case 'analytics-get-streak':
       return 5
+    case 'analytics-get-weekly-report':
+      return {
+        weekStart: '2026-06-15',
+        weekEnd: '2026-06-21 23:59:59',
+        totalEvents: 12,
+        byType: { problem_solved: 4, code_run: 5, ai_chat_sent: 2, lesson_completed: 1 },
+        dailyBreakdown: [
+          { date: '2026-06-15', count: 3 },
+          { date: '2026-06-17', count: 5 },
+          { date: '2026-06-19', count: 4 },
+        ],
+        problemsSolved: 4,
+        codeRuns: 5,
+        aiChatsSent: 2,
+        lessonsCompleted: 1,
+        topLanguages: [
+          { language: 'python', count: 6 },
+          { language: 'javascript', count: 3 },
+        ],
+        avgSessionDuration: 540000,
+      }
     case 'analytics-get-events':
       return []
     case 'review-due':
     case 'chat-presets-list':
+      return []
+    case 'knowledge-get':
+      return mockKnowledgeDocs.find((doc) => doc.id === Number(args[0])) ?? null
     case 'knowledge-list':
+      return mockKnowledgeDocs
     case 'knowledge-search':
+      return [
+        {
+          doc_id: 1,
+          filename: mockKnowledgeDocs[0].filename,
+          content: 'Database Systems 课程资料示例片段。',
+          score: 1,
+          chunk_index: 0,
+        },
+      ]
     case 'knowledge-semantic-search':
     case 'mistakes-list':
     case 'problems-list':
       return []
+    case 'resource-pack-import':
+      return {
+        rootPath: (args[0] as { rootPath?: string } | undefined)?.rootPath ?? '',
+        manifest: {
+          generated_at: new Date().toISOString(),
+          source_root: 'browser-preview',
+          output_root: 'browser-preview',
+        },
+        knowledge: {
+          found: 0,
+          imported: 0,
+          skipped: 0,
+          chunks: 0,
+        },
+        problems: {
+          files: 0,
+          found: 0,
+          imported: 0,
+          updated: 0,
+          skipped: 0,
+        },
+        errors: ['浏览器预览模式不会访问本地文件夹；请在 Electron 应用中导入资源包。'],
+      }
     case 'lessons-list':
       return courseMap.tracks
     case 'lessons-get': {
@@ -246,10 +384,54 @@ async function invoke(channel: string, ...args: unknown[]) {
       return exercise
     }
     case 'exercises-draft-get':
-      return null
-    case 'exercises-draft-save':
-    case 'exercises-draft-clear':
-      return { ok: true }
+      return practiceDrafts.get(String(args[0] ?? '')) ?? null
+    case 'exercises-draft-save': {
+      const input = args[0] as {
+        exerciseId: string
+        code: string
+        language: string
+        baseRevision: number
+      }
+      const current = practiceDrafts.get(input.exerciseId) ?? null
+      if (
+        (!current && input.baseRevision !== 0) ||
+        (current && current.revision !== input.baseRevision)
+      ) {
+        return { status: 'conflict', current }
+      }
+      const draft: BrowserPracticeDraft = {
+        exerciseId: input.exerciseId,
+        title: null,
+        code: input.code,
+        language: input.language,
+        revision: (current?.revision ?? 0) + 1,
+        updatedAt: new Date().toISOString(),
+        deleted: false,
+      }
+      practiceDrafts.set(input.exerciseId, draft)
+      return { status: 'saved', draft }
+    }
+    case 'exercises-draft-clear': {
+      const input = args[0] as { exerciseId: string; baseRevision: number }
+      const current = practiceDrafts.get(input.exerciseId) ?? null
+      if (
+        (!current && input.baseRevision !== 0) ||
+        (current && current.revision !== input.baseRevision)
+      ) {
+        return { status: 'conflict', current }
+      }
+      const draft: BrowserPracticeDraft = {
+        exerciseId: input.exerciseId,
+        title: null,
+        code: '',
+        language: null,
+        revision: (current?.revision ?? 0) + 1,
+        updatedAt: new Date().toISOString(),
+        deleted: true,
+      }
+      practiceDrafts.set(input.exerciseId, draft)
+      return { status: 'saved', draft }
+    }
     case 'exercises-evaluate':
       return {
         passed: false,
@@ -258,6 +440,207 @@ async function invoke(channel: string, ...args: unknown[]) {
         stdout: '',
         duration_sec: 0,
       }
+    case 'editor-workspace-load': {
+      return browserEditorWorkspace()
+    }
+    case 'editor-workspace-migrate-legacy': {
+      const input = args[0] as {
+        storageVersion: number
+        activeTabId: string | null
+        tabs: Array<{
+          id: string
+          filename: string
+          language: string
+          content: string
+          kind?: 'file' | 'problem' | 'exercise'
+          problemId?: string | null
+          cursorPosition: { lineNumber: number; column: number } | null
+          scrollTop: number
+          position: number
+          status: 'open' | 'closed'
+        }>
+      }
+      if (browserEditorLegacyStorageVersion >= input.storageVersion) {
+        return {
+          status: 'already-migrated',
+          workspace: browserEditorWorkspace(),
+          recoveredTabIds: [],
+          recoveredTabMappings: {},
+        }
+      }
+      const recoveredTabIds: string[] = []
+      const recoveredTabMappings: Record<string, string> = {}
+      for (const item of input.tabs) {
+        const current = browserEditorTabs.get(item.id)
+        let id = item.id
+        let filename = item.filename
+        if (
+          current &&
+          (current.content !== item.content ||
+            current.language !== item.language ||
+            current.kind !== (item.kind ?? 'file') ||
+            current.filename !== item.filename)
+        ) {
+          id = `recovered-${item.id}-${item.content.length}`
+          filename = `${item.filename}.recovered`
+          recoveredTabIds.push(id)
+          recoveredTabMappings[item.id] = id
+        } else if (current) {
+          continue
+        }
+        const now = new Date().toISOString()
+        browserEditorTabs.set(id, {
+          workspaceId: 'default',
+          id,
+          filename,
+          language: item.language,
+          content: item.content,
+          kind: item.kind ?? 'file',
+          problemId: item.problemId ?? null,
+          cursorPosition: item.cursorPosition,
+          scrollTop: item.scrollTop,
+          position: item.position,
+          status: item.status,
+          revision: 1,
+          updatedAt: now,
+          viewUpdatedAt: now,
+          closedAt: item.status === 'closed' ? now : null,
+          deletedAt: null,
+        })
+      }
+      browserEditorLegacyStorageVersion = input.storageVersion
+      if (input.activeTabId && browserEditorTabs.get(input.activeTabId)?.status === 'open') {
+        browserEditorActiveTabId = input.activeTabId
+      }
+      browserEditorGeneration += 1
+      return {
+        status: 'migrated',
+        workspace: browserEditorWorkspace(),
+        recoveredTabIds,
+        recoveredTabMappings,
+      }
+    }
+    case 'editor-tab-save': {
+      const input = args[0] as {
+        id: string
+        filename: string
+        language: string
+        content: string
+        kind?: 'file' | 'problem' | 'exercise'
+        problemId?: string | null
+        position: number
+        baseRevision: number
+      }
+      const current = browserEditorTabs.get(input.id) ?? null
+      if (
+        (!current && input.baseRevision !== 0) ||
+        (current && (current.revision !== input.baseRevision || current.status !== 'open'))
+      ) {
+        return { status: 'conflict', current, generation: browserEditorGeneration }
+      }
+      const now = new Date().toISOString()
+      const tab: BrowserEditorTab = {
+        workspaceId: 'default',
+        id: input.id,
+        filename: input.filename,
+        language: input.language,
+        content: input.content,
+        kind: input.kind ?? 'file',
+        problemId: input.problemId ?? null,
+        cursorPosition: current?.cursorPosition ?? null,
+        scrollTop: current?.scrollTop ?? 0,
+        position: input.position,
+        status: 'open',
+        revision: (current?.revision ?? 0) + 1,
+        updatedAt: now,
+        viewUpdatedAt: current?.viewUpdatedAt ?? now,
+        closedAt: null,
+        deletedAt: null,
+      }
+      browserEditorTabs.set(tab.id, tab)
+      browserEditorGeneration += 1
+      return { status: 'saved', tab, generation: browserEditorGeneration, applied: true }
+    }
+    case 'editor-tab-update-view-state': {
+      const input = args[0] as {
+        id: string
+        cursorPosition: { lineNumber: number; column: number } | null
+        scrollTop: number
+      }
+      const current = browserEditorTabs.get(input.id) ?? null
+      if (!current || current.status !== 'open') {
+        return { status: 'conflict', current: null, generation: browserEditorGeneration }
+      }
+      const viewUpdatedAt = new Date().toISOString()
+      const tab = {
+        ...current,
+        cursorPosition: input.cursorPosition,
+        scrollTop: input.scrollTop,
+        viewUpdatedAt,
+      }
+      browserEditorTabs.set(tab.id, tab)
+      browserEditorGeneration += 1
+      return {
+        status: 'saved',
+        viewState: {
+          workspaceId: 'default',
+          id: tab.id,
+          cursorPosition: tab.cursorPosition,
+          scrollTop: tab.scrollTop,
+          status: tab.status,
+          revision: tab.revision,
+          viewUpdatedAt,
+        },
+        generation: browserEditorGeneration,
+        applied: true,
+      }
+    }
+    case 'editor-tab-close':
+    case 'editor-tab-reopen':
+    case 'editor-tab-delete': {
+      const input = args[0] as { id: string; baseRevision: number }
+      const current = browserEditorTabs.get(input.id) ?? null
+      const from =
+        channel === 'editor-tab-reopen'
+          ? 'closed'
+          : channel === 'editor-tab-close'
+            ? 'open'
+            : 'closed'
+      if (!current || current.status !== from || current.revision !== input.baseRevision) {
+        return { status: 'conflict', current, generation: browserEditorGeneration }
+      }
+      const now = new Date().toISOString()
+      const status =
+        channel === 'editor-tab-reopen'
+          ? 'open'
+          : channel === 'editor-tab-close'
+            ? 'closed'
+            : 'deleted'
+      const tab: BrowserEditorTab = {
+        ...current,
+        status,
+        position:
+          status === 'open'
+            ? Math.max(-1, ...[...browserEditorTabs.values()].map((item) => item.position)) + 1
+            : current.position,
+        revision: current.revision + 1,
+        updatedAt: now,
+        closedAt: status === 'closed' ? now : status === 'open' ? null : current.closedAt,
+        deletedAt: status === 'deleted' ? now : null,
+      }
+      browserEditorTabs.set(tab.id, tab)
+      browserEditorGeneration += 1
+      return { status: 'saved', tab, generation: browserEditorGeneration, applied: true }
+    }
+    case 'editor-workspace-set-active': {
+      const input = args[0] as { activeTabId: string | null }
+      browserEditorActiveTabId =
+        input.activeTabId && browserEditorTabs.get(input.activeTabId)?.status === 'open'
+          ? input.activeTabId
+          : null
+      browserEditorGeneration += 1
+      return { activeTabId: browserEditorActiveTabId, generation: browserEditorGeneration }
+    }
     case 'chat-sessions-list':
       return sessions.map(cloneSession)
     case 'chat-session-create': {
@@ -282,14 +665,15 @@ async function invoke(channel: string, ...args: unknown[]) {
       return messages[String(args[0])] ?? []
     case 'chat-message-save': {
       const payload = args[0] as { session_id: string; role: 'user' | 'assistant'; content: string }
+      const messageId = nextChatMessageId++
       messages[payload.session_id] ??= []
       messages[payload.session_id].push({
-        id: `message-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        id: `message-${messageId}`,
         role: payload.role,
         content: payload.content,
         created_at: new Date().toISOString(),
       })
-      return undefined
+      return messageId
     }
     case 'chat-memory-capture':
       return undefined

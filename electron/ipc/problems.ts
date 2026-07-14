@@ -4,6 +4,7 @@ import { existsSync, readdirSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { runCodeSnippet } from '../utils/codeRunner'
 import { trackPerformance } from '../utils/perfMonitor'
+import { escapeLike } from '../utils/textUtils'
 import {
   type ProblemSeed,
   inferSourceFromFile,
@@ -75,16 +76,18 @@ export function registerProblemsIPC(): void {
           params.push(filters.difficulty)
         }
         if (filters?.tag) {
-          query += ' AND p.tags LIKE ?'
-          params.push(`%${filters.tag}%`)
+          // 转义 LIKE 通配符，避免输入里的 % / _ 扩大匹配范围。
+          query += " AND p.tags LIKE ? ESCAPE '\\'"
+          params.push(`%${escapeLike(filters.tag)}%`)
         }
         if (filters?.source) {
           query += ' AND p.source = ?'
           params.push(filters.source)
         }
         if (filters?.track) {
-          query += ' AND p.tracks LIKE ?'
-          params.push(`%"${filters.track}"%`)
+          // tracks 存为 JSON 数组字符串（"["a","b"]"），按字面量匹配某元素。
+          query += " AND p.tracks LIKE ? ESCAPE '\\'"
+          params.push(`%"${escapeLike(filters.track)}"%`)
         }
         if (filters?.platform) {
           query += ' AND p.platform = ?'
@@ -94,7 +97,7 @@ export function registerProblemsIPC(): void {
           query += ' AND p.mode = ?'
           params.push(filters.mode)
         }
-        query += ' ORDER BY p.id ASC LIMIT 500'
+        query += ' ORDER BY p.id ASC LIMIT 3000'
         return getDB()
           .prepare(query)
           .all(...params)
@@ -163,14 +166,16 @@ export function registerProblemsIPC(): void {
 
           const result = await runCodeSnippet(args.code, args.language, tc.input)
           const actual = result.stdout.trim()
-          const passed = normalizeOutput(actual) === normalizeOutput(String(tc.expected))
+          const passed =
+            result.exitCode === 0 &&
+            normalizeOutput(actual) === normalizeOutput(String(tc.expected))
           results.push({ input: tc.input, expected: tc.expected, actual, passed })
 
           if (result.exitCode !== 0) {
             status =
               result.stage === 'compile'
                 ? 'compile_error'
-                : result.stderr.toLowerCase().includes('timed out')
+                : result.timedOut
                   ? 'timeout'
                   : 'runtime_error'
             break
@@ -184,9 +189,6 @@ export function registerProblemsIPC(): void {
 
         const duration = Date.now() - startTime
         const passedCount = results.filter((r) => r.passed).length
-        if (passedCount === testCases.length) {
-          status = 'accepted'
-        }
 
         // Record submission
         getDB()

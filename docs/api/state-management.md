@@ -217,27 +217,34 @@ const error = useChatStore((s) => s.error)
 ```typescript
 interface EditorTab {
   id: string // 标签页唯一 ID
+  kind: 'file' | 'problem' | 'exercise' // 普通文件、题目或练习
   filename: string // 文件名（用于显示和语言推断）
-  language: string // 编程语言（Monaco 语法高亮）
+  language: string // 编程语言（CodeMirror 语法高亮）
   content: string // 编辑器内容
-  cursorPosition?: { lineNumber: number; column: number } // 光标位置（持久化恢复用）
-  scrollTop?: number // 滚动位置（持久化恢复用）
+  cursorPosition?: { lineNumber: number; column: number } // 光标位置（Store 预留字段）
+  scrollTop?: number // 滚动位置（Store 预留字段）
 }
 ```
 
-**默认标签页：** 应用启动时包含一个 `welcome.py` 标签页，内容为示例代码。标签页状态通过 localStorage 持久化，写入时有 500ms 防抖。页面 `beforeunload` 时通过 `flushPersistTabs()` 强制同步写入。
+**默认标签页：** 应用启动时包含一个 `welcome.py` 标签页，内容为示例代码。SQLite `editor_workspaces` / `editor_tabs` 是 Electron 中的持久化事实来源；localStorage 快照当前为 **v3**（键 `codehelper-editor-workspace`，`EDITOR_STORAGE_VERSION = 3`），保留为同步降级与崩溃恢复路径，并原地兼容 v1/v2 快照和旧的 `codehelper-editor-tabs` 数组格式。完整快照仍以 500ms 防抖写入；每个发生内容或语言变化的**非练习**标签还会同步写入多标签恢复日志（`codehelper-editor-workspace-recovery-v2` 会话前缀 + v3 条目结构），并兼容导入旧的单标签 `codehelper-editor-workspace-recovery-v1`。恢复日志只有在对应内容成功持久化后才清除；迟到的旧 SQLite 回执不会删除请求期间产生的新恢复内容，时间戳较旧的日志也不会覆盖更新快照。页面 `pagehide` / `beforeunload` 时通过 `flushPersistTabs()` 强制同步写入。关闭真实 Electron 窗口时，主进程还会发起有界 flush 握手并等待编辑器及练习草稿处理器；失败或超时会保持窗口打开并明确询问是否仍然关闭。内容超过 5 MB、存储配额不足或 SQLite 通道不可用时会保留内存与本地恢复内容，并在状态栏明确显示失败或仅本地保存。损坏、不支持版本或没有有效标签的原始快照会完整备份到 `.corrupt.*` 键，并通过 `restoreStatus` / `restoreMessage` 显示恢复降级。题目 starter code 只在 SQLite 初始协调完成后初始化真正空白的标签。工作区最多保留 50 个标签；最近关闭列表会随版本化快照及 SQLite 状态持久化，最多保留 10 个，重启后仍可通过编辑器标签栏的恢复按钮重新打开。
+
+**练习标签边界：** `kind: 'exercise'` 与文件/题目共用 `tabs` 拓扑与 `reopenTab` / 最近关闭列表，但 `content` 在持久化时被规范为空字符串；权威代码位于练习草稿服务与其 recovery 区。从旧快照读到带代码的练习标签时，会拆出 `recovered-exercise-*` 普通文件副本并清空练习 content。`editorWorkspaceSync` 仅在 SQLite `legacy_storage_version === 0`（未初始化）时导入 localStorage，避免版本号 bump 误覆盖已有远端标签。
+
+练习草稿恢复区不会为新草稿静默淘汰旧的未同步草稿。达到 20 条或 1,000,000 字符总量时，写入返回可见错误并保留全部已有数据；损坏 JSON 会备份到 `.corrupt.*` 键并停止覆盖，直到用户恢复或清理。
 
 ### 操作 (Actions)
 
-| 操作                   | 参数                                             | 返回值 | 说明                                             |
-| ---------------------- | ------------------------------------------------ | ------ | ------------------------------------------------ |
-| `addTab`               | `tab: EditorTab`                                 | `void` | 添加新标签页并自动切换到它                       |
-| `closeTab`             | `id: string`                                     | `void` | 关闭标签页。若关闭的是当前标签，自动切换到第一个 |
-| `setActiveTab`         | `id: string`                                     | `void` | 切换到指定标签页                                 |
-| `updateContent`        | `id: string, content: string`                    | `void` | 更新指定标签页的编辑器内容                       |
-| `updateCursorPosition` | `id: string, lineNumber: number, column: number` | `void` | 更新光标位置（持久化）                           |
-| `updateScrollTop`      | `id: string, scrollTop: number`                  | `void` | 更新滚动位置（持久化）                           |
-| `restoreTabs`          | 无                                               | `void` | 从 localStorage 恢复标签页状态                   |
+| 操作                   | 参数                                             | 返回值    | 说明                                                              |
+| ---------------------- | ------------------------------------------------ | --------- | ----------------------------------------------------------------- |
+| `addTab`               | `tab: EditorTab`                                 | `void`    | 添加新标签页并自动切换到它；练习标签 content 会被规范为空         |
+| `closeTab`             | `id: string`                                     | `void`    | 关闭标签页。若关闭的是当前标签，优先切换到前一个                  |
+| `reopenTab`            | `id: string`                                     | `boolean` | 按 ID 从最近关闭列表恢复标签；成功返回 true                       |
+| `reopenLastClosed`     | 无                                               | `void`    | 恢复最近关闭列表中的第一个标签页                                  |
+| `setActiveTab`         | `id: string`                                     | `void`    | 只允许切换到当前存在的标签页                                      |
+| `updateContent`        | `id: string, content: string`                    | `void`    | 更新指定标签页内容；**练习标签忽略 content 写入**                 |
+| `updateCursorPosition` | `id: string, lineNumber: number, column: number` | `void`    | 更新 Store 中的光标位置预留字段                                   |
+| `updateScrollTop`      | `id: string, scrollTop: number`                  | `void`    | 更新 Store 中的滚动位置预留字段                                   |
+| `restoreTabs`          | 无                                               | `void`    | 校验并从版本化 localStorage + recovery 恢复；设置 `restoreStatus` |
 
 **导出函数：**
 
@@ -384,13 +391,13 @@ const saving = useSettingsStore((s) => s.saving)
 
 Store 之间通过直接引用其他 Store 的 `getState()` 方法进行协作，无需事件总线：
 
-| 场景       | 协作方式                                                                           |
-| ---------- | ---------------------------------------------------------------------------------- |
-| 主题切换   | `appStore.setTheme` 同时更新 DOM 和数据库                                          |
-| 发送消息   | `chatStore.sendMessage` 自动创建会话、保存消息、提取记忆                           |
-| 提交代码   | `problemStore.submit` 完成后刷新题目列表以更新 `solved` 计数                       |
-| 编辑器主题 | `monacoConfig.ts` 中的 `useMonacoTheme` 从 `appStore` 读取主题并映射到 Monaco 主题 |
-| 编辑器标签 | `monacoConfig.ts` 中的 `useActiveTab` 从 `editorStore` 读取当前标签页              |
+| 场景       | 协作方式                                                             |
+| ---------- | -------------------------------------------------------------------- |
+| 主题切换   | `appStore.setTheme` 同时更新 DOM 和数据库                            |
+| 发送消息   | `chatStore.sendMessage` 自动创建会话、保存消息、提取记忆             |
+| 提交代码   | `problemStore.submit` 完成后刷新题目列表以更新 `solved` 计数         |
+| 编辑器主题 | 应用主题经 `appStore` 持有，编辑器（CodeMirror）据其应用对应代码主题 |
+| 编辑器标签 | `editorStore` 持有标签页状态，编辑器组件读取当前标签页代码           |
 
 ---
 

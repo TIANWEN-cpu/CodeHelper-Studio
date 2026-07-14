@@ -76,6 +76,7 @@ export function getEvents(
   eventType?: AnalyticsEventType,
   since?: string,
   until?: string,
+  limit?: number,
 ): AnalyticsEvent[] {
   const db = getDB()
   let sql = 'SELECT * FROM analytics_events WHERE 1=1'
@@ -95,6 +96,15 @@ export function getEvents(
   }
 
   sql += ' ORDER BY timestamp DESC'
+  // 限长：默认取最近 200 条，避免活动流等调用方拉取全表（表会随使用无限增长）。
+  // 调用方若显式传入更小的 limit 则覆盖默认。
+  const effectiveLimit =
+    typeof limit === 'number' && Number.isFinite(limit) && limit > 0
+      ? Math.min(Math.trunc(limit), 1000)
+      : 200
+  sql += ' LIMIT ?'
+  params.push(effectiveLimit)
+
   return db.prepare(sql).all(...params) as AnalyticsEvent[]
 }
 
@@ -104,7 +114,7 @@ export function getEvents(
 export function getSummary(days = 30): AnalyticsSummary {
   const db = getDB()
   const since = new Date()
-  since.setDate(since.getDate() - days)
+  since.setUTCDate(since.getUTCDate() - days)
   const sinceStr = since.toISOString().slice(0, 10)
 
   const totalRow = db
@@ -142,22 +152,40 @@ export function getSummary(days = 30): AnalyticsSummary {
 /**
  * Get weekly report data for the current or specified week.
  */
+/**
+ * 计算周报的起止边界（周一 00:00:00 到周日 23:59:59，全程 UTC）。
+ *
+ * 后端 SQLite 的 CURRENT_TIMESTAMP 是 UTC，故边界必须用 UTC 计算——若用本地
+ * 时间算再 toISOString() 格式化，在偏移时区（如 UTC+8）会把日期串错移一天。
+ * 抽成纯函数以便单测这层 UTC 周界逻辑（最易出错的正确性点）。
+ *
+ * @param now        基准时刻（默认当前）。注入参数便于测试。
+ * @param weekOffset 周偏移：0=本周，-1=上周，1=下周。
+ */
+export function computeWeekRange(
+  now: Date = new Date(),
+  weekOffset = 0,
+): { startStr: string; endStr: string } {
+  const dayOfWeek = now.getUTCDay() === 0 ? 7 : now.getUTCDay()
+  const weekStart = new Date(now)
+  weekStart.setUTCDate(now.getUTCDate() - dayOfWeek + 1 + weekOffset * 7)
+  weekStart.setUTCHours(0, 0, 0, 0)
+
+  const weekEnd = new Date(weekStart)
+  weekEnd.setUTCDate(weekStart.getUTCDate() + 6)
+  weekEnd.setUTCHours(23, 59, 59, 999)
+
+  return {
+    startStr: weekStart.toISOString().slice(0, 10),
+    endStr: weekEnd.toISOString().slice(0, 10) + ' 23:59:59',
+  }
+}
+
 export function getWeeklyReport(weekOffset = 0): WeeklyReportData {
   const db = getDB()
 
-  // Calculate week boundaries (Monday to Sunday)
-  const now = new Date()
-  const dayOfWeek = now.getDay() === 0 ? 7 : now.getDay()
-  const weekStart = new Date(now)
-  weekStart.setDate(now.getDate() - dayOfWeek + 1 + weekOffset * 7)
-  weekStart.setHours(0, 0, 0, 0)
-
-  const weekEnd = new Date(weekStart)
-  weekEnd.setDate(weekStart.getDate() + 6)
-  weekEnd.setHours(23, 59, 59, 999)
-
-  const startStr = weekStart.toISOString().slice(0, 10)
-  const endStr = weekEnd.toISOString().slice(0, 10) + ' 23:59:59'
+  // 周一到周日的 UTC 边界。计算逻辑抽到 computeWeekRange（含 UTC 注意事项）。
+  const { startStr, endStr } = computeWeekRange(new Date(), weekOffset)
 
   const totalRow = db
     .prepare('SELECT COUNT(*) as cnt FROM analytics_events WHERE timestamp BETWEEN ? AND ?')

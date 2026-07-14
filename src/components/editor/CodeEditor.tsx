@@ -1,11 +1,16 @@
-import { useMemo } from 'react'
-import CodeMirror, { keymap } from '@uiw/react-codemirror'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import CodeMirror, { keymap, type EditorView, type ViewUpdate } from '@uiw/react-codemirror'
 import type { Extension } from '@codemirror/state'
 import { python } from '@codemirror/lang-python'
 import { javascript } from '@codemirror/lang-javascript'
 import { cpp } from '@codemirror/lang-cpp'
 import { sql } from '@codemirror/lang-sql'
 import { dracula, cobalt, espresso, coolGlow, tomorrow, solarizedLight } from 'thememirror'
+import {
+  AnimationFrameReporter,
+  cursorOffsetFromPosition,
+  type EditorCursorPosition,
+} from '@/utils/editorViewState'
 
 // code_theme id → CodeMirror 主题扩展（仅本编辑器分包引入 thememirror）。
 const THEME_MAP: Record<string, Extension> = {
@@ -51,6 +56,10 @@ interface CodeEditorProps {
   /** Ctrl/Cmd + Enter 运行回调。 */
   onRun?: () => void
   readOnly?: boolean
+  initialCursorPosition?: EditorCursorPosition
+  initialScrollTop?: number
+  onCursorPositionChange?: (position: EditorCursorPosition) => void
+  onScrollTopChange?: (scrollTop: number) => void
 }
 
 /**
@@ -65,12 +74,51 @@ export function CodeEditor({
   themeId,
   onRun,
   readOnly = false,
+  initialCursorPosition,
+  initialScrollTop = 0,
+  onCursorPositionChange,
+  onScrollTopChange,
 }: CodeEditorProps) {
   const extensions = useMemo(() => [languageExtension(language), tabKeymap], [language])
   const theme = useMemo(() => themeExtension(themeId), [themeId])
+  const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null)
+  const [restoredScrollTop] = useState(() => Math.max(0, initialScrollTop))
+  const [initialSelection] = useState(() => ({
+    anchor: cursorOffsetFromPosition(value, initialCursorPosition),
+  }))
+
+  const handleCreateEditor = useCallback((view: EditorView) => {
+    setScrollElement(view.scrollDOM)
+  }, [])
+
+  useEffect(() => {
+    if (!scrollElement) return
+    const reporter = new AnimationFrameReporter<number>((scrollTop) =>
+      onScrollTopChange?.(scrollTop),
+    )
+    const handleScroll = () => reporter.update(scrollElement.scrollTop)
+    scrollElement.addEventListener('scroll', handleScroll, { passive: true })
+    scrollElement.scrollTop = restoredScrollTop
+    return () => {
+      scrollElement.removeEventListener('scroll', handleScroll)
+      reporter.dispose()
+    }
+  }, [onScrollTopChange, restoredScrollTop, scrollElement])
+
+  const handleUpdate = useCallback(
+    (update: ViewUpdate) => {
+      if ((!update.selectionSet && !update.docChanged) || !onCursorPositionChange) return
+      const head = update.state.selection.main.head
+      const line = update.state.doc.lineAt(head)
+      onCursorPositionChange({ lineNumber: line.number, column: head - line.from + 1 })
+    },
+    [onCursorPositionChange],
+  )
 
   return (
     <div
+      data-testid="code-editor"
+      data-language={language}
       className="h-full w-full overflow-hidden"
       onKeyDownCapture={(e) => {
         if (onRun && (e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -81,7 +129,10 @@ export function CodeEditor({
     >
       <CodeMirror
         value={value}
-        onChange={(val) => onChange(val)}
+        onChange={onChange}
+        onCreateEditor={handleCreateEditor}
+        onUpdate={handleUpdate}
+        selection={initialSelection}
         extensions={extensions}
         theme={theme}
         height="100%"

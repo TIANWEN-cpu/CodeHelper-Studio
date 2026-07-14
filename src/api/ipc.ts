@@ -1,4 +1,7 @@
-const CACHEABLE_CHANNELS = new Set(['db-get-setting', 'problems-list', 'knowledge-list'])
+// 仅缓存经 typedInvoke 调用且会话内稳定的只读通道。
+// 注意：knowledge-list 走 services/ipc 的（未缓存）invoke，不在此列；若将来改为
+// typedInvoke 取列表，再加回并确保在 knowledge 变更后调用 invalidateCache('knowledge-list')。
+const CACHEABLE_CHANNELS = new Set(['db-get-setting', 'problems-list'])
 
 const responseCache = new Map<string, unknown>()
 const pendingCache = new Map<string, Promise<unknown>>()

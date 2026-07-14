@@ -183,24 +183,29 @@
     │   → INSERT/UPDATE ai_configs SET ...
     │
     └─ 编辑器标签页:
-        editorStore.addTab(tab)
-        → localStorage.setItem('codehelper-editor-tabs', JSON.stringify(tabs))
-        // 注意：标签页使用 localStorage，不使用 SQLite
+        editorStore.addTab(tab)  // kind: file | problem | exercise
+        → editorWorkspaceSync（仅 legacy_storage_version===0 时 migrate 导入）
+        → editorWorkspaceService
+        → preload / IPC
+        → SQLite editor_workspaces + editor_tabs
+        → localStorage v3 快照与多标签恢复日志（崩溃恢复/降级副本）
+        → 练习代码另路：practice draft SQLite + draftRecovery（非 editor_tabs.content）
 ```
 
 ## 持久化策略
 
-| 数据类型       | 存储位置             | 原因                       |
-| -------------- | -------------------- | -------------------------- |
-| 题目、提交记录 | SQLite               | 结构化查询、关系数据       |
-| AI 配置        | SQLite + safeStorage | 需要加密 API Key           |
-| 聊天历史       | SQLite               | 需要按会话查询和分页       |
-| 知识库文档     | SQLite               | 需要全文检索               |
-| 记忆           | SQLite               | 需要分类、搜索、置信度管理 |
-| 用户设置       | SQLite (settings 表) | 键值对持久化               |
-| 主题           | SQLite (settings 表) | 跨会话持久化               |
-| 编辑器标签页   | localStorage         | 仅 UI 状态，不需服务端     |
-| 侧栏折叠状态   | 内存（Store）        | 无需持久化                 |
+| 数据类型       | 存储位置                     | 原因                                                                |
+| -------------- | ---------------------------- | ------------------------------------------------------------------- |
+| 题目、提交记录 | SQLite                       | 结构化查询、关系数据                                                |
+| AI 配置        | SQLite + safeStorage         | 需要加密 API Key                                                    |
+| 聊天历史       | SQLite                       | 需要按会话查询和分页                                                |
+| 知识库文档     | SQLite                       | 需要全文检索                                                        |
+| 记忆           | SQLite                       | 需要分类、搜索、置信度管理                                          |
+| 用户设置       | SQLite (settings 表)         | 键值对持久化                                                        |
+| 主题           | SQLite (settings 表)         | 跨会话持久化                                                        |
+| 编辑器标签拓扑 | SQLite + localStorage 恢复区 | 文件/题目/练习统一多标签；SQLite 跨重启；恢复区覆盖防抖、崩溃与降级 |
+| 练习草稿代码   | SQLite 练习草稿 + recovery   | 与 `editor_tabs` 解耦的单一权威，避免双写与切页丢失                 |
+| 侧栏折叠状态   | 内存（Store）                | 无需持久化                                                          |
 
 ## 错误恢复
 
@@ -213,6 +218,10 @@
 | IPC 层   | 主进程抛出的 Error 通过 Promise rejection 传回渲染进程  |
 | 数据库层 | SQLite 错误由主进程处理器捕获并转换为用户友好的错误信息 |
 | 网络层   | fetch 错误（超时、断网）被捕获并分类（categorizeError） |
+
+编辑器同步目前采用工作区级 active tab 和视图状态。多窗口同时修改内容时由 revision/CAS 阻止静默覆盖并显示冲突；多窗口各自独立的光标、滚动位置以及冲突三方合并仍属于降级能力，不能视为完整协同编辑。
+
+Electron 窗口关闭通过 `app-before-close` / `app-close-flush-complete` 握手等待 Renderer 中已注册的编辑器和练习草稿 flush。主进程设置超时边界；失败或超时必须由用户明确确认后才能继续关闭，不能把仅存在内存中的内容当作已保存。
 
 ---
 

@@ -3,6 +3,8 @@ import { EyeOff, MessageCircle, Move, Sparkles, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
 import { CodexPetSprite } from '@/components/CodexPetSprite'
+import { ACTIVITY_EVENT } from '@/services/analyticsService'
+import { getPetReaction, pickIdleAnimation } from '@/lib/petReactions'
 import {
   BUILT_IN_FIREFLY_PET,
   listInstalledPets,
@@ -19,42 +21,83 @@ const PET_SAFE_TOP = 148
 const PET_PROFILE_WIDTH = 96
 const PET_PROFILE_HEIGHT = 130
 const PET_PROFILE_DOCK_MARGIN = 8
+const PET_COMPACT_WIDTH = 64
+const PET_COMPACT_HEIGHT = 88
+const PET_COMPACT_MARGIN = 8
+const PET_COMPACT_BREAKPOINT = 1920
+const PET_COMPACT_HEIGHT_BREAKPOINT = 820
 const PET_MOBILE_BREAKPOINT = 720
+const PET_MOBILE_WIDTH = 64
+const PET_MOBILE_HEIGHT = 88
+const PET_MOBILE_MARGIN = 8
+const PET_MOBILE_SAFE_LEFT = 76
 
 interface PetPosition {
   x: number
   y: number
 }
 
+interface StoredPetPosition extends PetPosition {
+  viewportWidth: number
+  viewportHeight: number
+}
+
 function defaultPosition(): PetPosition {
   if (typeof window === 'undefined') return { x: 0, y: 0 }
   const minX = getPetMinX()
-  return {
-    x: Math.max(minX, window.innerWidth - PET_WIDTH - 28),
-    y: Math.max(PET_SAFE_TOP, window.innerHeight - PET_HEIGHT - 28),
-  }
+  const footprint = getPetFootprint()
+  return clampPosition({
+    x: Math.max(minX, window.innerWidth - footprint.width - footprint.margin),
+    y: Math.max(PET_SAFE_TOP, window.innerHeight - footprint.height - footprint.margin),
+  })
 }
 
 function getPetMinX(): number {
   if (typeof window === 'undefined') return PET_MARGIN
-  return window.innerWidth <= PET_MOBILE_BREAKPOINT ? PET_MARGIN : PET_DESKTOP_SAFE_LEFT
+  return window.innerWidth <= PET_MOBILE_BREAKPOINT ? PET_MOBILE_SAFE_LEFT : PET_DESKTOP_SAFE_LEFT
+}
+
+function isCompactPetViewport(
+  width = typeof window !== 'undefined' ? window.innerWidth : Number.POSITIVE_INFINITY,
+  height = typeof window !== 'undefined' ? window.innerHeight : Number.POSITIVE_INFINITY,
+): boolean {
+  return width <= PET_COMPACT_BREAKPOINT || height <= PET_COMPACT_HEIGHT_BREAKPOINT
+}
+
+export function getPetFootprintForViewport(width: number, height: number, view?: string) {
+  if (view === 'profile') {
+    return { width: PET_PROFILE_WIDTH, height: PET_PROFILE_HEIGHT, margin: PET_PROFILE_DOCK_MARGIN }
+  }
+  if (width <= PET_MOBILE_BREAKPOINT) {
+    return { width: PET_MOBILE_WIDTH, height: PET_MOBILE_HEIGHT, margin: PET_MOBILE_MARGIN }
+  }
+  if (isCompactPetViewport(width, height)) {
+    return { width: PET_COMPACT_WIDTH, height: PET_COMPACT_HEIGHT, margin: PET_COMPACT_MARGIN }
+  }
+  return { width: PET_WIDTH, height: PET_HEIGHT, margin: PET_MARGIN }
 }
 
 function getPetFootprint(view?: string) {
-  return view === 'profile'
-    ? { width: PET_PROFILE_WIDTH, height: PET_PROFILE_HEIGHT, margin: PET_PROFILE_DOCK_MARGIN }
-    : { width: PET_WIDTH, height: PET_HEIGHT, margin: PET_MARGIN }
+  if (typeof window === 'undefined') return getPetFootprintForViewport(1920, 1080, view)
+  return getPetFootprintForViewport(window.innerWidth, window.innerHeight, view)
 }
 
 function clampPosition(pos: PetPosition, view?: string): PetPosition {
   if (typeof window === 'undefined') return pos
-  const minX = getPetMinX()
   const footprint = getPetFootprint(view)
+  const minX = Math.min(
+    getPetMinX(),
+    Math.max(footprint.margin, window.innerWidth - footprint.width - footprint.margin),
+  )
+  const minY = Math.min(
+    PET_SAFE_TOP,
+    Math.max(footprint.margin, window.innerHeight - footprint.height - footprint.margin),
+  )
   const maxX = Math.max(minX, window.innerWidth - footprint.width - footprint.margin)
-  const maxY = Math.max(PET_SAFE_TOP, window.innerHeight - footprint.height - footprint.margin)
+  const maxY = Math.max(minY, window.innerHeight - footprint.height - footprint.margin)
   return {
     x: Math.min(maxX, Math.max(minX, Math.round(pos.x))),
-    y: Math.min(maxY, Math.max(PET_SAFE_TOP, Math.round(pos.y))),
+    y: Math.min(maxY, Math.max(minY, Math.round(pos.y))),
   }
 }
 
@@ -76,9 +119,27 @@ function readStoredPosition(): PetPosition {
   try {
     const raw = window.localStorage.getItem(PET_POSITION_STORAGE_KEY)
     if (!raw) return defaultPosition()
-    const parsed = JSON.parse(raw) as Partial<PetPosition>
+    const parsed = JSON.parse(raw) as Partial<StoredPetPosition>
     if (!Number.isFinite(parsed.x) || !Number.isFinite(parsed.y)) return defaultPosition()
-    return clampPosition({ x: Number(parsed.x), y: Number(parsed.y) })
+    const stored = { x: Number(parsed.x), y: Number(parsed.y) }
+    const hasStoredViewport =
+      Number.isFinite(parsed.viewportWidth) && Number.isFinite(parsed.viewportHeight)
+    const footprint = getPetFootprint()
+    if (hasStoredViewport) {
+      const previousWidth = Number(parsed.viewportWidth)
+      const previousHeight = Number(parsed.viewportHeight)
+      const previousFootprint = getPetFootprintForViewport(previousWidth, previousHeight)
+      const wasDockedRight =
+        stored.x >= previousWidth - previousFootprint.width - previousFootprint.margin - 24
+      const wasDockedBottom =
+        stored.y >= previousHeight - previousFootprint.height - previousFootprint.margin - 24
+      if (wasDockedRight) stored.x = window.innerWidth - footprint.width - footprint.margin
+      if (wasDockedBottom) stored.y = window.innerHeight - footprint.height - footprint.margin
+    } else if (isCompactPetViewport()) {
+      stored.x = window.innerWidth - footprint.width - footprint.margin
+      stored.y = window.innerHeight - footprint.height - footprint.margin
+    }
+    return clampPosition(stored)
   } catch {
     return defaultPosition()
   }
@@ -87,7 +148,12 @@ function readStoredPosition(): PetPosition {
 function persistPosition(pos: PetPosition) {
   if (typeof window === 'undefined') return
   try {
-    window.localStorage.setItem(PET_POSITION_STORAGE_KEY, JSON.stringify(pos))
+    const stored: StoredPetPosition = {
+      ...pos,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    }
+    window.localStorage.setItem(PET_POSITION_STORAGE_KEY, JSON.stringify(stored))
   } catch {
     /* Position persistence is a convenience; the pet should keep working without it. */
   }
@@ -106,10 +172,18 @@ export function AIPet() {
   const [position, setPosition] = useState<PetPosition>(() => readStoredPosition())
   const [pet, setPet] = useState<CodexPetDefinition>(BUILT_IN_FIREFLY_PET)
   const [petState, setPetState] = useState('idle')
+  const [bubble, setBubble] = useState<string | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<number | null>(null)
   const reactionTimerRef = useRef<number | null>(null)
+  const bubbleTimerRef = useRef<number | null>(null)
+  const idleTimerRef = useRef<number | null>(null)
+  // 空闲调度器在触发时读这里的最新值，从而不必把这些频繁变化的量列进定时器依赖
+  // （否则每次导航/拖动/展开都会重置 12~28s 的计时）。
+  const liveRef = useRef({ dragging, expanded, currentView, aiPetEnabled, petState })
+  liveRef.current = { dragging, expanded, currentView, aiPetEnabled, petState }
   const latestPositionRef = useRef(position)
+  const viewportRef = useRef({ width: window.innerWidth, height: window.innerHeight })
   const dragRef = useRef<{
     pointerId: number
     startX: number
@@ -193,9 +267,26 @@ export function AIPet() {
   useEffect(() => {
     const handleResize = () => {
       setPosition((prev) => {
+        const previousViewport = viewportRef.current
+        const previousFootprint = getPetFootprintForViewport(
+          previousViewport.width,
+          previousViewport.height,
+          currentView,
+        )
+        const wasDockedRight =
+          prev.x >= previousViewport.width - previousFootprint.width - previousFootprint.margin - 24
+        const wasDockedBottom =
+          prev.y >=
+          previousViewport.height - previousFootprint.height - previousFootprint.margin - 24
+        viewportRef.current = { width: window.innerWidth, height: window.innerHeight }
+        const footprint = getPetFootprint(currentView)
+        const resizedPosition = {
+          x: wasDockedRight ? window.innerWidth - footprint.width - footprint.margin : prev.x,
+          y: wasDockedBottom ? window.innerHeight - footprint.height - footprint.margin : prev.y,
+        }
         const next = shouldDockForView(currentView)
           ? clampPosition(getViewDockPosition(currentView) ?? prev, currentView)
-          : clampPosition(prev, currentView)
+          : clampPosition(resizedPosition, currentView)
         latestPositionRef.current = next
         applyTransform(next)
         persistPosition(next)
@@ -210,6 +301,8 @@ export function AIPet() {
     () => () => {
       if (frameRef.current != null) window.cancelAnimationFrame(frameRef.current)
       if (reactionTimerRef.current != null) window.clearTimeout(reactionTimerRef.current)
+      if (bubbleTimerRef.current != null) window.clearTimeout(bubbleTimerRef.current)
+      if (idleTimerRef.current != null) window.clearTimeout(idleTimerRef.current)
     },
     [],
   )
@@ -222,6 +315,58 @@ export function AIPet() {
       setPetState('idle')
     }, duration)
   }, [])
+
+  // 学习里程碑（解题成功、完成课程等）触发桌宠庆祝动画 + 气泡。
+  useEffect(() => {
+    const onActivity = (event: Event) => {
+      const detail = (event as CustomEvent<{ type?: string }>).detail
+      const reaction = detail?.type ? getPetReaction(detail.type) : null
+      if (!reaction) return
+      playReaction(reaction.state, reaction.duration)
+      if (reaction.message) {
+        if (bubbleTimerRef.current != null) window.clearTimeout(bubbleTimerRef.current)
+        setBubble(reaction.message)
+        bubbleTimerRef.current = window.setTimeout(() => {
+          bubbleTimerRef.current = null
+          setBubble(null)
+        }, reaction.duration + 1200)
+      }
+    }
+    window.addEventListener(ACTIVITY_EVENT, onActivity)
+    return () => window.removeEventListener(ACTIVITY_EVENT, onActivity)
+  }, [playReaction])
+
+  // 空闲时每隔一段随机时间播放一个小动作，让桌宠静置时也有生气。
+  // 仅依赖 animationLevel/aiPetEnabled 重建；导航、拖动、展开等通过 liveRef 在触发时判断，
+  // 不会重置 12~28s 的计时（否则频繁切换视图的用户几乎看不到空闲动作）。
+  useEffect(() => {
+    if (animationLevel === 'calm' || !aiPetEnabled) return
+    let timer: number | null = null
+    const schedule = () => {
+      const delay = 12000 + Math.random() * 16000 // 12~28s
+      timer = window.setTimeout(() => {
+        const live = liveRef.current
+        const reduceMotion =
+          typeof document !== 'undefined' &&
+          document.documentElement.getAttribute('data-reduce-motion') === 'true'
+        if (
+          !reduceMotion &&
+          !live.dragging &&
+          !live.expanded &&
+          live.currentView !== 'settings' &&
+          live.petState === 'idle'
+        ) {
+          const move = pickIdleAnimation(Math.random())
+          playReaction(move.state, move.duration)
+        }
+        schedule()
+      }, delay)
+    }
+    schedule()
+    return () => {
+      if (timer != null) window.clearTimeout(timer)
+    }
+  }, [animationLevel, aiPetEnabled, playReaction])
 
   const handlePointerMove = useCallback(
     (event: PointerEvent) => {
@@ -300,7 +445,7 @@ export function AIPet() {
     )
   }
 
-  if (!aiPetEnabled) return null
+  if (!aiPetEnabled || currentView === 'settings') return null
 
   return (
     <div
@@ -348,7 +493,15 @@ export function AIPet() {
         </div>
       )}
 
-      <div className="ai-pet-avatar-wrap">
+      <div className="ai-pet-avatar-wrap relative">
+        {bubble && !dragging && (
+          <div
+            role="status"
+            className="ai-pet-bubble pointer-events-none absolute left-1/2 -top-1 z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] px-3 py-1.5 text-xs font-medium text-white shadow-lg"
+          >
+            {bubble}
+          </div>
+        )}
         <button
           type="button"
           onPointerDown={() => playReaction('waving')}

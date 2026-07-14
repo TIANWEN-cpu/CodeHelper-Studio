@@ -25,7 +25,7 @@
 | 变量 / 函数  | camelCase        | `fetchProblems`, `isLoading`              |
 | 常量         | UPPER_SNAKE_CASE | `DEFAULT_THEME`, `IPC`                    |
 | 类型 / 接口  | PascalCase       | `ProblemDetail`, `IpcChannelMap`          |
-| 组件         | PascalCase       | `ProblemList`, `MonacoEditor`             |
+| 组件         | PascalCase       | `ProblemList`, `CodeEditor`               |
 | 文件（组件） | PascalCase.tsx   | `ProblemList.tsx`, `ChatView.tsx`         |
 | 文件（其他） | camelCase.ts     | `appStore.ts`, `chatHelpers.ts`           |
 | 测试文件     | <模块名>.test.ts | `chatStore.test.ts`, `codeRunner.test.ts` |

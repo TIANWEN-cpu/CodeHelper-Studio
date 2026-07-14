@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { typedInvoke } from '@/api/ipc'
+import type { KnowledgeSummary } from '@/services/knowledgeService'
 
 type KnowledgeStore = {
   documents: unknown[]
@@ -8,7 +9,7 @@ type KnowledgeStore = {
   searching: boolean
   semanticResults: unknown[]
   semanticSearching: boolean
-  searchSummary: unknown
+  searchSummary: KnowledgeSummary | null
   summarizing: boolean
   conceptGraph: unknown
   loadingGraph: boolean
@@ -106,7 +107,7 @@ export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
     if (!query.trim()) return
     set({ summarizing: true, error: null })
     try {
-      set({ searchSummary: await typedInvoke('knowledge-summarize', query) })
+      set({ searchSummary: await typedInvoke<KnowledgeSummary>('knowledge-summarize', query) })
     } catch (error) {
       set({ error: message(error) })
     } finally {

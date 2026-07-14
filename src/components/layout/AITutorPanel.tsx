@@ -24,7 +24,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'motion/react'
-import { useAIChat } from '@/hooks/useAIChat'
+import { useChatStore, initChatStreaming } from '@/stores/chatStore'
+import { getSendCategories, getLlmExtractEnabled } from '@/services/memoryService'
 import {
   AI_PANEL_DEFAULT_WIDTH,
   AI_PANEL_MAX_WIDTH,
@@ -310,6 +311,7 @@ const KIND_LABELS: Record<AIContextSnapshot['kind'], string> = {
   exercise: '练习',
   mistake: '错题',
   lesson: '课程',
+  knowledge: '知识文档',
 }
 
 function AssistantMarkdown({ content }: { content: string }) {
@@ -337,20 +339,64 @@ function buildContextPrefix(
 }
 
 export function AITutorPanel({ onClose }: { onClose?: () => void }) {
-  const {
-    sessions,
-    currentSession,
-    messages,
-    loading,
-    streaming,
-    streamingContent,
-    error,
-    presets,
-    createSession,
-    switchSession,
-    deleteSession,
-    sendMessage,
-  } = useAIChat()
+  const sessions = useChatStore((s) => s.sessions)
+  const activeSessionId = useChatStore((s) => s.activeSessionId)
+  const messages = useChatStore((s) => s.messages)
+  const loading = useChatStore((s) => s.loading)
+  const streaming = useChatStore((s) => s.streaming)
+  const error = useChatStore((s) => s.error)
+  const presets = useChatStore((s) => s.presets)
+  const createSession = useChatStore((s) => s.createSession)
+  const switchSession = useChatStore((s) => s.switchSession)
+  const deleteSession = useChatStore((s) => s.deleteSession)
+  const sendMessage = useChatStore((s) => s.sendMessage)
+  const loadSessions = useChatStore((s) => s.loadSessions)
+  const loadPresets = useChatStore((s) => s.loadPresets)
+
+  const currentSession = useMemo(
+    () => sessions.find((s) => s.id === activeSessionId) ?? null,
+    [sessions, activeSessionId],
+  )
+  // chatStore 把助手消息存于 messages 并随 chunk 增长；流式内容取最后一条助手消息。
+  const lastMessage = messages[messages.length - 1]
+  const streamingContent = streaming && lastMessage?.role === 'assistant' ? lastMessage.content : ''
+
+  // 挂载时接通流式事件桥接，并加载会话与预设（chatStore 不自动加载）。
+  useEffect(() => {
+    initChatStreaming()
+    loadSessions()
+    loadPresets()
+  }, [loadSessions, loadPresets])
+
+  // Esc 关闭面板（焦点在输入框/编辑器内时不拦截，留给输入行为）。
+  useEffect(() => {
+    if (!onClose) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      const t = e.target as HTMLElement | null
+      const tag = t?.tagName
+      if (
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        t?.isContentEditable ||
+        t?.closest('.cm-content')
+      ) {
+        return
+      }
+      onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
+  // 读取隐私「按类别发送」白名单与 LLM 抽取开关，传给 chatStore.sendMessage。
+  const resolveMemoryFlags = useCallback(async () => {
+    const [memoryCategories, llmExtract] = await Promise.all([
+      getSendCategories(),
+      getLlmExtractEnabled(),
+    ])
+    return { memoryCategories, llmExtract }
+  }, [])
 
   // 真实当前上下文：读取全局 currentView。
   const currentView = useAppStore((s) => s.currentView)
@@ -482,16 +528,18 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
     if (!content || streaming) return
     setInputValue('')
     // 会话由 sendMessage 内部按需创建；发送内容带上下文，显示/入库用原文。
-    sendMessage(content, undefined, withContext(content))
-  }, [inputValue, streaming, sendMessage, withContext])
+    const flags = await resolveMemoryFlags()
+    sendMessage(content, { sendOverride: withContext(content), ...flags })
+  }, [inputValue, streaming, sendMessage, withContext, resolveMemoryFlags])
 
   const handleQuickAction = useCallback(
     async (prompt: string) => {
       if (streaming) return
-      sendMessage(prompt, undefined, withContext(prompt))
+      const flags = await resolveMemoryFlags()
+      sendMessage(prompt, { sendOverride: withContext(prompt), ...flags })
       setActiveTab('chat')
     },
-    [streaming, sendMessage, withContext],
+    [streaming, sendMessage, withContext, resolveMemoryFlags],
   )
 
   // 消费来自其他视图的一次性 AI 请求（如工作区"让 AI 诊断报错"）。
@@ -500,15 +548,15 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
     const { display, send } = pendingAIPrompt
     consumeAIPrompt()
     setActiveTab('chat')
-    sendMessage(display, undefined, send)
-  }, [pendingAIPrompt, consumeAIPrompt, sendMessage])
+    resolveMemoryFlags().then((flags) => sendMessage(display, { sendOverride: send, ...flags }))
+  }, [pendingAIPrompt, consumeAIPrompt, sendMessage, resolveMemoryFlags])
 
   // 新建对话：清空当前会话，由下一条消息触发真正创建（与 handleSend 一致）。
   const handleNewSession = useCallback(async () => {
     if (streaming) return
     setSessionMenuOpen(false)
     setActiveTab('chat')
-    await createSession('新对话')
+    await createSession(undefined, '新对话')
   }, [streaming, createSession])
 
   const handleSwitchSession = useCallback(
@@ -561,7 +609,7 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 32 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
-      className="relative z-20 flex h-full flex-shrink-0 overflow-visible"
+      className="relative z-[140] flex h-full flex-shrink-0 overflow-visible"
       style={{
         width: `min(${aiPanelWidth || AI_PANEL_DEFAULT_WIDTH}px, calc(100vw - 4.5rem))`,
         maxWidth: `min(${AI_PANEL_MAX_WIDTH}px, calc(100vw - 4.5rem))`,
@@ -826,53 +874,42 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
                 </div>
               )}
 
-              {/* Messages */}
-              {messages.map((msg, idx) => (
-                <motion.div
-                  key={msg.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.05 * Math.min(idx, 5) }}
-                  className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}
-                >
-                  {msg.role === 'user' ? (
-                    <div className="bg-[var(--color-accent-primary)] text-white px-4 py-2.5 rounded-2xl rounded-tr-sm max-w-[85%] text-sm leading-relaxed shadow-sm">
-                      {msg.content}
-                    </div>
-                  ) : (
-                    <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] text-[#E5E7EB] px-4 py-3.5 rounded-2xl rounded-tl-sm max-w-[90%] text-sm leading-relaxed shadow-sm">
-                      <AssistantMarkdown content={msg.content} />
-                    </div>
-                  )}
-                </motion.div>
-              ))}
-
-              {/* Streaming content */}
-              {streaming && streamingContent && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex justify-start"
-                >
-                  <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] text-[#E5E7EB] px-4 py-3.5 rounded-2xl rounded-tl-sm max-w-[90%] text-sm leading-relaxed shadow-sm">
-                    <AssistantMarkdown content={streamingContent} />
-                    <span className="inline-block w-1.5 h-4 bg-[var(--color-accent-purple)] ml-0.5 animate-pulse rounded-sm align-text-bottom" />
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Streaming loading indicator (before first chunk) */}
-              {streaming && !streamingContent && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex justify-start"
-                >
-                  <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] text-[#E5E7EB] px-4 py-3.5 rounded-2xl rounded-tl-sm text-sm leading-relaxed shadow-sm">
-                    <Loader2 size={16} className="animate-spin text-[var(--color-accent-purple)]" />
-                  </div>
-                </motion.div>
-              )}
+              {/* Messages（助手消息随流式 chunk 在 messages 内增长） */}
+              {messages.map((msg, idx) => {
+                const isLast = idx === messages.length - 1
+                const isStreamingMsg = streaming && isLast && msg.role === 'assistant'
+                return (
+                  <motion.div
+                    key={msg.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.05 * Math.min(idx, 5) }}
+                    className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}
+                  >
+                    {msg.role === 'user' ? (
+                      <div className="bg-[var(--color-accent-solid)] text-[var(--color-on-accent)] px-4 py-2.5 rounded-2xl rounded-tr-sm max-w-[85%] text-sm leading-relaxed shadow-sm">
+                        {msg.content}
+                      </div>
+                    ) : (
+                      <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] text-[#E5E7EB] px-4 py-3.5 rounded-2xl rounded-tl-sm max-w-[90%] text-sm leading-relaxed shadow-sm">
+                        {msg.content ? (
+                          <>
+                            <AssistantMarkdown content={msg.content} />
+                            {isStreamingMsg && (
+                              <span className="inline-block w-1.5 h-4 bg-[var(--color-accent-purple)] ml-0.5 animate-pulse rounded-sm align-text-bottom" />
+                            )}
+                          </>
+                        ) : (
+                          <Loader2
+                            size={16}
+                            className="animate-spin text-[var(--color-accent-purple)]"
+                          />
+                        )}
+                      </div>
+                    )}
+                  </motion.div>
+                )
+              })}
 
               {/* Suggestions (show when last message is from assistant and not streaming) */}
               {!streaming &&
@@ -984,7 +1021,7 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
                 className={cn(
                   'w-8 h-8 flex items-center justify-center rounded-lg transition-all shadow-sm',
                   inputValue.trim() && !streaming
-                    ? 'bg-[var(--color-accent-primary)] hover:bg-[#4F46E5] active:scale-90 text-white'
+                    ? 'bg-[var(--color-accent-solid)] hover:bg-[var(--color-accent-solid-hover)] active:scale-90 text-[var(--color-on-accent)]'
                     : 'bg-[var(--color-bg-card)] text-[var(--color-text-muted)] cursor-not-allowed',
                 )}
                 title="发送 (Enter)"

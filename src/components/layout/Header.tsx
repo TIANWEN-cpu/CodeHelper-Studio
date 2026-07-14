@@ -7,6 +7,18 @@ import { ViewType } from '@/types'
 import * as settingsService from '@/services/settingsService'
 import type { AIConfig } from '@/services/settingsService'
 import * as reviewService from '@/services/reviewService'
+import * as learnService from '@/services/learnService'
+import * as practiceService from '@/services/practiceService'
+import * as knowledgeService from '@/services/knowledgeService'
+import { requestDeepLink } from '@/lib/deepLink'
+import { getRecentRefs, recordRecent, type RecentRef } from '@/lib/recentItems'
+import {
+  buildCommandResults,
+  type CommandResult,
+  type LessonItem,
+  type ExerciseItem,
+  type KnowledgeItem,
+} from '@/lib/commandPalette'
 
 /** Pages reachable from the command palette. */
 const COMMAND_ITEMS: { view: ViewType; label: string }[] = [
@@ -20,8 +32,28 @@ const COMMAND_ITEMS: { view: ViewType; label: string }[] = [
   { view: 'settings', label: '设置' },
 ]
 
+const KIND_LABELS: Record<CommandResult['kind'], string> = {
+  page: '页面',
+  lesson: '课程',
+  exercise: '练习',
+  knowledge: '知识',
+}
+
+const VIEW_LABELS: Record<ViewType, string> = {
+  home: '首页概览',
+  learn: '课程学习',
+  practice: '题库练习',
+  workspace: '编程工作区',
+  'ai-tutor': 'AI 助手',
+  review: '复习与错题',
+  knowledge: '知识库',
+  settings: '设置',
+  profile: '个人中心',
+}
+
 export function Header() {
   const setCurrentView = useAppStore((s) => s.setCurrentView)
+  const currentView = useAppStore((s) => s.currentView)
   const theme = useAppStore((s) => s.theme)
   const toggleTheme = useAppStore((s) => s.toggleTheme)
 
@@ -39,6 +71,12 @@ export function Header() {
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
+  // 课程/练习/知识库作为可搜索内容，首次打开面板时懒加载一次。
+  const [lessons, setLessons] = useState<LessonItem[]>([])
+  const [exercises, setExercises] = useState<ExerciseItem[]>([])
+  const [knowledge, setKnowledge] = useState<KnowledgeItem[]>([])
+  const [recentRefs, setRecentRefs] = useState<RecentRef[]>([])
+  const contentLoadedRef = useRef(false)
 
   const currentModelConfig = useMemo(
     () => modelConfigs.find((config) => config.is_default) ?? modelConfigs[0] ?? null,
@@ -84,17 +122,67 @@ export function Header() {
     }
   }, [])
 
-  const filteredItems = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return COMMAND_ITEMS
-    return COMMAND_ITEMS.filter((item) => item.label.toLowerCase().includes(q))
-  }, [query])
+  const filteredItems = useMemo(
+    () =>
+      buildCommandResults(query, {
+        pages: COMMAND_ITEMS,
+        lessons,
+        exercises,
+        knowledge,
+        recentRefs,
+      }),
+    [query, lessons, exercises, knowledge, recentRefs],
+  )
+
+  // 首次打开面板时拉取课程/练习/知识库供搜索；失败静默（仍可搜索页面）。
+  const loadSearchableContent = useCallback(async () => {
+    if (contentLoadedRef.current) return
+    contentLoadedRef.current = true
+    try {
+      const [tracks, exerciseList, docs] = await Promise.all([
+        learnService.getTracks().catch(() => []),
+        practiceService.getExercises().catch(() => []),
+        knowledgeService.getDocuments().catch(() => []),
+      ])
+      const flatLessons: LessonItem[] = tracks.flatMap((track) =>
+        track.modules.flatMap((module) =>
+          module.lessons.map((lesson) => ({
+            id: lesson.id,
+            title: lesson.title,
+            trackTitle: track.title,
+            moduleTitle: module.title,
+          })),
+        ),
+      )
+      setLessons(flatLessons)
+      setExercises(
+        exerciseList.map((ex) => ({
+          id: ex.id,
+          title: ex.title,
+          difficulty: ex.difficulty,
+          trackId: ex.track_id,
+        })),
+      )
+      setKnowledge(
+        docs.map((doc) => ({
+          id: String(doc.id),
+          title: doc.display_title?.trim() || doc.filename,
+          sublabel: doc.source_repo || doc.category || undefined,
+        })),
+      )
+    } catch {
+      // 内容搜索是增量能力，加载失败不影响页面跳转。
+      contentLoadedRef.current = false
+    }
+  }, [])
 
   const openPalette = useCallback(() => {
     setQuery('')
     setActiveIndex(0)
+    setRecentRefs(getRecentRefs())
     setPaletteOpen(true)
-  }, [])
+    void loadSearchableContent()
+  }, [loadSearchableContent])
 
   const toggleModelMenu = useCallback(() => {
     setModelMenuOpen((open) => {
@@ -126,9 +214,13 @@ export function Header() {
     setPaletteOpen(false)
   }, [])
 
-  const go = useCallback(
-    (view: ViewType) => {
-      setCurrentView(view)
+  const runCommand = useCallback(
+    (result: CommandResult) => {
+      setCurrentView(result.view)
+      if (result.target) {
+        requestDeepLink(result.target)
+        recordRecent({ kind: result.target.kind, id: result.target.id })
+      }
       setPaletteOpen(false)
     },
     [setCurrentView],
@@ -143,6 +235,8 @@ export function Header() {
           if (prev) return false
           setQuery('')
           setActiveIndex(0)
+          setRecentRefs(getRecentRefs())
+          void loadSearchableContent()
           return true
         })
       } else if (e.key === 'Escape') {
@@ -151,7 +245,7 @@ export function Header() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [loadSearchableContent])
 
   // Focus the palette input when it opens; keep the highlight in range.
   useEffect(() => {
@@ -172,7 +266,7 @@ export function Header() {
     } else if (e.key === 'Enter') {
       e.preventDefault()
       const target = filteredItems[activeIndex]
-      if (target) go(target.view)
+      if (target) runCommand(target)
     } else if (e.key === 'Escape') {
       e.preventDefault()
       closePalette()
@@ -180,15 +274,15 @@ export function Header() {
   }
 
   return (
-    <header className="h-16 flex-shrink-0 flex items-center gap-4 px-6 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]/80 backdrop-blur-md z-30 relative text-[var(--color-text-primary)]">
-      <div className="hidden w-[220px] min-w-0 items-center gap-2 text-sm text-[var(--color-text-muted)] xl:flex">
-        <Sparkles size={15} className="text-[var(--color-accent-purple)]" />
-        <span className="truncate">CodeHelper Studio</span>
+    <header className="app-header h-16 flex-shrink-0 flex items-center gap-3 px-5 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]/80 backdrop-blur-md z-30 relative text-[var(--color-text-primary)] lg:px-6">
+      <div className="hidden w-[170px] min-w-0 items-center gap-2 text-sm text-[var(--color-text-secondary)] xl:flex">
+        <Sparkles size={15} className="text-[var(--color-accent-primary)]" />
+        <span className="truncate font-medium">{VIEW_LABELS[currentView]}</span>
       </div>
 
       {/* Center / Quick switcher */}
       <div className="flex min-w-0 flex-1 items-center justify-start">
-        <div className="relative group w-full max-w-[420px] transition-all duration-200 focus-within:max-w-[460px]">
+        <div className="relative group w-full max-w-[460px]">
           <Command
             size={16}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] group-focus-within:text-[var(--color-accent-primary)] group-hover:text-[var(--color-text-secondary)] transition-colors"
@@ -219,15 +313,15 @@ export function Header() {
         {/* Workspace terminal shortcut */}
         <button
           onClick={() => setCurrentView('workspace')}
-          className="hidden h-9 items-center gap-2 whitespace-nowrap rounded-lg border border-[var(--color-border-subtle)] px-3 text-sm text-[var(--color-text-secondary)] transition-all hover:bg-[var(--color-bg-hover)] active:scale-95 md:flex"
+          aria-label="打开工作区终端"
+          className="hidden h-9 w-9 items-center justify-center rounded-lg border border-[var(--color-border-subtle)] text-[var(--color-text-secondary)] transition-all hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)] active:scale-95 md:flex"
           title="打开工作区终端"
         >
-          <Terminal size={14} />
-          <span>终端</span>
+          <Terminal size={16} />
         </button>
 
         {/* AI Model Switcher */}
-        <div ref={modelMenuRef} className="relative">
+        <div ref={modelMenuRef} className="relative hidden min-[721px]:block">
           <button
             onClick={toggleModelMenu}
             title={currentModelConfig ? '切换当前 AI 模型' : '前往设置配置 AI 模型'}
@@ -345,11 +439,12 @@ export function Header() {
           </AnimatePresence>
         </div>
 
-        <div className="w-px h-6 bg-[var(--color-border-subtle)] mx-0.5" />
+        <div className="hidden h-6 w-px bg-[var(--color-border-subtle)] mx-0.5 min-[721px]:block" />
 
         {/* Icons */}
         <button
           onClick={() => setCurrentView('review')}
+          aria-label={dueCount > 0 ? `${dueCount} 个待复习` : '打开复习'}
           className="relative p-2 text-[var(--color-text-secondary)] hover:text-white hover:bg-[var(--color-bg-hover)] active:scale-95 rounded-md transition-all"
           title={dueCount > 0 ? `${dueCount} 个待复习` : '复习'}
         >
@@ -362,6 +457,7 @@ export function Header() {
         </button>
         <button
           onClick={toggleTheme}
+          aria-label={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
           className="p-2 text-[var(--color-text-secondary)] hover:text-white hover:bg-[var(--color-bg-hover)] active:scale-95 rounded-md transition-all"
           title={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
         >
@@ -399,7 +495,7 @@ export function Header() {
                     setActiveIndex(0)
                   }}
                   onKeyDown={onInputKeyDown}
-                  placeholder="搜索页面或功能..."
+                  placeholder="搜索页面、课程、练习或知识库..."
                   className="flex-1 bg-transparent py-3 text-sm text-white placeholder-[var(--color-text-muted)] focus:outline-none"
                 />
                 <kbd className="hidden sm:inline-flex items-center bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] rounded px-1.5 py-0.5 text-[10px] font-mono text-[var(--color-text-muted)]">
@@ -408,27 +504,49 @@ export function Header() {
               </div>
               <ul className="max-h-72 overflow-y-auto py-2">
                 {filteredItems.length === 0 ? (
-                  <li className="px-4 py-3 text-sm text-[var(--color-text-muted)]">无匹配的页面</li>
+                  <li className="px-4 py-3 text-sm text-[var(--color-text-muted)]">无匹配结果</li>
                 ) : (
-                  filteredItems.map((item, index) => (
-                    <li key={item.view}>
-                      <button
-                        onClick={() => go(item.view)}
-                        onMouseEnter={() => setActiveIndex(index)}
-                        className={cn(
-                          'w-full flex items-center justify-between px-4 py-2.5 text-sm text-left transition-colors',
-                          index === activeIndex
-                            ? 'bg-[var(--color-bg-hover)] text-white'
-                            : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]',
+                  filteredItems.map((item, index) => {
+                    const group = item.badge ?? KIND_LABELS[item.kind]
+                    const prevGroup =
+                      index > 0
+                        ? (filteredItems[index - 1].badge ??
+                          KIND_LABELS[filteredItems[index - 1].kind])
+                        : null
+                    return (
+                      <React.Fragment key={item.key}>
+                        {group !== prevGroup && (
+                          <li className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                            {group}
+                          </li>
                         )}
-                      >
-                        <span>{item.label}</span>
-                        <span className="text-[10px] text-[var(--color-text-muted)]">
-                          {item.view}
-                        </span>
-                      </button>
-                    </li>
-                  ))
+                        <li>
+                          <button
+                            onClick={() => runCommand(item)}
+                            onMouseEnter={() => setActiveIndex(index)}
+                            className={cn(
+                              'w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm text-left transition-colors',
+                              index === activeIndex
+                                ? 'bg-[var(--color-bg-hover)] text-white'
+                                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]',
+                            )}
+                          >
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate">{item.label}</span>
+                              {item.sublabel && (
+                                <span className="block truncate text-[11px] text-[var(--color-text-muted)]">
+                                  {item.sublabel}
+                                </span>
+                              )}
+                            </span>
+                            <span className="shrink-0 rounded-full border border-[var(--color-border-subtle)] px-2 py-0.5 text-[10px] text-[var(--color-text-muted)]">
+                              {KIND_LABELS[item.kind]}
+                            </span>
+                          </button>
+                        </li>
+                      </React.Fragment>
+                    )
+                  })
                 )}
               </ul>
             </motion.div>

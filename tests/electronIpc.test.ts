@@ -19,7 +19,7 @@ vi.mock('electron', () => ({
     showOpenDialog: vi.fn(),
   },
   safeStorage: {
-    isEncryptionAvailable: vi.fn(() => false),
+    isEncryptionAvailable: vi.fn(() => true),
     encryptString: vi.fn((s: string) => Buffer.from(s)),
     decryptString: vi.fn((b: Buffer) => b.toString()),
   },
@@ -27,6 +27,12 @@ vi.mock('electron', () => ({
     getPath: vi.fn(() => '/tmp/test-user-data'),
   },
 }))
+
+vi.mock('dns/promises', () => ({
+  lookup: vi.fn(async () => [{ address: '93.184.216.34', family: 4 }]),
+}))
+
+import { safeStorage } from 'electron'
 
 // Mock better-sqlite3 via db/index
 const mockDB = {
@@ -97,13 +103,27 @@ describe('registerMistakesIPC', () => {
   })
 
   it('mistakes-list calls DB', async () => {
-    const mockRows = [{ id: 1, problem_id: 1, title: 'Test' }]
+    const mockRows = [
+      {
+        id: 1,
+        problem_id: 1,
+        problem_title: 'Test',
+        tags: '["array"]',
+        error_types: '["wrong_answer"]',
+      },
+    ]
     setupDB({ mistakes: mockRows })
     const { registerMistakesIPC } = await import('../electron/ipc/mistakes')
     registerMistakesIPC()
 
     const result = handlers['mistakes-list']()
-    expect(result).toEqual(mockRows)
+    expect(result).toEqual([
+      expect.objectContaining({
+        problem_title: 'Test',
+        tags: ['array'],
+        error_types: ['wrong_answer'],
+      }),
+    ])
   })
 
   it('mistakes-get validates id', async () => {
@@ -116,13 +136,24 @@ describe('registerMistakesIPC', () => {
   })
 
   it('mistakes-get returns mistake by id', async () => {
-    const mockMistake = { id: 1, problem_id: 1, title: 'Test', description: 'Desc' }
+    const mockMistake = {
+      id: 1,
+      problem_id: 1,
+      problem_title: 'Test',
+      description: 'Desc',
+      tags: '[]',
+      error_types: '["runtime_error"]',
+    }
     setupDB({ mistakes: mockMistake })
     const { registerMistakesIPC } = await import('../electron/ipc/mistakes')
     registerMistakesIPC()
 
     const result = handlers['mistakes-get'](null, 1)
-    expect(result).toEqual(mockMistake)
+    expect(result).toEqual({
+      ...mockMistake,
+      tags: [],
+      error_types: ['runtime_error'],
+    })
   })
 
   it('mistakes-update-analysis validates inputs', async () => {
@@ -154,6 +185,48 @@ describe('registerMistakesIPC', () => {
     registerMistakesIPC()
 
     expect(() => handlers['mistakes-delete'](null, 0)).toThrow('参数无效: id')
+  })
+
+  it('mistakes-delete clears the review_schedule row (no orphaned review)', async () => {
+    // 捕获每条 prepared SQL 对应的 .run/.get 实参，验证级联删除用 String(problem_id)。
+    const runs: Array<{ sql: string; args: unknown[] }> = []
+    const gets: Array<{ sql: string; args: unknown[] }> = []
+    mockDB.prepare.mockImplementation((sql: string) => ({
+      get: vi.fn((...args: unknown[]) => {
+        gets.push({ sql, args })
+        return { problem_id: 42 } // 该错题对应的 problem_id
+      }),
+      run: vi.fn((...args: unknown[]) => {
+        runs.push({ sql, args })
+        return { changes: 1 }
+      }),
+      all: vi.fn(() => []),
+    }))
+    const { registerMistakesIPC } = await import('../electron/ipc/mistakes')
+    registerMistakesIPC()
+
+    handlers['mistakes-delete'](null, 5)
+
+    // 先按 problem_id 查出错题
+    expect(gets.some((c) => c.sql.includes('SELECT problem_id FROM mistakes'))).toBe(true)
+    // 删 mistakes 行
+    expect(runs.some((c) => c.sql.includes('DELETE FROM mistakes'))).toBe(true)
+    // 用 String(problem_id)='42' 清掉复习排程，避免 review-due 捞出幽灵项
+    const scheduleDelete = runs.find((c) => c.sql.includes('DELETE FROM review_schedule'))
+    expect(scheduleDelete).toBeDefined()
+    expect(scheduleDelete?.args).toEqual(['42'])
+  })
+
+  it('mistakes-delete still removes the mistake row when it has no problem_id', async () => {
+    mockDB.prepare.mockImplementation((_sql: string) => ({
+      get: vi.fn(() => undefined), // 行不存在 / 无 problem_id
+      run: vi.fn(() => ({ changes: 0 })),
+      all: vi.fn(() => []),
+    }))
+    const { registerMistakesIPC } = await import('../electron/ipc/mistakes')
+    registerMistakesIPC()
+
+    expect(() => handlers['mistakes-delete'](null, 5)).not.toThrow()
   })
 })
 
@@ -220,6 +293,7 @@ describe('registerDatabaseIPC', () => {
   beforeEach(() => {
     Object.keys(handlers).forEach((k) => delete handlers[k])
     mockDB.prepare.mockReset()
+    vi.mocked(safeStorage.isEncryptionAvailable).mockReturnValue(true)
   })
 
   it('registers all database handlers', async () => {
@@ -294,6 +368,18 @@ describe('registerDatabaseIPC', () => {
       handlers['db-set-setting'](null, 'ui-theme', 'fjord')
       expect(mockRun).toHaveBeenCalledWith('ui-theme', 'fjord')
     })
+
+    it('keeps large avatar data urls intact', async () => {
+      const mockRun = vi.fn()
+      const largeAvatar = `data:image/webp;base64,${'a'.repeat(50000)}`
+      mockDB.prepare.mockReturnValue({ run: mockRun, get: vi.fn(), all: vi.fn() })
+      const { registerDatabaseIPC } = await import('../electron/ipc/database')
+      registerDatabaseIPC()
+
+      handlers['db-set-setting'](null, 'user_avatar', largeAvatar)
+
+      expect(mockRun).toHaveBeenCalledWith('user_avatar', largeAvatar)
+    })
   })
 
   describe('db-get-ai-configs', () => {
@@ -319,7 +405,7 @@ describe('registerDatabaseIPC', () => {
       const result = await handlers['db-get-ai-configs']()
       expect(result).toHaveLength(1)
       expect(result[0].api_key).not.toBe('sk-live-secret')
-      expect(result[0].api_key).toBe('sk-********cret')
+      expect(result[0].api_key).toBe('********')
       expect(result[0].has_api_key).toBe(true)
     })
   })
@@ -382,6 +468,37 @@ describe('registerDatabaseIPC', () => {
       })
       expect(result).toBe(3)
     })
+
+    it('requires the API key again before reusing a masked credential on a new Base URL', async () => {
+      const mockRun = vi.fn()
+      mockDB.prepare.mockImplementation((sql: string) => {
+        if (sql.startsWith('SELECT * FROM ai_configs')) {
+          return {
+            get: vi.fn(() => ({
+              id: 3,
+              api_key: 'enc:c2stc2VjcmV0',
+              base_url: 'https://api.original.test/v1',
+            })),
+            run: mockRun,
+            all: vi.fn(),
+          }
+        }
+        return { run: mockRun, get: vi.fn(), all: vi.fn() }
+      })
+      const { registerDatabaseIPC } = await import('../electron/ipc/database')
+      registerDatabaseIPC()
+
+      expect(() =>
+        handlers['db-save-ai-config'](null, {
+          id: 3,
+          name: 'Updated',
+          api_key: 'sk-********cret',
+          base_url: 'https://attacker.example/v1',
+          model: 'model',
+        }),
+      ).toThrow('Base URL')
+      expect(mockRun).not.toHaveBeenCalled()
+    })
   })
 
   describe('db-delete-ai-config', () => {
@@ -417,7 +534,7 @@ describe('registerDatabaseIPC', () => {
       const result = handlers['db-get-default-ai-config']()
       expect(result).toBeTruthy() // returns the default config object
       expect(result.name).toBe('Default')
-      expect(result.api_key).toBe('******')
+      expect(result.api_key).toBe('********')
       expect(result.has_api_key).toBe(true)
     })
 
@@ -513,6 +630,60 @@ describe('registerDatabaseIPC', () => {
       ).rejects.toThrow('参数无效: base_url')
     })
 
+    it('does not send a stored masked credential to a different Base URL', async () => {
+      const fetchMock = vi.fn()
+      vi.stubGlobal('fetch', fetchMock)
+      mockDB.prepare.mockReturnValue({
+        get: vi.fn(() => ({
+          api_key: 'enc:c2stc2VjcmV0',
+          base_url: 'https://api.original.test/v1',
+        })),
+        run: vi.fn(),
+        all: vi.fn(),
+      })
+      const { registerDatabaseIPC } = await import('../electron/ipc/database')
+      registerDatabaseIPC()
+
+      await expect(
+        handlers['ai-fetch-models'](null, {
+          api_key: 'sk-********cret',
+          base_url: 'https://attacker.example/v1',
+          config_id: 1,
+        }),
+      ).rejects.toThrow('Base URL')
+      expect(fetchMock).not.toHaveBeenCalled()
+      vi.unstubAllGlobals()
+    })
+
+    it('reuses a stored masked credential only for the same normalized Base URL', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ data: [] }),
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      mockDB.prepare.mockReturnValue({
+        get: vi.fn(() => ({
+          api_key: 'enc:c2stc2VjcmV0',
+          base_url: 'https://api.original.test/v1/',
+        })),
+        run: vi.fn(),
+        all: vi.fn(),
+      })
+      const { registerDatabaseIPC } = await import('../electron/ipc/database')
+      registerDatabaseIPC()
+
+      await handlers['ai-fetch-models'](null, {
+        api_key: 'sk-********cret',
+        base_url: 'https://api.original.test/v1',
+        config_id: 1,
+      })
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://api.original.test/v1/models',
+        expect.objectContaining({ headers: { Authorization: 'Bearer sk-secret' } }),
+      )
+      vi.unstubAllGlobals()
+    })
+
     it('rejects metadata and private network base_url', async () => {
       setupDB({})
       const { registerDatabaseIPC } = await import('../electron/ipc/database')
@@ -579,6 +750,31 @@ describe('registerDatabaseIPC', () => {
       vi.unstubAllGlobals()
     })
 
+    it('200 OK 但响应体不是合法 JSON 时给出友好错误（而非原始 SyntaxError）', async () => {
+      setupDB({})
+      const { registerDatabaseIPC } = await import('../electron/ipc/database')
+      registerDatabaseIPC()
+
+      // 某些代理/服务会返回 200 + HTML/纯文本，response.json() 会抛 SyntaxError。
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockRejectedValue(new SyntaxError('Unexpected token < in JSON')),
+        text: vi.fn().mockResolvedValue('<html>not json</html>'),
+      })
+      vi.stubGlobal('fetch', mockFetch)
+
+      await expect(
+        handlers['ai-fetch-models'](null, { api_key: 'sk-test', base_url: 'https://api.test/v1' }),
+      ).rejects.toThrow(/无法解析|不是有效的 JSON|模型列表/)
+      // 且不应泄漏原始 SyntaxError 技术细节
+      await expect(
+        handlers['ai-fetch-models'](null, { api_key: 'sk-test', base_url: 'https://api.test/v1' }),
+      ).rejects.not.toThrow('Unexpected token')
+
+      vi.unstubAllGlobals()
+    })
+
     it('throws on non-ok response', async () => {
       setupDB({})
       const { registerDatabaseIPC } = await import('../electron/ipc/database')
@@ -593,7 +789,56 @@ describe('registerDatabaseIPC', () => {
 
       await expect(
         handlers['ai-fetch-models'](null, { api_key: 'bad', base_url: 'https://api.test' }),
-      ).rejects.toThrow('获取模型列表失败 (401)')
+      ).rejects.toThrow('鉴权失败 (401)')
+
+      vi.unstubAllGlobals()
+    })
+
+    it('does not leak upstream error body to the caller', async () => {
+      setupDB({})
+      const { registerDatabaseIPC } = await import('../electron/ipc/database')
+      registerDatabaseIPC()
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: vi.fn().mockResolvedValue('SECRET upstream internal trace details'),
+      })
+      vi.stubGlobal('fetch', mockFetch)
+
+      await expect(
+        handlers['ai-fetch-models'](null, { api_key: 'sk-test', base_url: 'https://api.test' }),
+      ).rejects.toThrow(/Provider 服务异常 \(500\)/)
+      await expect(
+        handlers['ai-fetch-models'](null, { api_key: 'sk-test', base_url: 'https://api.test' }),
+      ).rejects.not.toThrow(/SECRET/)
+
+      vi.unstubAllGlobals()
+    })
+
+    it('blocks upstream redirects (SSRF protection)', async () => {
+      setupDB({})
+      const { registerDatabaseIPC } = await import('../electron/ipc/database')
+      registerDatabaseIPC()
+
+      const cancelBody = vi.fn().mockResolvedValue(undefined)
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 302,
+        body: { cancel: cancelBody },
+        headers: { get: () => 'http://169.254.169.254/latest/meta-data/' },
+        text: vi.fn().mockResolvedValue(''),
+      })
+      vi.stubGlobal('fetch', mockFetch)
+
+      await expect(
+        handlers['ai-fetch-models'](null, { api_key: 'sk-test', base_url: 'https://api.test' }),
+      ).rejects.toThrow(/重定向/)
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.test/models',
+        expect.objectContaining({ redirect: 'manual' }),
+      )
+      expect(cancelBody).toHaveBeenCalledOnce()
 
       vi.unstubAllGlobals()
     })
@@ -620,6 +865,22 @@ describe('registerDatabaseIPC', () => {
   })
 
   describe('encryption handling', () => {
+    it('rejects API key persistence when secure storage is unavailable', async () => {
+      vi.mocked(safeStorage.isEncryptionAvailable).mockReturnValue(false)
+      mockDB.prepare.mockReturnValue({ run: vi.fn(), get: vi.fn(), all: vi.fn() })
+      const { registerDatabaseIPC } = await import('../electron/ipc/database')
+      registerDatabaseIPC()
+      const config = {
+        name: 'Unsafe',
+        api_key: 'sk-secret',
+        base_url: 'https://api.test',
+        model: 'gpt-4',
+      }
+      expect(() => handlers['db-save-ai-config'](null, config)).toThrow(
+        'Secure API key storage is unavailable',
+      )
+    })
+
     it('encrypts api key when encryption is available', async () => {
       const electron = await import('electron')
       const origIsEncryption = electron.safeStorage.isEncryptionAvailable as ReturnType<
@@ -728,7 +989,7 @@ describe('registerDatabaseIPC', () => {
       registerDatabaseIPC()
 
       const result = await handlers['db-get-ai-configs']()
-      expect(result[0].api_key).toBe('sk-******-key')
+      expect(result[0].api_key).toBe('********')
       expect(result[0].has_api_key).toBe(true)
     })
   })

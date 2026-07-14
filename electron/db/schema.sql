@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS ai_configs (
 
 CREATE TABLE IF NOT EXISTS chat_history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  session_id TEXT NOT NULL,
+  session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
   role TEXT CHECK(role IN ('user','assistant','system')),
   content TEXT NOT NULL,
   model TEXT,
@@ -199,8 +199,49 @@ CREATE TABLE IF NOT EXISTS review_schedule (
 CREATE TABLE IF NOT EXISTS exercise_drafts (
   exercise_id TEXT PRIMARY KEY,
   title TEXT,
-  code TEXT,
-  updated_at TEXT
+  code TEXT NOT NULL DEFAULT '',
+  language TEXT,
+  revision INTEGER NOT NULL DEFAULT 1,
+  updated_at TEXT,
+  deleted INTEGER NOT NULL DEFAULT 0
+);
+
+-- Versioned editor workspaces. Runtime initialization also migrates the earlier draft schema.
+CREATE TABLE IF NOT EXISTS editor_workspaces (
+  workspace_id TEXT PRIMARY KEY,
+  last_active_tab_id TEXT,
+  generation INTEGER NOT NULL DEFAULT 0 CHECK(generation >= 0),
+  legacy_storage_version INTEGER NOT NULL DEFAULT 0 CHECK(legacy_storage_version >= 0),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS editor_tabs (
+  workspace_id TEXT NOT NULL REFERENCES editor_workspaces(workspace_id) ON DELETE CASCADE,
+  tab_id TEXT NOT NULL,
+  filename TEXT NOT NULL,
+  language TEXT NOT NULL,
+  content TEXT NOT NULL DEFAULT '',
+  tab_kind TEXT NOT NULL DEFAULT 'file' CHECK(tab_kind IN ('file', 'problem', 'exercise')),
+  problem_id TEXT,
+  cursor_line INTEGER,
+  cursor_column INTEGER,
+  scroll_top REAL NOT NULL DEFAULT 0 CHECK(scroll_top >= 0),
+  tab_position INTEGER NOT NULL DEFAULT 0 CHECK(tab_position >= 0),
+  status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'closed', 'deleted')),
+  revision INTEGER NOT NULL DEFAULT 1 CHECK(revision >= 1),
+  last_mutation_id TEXT,
+  last_mutation_kind TEXT CHECK(last_mutation_kind IN ('save', 'close', 'reopen', 'delete')),
+  last_mutation_fingerprint TEXT,
+  client_id TEXT,
+  last_view_mutation_id TEXT,
+  last_view_mutation_fingerprint TEXT,
+  view_client_id TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  view_updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  closed_at TEXT,
+  deleted_at TEXT,
+  PRIMARY KEY (workspace_id, tab_id)
 );
 
 -- Exercise timer/hint tracking

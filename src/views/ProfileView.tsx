@@ -18,9 +18,16 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '../store'
+import { toast } from '@/stores/toastStore'
+import { WeeklyReportCard } from '@/components/WeeklyReportCard'
 import * as homeService from '@/services/homeService'
 import type { HomeOverview, AnalyticsSummary } from '@/services/homeService'
-import { getUserProfile, type UserProfileSettings } from '@/services/settingsService'
+import {
+  getUserProfile,
+  getSetting,
+  setSetting,
+  type UserProfileSettings,
+} from '@/services/settingsService'
 
 const PENDING_SETTINGS_TAB_KEY = 'codehelper.pendingSettingsTab'
 
@@ -47,135 +54,9 @@ function levelTitle(level: number): string {
   return 'Novice'
 }
 
-function StatTile({
-  icon: Icon,
-  iconColor,
-  iconBg,
-  label,
-  value,
-  sub,
-}: {
-  icon: typeof BookOpen
-  iconColor: string
-  iconBg: string
-  label: string
-  value: string
-  sub?: string
-}) {
-  return (
-    <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-2xl p-5 shadow-sm">
-      <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center mb-3', iconBg)}>
-        <Icon size={20} className={iconColor} />
-      </div>
-      <div className="text-2xl font-bold text-white tracking-tight">{value}</div>
-      <div className="text-xs text-[var(--color-text-muted)] mt-0.5">{label}</div>
-      {sub && <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">{sub}</div>}
-    </div>
-  )
-}
-
-function renderProfileAvatar(avatar: string, name: string, sizeClass = 'w-24 h-24') {
-  const trimmedAvatar = avatar.trim()
-  const label = name.trim().slice(0, 1).toUpperCase() || '同'
-
-  if (/^(data:image\/|https?:\/\/|blob:)/i.test(trimmedAvatar)) {
-    return (
-      <img
-        src={trimmedAvatar}
-        alt={`${name || '同学'}的头像`}
-        className={cn(sizeClass, 'rounded-full object-cover')}
-      />
-    )
-  }
-
-  if (trimmedAvatar) {
-    return (
-      <span className={cn(sizeClass, 'flex items-center justify-center rounded-full text-4xl')}>
-        {trimmedAvatar.slice(0, 2)}
-      </span>
-    )
-  }
-
-  return (
-    <span
-      className={cn(
-        sizeClass,
-        'flex items-center justify-center rounded-full bg-[var(--color-accent-purple)]/15 text-3xl font-bold text-[var(--color-accent-purple)]',
-      )}
-    >
-      {label}
-    </span>
-  )
-}
-
-export function ProfileView() {
-  const setCurrentView = useAppStore((s) => s.setCurrentView)
-  const [overview, setOverview] = useState<HomeOverview | null>(null)
-  const [summary, setSummary] = useState<AnalyticsSummary | null>(null)
-  const [profile, setProfile] = useState<UserProfileSettings>({ name: '', avatar: '' })
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let mounted = true
-    setLoading(true)
-    Promise.all([
-      homeService.getOverview(),
-      homeService.getAnalyticsSummary(30).catch(() => null),
-      getUserProfile().catch(() => ({ name: '', avatar: '' })),
-    ])
-      .then(([ov, sm, userProfile]) => {
-        if (!mounted) return
-        setOverview(ov)
-        setSummary(sm)
-        setProfile(userProfile)
-        setError(null)
-      })
-      .catch((e) => {
-        if (mounted) setError(e instanceof Error ? e.message : '加载个人数据失败')
-      })
-      .finally(() => {
-        if (mounted) setLoading(false)
-      })
-    return () => {
-      mounted = false
-    }
-  }, [])
-
-  if (loading) {
-    return (
-      <div className="h-full flex items-center justify-center bg-[var(--color-bg-base)]">
-        <Loader2 size={32} className="animate-spin text-[var(--color-accent-primary)]" />
-      </div>
-    )
-  }
-
-  if (error || !overview) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center gap-3 bg-[var(--color-bg-base)]">
-        <div className="w-14 h-14 rounded-full bg-[#EF4444]/10 flex items-center justify-center text-2xl">
-          !
-        </div>
-        <p className="text-sm text-[var(--color-text-secondary)]">{error || '暂无个人数据'}</p>
-      </div>
-    )
-  }
-
-  const xpPercent =
-    overview.xpForNextLevel > 0
-      ? Math.min(100, Math.max(0, Math.round((overview.xpInLevel / overview.xpForNextLevel) * 100)))
-      : 0
-
-  // 活动构成（按类型计数，降序）
-  const typeEntries = Object.entries(summary?.byType ?? {}).sort((a, b) => b[1] - a[1])
-  const typeTotal = typeEntries.reduce((s, [, c]) => s + c, 0)
-
-  // 最近 30 天每日活动（用于柱状图）
-  const days = summary?.dailyCounts ?? []
-  const maxCount = days.reduce((m, d) => Math.max(m, d.count), 0)
-
-  // 成就：全部由真实指标推导（解锁/未解锁）
-  const achievements = [
+/** 成就定义 + 解锁判定，全部由真实指标推导。render 与解锁提示共用此口径。 */
+function buildAchievements(overview: HomeOverview) {
+  return [
     {
       id: 'first-lesson',
       icon: BookOpen,
@@ -233,6 +114,214 @@ export function ProfileView() {
       unlocked: overview.level >= 5,
     },
   ]
+}
+
+const CELEBRATED_ACHIEVEMENTS_KEY = 'achievements_celebrated'
+
+function StatTile({
+  icon: Icon,
+  iconColor,
+  iconBg,
+  label,
+  value,
+  sub,
+}: {
+  icon: typeof BookOpen
+  iconColor: string
+  iconBg: string
+  label: string
+  value: string
+  sub?: string
+}) {
+  return (
+    <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-2xl p-5 shadow-sm">
+      <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center mb-3', iconBg)}>
+        <Icon size={20} className={iconColor} />
+      </div>
+      <div className="text-2xl font-bold text-white tracking-tight">{value}</div>
+      <div className="text-xs text-[var(--color-text-muted)] mt-0.5">{label}</div>
+      {sub && <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">{sub}</div>}
+    </div>
+  )
+}
+
+function ProfileAvatarFallback({
+  value,
+  name,
+  sizeClass,
+}: {
+  value: string
+  name: string
+  sizeClass: string
+}) {
+  const label = name.trim().slice(0, 1).toUpperCase() || '同'
+
+  if (value) {
+    return (
+      <span className={cn(sizeClass, 'flex items-center justify-center rounded-full text-4xl')}>
+        {value.slice(0, 2)}
+      </span>
+    )
+  }
+
+  return (
+    <span
+      className={cn(
+        sizeClass,
+        'flex items-center justify-center rounded-full bg-[var(--color-accent-purple)]/15 text-3xl font-bold text-[var(--color-accent-purple)]',
+      )}
+    >
+      {label}
+    </span>
+  )
+}
+
+function ProfileAvatar({
+  avatar,
+  name,
+  sizeClass = 'w-24 h-24',
+}: {
+  avatar: string
+  name: string
+  sizeClass?: string
+}) {
+  const trimmedAvatar = avatar.trim()
+  const [imageFailed, setImageFailed] = useState(false)
+
+  useEffect(() => {
+    setImageFailed(false)
+  }, [trimmedAvatar])
+
+  if (/^(data:image\/|https?:\/\/|blob:)/i.test(trimmedAvatar) && !imageFailed) {
+    return (
+      <img
+        src={trimmedAvatar}
+        alt={`${name || '同学'}的头像`}
+        className={cn(sizeClass, 'rounded-full object-cover')}
+        onError={() => setImageFailed(true)}
+      />
+    )
+  }
+
+  return (
+    <ProfileAvatarFallback
+      value={imageFailed ? '' : trimmedAvatar}
+      name={name}
+      sizeClass={sizeClass}
+    />
+  )
+}
+
+function renderProfileAvatar(avatar: string, name: string, sizeClass = 'w-24 h-24') {
+  return <ProfileAvatar avatar={avatar} name={name} sizeClass={sizeClass} />
+}
+
+export function ProfileView() {
+  const setCurrentView = useAppStore((s) => s.setCurrentView)
+  const [overview, setOverview] = useState<HomeOverview | null>(null)
+  const [summary, setSummary] = useState<AnalyticsSummary | null>(null)
+  const [profile, setProfile] = useState<UserProfileSettings>({ name: '', avatar: '' })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    setLoading(true)
+    Promise.all([
+      homeService.getOverview(),
+      homeService.getAnalyticsSummary(30).catch(() => null),
+      getUserProfile().catch(() => ({ name: '', avatar: '' })),
+    ])
+      .then(([ov, sm, userProfile]) => {
+        if (!mounted) return
+        setOverview(ov)
+        setSummary(sm)
+        setProfile(userProfile)
+        setError(null)
+      })
+      .catch((e) => {
+        if (mounted) setError(e instanceof Error ? e.message : '加载个人数据失败')
+      })
+      .finally(() => {
+        if (mounted) setLoading(false)
+      })
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  // 成就解锁提示：与已庆祝集合对比，仅对「新解锁」弹一次。
+  // 首次（无持久化记录）只静默落库做基线，避免老用户一次性刷屏。
+  useEffect(() => {
+    if (!overview) return
+    let cancelled = false
+    const unlockedIds = buildAchievements(overview)
+      .filter((a) => a.unlocked)
+      .map((a) => ({ id: a.id, label: a.label }))
+
+    void (async () => {
+      const raw = await getSetting(CELEBRATED_ACHIEVEMENTS_KEY).catch(() => null)
+      if (cancelled) return
+      const seeded = raw != null
+      let celebrated: string[] = []
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw)
+          if (Array.isArray(parsed))
+            celebrated = parsed.filter((x): x is string => typeof x === 'string')
+        } catch {
+          /* 损坏的记录按空集处理，下面会重新落库 */
+        }
+      }
+      const celebratedSet = new Set(celebrated)
+      const fresh = unlockedIds.filter((a) => !celebratedSet.has(a.id))
+      if (fresh.length === 0) return
+      if (seeded) {
+        fresh.forEach((a) => toast.success(`解锁新成就：${a.label}`))
+      }
+      const next = Array.from(new Set([...celebrated, ...unlockedIds.map((a) => a.id)]))
+      await setSetting(CELEBRATED_ACHIEVEMENTS_KEY, JSON.stringify(next)).catch(() => {})
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [overview])
+
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center bg-[var(--color-bg-base)]">
+        <Loader2 size={32} className="animate-spin text-[var(--color-accent-primary)]" />
+      </div>
+    )
+  }
+
+  if (error || !overview) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center gap-3 bg-[var(--color-bg-base)]">
+        <div className="w-14 h-14 rounded-full bg-[#EF4444]/10 flex items-center justify-center text-2xl">
+          !
+        </div>
+        <p className="text-sm text-[var(--color-text-secondary)]">{error || '暂无个人数据'}</p>
+      </div>
+    )
+  }
+
+  const xpPercent =
+    overview.xpForNextLevel > 0
+      ? Math.min(100, Math.max(0, Math.round((overview.xpInLevel / overview.xpForNextLevel) * 100)))
+      : 0
+
+  // 活动构成（按类型计数，降序）
+  const typeEntries = Object.entries(summary?.byType ?? {}).sort((a, b) => b[1] - a[1])
+  const typeTotal = typeEntries.reduce((s, [, c]) => s + c, 0)
+
+  // 最近 30 天每日活动（用于柱状图）
+  const days = summary?.dailyCounts ?? []
+  const maxCount = days.reduce((m, d) => Math.max(m, d.count), 0)
+
+  // 成就：全部由真实指标推导（解锁/未解锁）
+  const achievements = buildAchievements(overview)
   const unlockedCount = achievements.filter((a) => a.unlocked).length
   const displayName = profile.name || overview.greetingName || '同学'
 
@@ -409,6 +498,9 @@ export function ProfileView() {
           </div>
         </div>
 
+        {/* 学习周报 */}
+        <WeeklyReportCard />
+
         {/* 成就 */}
         <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-2xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-5">
@@ -468,7 +560,7 @@ export function ProfileView() {
         <div className="flex items-center justify-center">
           <button
             onClick={() => setCurrentView('learn')}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[var(--color-accent-primary)] to-[var(--color-accent-purple)] hover:from-[#4F46E5] hover:to-[#7C3AED] text-white text-sm font-medium transition-all shadow-md hover:shadow-[0_0_15px_rgba(139,92,246,0.4)]"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[var(--color-accent-solid)] to-[var(--color-accent-secondary-solid)] hover:from-[var(--color-accent-solid-hover)] hover:to-[var(--color-accent-secondary-solid-hover)] text-[var(--color-on-accent)] text-sm font-medium transition-all shadow-md hover:shadow-[0_0_15px_rgba(139,92,246,0.4)]"
           >
             继续学习
             <ChevronRight size={16} />

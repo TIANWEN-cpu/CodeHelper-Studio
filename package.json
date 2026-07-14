@@ -1,6 +1,6 @@
 {
   "name": "codehelper",
-  "version": "2.2.1",
+  "version": "2.3.0",
   "description": "AI 驱动的桌面编程助手 — 集成代码编辑器、AI 对话、题库系统、知识库检索与错题追踪",
   "main": "./out/main/index.js",
   "scripts": {
@@ -24,6 +24,10 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,json,css}\" \"electron/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,json,css}\" \"electron/**/*.ts\"",
     "test": "vitest run",
+    "test:e2e": "npm run build && playwright test --config=playwright.electron.config.ts",
+    "test:electron-drafts": "node scripts/run-electron-draft-test.cjs",
+    "test:electron-workspace": "node scripts/run-editor-workspace-electron-test.cjs",
+    "test:electron-sql": "electron-vite build && electron tests/electronSqlUtilitySmoke.cjs",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
@@ -62,11 +66,14 @@
     "recharts": "^3.8.1",
     "tailwind-merge": "^3.6.0",
     "thememirror": "^2.0.1",
+    "undici": "^6.27.0",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@electron/asar": "^3.4.1",
     "@electron/fuses": "^1.8.0",
     "@eslint/js": "^9.28.0",
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/vite": "^4.2.2",
     "@types/better-sqlite3": "^7.6.13",
     "@types/react": "^19.2.14",

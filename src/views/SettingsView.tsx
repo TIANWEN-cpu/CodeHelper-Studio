@@ -7,6 +7,7 @@ import {
   Download,
   Upload,
   Info,
+  Loader2,
   Gauge,
   Wallpaper,
   Wand2,
@@ -15,6 +16,7 @@ import {
   ImagePlus,
   Trash2,
   AlertTriangle,
+  Brain,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSettingsData } from '../hooks/useSettingsData'
@@ -32,26 +34,34 @@ import {
   type CodexPetDefinition,
 } from '../lib/pets'
 import {
+  DEFAULT_ACCENT_COLOR,
   applyThemeColor,
   applyScale,
   applyFontSize,
   applyReduceMotion,
   applyGlassEffect,
+  applyGlassBlur,
   applyHighContrast,
   applyTheme,
+  flushAppearanceWrites,
+  persistAppearance,
   resolveTheme,
   type AnimationLevel,
   type BackgroundStyle,
+  type GlassStyle,
   type ThemeMode,
   type VisualTheme,
 } from '../lib/appearance'
 import { AIModelSettings } from './settings/AIModelSettings'
+import { MemorySettings } from './settings/MemorySettings'
 import { REGION_OPTIONS } from '../lib/locale'
 import { CODE_THEME_OPTIONS, DEFAULT_CODE_THEME } from '../lib/codeThemes'
 import { CodeEditor } from '../components/editor/CodeEditor'
+import { codeHelperMaterialByKey } from '../assets/generated/codehelper-materials'
 import { clearIpcCache } from '../api/ipc'
 import {
   PROFILE_AVATAR_KEY,
+  PROFILE_AVATAR_MAX_LENGTH,
   PROFILE_NAME_KEY,
   clearLearningRecords,
   saveUserProfile,
@@ -71,12 +81,13 @@ const VISUAL_THEMES: Array<{
   label: string
   desc: string
   swatches: string[]
+  assetKey?: string
 }> = [
   {
     id: 'codex',
     label: '深空专注',
     desc: '靛紫科技感，适合长时间编码',
-    swatches: ['#6366F1', '#8B5CF6', '#22D3EE'],
+    swatches: [DEFAULT_ACCENT_COLOR, '#8587F2', '#22D3EE'],
   },
   {
     id: 'aurora',
@@ -96,6 +107,27 @@ const VISUAL_THEMES: Array<{
     desc: '更收敛的工程师工作台风格',
     swatches: ['#64748B', '#38BDF8', '#22C55E'],
   },
+  {
+    id: 'deep-space',
+    label: '深空探索',
+    desc: '星云、轨道与冷色光，适合沉浸式专注',
+    swatches: ['#050816', '#2563EB', '#A78BFA'],
+    assetKey: 'theme-deep-space',
+  },
+  {
+    id: 'forest',
+    label: '森林专注',
+    desc: '夜林、萤光与自然科技感，长时间学习更柔和',
+    swatches: ['#07130F', '#10B981', '#A3E635'],
+    assetKey: 'theme-forest-focus',
+  },
+  {
+    id: 'anime',
+    label: '二次元自习室',
+    desc: '霓虹窗景和温暖桌灯，更轻松的学习氛围',
+    swatches: ['#0B1024', '#8B5CF6', '#F472B6'],
+    assetKey: 'theme-anime-study',
+  },
 ]
 
 const BACKGROUND_STYLES: Array<{ id: BackgroundStyle; label: string; desc: string }> = [
@@ -111,6 +143,13 @@ const ANIMATION_LEVELS: Array<{ id: AnimationLevel; label: string; desc: string 
   { id: 'expressive', label: '灵动', desc: '桌宠与背景更活泼' },
 ]
 
+const GLASS_STYLES: Array<{ id: GlassStyle; label: string; desc: string }> = [
+  { id: 'layered', label: '层次玻璃', desc: '类似 iOS 的半透明层、描边与高光' },
+  { id: 'frosted', label: '毛玻璃', desc: '更克制的磨砂模糊与实用对比度' },
+]
+
+const GLASS_BLUR_MARKS = [6, 12, 18, 24, 32]
+
 // ---- Helper: Toggle Switch ----
 
 function ToggleSwitch({ active, onToggle }: { active: boolean; onToggle: () => void }) {
@@ -119,7 +158,7 @@ function ToggleSwitch({ active, onToggle }: { active: boolean; onToggle: () => v
       onClick={onToggle}
       className={cn(
         'w-10 h-6 rounded-full relative flex items-center shrink-0 transition-colors',
-        active ? 'bg-[var(--color-accent-purple)]' : 'bg-[#3A405A]',
+        active ? 'bg-[var(--color-accent-secondary-solid)]' : 'bg-[#3A405A]',
       )}
     >
       <div
@@ -154,30 +193,43 @@ function SparklesPreview() {
 }
 
 const PENDING_SETTINGS_TAB_KEY = 'codehelper.pendingSettingsTab'
-const MAX_PROFILE_AVATAR_LENGTH = 9500
+const MAX_PROFILE_AVATAR_LENGTH = PROFILE_AVATAR_MAX_LENGTH
+const SAVE_FEEDBACK_MIN_MS = 180
+const SAVE_FEEDBACK_RESET_MS = 1800
 
 function isImageAvatar(value: string) {
   return /^(data:image\/|https?:\/\/|blob:)/i.test(value.trim())
 }
 
-function renderAvatarPreview(avatar: string, name: string, sizeClass = 'h-20 w-20') {
-  const trimmedAvatar = avatar.trim()
+function waitForSaveFeedbackFrame() {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, SAVE_FEEDBACK_MIN_MS)
+  })
+}
+
+function AvatarFallback({
+  value,
+  name,
+  sizeClass,
+  largeText = false,
+}: {
+  value: string
+  name: string
+  sizeClass: string
+  largeText?: boolean
+}) {
   const fallback = name.trim().slice(0, 1).toUpperCase() || '同'
 
-  if (isImageAvatar(trimmedAvatar)) {
+  if (value) {
     return (
-      <img
-        src={trimmedAvatar}
-        alt={`${name || '同学'}的头像预览`}
-        className={cn(sizeClass, 'rounded-full object-cover')}
-      />
-    )
-  }
-
-  if (trimmedAvatar) {
-    return (
-      <span className={cn(sizeClass, 'flex items-center justify-center rounded-full text-3xl')}>
-        {trimmedAvatar.slice(0, 2)}
+      <span
+        className={cn(
+          sizeClass,
+          'flex items-center justify-center rounded-full',
+          largeText ? 'text-4xl' : 'text-3xl',
+        )}
+      >
+        {value.slice(0, 2)}
       </span>
     )
   }
@@ -194,6 +246,42 @@ function renderAvatarPreview(avatar: string, name: string, sizeClass = 'h-20 w-2
   )
 }
 
+function AvatarPreview({
+  avatar,
+  name,
+  sizeClass = 'h-20 w-20',
+}: {
+  avatar: string
+  name: string
+  sizeClass?: string
+}) {
+  const trimmedAvatar = avatar.trim()
+  const [imageFailed, setImageFailed] = React.useState(false)
+
+  React.useEffect(() => {
+    setImageFailed(false)
+  }, [trimmedAvatar])
+
+  if (isImageAvatar(trimmedAvatar) && !imageFailed) {
+    return (
+      <img
+        src={trimmedAvatar}
+        alt={`${name || '同学'}的头像预览`}
+        className={cn(sizeClass, 'rounded-full object-cover')}
+        onError={() => setImageFailed(true)}
+      />
+    )
+  }
+
+  return (
+    <AvatarFallback value={imageFailed ? '' : trimmedAvatar} name={name} sizeClass={sizeClass} />
+  )
+}
+
+function renderAvatarPreview(avatar: string, name: string, sizeClass = 'h-20 w-20') {
+  return <AvatarPreview avatar={avatar} name={name} sizeClass={sizeClass} />
+}
+
 async function fileToCompactAvatarDataUrl(file: File): Promise<string> {
   if (!file.type.startsWith('image/')) {
     throw new Error('请选择 PNG、JPG 或 WebP 图片。')
@@ -208,22 +296,32 @@ async function fileToCompactAvatarDataUrl(file: File): Promise<string> {
       img.src = imageUrl
     })
 
-    const maxSize = 160
-    const scale = Math.min(1, maxSize / Math.max(image.width, image.height))
-    const width = Math.max(1, Math.round(image.width * scale))
-    const height = Math.max(1, Math.round(image.height * scale))
     const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('当前环境无法处理头像图片。')
-    ctx.drawImage(image, 0, 0, width, height)
 
-    const dataUrl = canvas.toDataURL('image/webp', 0.72)
-    if (dataUrl.length > MAX_PROFILE_AVATAR_LENGTH) {
-      throw new Error('头像图片仍然过大，请换一张更小的图片，或使用字符头像。')
+    const attempts = [
+      { maxSize: 320, quality: 0.82 },
+      { maxSize: 256, quality: 0.76 },
+      { maxSize: 192, quality: 0.7 },
+      { maxSize: 160, quality: 0.64 },
+      { maxSize: 128, quality: 0.58 },
+    ]
+
+    for (const attempt of attempts) {
+      const scale = Math.min(1, attempt.maxSize / Math.max(image.width, image.height))
+      const width = Math.max(1, Math.round(image.width * scale))
+      const height = Math.max(1, Math.round(image.height * scale))
+      canvas.width = width
+      canvas.height = height
+      ctx.clearRect(0, 0, width, height)
+      ctx.drawImage(image, 0, 0, width, height)
+
+      const dataUrl = canvas.toDataURL('image/webp', attempt.quality)
+      if (dataUrl.length <= MAX_PROFILE_AVATAR_LENGTH) return dataUrl
     }
-    return dataUrl
+
+    throw new Error('头像图片仍然过大，请换一张更小的图片，或使用字符头像。')
   } finally {
     URL.revokeObjectURL(imageUrl)
   }
@@ -232,7 +330,7 @@ async function fileToCompactAvatarDataUrl(file: File): Promise<string> {
 // ---- Component ----
 
 export function SettingsView() {
-  const { getSetting, setSetting, platformInfo, exportData, importData } = useSettingsData()
+  const { getSetting, platformInfo, exportData, importData } = useSettingsData()
 
   // 主题(dark/light)由全局 store 统一管理，使侧边栏/Header/设置页三处同步。
   const theme = useAppStore((s) => s.theme)
@@ -260,6 +358,10 @@ export function SettingsView() {
   const setBackgroundStyle = useAppStore((s) => s.setBackgroundStyle)
   const animationLevel = useAppStore((s) => s.animationLevel)
   const setAnimationLevel = useAppStore((s) => s.setAnimationLevel)
+  const glassStyle = useAppStore((s) => s.glassStyle)
+  const setGlassStyle = useAppStore((s) => s.setGlassStyle)
+  const glassBlur = useAppStore((s) => s.glassBlur)
+  const setGlassBlur = useAppStore((s) => s.setGlassBlur)
   const aiPetEnabled = useAppStore((s) => s.aiPetEnabled)
   const setAIPetEnabled = useAppStore((s) => s.setAIPetEnabled)
 
@@ -281,6 +383,10 @@ export function SettingsView() {
     kind: 'idle',
     message: '',
   })
+  const [settingsSaveStatus, setSettingsSaveStatus] = React.useState<DataActionStatus>({
+    kind: 'idle',
+    message: '',
+  })
   const [clearLearningConfirm, setClearLearningConfirm] = React.useState(false)
   const [clearLearningStatus, setClearLearningStatus] = React.useState<DataActionStatus>({
     kind: 'idle',
@@ -298,7 +404,7 @@ export function SettingsView() {
 
   // ---- Appearance ----
   // 默认招牌靛色：与 @theme 的 --color-accent-primary 一致；选它时 applyThemeColor 回退原始靛→紫双色。
-  const [themeColor, setThemeColor] = React.useState('#6366F1')
+  const [themeColor, setThemeColor] = React.useState(DEFAULT_ACCENT_COLOR)
   const [followSystem, setFollowSystem] = React.useState(false)
 
   // ---- Code / Display ----
@@ -323,6 +429,8 @@ export function SettingsView() {
           'ui_scale',
           'font_size',
           'glass_effect',
+          'glass_style',
+          'glass_blur',
           'high_contrast',
           'reduce_motion',
           'visual_theme',
@@ -347,6 +455,13 @@ export function SettingsView() {
           if (!isNaN(n)) setFontSize(n)
         }
         if (vals.glass_effect) setGlassEffect(vals.glass_effect === 'true')
+        if (GLASS_STYLES.some((item) => item.id === vals.glass_style)) {
+          setGlassStyle(vals.glass_style as GlassStyle)
+        }
+        if (vals.glass_blur) {
+          const nextGlassBlur = parseInt(vals.glass_blur, 10)
+          if (!isNaN(nextGlassBlur)) setGlassBlur(nextGlassBlur)
+        }
         if (vals.high_contrast) setHighContrast(vals.high_contrast === 'true')
         if (vals.reduce_motion) setReduceMotion(vals.reduce_motion === 'true')
         if (VISUAL_THEMES.some((item) => item.id === vals.visual_theme)) {
@@ -372,13 +487,21 @@ export function SettingsView() {
     return () => {
       cancelled = true
     }
-  }, [getSetting, setAIPetEnabled, setAnimationLevel, setBackgroundStyle, setVisualTheme])
+  }, [
+    getSetting,
+    setAIPetEnabled,
+    setAnimationLevel,
+    setBackgroundStyle,
+    setGlassBlur,
+    setGlassStyle,
+    setVisualTheme,
+  ])
 
   React.useEffect(() => {
     const applySettingsTab = (tab: unknown) => {
       if (
         typeof tab === 'string' &&
-        ['account', 'appearance', 'ai', 'data', 'about'].includes(tab)
+        ['account', 'appearance', 'ai', 'memory', 'data', 'about'].includes(tab)
       ) {
         setActiveTab(tab)
       }
@@ -414,23 +537,33 @@ export function SettingsView() {
   }, [refreshPets])
 
   // ---- Persist helper ----
-  const save = React.useCallback(
-    (key: string, value: string) => {
-      setSetting(key, value).catch(() => {})
-    },
-    [setSetting],
-  )
+  const save = React.useCallback((key: string, value: string) => {
+    return persistAppearance(key, value)
+  }, [])
+
+  const flushSettingsWrites = React.useCallback(async () => {
+    await flushAppearanceWrites()
+  }, [])
 
   // ---- Constants ----
   const tabs = [
     { id: 'account', label: '账户', icon: UserRound },
     { id: 'appearance', label: '外观', icon: Palette },
     { id: 'ai', label: 'AI 模型', icon: Settings },
+    { id: 'memory', label: '记忆', icon: Brain },
     { id: 'data', label: '数据', icon: Download },
     { id: 'about', label: '关于', icon: Info },
   ]
 
-  const themeColors = ['#6366F1', '#8B5CF6', '#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#EC4899']
+  const themeColors = [
+    DEFAULT_ACCENT_COLOR,
+    '#8B5CF6',
+    '#10B981',
+    '#3B82F6',
+    '#F59E0B',
+    '#EF4444',
+    '#EC4899',
+  ]
 
   const scaleOptions = ['90%', '100%', '110%', '125%', '150%']
 
@@ -481,9 +614,13 @@ export function SettingsView() {
     applyFontSize(clamped)
   }
 
+  const handleGlassBlur = (value: number) => {
+    setGlassBlur(value)
+  }
+
   const handleResetDefaults = () => {
     setTheme('dark')
-    setThemeColor('#6366F1')
+    setThemeColor(DEFAULT_ACCENT_COLOR)
     setFollowSystem(false)
     setUiScale('100%')
     setFontSize(14)
@@ -493,6 +630,8 @@ export function SettingsView() {
     setVisualTheme('codex')
     setBackgroundStyle('soft')
     setAnimationLevel('balanced')
+    setGlassStyle('layered')
+    setGlassBlur(18)
     setAIPetEnabled(true)
     // 布局默认值（同步 store + 持久化）
     setShowAITutor(false)
@@ -505,11 +644,13 @@ export function SettingsView() {
 
     const defaults: Record<string, string> = {
       theme_mode: 'dark',
-      theme_color: '#6366F1',
+      theme_color: DEFAULT_ACCENT_COLOR,
       follow_system: 'false',
       ui_scale: '100%',
       font_size: '14',
       glass_effect: 'true',
+      glass_style: 'layered',
+      glass_blur: '18',
       high_contrast: 'false',
       reduce_motion: 'false',
       visual_theme: 'codex',
@@ -523,11 +664,12 @@ export function SettingsView() {
     }
     Object.entries(defaults).forEach(([k, v]) => save(k, v))
     // 立即把默认外观应用到 DOM
-    applyThemeColor('#6366F1')
+    applyThemeColor(DEFAULT_ACCENT_COLOR)
     applyScale('100%')
     applyFontSize(14)
     applyReduceMotion(false)
     applyGlassEffect(true)
+    applyGlassBlur(18)
     applyHighContrast(false)
   }
 
@@ -535,20 +677,29 @@ export function SettingsView() {
     const name = profileName.trim().slice(0, 40)
     const avatar = profileAvatar.trim().slice(0, MAX_PROFILE_AVATAR_LENGTH)
     setProfileActionStatus({ kind: 'loading', message: '正在保存账户资料...' })
+    setSettingsSaveStatus({ kind: 'loading', message: '正在保存账户资料...' })
     try {
+      await waitForSaveFeedbackFrame()
+      await flushSettingsWrites()
       await saveUserProfile({ name, avatar })
       setProfileName(name)
       setProfileAvatar(avatar)
       setProfileActionStatus({ kind: 'success', message: '账户资料已保存。' })
+      setSettingsSaveStatus({ kind: 'success', message: '账户资料已保存。' })
       clearIpcCache()
       window.dispatchEvent(new Event('codehelper:profile-changed'))
+      window.setTimeout(() => {
+        setSettingsSaveStatus({ kind: 'idle', message: '' })
+      }, SAVE_FEEDBACK_RESET_MS)
     } catch (error) {
+      const message = getDataActionError(error, '保存账户资料失败。')
       setProfileActionStatus({
         kind: 'error',
-        message: getDataActionError(error, '保存账户资料失败。'),
+        message,
       })
+      setSettingsSaveStatus({ kind: 'error', message })
     }
-  }, [profileAvatar, profileName])
+  }, [flushSettingsWrites, profileAvatar, profileName])
 
   const handleAvatarFileChange = React.useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -607,18 +758,23 @@ export function SettingsView() {
       await handleSaveProfile()
       return
     }
-    // 各项已即时持久化并应用；此处再整体重应用一次，作为"保存"的明确反馈。
-    applyTheme(followSystem ? resolveTheme(theme, true) : theme)
-    applyThemeColor(themeColor)
-    applyScale(uiScale)
-    applyFontSize(fontSize)
-    applyReduceMotion(reduceMotion)
-    applyGlassEffect(glassEffect)
-    applyHighContrast(highContrast)
-    setVisualTheme(visualTheme)
-    setBackgroundStyle(backgroundStyle)
-    setAnimationLevel(animationLevel)
-    setAIPetEnabled(aiPetEnabled)
+    setSettingsSaveStatus({ kind: 'loading', message: '正在保存设置...' })
+    try {
+      await waitForSaveFeedbackFrame()
+      await flushSettingsWrites()
+      // Controls apply immediately; a successful drain means every change made while saving is durable.
+      clearIpcCache()
+      window.dispatchEvent(new Event('codehelper:settings-saved'))
+      setSettingsSaveStatus({ kind: 'success', message: '设置已保存。' })
+      window.setTimeout(() => {
+        setSettingsSaveStatus({ kind: 'idle', message: '' })
+      }, SAVE_FEEDBACK_RESET_MS)
+    } catch (error) {
+      setSettingsSaveStatus({
+        kind: 'error',
+        message: getDataActionError(error, '保存设置失败。'),
+      })
+    }
   }
 
   const handleSelectPet = (id: string) => {
@@ -680,13 +836,6 @@ export function SettingsView() {
   }, [importData])
 
   const effectSettings = [
-    {
-      title: '毛玻璃效果',
-      desc: '为部分面板启用毛玻璃效果',
-      key: 'glass_effect',
-      value: glassEffect,
-      setter: setGlassEffect,
-    },
     {
       title: '高对比度模式',
       desc: '增强界面对比度，适合视力敏感用户',
@@ -776,7 +925,7 @@ export function SettingsView() {
 
         {/* Settings Content */}
         {activeTab === 'account' && (
-          <div className="space-y-6 pb-24">
+          <div className="space-y-6 pb-4">
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
               <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
                 <div className="mb-5 flex items-center gap-3">
@@ -882,10 +1031,18 @@ export function SettingsView() {
                     type="button"
                     onClick={handleSaveProfile}
                     disabled={profileActionStatus.kind === 'loading'}
-                    className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-purple)] px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#7C3AED] disabled:cursor-not-allowed disabled:opacity-60"
+                    className={cn(
+                      'inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-secondary-solid)] px-4 py-2 text-sm font-medium text-[var(--color-on-accent)] shadow-sm transition-all hover:bg-[var(--color-accent-secondary-solid-hover)] disabled:cursor-not-allowed disabled:opacity-60',
+                      profileActionStatus.kind === 'success' &&
+                        'scale-[1.02] ring-2 ring-emerald-400/35',
+                    )}
                     data-profile-save-button
                   >
-                    <Check size={16} />
+                    {profileActionStatus.kind === 'loading' ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Check size={16} />
+                    )}
                     保存账户资料
                   </button>
                 </div>
@@ -985,7 +1142,7 @@ export function SettingsView() {
         )}
 
         {activeTab === 'appearance' && (
-          <div className="space-y-6 pb-24">
+          <div className="space-y-6 pb-4">
             <div className="overflow-hidden rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] shadow-sm">
               <div className="relative p-5 lg:p-6">
                 <div className="pointer-events-none absolute inset-0 opacity-70 [background:radial-gradient(circle_at_12%_10%,rgba(139,92,246,0.18),transparent_34%),radial-gradient(circle_at_86%_12%,rgba(34,211,238,0.12),transparent_30%)]" />
@@ -1028,6 +1185,15 @@ export function SettingsView() {
                               : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)]/70 hover:border-[var(--color-border-default)]',
                           )}
                         >
+                          {item.assetKey && (
+                            <div
+                              className="mb-3 h-20 overflow-hidden rounded-lg border border-white/10 bg-[var(--color-bg-base)] bg-cover bg-center"
+                              style={{
+                                backgroundImage: `linear-gradient(180deg, rgba(8, 12, 20, 0.1), rgba(8, 12, 20, 0.44)), url("${codeHelperMaterialByKey[item.assetKey]?.src}")`,
+                              }}
+                              aria-hidden="true"
+                            />
+                          )}
                           <div className="mb-4 flex items-center gap-1.5">
                             {item.swatches.map((color) => (
                               <span
@@ -1095,7 +1261,7 @@ export function SettingsView() {
                             className={cn(
                               'flex-1 rounded-md px-2 py-2 text-xs font-medium transition-colors',
                               animationLevel === item.id
-                                ? 'bg-[var(--color-accent-purple)] text-white shadow-sm'
+                                ? 'bg-[var(--color-accent-secondary-solid)] text-[var(--color-on-accent)] shadow-sm'
                                 : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]',
                             )}
                             title={item.desc}
@@ -1170,7 +1336,7 @@ export function SettingsView() {
                           type="button"
                           onClick={handleInstallPetSlug}
                           disabled={petActionStatus.kind === 'loading'}
-                          className="rounded-lg bg-[var(--color-accent-purple)] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#7C3AED] disabled:opacity-60"
+                          className="rounded-lg bg-[var(--color-accent-secondary-solid)] px-3 py-2 text-xs font-semibold text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-secondary-solid-hover)] disabled:opacity-60"
                         >
                           安装
                         </button>
@@ -1243,7 +1409,7 @@ export function SettingsView() {
                         <p className="text-[10px] text-[var(--color-text-muted)]">护眼舒适</p>
                       </div>
                       {theme === 'dark' && (
-                        <div className="absolute top-2 right-2 w-5 h-5 bg-[var(--color-accent-purple)] rounded-full flex items-center justify-center text-white">
+                        <div className="absolute top-2 right-2 w-5 h-5 bg-[var(--color-accent-secondary-solid)] rounded-full flex items-center justify-center text-[var(--color-on-accent)]">
                           <Check size={12} />
                         </div>
                       )}
@@ -1268,7 +1434,7 @@ export function SettingsView() {
                         <p className="text-[10px] text-[var(--color-text-muted)]">清爽明亮</p>
                       </div>
                       {theme === 'light' && (
-                        <div className="absolute top-2 right-2 w-5 h-5 bg-[var(--color-accent-purple)] rounded-full flex items-center justify-center text-white">
+                        <div className="absolute top-2 right-2 w-5 h-5 bg-[var(--color-accent-secondary-solid)] rounded-full flex items-center justify-center text-[var(--color-on-accent)]">
                           <Check size={12} />
                         </div>
                       )}
@@ -1327,7 +1493,7 @@ export function SettingsView() {
                         className={cn(
                           'flex-1 py-1.5 text-xs font-medium rounded-md transition-colors',
                           weekStart === val
-                            ? 'bg-[var(--color-accent-purple)] text-white shadow-sm'
+                            ? 'bg-[var(--color-accent-secondary-solid)] text-[var(--color-on-accent)] shadow-sm'
                             : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]',
                         )}
                       >
@@ -1391,7 +1557,7 @@ export function SettingsView() {
                         className={cn(
                           'flex-1 py-1.5 text-xs font-medium rounded-md transition-colors',
                           uiScale === scale
-                            ? 'bg-[var(--color-accent-purple)] text-white shadow-sm'
+                            ? 'bg-[var(--color-accent-secondary-solid)] text-[var(--color-on-accent)] shadow-sm'
                             : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]',
                         )}
                       >
@@ -1468,6 +1634,84 @@ export function SettingsView() {
               {/* Column 3 */}
               <div className="space-y-6">
                 <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
+                  <div className="mb-4 flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="font-semibold text-white text-[15px]">玻璃质感</h3>
+                      <p className="mt-1 text-xs leading-relaxed text-[var(--color-text-muted)]">
+                        覆盖整个前端的半透明玻璃层，可选择 iOS 式层次感或经典毛玻璃。
+                      </p>
+                    </div>
+                    <ToggleSwitch
+                      active={glassEffect}
+                      onToggle={() => handleToggle('glass_effect', glassEffect, setGlassEffect)}
+                    />
+                  </div>
+
+                  <div className={cn('space-y-4', !glassEffect && 'opacity-50')}>
+                    <div className="grid grid-cols-1 gap-2">
+                      {GLASS_STYLES.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          disabled={!glassEffect}
+                          onClick={() => setGlassStyle(item.id)}
+                          className={cn(
+                            'rounded-lg border px-3 py-3 text-left transition-all disabled:cursor-not-allowed',
+                            glassStyle === item.id
+                              ? 'settings-soft-selected border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/10 text-[var(--color-text-primary)]'
+                              : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)]/70 text-[var(--color-text-secondary)] hover:border-[var(--color-border-default)] hover:text-[var(--color-text-primary)]',
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-sm font-semibold">{item.label}</span>
+                            {glassStyle === item.id && <Check size={15} />}
+                          </div>
+                          <p className="mt-1 text-xs leading-relaxed text-[var(--color-text-muted)]">
+                            {item.desc}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div>
+                      <div className="mb-2 flex items-center justify-between">
+                        <p className="text-sm font-medium text-white">模糊程度</p>
+                        <label className="flex items-center gap-1 text-xs text-[var(--color-text-secondary)]">
+                          <input
+                            type="number"
+                            min={6}
+                            max={32}
+                            step={1}
+                            value={glassBlur}
+                            disabled={!glassEffect}
+                            onChange={(event) => handleGlassBlur(Number(event.target.value))}
+                            className="h-7 w-16 rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] px-2 text-right text-xs text-[var(--color-text-primary)] outline-none transition-colors focus:border-[var(--color-accent-purple)] disabled:cursor-not-allowed"
+                            aria-label="玻璃模糊程度"
+                          />
+                          px
+                        </label>
+                      </div>
+                      <input
+                        type="range"
+                        min={6}
+                        max={32}
+                        step={1}
+                        value={glassBlur}
+                        disabled={!glassEffect}
+                        onInput={(event) => handleGlassBlur(Number(event.currentTarget.value))}
+                        onChange={(event) => handleGlassBlur(Number(event.target.value))}
+                        className="w-full accent-[var(--color-accent-purple)] disabled:cursor-not-allowed"
+                      />
+                      <div className="mt-1 flex justify-between text-[10px] text-[var(--color-text-muted)]">
+                        {GLASS_BLUR_MARKS.map((mark) => (
+                          <span key={mark}>{mark}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
                   <h3 className="font-semibold text-white text-[15px] mb-4">其他外观设置</h3>
 
                   <div className="space-y-4">
@@ -1515,13 +1759,19 @@ export function SettingsView() {
         )}
 
         {activeTab === 'ai' && (
-          <div className="space-y-6 pb-24">
+          <div className="space-y-6 pb-4">
             <AIModelSettings />
           </div>
         )}
 
+        {activeTab === 'memory' && (
+          <div className="space-y-6 pb-4">
+            <MemorySettings />
+          </div>
+        )}
+
         {activeTab === 'data' && (
-          <div className="space-y-6 pb-24">
+          <div className="space-y-6 pb-4">
             <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
               <h3 className="font-semibold text-white text-[15px] mb-4">数据管理</h3>
               <p className="text-xs text-[var(--color-text-muted)] mb-6">
@@ -1580,7 +1830,7 @@ export function SettingsView() {
         )}
 
         {activeTab === 'about' && (
-          <div className="space-y-6 pb-24">
+          <div className="space-y-6 pb-4">
             <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
               <h3 className="font-semibold text-white text-[15px] mb-4">关于</h3>
 
@@ -1626,21 +1876,56 @@ export function SettingsView() {
       </div>
 
       {/* Footer Actions */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-card)]/80 backdrop-blur-md flex items-center justify-between">
-        <button
-          onClick={handleResetDefaults}
-          className="flex items-center gap-2 px-4 py-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
-        >
-          <RotateCcw size={16} />
-          重置为默认设置
-        </button>
-        <button
-          onClick={handleSave}
-          className="bg-[var(--color-accent-purple)] hover:bg-[#7C3AED] text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2"
-        >
-          <Check size={16} />
-          保存设置
-        </button>
+      <div className="max-w-[1000px] w-full mx-auto px-6 pb-8 lg:px-8">
+        <div className="flex items-center justify-between rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)]/80 p-4 shadow-sm backdrop-blur-md">
+          <button
+            onClick={handleResetDefaults}
+            className="flex items-center gap-2 px-4 py-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+          >
+            <RotateCcw size={16} />
+            重置为默认设置
+          </button>
+          <div className="flex items-center gap-3">
+            {settingsSaveStatus.kind !== 'idle' && (
+              <div
+                role="status"
+                aria-live="polite"
+                className={cn(
+                  'hidden items-center gap-1.5 text-xs sm:inline-flex',
+                  settingsSaveStatus.kind === 'error'
+                    ? 'text-red-200'
+                    : settingsSaveStatus.kind === 'success'
+                      ? 'text-emerald-200'
+                      : 'text-[var(--color-text-secondary)]',
+                )}
+              >
+                {settingsSaveStatus.kind === 'loading' ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : settingsSaveStatus.kind === 'success' ? (
+                  <Check size={14} />
+                ) : (
+                  <Info size={14} />
+                )}
+                <span>{settingsSaveStatus.message}</span>
+              </div>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={settingsSaveStatus.kind === 'loading'}
+              className={cn(
+                'bg-[var(--color-accent-secondary-solid)] hover:bg-[var(--color-accent-secondary-solid-hover)] text-[var(--color-on-accent)] px-6 py-2 rounded-lg text-sm font-medium transition-all shadow-sm flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-70',
+                settingsSaveStatus.kind === 'success' && 'scale-[1.03] ring-2 ring-emerald-400/35',
+              )}
+            >
+              {settingsSaveStatus.kind === 'loading' ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Check size={16} />
+              )}
+              保存设置
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

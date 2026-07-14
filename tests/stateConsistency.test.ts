@@ -32,7 +32,7 @@ vi.stubGlobal('document', {
 })
 
 const { useAppStore } = await import('../src/stores/appStore')
-const { useEditorStore } = await import('../src/stores/editorStore')
+const { MAX_EDITOR_TABS, useEditorStore } = await import('../src/stores/editorStore')
 const { useChatStore } = await import('../src/stores/chatStore')
 
 const emptyRAGContext = {
@@ -149,7 +149,7 @@ describe('State consistency: editorStore', () =>
           .getState()
           .addTab({ id: `tab-${i}`, filename: `f${i}.py`, language: 'python', content: `c${i}` })
       }
-      expect(useEditorStore.getState().tabs).toHaveLength(51) // 50 + welcome
+      expect(useEditorStore.getState().tabs).toHaveLength(MAX_EDITOR_TABS)
 
       // Close all
       const allTabs = [...useEditorStore.getState().tabs]
@@ -320,7 +320,7 @@ describe('State consistency: chatStore', () => {
         activeSessionId: 's1',
         sessions: [{ id: 's1', title: 'Chat', system_prompt: '', created_at: '', updated_at: '' }],
       })
-      mockInvoke.mockResolvedValueOnce(undefined) // chat-message-save
+      mockInvoke.mockResolvedValueOnce(1) // chat-message-save
       mockInvoke.mockResolvedValueOnce([]) // chat-memory-capture
       mockInvoke.mockResolvedValueOnce(emptyRAGContext) // knowledge-rag-context (RAG enrichment)
       mockInvoke.mockRejectedValueOnce(new Error('network timeout')) // ai-chat

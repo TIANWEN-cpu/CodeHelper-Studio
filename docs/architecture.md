@@ -28,7 +28,7 @@ CodeHelper 采用 Electron 标准的三进程架构，结合 React 前端与 SQL
 |  |                           |          |                         | |
 |  |  - 窗口管理               |          |  - React 19 SPA         | |
 |  |  - IPC 处理               |          |  - Zustand 状态管理      | |
-|  |  - SQLite 数据库          |          |  - Monaco 编辑器         | |
+|  |  - SQLite 数据库          |          |  - CodeMirror 编辑器     | |
 |  |  - 代码执行引擎           |          |  - TailwindCSS 样式      | |
 |  |  - AI API 通信            |          |                         | |
 |  |  - 文件系统操作           |          |                         | |
@@ -44,16 +44,16 @@ CodeHelper 采用 Electron 标准的三进程架构，结合 React 前端与 SQL
 
 ### 技术栈一览
 
-| 层级     | 技术选型                | 说明                |
-| -------- | ----------------------- | ------------------- |
-| 桌面容器 | Electron 41             | 跨平台桌面运行时    |
-| 渲染框架 | React 19 + TypeScript 6 | 声明式 UI           |
-| 构建工具 | Vite 7 + electron-vite  | 快速开发与打包      |
-| 状态管理 | Zustand 5               | 轻量级响应式状态    |
-| 代码编辑 | Monaco Editor 0.55      | VSCode 同款编辑引擎 |
-| 样式方案 | TailwindCSS 4           | 原子化 CSS          |
-| 数据库   | better-sqlite3 (SQLite) | 本地嵌入式数据库    |
-| 测试框架 | Vitest 3                | 单元测试与覆盖率    |
+| 层级     | 技术选型                             | 说明                                                |
+| -------- | ------------------------------------ | --------------------------------------------------- |
+| 桌面容器 | Electron 41                          | 跨平台桌面运行时                                    |
+| 渲染框架 | React 19 + TypeScript 6              | 声明式 UI                                           |
+| 构建工具 | Vite 7 + electron-vite               | 快速开发与打包                                      |
+| 状态管理 | Zustand 5                            | 轻量级响应式状态                                    |
+| 代码编辑 | CodeMirror 6 (@uiw/react-codemirror) | 轻量可扩展的编辑引擎，支持 Python/C/C++/JS/SQL 高亮 |
+| 样式方案 | TailwindCSS 4                        | 原子化 CSS                                          |
+| 数据库   | better-sqlite3 (SQLite)              | 本地嵌入式数据库                                    |
+| 测试框架 | Vitest 3                             | 单元测试与覆盖率                                    |
 
 ---
 
@@ -135,7 +135,7 @@ src/
 │   ├── StatusBar.tsx    # 底部状态信息栏
 │   └── ErrorBoundary.tsx # React 错误边界
 ├── modules/             # 功能模块（每个模块独立目录）
-│   ├── editor/          # Monaco 代码编辑器 + 控制台
+│   ├── editor/          # CodeMirror 代码编辑器 + 控制台
 │   ├── problems/        # 刷题系统 + AI 侧边栏
 │   ├── ai-chat/         # AI 助手对话界面
 │   ├── mistakes/        # 错题本管理
@@ -159,13 +159,10 @@ src/
 │   └── index.ts         # 类型导出
 ├── constants/           # 共享常量
 │   └── index.ts         # IPC 通道名、默认值、主题配置
-├── theme/               # 主题定义
-│   ├── themes.ts        # Catppuccin 配色方案
-│   └── monacoThemes.ts  # Monaco 编辑器主题
 └── utils/
     ├── labels.ts        # 标签映射纯函数
     ├── errors.ts        # 错误消息提取
-    └── monacoConfig.ts  # Monaco 编辑器配置
+    └── errorHandler.ts  # 全局错误捕获与上报
 ```
 
 ---

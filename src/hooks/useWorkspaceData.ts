@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import {
   runCode as runCodeService,
   submitToProblem as submitToProblemService,
@@ -11,6 +11,7 @@ import {
   type ProblemFilters,
   type Submission,
 } from '@/services/workspaceService'
+import { reportError } from '@/utils/errorHandler'
 
 export interface UseWorkspaceDataReturn {
   // Code editor state
@@ -51,6 +52,7 @@ export interface UseWorkspaceDataReturn {
   // Error state
   error: string | null
   clearError: () => void
+  clearExecutionState: () => void
 }
 
 export function useWorkspaceData(
@@ -83,11 +85,23 @@ export function useWorkspaceData(
 
   // Shared error state
   const [error, setError] = useState<string | null>(null)
+  const runRequestId = useRef(0)
+  const submitRequestId = useRef(0)
 
   const clearError = useCallback(() => setError(null), [])
+  const clearExecutionState = useCallback(() => {
+    runRequestId.current += 1
+    submitRequestId.current += 1
+    setRunResult(null)
+    setSubmitResult(null)
+    setIsRunning(false)
+    setIsSubmitting(false)
+    setError(null)
+  }, [])
 
   const runCode = useCallback(
     async (overrideCode?: string, overrideLanguage?: string): Promise<RunResult | null> => {
+      const requestId = ++runRequestId.current
       const c = overrideCode ?? code
       const lang = overrideLanguage ?? language
 
@@ -96,14 +110,17 @@ export function useWorkspaceData(
 
       try {
         const result = await runCodeService(c, lang)
+        if (runRequestId.current !== requestId) return null
         setRunResult(result)
         return result
       } catch (err: unknown) {
+        if (runRequestId.current !== requestId) return null
         const message = err instanceof Error ? err.message : String(err)
         setError(message)
+        reportError(err, 'workspace.runCode', { showToast: true })
         return null
       } finally {
-        setIsRunning(false)
+        if (runRequestId.current === requestId) setIsRunning(false)
       }
     },
     [code, language],
@@ -115,6 +132,7 @@ export function useWorkspaceData(
       overrideCode?: string,
       overrideLanguage?: string,
     ): Promise<SubmitResult | null> => {
+      const requestId = ++submitRequestId.current
       const c = overrideCode ?? code
       const lang = overrideLanguage ?? language
 
@@ -123,14 +141,17 @@ export function useWorkspaceData(
 
       try {
         const result = await submitToProblemService(problemId, c, lang)
+        if (submitRequestId.current !== requestId) return null
         setSubmitResult(result)
         return result
       } catch (err: unknown) {
+        if (submitRequestId.current !== requestId) return null
         const message = err instanceof Error ? err.message : String(err)
         setError(message)
+        reportError(err, 'workspace.submitToProblem', { showToast: true })
         return null
       } finally {
-        setIsSubmitting(false)
+        if (submitRequestId.current === requestId) setIsSubmitting(false)
       }
     },
     [code, language],
@@ -209,5 +230,6 @@ export function useWorkspaceData(
     getSubmissions,
     error,
     clearError,
+    clearExecutionState,
   }
 }

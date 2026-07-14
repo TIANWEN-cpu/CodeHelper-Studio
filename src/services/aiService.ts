@@ -4,6 +4,7 @@
 // ============================================================
 
 import { track } from './analyticsService'
+import { getRAGContext, type RAGContext } from './knowledgeService'
 
 // --------------- Types ---------------
 
@@ -83,6 +84,8 @@ export async function saveMessage(
  * The backend streams response chunks via `ai-chat-chunk` / `ai-chat-done` events.
  * 仅发送本轮新消息；后端按 sessionId 从 chat_history 取最近历史、注入会话人设
  * (system_prompt) 与跨会话长期记忆，组装完整上下文后再请求模型。
+ * 若 includeKnowledge 为真，会先检索本地知识库片段与用户画像（RAG），随请求一并发送，
+ * 让回答结合用户的本地学习数据；知识库为空或检索失败时自动跳过，不影响对话。
  */
 export async function sendMessage(
   sessionId: string,
@@ -90,15 +93,27 @@ export async function sendMessage(
   configId?: number,
   requestId = createAIRequestId(),
   includeMemories = true,
+  includeKnowledge = true,
+  memoryCategories?: string[],
 ): Promise<string> {
   // 埋点：向 AI 发送了一条提问。
   track('ai_chat_sent', {})
+  let ragContext: RAGContext | undefined
+  if (includeKnowledge) {
+    try {
+      ragContext = await getRAGContext(content)
+    } catch (err) {
+      console.warn('[aiService] RAG 上下文检索失败，跳过知识库注入:', err)
+    }
+  }
   await invoke<void>('ai-chat', {
     messages: [{ role: 'user' as const, content }],
     sessionId,
     configId,
     requestId,
     includeMemories,
+    ragContext,
+    memoryCategories,
   })
   return requestId
 }

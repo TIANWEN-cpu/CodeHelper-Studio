@@ -114,9 +114,10 @@ describe('Integration: chat flow', () => {
       // Use mockImplementation to handle sendMessage IPC calls regardless of order
       const ragCtx = emptyRAGContext
       mockInvoke.mockImplementation(async (channel: string) => {
+        if (channel === 'chat-message-save') return 1
         if (channel === 'knowledge-rag-context') return ragCtx
         if (channel === 'ai-chat') return { success: true, requestId: 'r1', content: '' }
-        return undefined // chat-message-save, chat-memory-capture, chat-session-update, loadSessions
+        return undefined // chat-memory-capture, chat-session-update, loadSessions
       })
 
       await useChatStore.getState().sendMessage('Hello, what is Python?')
@@ -287,7 +288,7 @@ describe('Integration: chat flow', () => {
         sessions: [{ ...MOCK_SESSION_A, title: 'Existing' }],
       })
 
-      mockInvoke.mockResolvedValueOnce(undefined) // chat-message-save
+      mockInvoke.mockResolvedValueOnce(1) // chat-message-save
       mockInvoke.mockResolvedValueOnce([]) // chat-memory-capture
       mockInvoke.mockResolvedValueOnce(emptyRAGContext) // knowledge-rag-context (RAG enrichment)
       mockInvoke.mockRejectedValueOnce(new Error('API key invalid')) // ai-chat
@@ -315,7 +316,7 @@ describe('Integration: chat flow', () => {
       ]) // loadSessions
       mockInvoke.mockResolvedValueOnce([]) // switchSession -> chat-messages-load
       // sendMessage IPC calls
-      mockInvoke.mockResolvedValueOnce(undefined) // chat-message-save (user)
+      mockInvoke.mockResolvedValueOnce(1) // chat-message-save (user)
       mockInvoke.mockResolvedValueOnce([]) // chat-memory-capture
       mockInvoke.mockResolvedValueOnce(undefined) // renameSession
       mockInvoke.mockResolvedValueOnce([]) // loadSessions
@@ -337,7 +338,7 @@ describe('Integration: chat flow', () => {
         sessions: [MOCK_SESSION_B],
       })
 
-      mockInvoke.mockResolvedValueOnce(undefined) // chat-message-save
+      mockInvoke.mockResolvedValueOnce(1) // chat-message-save
       mockInvoke.mockResolvedValueOnce([]) // chat-memory-capture
       mockInvoke.mockResolvedValueOnce(emptyRAGContext) // knowledge-rag-context (RAG enrichment)
       mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' }) // ai-chat

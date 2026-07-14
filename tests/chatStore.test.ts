@@ -132,6 +132,32 @@ describe('chatStore', () => {
       expect(state.streaming).toBe(false)
       expect(state.currentRequestId).toBeNull()
     })
+
+    it('ignores a stale load that finishes after a newer session switch', async () => {
+      let resolveFirst:
+        | ((messages: Array<{ id: string; role: string; content: string }>) => void)
+        | null = null
+      const firstLoad = new Promise<Array<{ id: string; role: string; content: string }>>(
+        (resolve) => {
+          resolveFirst = resolve
+        },
+      )
+      mockInvoke
+        .mockImplementationOnce(() => firstLoad)
+        .mockResolvedValueOnce([{ id: 'b1', role: 'user', content: 'session B' }])
+
+      const switchA = useChatStore.getState().switchSession('session-a')
+      const switchB = useChatStore.getState().switchSession('session-b')
+      await switchB
+      resolveFirst?.([{ id: 'a1', role: 'user', content: 'session A' }])
+      await switchA
+
+      expect(useChatStore.getState().activeSessionId).toBe('session-b')
+      expect(useChatStore.getState().messages).toEqual([
+        { id: 'b1', role: 'user', content: 'session B' },
+      ])
+      expect(useChatStore.getState().loading).toBe(false)
+    })
   })
 
   describe('deleteSession', () => {
@@ -189,6 +215,71 @@ describe('chatStore', () => {
 
       expect(useChatStore.getState().activeSessionId).toBe('s1')
     })
+
+    it('invalidates a pending switch to a session that is being deleted', async () => {
+      let resolveLoad:
+        | ((messages: Array<{ id: string; role: string; content: string }>) => void)
+        | null = null
+      const pendingLoad = new Promise<Array<{ id: string; role: string; content: string }>>(
+        (resolve) => {
+          resolveLoad = resolve
+        },
+      )
+      useChatStore.setState({
+        activeSessionId: 'session-a',
+        sessions: [
+          { id: 'session-a', title: 'A', system_prompt: '', created_at: '', updated_at: '' },
+        ],
+      })
+      mockInvoke
+        .mockImplementationOnce(() => pendingLoad)
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce([])
+
+      const switching = useChatStore.getState().switchSession('session-a')
+      await useChatStore.getState().deleteSession('session-a')
+      resolveLoad?.([{ id: 'late', role: 'user', content: 'stale' }])
+      await switching
+
+      expect(useChatStore.getState().activeSessionId).toBeNull()
+      expect(useChatStore.getState().messages).toEqual([])
+    })
+
+    it('does not cancel a pending switch when an unrelated session is deleted', async () => {
+      let resolveLoad:
+        | ((messages: Array<{ id: string; role: string; content: string }>) => void)
+        | null = null
+      const pendingLoad = new Promise<Array<{ id: string; role: string; content: string }>>(
+        (resolve) => {
+          resolveLoad = resolve
+        },
+      )
+      useChatStore.setState({
+        activeSessionId: 'session-a',
+        sessions: [
+          { id: 'session-a', title: 'A', system_prompt: '', created_at: '', updated_at: '' },
+          { id: 'session-b', title: 'B', system_prompt: '', created_at: '', updated_at: '' },
+          { id: 'session-c', title: 'C', system_prompt: '', created_at: '', updated_at: '' },
+        ],
+      })
+      mockInvoke
+        .mockImplementationOnce(() => pendingLoad)
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce([
+          { id: 'session-a', title: 'A', system_prompt: '', created_at: '', updated_at: '' },
+          { id: 'session-b', title: 'B', system_prompt: '', created_at: '', updated_at: '' },
+        ])
+
+      const switching = useChatStore.getState().switchSession('session-b')
+      await useChatStore.getState().deleteSession('session-c')
+      resolveLoad?.([{ id: 'b1', role: 'user', content: 'session B' }])
+      await switching
+
+      expect(useChatStore.getState().activeSessionId).toBe('session-b')
+      expect(useChatStore.getState().messages).toEqual([
+        { id: 'b1', role: 'user', content: 'session B' },
+      ])
+    })
   })
 
   describe('renameSession', () => {
@@ -212,7 +303,7 @@ describe('chatStore', () => {
       ]) // loadSessions
       mockInvoke.mockResolvedValueOnce([]) // switchSession -> chat-messages-load
       // sendMessage calls
-      mockInvoke.mockResolvedValueOnce(undefined) // chat-message-save (user)
+      mockInvoke.mockResolvedValueOnce(42) // chat-message-save (user)
       mockInvoke.mockResolvedValueOnce([]) // chat-memory-capture
       mockInvoke.mockResolvedValueOnce(undefined) // renameSession
       mockInvoke.mockResolvedValueOnce([]) // loadSessions for rename
@@ -231,7 +322,7 @@ describe('chatStore', () => {
           { id: 's1', title: 'Existing', system_prompt: '', created_at: '', updated_at: '' },
         ],
       })
-      mockInvoke.mockResolvedValueOnce(undefined) // chat-message-save
+      mockInvoke.mockResolvedValueOnce(42) // chat-message-save
       mockInvoke.mockResolvedValueOnce([]) // chat-memory-capture
       mockInvoke.mockResolvedValueOnce(emptyRAGContext) // knowledge-rag-context (RAG enrichment)
       mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' }) // ai-chat
@@ -255,7 +346,7 @@ describe('chatStore', () => {
           { id: 's1', title: '新对话', system_prompt: '', created_at: '', updated_at: '' },
         ],
       })
-      mockInvoke.mockResolvedValueOnce(undefined) // chat-message-save
+      mockInvoke.mockResolvedValueOnce(42) // chat-message-save
       mockInvoke.mockResolvedValueOnce([]) // chat-memory-capture
       mockInvoke.mockResolvedValueOnce(undefined) // renameSession (chat-session-update)
       mockInvoke.mockResolvedValueOnce([]) // loadSessions
@@ -276,7 +367,7 @@ describe('chatStore', () => {
           { id: 's1', title: '新对话', system_prompt: '', created_at: '', updated_at: '' },
         ],
       })
-      mockInvoke.mockResolvedValueOnce(undefined)
+      mockInvoke.mockResolvedValueOnce(42)
       mockInvoke.mockResolvedValueOnce([])
       mockInvoke.mockResolvedValueOnce(undefined)
       mockInvoke.mockResolvedValueOnce([])
@@ -298,7 +389,7 @@ describe('chatStore', () => {
           { id: 's1', title: 'Existing', system_prompt: '', created_at: '', updated_at: '' },
         ],
       })
-      mockInvoke.mockResolvedValueOnce(undefined) // chat-message-save
+      mockInvoke.mockResolvedValueOnce(42) // chat-message-save
       mockInvoke.mockResolvedValueOnce([]) // chat-memory-capture
       mockInvoke.mockResolvedValueOnce(emptyRAGContext) // knowledge-rag-context (RAG enrichment)
       mockInvoke.mockRejectedValueOnce(new Error('API error')) // ai-chat
@@ -328,7 +419,7 @@ describe('chatStore', () => {
           },
         ],
       })
-      mockInvoke.mockResolvedValueOnce(undefined)
+      mockInvoke.mockResolvedValueOnce(42)
       mockInvoke.mockResolvedValueOnce([])
       mockInvoke.mockResolvedValueOnce(emptyRAGContext) // knowledge-rag-context (RAG enrichment)
       mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' })
@@ -339,6 +430,124 @@ describe('chatStore', () => {
       expect(aiChatCall).toBeTruthy() // dynamically generated call
       const payload = aiChatCall![1] as { messages: Array<{ role: string; content: string }> }
       expect(payload.messages[0]).toEqual({ role: 'system', content: 'You are a tutor' })
+    })
+  })
+
+  describe('sendMessage options', () => {
+    function seedSession() {
+      useChatStore.setState({
+        activeSessionId: 's1',
+        sessions: [
+          { id: 's1', title: 'Existing', system_prompt: '', created_at: '', updated_at: '' },
+        ],
+      })
+    }
+
+    it('sends sendOverride to the model but persists the raw content', async () => {
+      seedSession()
+      mockInvoke.mockResolvedValueOnce(42) // chat-message-save (user)
+      mockInvoke.mockResolvedValueOnce([]) // chat-memory-capture
+      mockInvoke.mockResolvedValueOnce(emptyRAGContext) // knowledge-rag-context
+      mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' }) // ai-chat
+
+      await useChatStore.getState().sendMessage('hi', { sendOverride: '【上下文】\nhi' })
+
+      // 入库与显示用原文
+      expect(mockInvoke).toHaveBeenCalledWith('chat-message-save', {
+        session_id: 's1',
+        role: 'user',
+        content: 'hi',
+      })
+      expect(useChatStore.getState().messages[0].content).toBe('hi')
+      // 发给模型的是带前缀的覆盖文本
+      const aiChatCall = mockInvoke.mock.calls.find((c: unknown[]) => c[0] === 'ai-chat')
+      const payload = aiChatCall![1] as {
+        messages: Array<{ role: string; content: string }>
+        currentUserMessageId: number
+      }
+      expect(payload.messages[payload.messages.length - 1]).toEqual({
+        role: 'user',
+        content: '【上下文】\nhi',
+      })
+      expect(payload.currentUserMessageId).toBe(42)
+    })
+
+    it('forwards includeMemories and memoryCategories to ai-chat', async () => {
+      seedSession()
+      mockInvoke.mockResolvedValueOnce(42)
+      mockInvoke.mockResolvedValueOnce([])
+      mockInvoke.mockResolvedValueOnce(emptyRAGContext)
+      mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' })
+
+      await useChatStore
+        .getState()
+        .sendMessage('hi', { includeMemories: false, memoryCategories: ['tech', 'goal'] })
+
+      const aiChatCall = mockInvoke.mock.calls.find((c: unknown[]) => c[0] === 'ai-chat')
+      const payload = aiChatCall![1] as { includeMemories: boolean; memoryCategories: string[] }
+      expect(payload.includeMemories).toBe(false)
+      expect(payload.memoryCategories).toEqual(['tech', 'goal'])
+    })
+
+    it('uses chat-memory-extract instead of capture when llmExtract is on', async () => {
+      seedSession()
+      mockInvoke.mockResolvedValueOnce(42) // chat-message-save
+      mockInvoke.mockResolvedValueOnce([]) // chat-memory-extract
+      mockInvoke.mockResolvedValueOnce(emptyRAGContext) // knowledge-rag-context
+      mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' }) // ai-chat
+
+      await useChatStore.getState().sendMessage('记住我用 Rust', { llmExtract: true, configId: 3 })
+
+      expect(mockInvoke).toHaveBeenCalledWith('chat-memory-extract', {
+        content: '记住我用 Rust',
+        configId: 3,
+        sessionId: 's1',
+      })
+      expect(mockInvoke).not.toHaveBeenCalledWith('chat-memory-capture', expect.anything())
+    })
+
+    it('skips RAG retrieval when includeKnowledge is false', async () => {
+      seedSession()
+      mockInvoke.mockResolvedValueOnce(42) // chat-message-save
+      mockInvoke.mockResolvedValueOnce([]) // chat-memory-capture
+      mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' }) // ai-chat
+
+      await useChatStore.getState().sendMessage('hi', { includeKnowledge: false })
+
+      expect(mockInvoke).not.toHaveBeenCalledWith('knowledge-rag-context', expect.anything())
+      const aiChatCall = mockInvoke.mock.calls.find((c: unknown[]) => c[0] === 'ai-chat')
+      expect((aiChatCall![1] as { ragContext: unknown }).ragContext).toBeUndefined()
+    })
+
+    it('does not abort the turn when memory capture throws', async () => {
+      seedSession()
+      mockInvoke.mockResolvedValueOnce(42) // chat-message-save
+      mockInvoke.mockRejectedValueOnce(new Error('extract timeout')) // chat-memory-capture fails
+      mockInvoke.mockResolvedValueOnce(emptyRAGContext) // knowledge-rag-context
+      mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' }) // ai-chat
+
+      await useChatStore.getState().sendMessage('hi')
+
+      // 记忆失败被吞掉，对话仍然走到 ai-chat 且无错误
+      expect(mockInvoke).toHaveBeenCalledWith('ai-chat', expect.anything())
+      expect(useChatStore.getState().error).toBeNull()
+    })
+  })
+
+  describe('normalizeChatSessions', () => {
+    it('dedupes by id keeping first occurrence and drops id-less entries', async () => {
+      const { normalizeChatSessions } = await import('../src/stores/chatStore')
+      expect(
+        normalizeChatSessions([
+          { id: 'a', title: 'first' },
+          { id: 'a', title: 'dupe' },
+          { id: 'b', title: 'second' },
+          { title: 'no id' },
+        ]),
+      ).toEqual([
+        { id: 'a', title: 'first' },
+        { id: 'b', title: 'second' },
+      ])
     })
   })
 
@@ -395,7 +604,7 @@ describe('chatStore', () => {
           { id: 'm2', role: 'assistant', content: 'Hello!', timestamp: 2 },
         ],
       })
-      mockInvoke.mockResolvedValueOnce(undefined) // chat-message-save
+      mockInvoke.mockResolvedValueOnce(42) // chat-message-save
       mockInvoke.mockResolvedValueOnce([]) // loadSessions
       mockInvoke.mockResolvedValueOnce([]) // loadMemories
 
@@ -433,6 +642,49 @@ describe('chatStore', () => {
         role: 'assistant',
         content: 'full content from payload',
       })
+    })
+
+    it('clears streaming state when persisting the assistant response fails', async () => {
+      useChatStore.setState({
+        activeSessionId: 's1',
+        currentRequestId: 'req-1',
+        streaming: true,
+        messages: [{ id: 'm1', role: 'assistant', content: 'answer', timestamp: 1 }],
+      })
+      mockInvoke.mockRejectedValueOnce(new Error('database unavailable'))
+      mockInvoke.mockResolvedValueOnce([])
+      mockInvoke.mockResolvedValueOnce([])
+
+      await useChatStore.getState().finishStream({ requestId: 'req-1', content: 'answer' })
+
+      expect(useChatStore.getState().streaming).toBe(false)
+      expect(useChatStore.getState().currentRequestId).toBeNull()
+      expect(useChatStore.getState().error).toBe('database unavailable')
+    })
+
+    it('does not let an older completion clear a newer active request', async () => {
+      let releaseSave: (() => void) | null = null
+      const pendingSave = new Promise<void>((resolve) => {
+        releaseSave = resolve
+      })
+      useChatStore.setState({
+        activeSessionId: 's1',
+        currentRequestId: 'req-old',
+        streaming: true,
+        messages: [{ id: 'm1', role: 'assistant', content: 'old answer', timestamp: 1 }],
+      })
+      mockInvoke.mockImplementationOnce(() => pendingSave)
+
+      const finishing = useChatStore
+        .getState()
+        .finishStream({ requestId: 'req-old', content: 'old answer' })
+      useChatStore.setState({ currentRequestId: 'req-new', streaming: true })
+      releaseSave?.()
+      await finishing
+
+      expect(useChatStore.getState().currentRequestId).toBe('req-new')
+      expect(useChatStore.getState().streaming).toBe(true)
+      expect(mockInvoke).toHaveBeenCalledTimes(1)
     })
 
     it('ignores finishStream with mismatched requestId', async () => {

@@ -17,7 +17,7 @@ App
 │           │   │   └── AISidebar
 │           │   ├── EditorView
 │           │   │   ├── EditorTabs
-│           │   │   ├── MonacoEditor
+│           │   │   ├── CodeEditor
 │           │   │   ├── Console
 │           │   │   └── TerminalPanel
 │           │   ├── ChatView
@@ -193,7 +193,7 @@ export const SIDEBAR_NAV_ITEMS: NavItem[] = [
 子组件：
 
 - **EditorTabs** — 标签页管理
-- **MonacoEditor** — Monaco 编辑器实例
+- **CodeEditor** — CodeMirror 编辑器实例
 - **Console** — 输出控制台
 - **TerminalPanel** — 终端面板
 

@@ -18,21 +18,59 @@ import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'motion/react'
 import { useLearnData } from '@/hooks/useLearnData'
 import { getLessonProgress } from '@/services/learnService'
+import { consumePendingDeepLink, subscribeDeepLink } from '@/lib/deepLink'
+import { recordRecent } from '@/lib/recentItems'
 import { renderMarkdown } from '@/utils/markdown'
+import aiTutorIcon from '@/assets/generated/course-icons/ai-tutor.webp'
+import algorithmsIcon from '@/assets/generated/course-icons/algorithms.webp'
+import cIcon from '@/assets/generated/course-icons/c.webp'
+import cplusplusIcon from '@/assets/generated/course-icons/cplusplus.webp'
+import csharpIcon from '@/assets/generated/course-icons/csharp.webp'
+import databaseIcon from '@/assets/generated/course-icons/database.webp'
+import integrationIcon from '@/assets/generated/course-icons/integration.webp'
+import projectsIcon from '@/assets/generated/course-icons/projects.webp'
+import pythonIcon from '@/assets/generated/course-icons/python.webp'
 
-/** Render a track icon: URL -> <img>, otherwise -> gradient placeholder with first char */
-function TrackIcon({ icon, size = 'large' }: { icon?: string; size?: 'large' | 'small' }) {
+const TRACK_ICON_BY_ID: Record<string, string> = {
+  'ai-tutor': aiTutorIcon,
+  algorithms: algorithmsIcon,
+  c: cIcon,
+  cplusplus: cplusplusIcon,
+  csharp: csharpIcon,
+  database: databaseIcon,
+  integration: integrationIcon,
+  projects: projectsIcon,
+  python: pythonIcon,
+}
+
+/** Render a generated course icon, falling back to any upstream icon metadata. */
+function TrackIcon({
+  trackId,
+  icon,
+  title,
+  size = 'large',
+}: {
+  trackId?: string
+  icon?: string
+  title?: string
+  size?: 'large' | 'small'
+}) {
   const dim = size === 'large' ? 'w-12 h-12' : 'w-8 h-8'
-  const innerDim = size === 'large' ? 'w-8 h-8' : 'w-5 h-5'
+  const imageDim = size === 'large' ? 'h-12 w-12' : 'h-8 w-8'
   const textSize = size === 'large' ? 'text-lg' : 'text-sm'
-  const isUrl = icon && (icon.startsWith('http') || icon.startsWith('/'))
+  const generatedIcon = trackId ? TRACK_ICON_BY_ID[trackId] : undefined
+  const imageSrc = generatedIcon || (icon?.startsWith('http') || icon?.startsWith('/') ? icon : '')
+  const label = title ? `${title}图标` : '课程图标'
 
   return (
     <div
-      className={`${dim} rounded-lg bg-gradient-to-br from-[#3B82F6] to-[#2563EB] flex items-center justify-center shrink-0`}
+      className={cn(
+        dim,
+        'flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--color-bg-base)] ring-1 ring-[var(--color-border-default)] shadow-[0_12px_30px_rgba(0,0,0,0.22)]',
+      )}
     >
-      {isUrl ? (
-        <img src={icon} alt="Track" className={`${innerDim} drop-shadow-md opacity-90`} />
+      {imageSrc ? (
+        <img src={imageSrc} alt={label} className={`${imageDim} object-cover`} />
       ) : (
         <span className={`${textSize} drop-shadow-md opacity-90`}>{icon?.charAt(0) || 'C'}</span>
       )}
@@ -254,9 +292,40 @@ export function LearnView() {
 
       selectLesson(lessonId, trackId)
       markOpened(lessonId, trackId)
+      recordRecent({ kind: 'lesson', id: lessonId })
     },
     [selectLesson, markOpened],
   )
+
+  // ---- Open a lesson by id (命令面板深链) ----
+  const openLessonById = useCallback(
+    (lessonId: string) => {
+      for (const track of tracks) {
+        for (const mod of track.modules) {
+          if (mod.lessons.some((l) => l.id === lessonId)) {
+            setLessonQuery('') // 清掉视图内搜索，确保目标可见
+            handleSelectLesson(lessonId, mod.id, track.id)
+            return true
+          }
+        }
+      }
+      return false
+    },
+    [tracks, handleSelectLesson],
+  )
+
+  // 挂载时领取待处理深链，并订阅后续实时事件。
+  const [pendingLessonId, setPendingLessonId] = useState<string | null>(null)
+  useEffect(() => {
+    const pending = consumePendingDeepLink('lesson')
+    if (pending) setPendingLessonId(pending)
+    return subscribeDeepLink('lesson', (id) => setPendingLessonId(id))
+  }, [])
+  // tracks 异步加载，待其就绪后再应用深链。
+  useEffect(() => {
+    if (!pendingLessonId || tracks.length === 0) return
+    if (openLessonById(pendingLessonId)) setPendingLessonId(null)
+  }, [pendingLessonId, tracks, openLessonById])
 
   // ---- Handle module expand/collapse ----
   const toggleModule = useCallback((moduleId: string) => {
@@ -350,7 +419,12 @@ export function LearnView() {
                   </div>
 
                   <div className="flex items-start gap-4 mb-4">
-                    <TrackIcon icon={activeTrack?.icon} size="large" />
+                    <TrackIcon
+                      trackId={activeTrack?.id}
+                      icon={activeTrack?.icon}
+                      title={activeTrack?.title}
+                      size="large"
+                    />
                     <div>
                       <h2 className="font-bold text-white text-[15px]">
                         {activeTrack?.title || '加载中...'}
@@ -379,14 +453,20 @@ export function LearnView() {
                           data-course-track-option={track.id}
                           onClick={() => handleSelectTrack(track.id)}
                           className={cn(
-                            'min-w-0 rounded-lg border px-2 py-1.5 text-left text-[11px] font-medium leading-snug transition-colors',
+                            'flex min-w-0 items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-[11px] font-medium leading-snug transition-colors',
                             active
                               ? 'border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/15 text-white'
                               : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] text-[var(--color-text-muted)] hover:border-[var(--color-accent-purple)]/60 hover:text-white',
                           )}
                           aria-pressed={active}
                         >
-                          <span className="block truncate">{track.title}</span>
+                          <TrackIcon
+                            trackId={track.id}
+                            icon={track.icon}
+                            title={track.title}
+                            size="small"
+                          />
+                          <span className="block min-w-0 truncate">{track.title}</span>
                         </button>
                       )
                     })}
@@ -554,7 +634,12 @@ export function LearnView() {
               <PanelLeft size={16} />
             </button>
             <div className="h-px bg-[var(--color-border-subtle)] w-8 my-1" />
-            <TrackIcon icon={activeTrack?.icon} size="small" />
+            <TrackIcon
+              trackId={activeTrack?.id}
+              icon={activeTrack?.icon}
+              title={activeTrack?.title}
+              size="small"
+            />
           </div>
         )}
 

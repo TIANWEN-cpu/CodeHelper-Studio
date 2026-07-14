@@ -20,7 +20,9 @@ import {
 } from 'lucide-react'
 import { motion } from 'motion/react'
 import { cn } from '@/lib/utils'
-import { useAIChat } from '@/hooks/useAIChat'
+import { useChatStore, initChatStreaming } from '@/stores/chatStore'
+import { getSendCategories, getLlmExtractEnabled } from '@/services/memoryService'
+import { SendPreview } from '@/components/SendPreview'
 import { useAppStore, type AIContextSnapshot } from '@/store'
 import { renderMarkdown } from '@/utils/markdown'
 import {
@@ -65,6 +67,7 @@ const KIND_LABELS: Record<AIContextSnapshot['kind'], string> = {
   exercise: '练习',
   mistake: '错题',
   lesson: '课程',
+  knowledge: '知识文档',
 }
 
 const ASSISTANT_VIEWS: Array<{
@@ -295,19 +298,32 @@ function getAgentToolAvailabilityClass(availability: AgentToolAvailability) {
 }
 
 export function AITutorView() {
-  const {
-    sessions,
-    currentSession,
-    messages,
-    loading,
-    streaming,
-    streamingContent,
-    error,
-    createSession,
-    switchSession,
-    deleteSession,
-    sendMessage,
-  } = useAIChat()
+  const sessions = useChatStore((s) => s.sessions)
+  const activeSessionId = useChatStore((s) => s.activeSessionId)
+  const messages = useChatStore((s) => s.messages)
+  const loading = useChatStore((s) => s.loading)
+  const streaming = useChatStore((s) => s.streaming)
+  const error = useChatStore((s) => s.error)
+  const createSession = useChatStore((s) => s.createSession)
+  const switchSession = useChatStore((s) => s.switchSession)
+  const deleteSession = useChatStore((s) => s.deleteSession)
+  const sendMessage = useChatStore((s) => s.sendMessage)
+  const loadSessions = useChatStore((s) => s.loadSessions)
+
+  const currentSession = useMemo(
+    () => sessions.find((s) => s.id === activeSessionId) ?? null,
+    [sessions, activeSessionId],
+  )
+  // chatStore 把助手消息保存在 messages 里随 chunk 增长；流式内容取最后一条助手消息。
+  const lastMessage = messages[messages.length - 1]
+  const streamingContent = streaming && lastMessage?.role === 'assistant' ? lastMessage.content : ''
+
+  // 挂载时接通流式事件桥接并加载会话列表（chatStore 不自动加载）。
+  useEffect(() => {
+    initChatStreaming()
+    loadSessions()
+  }, [loadSessions])
+
   const currentView = useAppStore((s) => s.currentView)
   const aiContext = useAppStore((s) => s.aiContext)
   const setCurrentView = useAppStore((s) => s.setCurrentView)
@@ -379,26 +395,40 @@ export function AITutorView() {
     [aiContext, currentView, includeCode, includeContext, includeMemory, tutorMode],
   )
 
+  // 读取隐私「按类别发送」白名单与 LLM 抽取开关，传给 chatStore.sendMessage。
+  const resolveMemoryFlags = useCallback(async () => {
+    const [memoryCategories, llmExtract] = await Promise.all([
+      getSendCategories(),
+      getLlmExtractEnabled(),
+    ])
+    return { memoryCategories, llmExtract }
+  }, [])
+
   const handleSend = useCallback(
     async (text?: string) => {
       const content = (text ?? inputValue).trim()
       if (!content || streaming) return
       setInputValue('')
       setAssistantView('chat')
-      await sendMessage(content, undefined, withContext(content), includeMemory)
+      const flags = await resolveMemoryFlags()
+      await sendMessage(content, {
+        sendOverride: withContext(content),
+        includeMemories: includeMemory,
+        ...flags,
+      })
     },
-    [includeMemory, inputValue, sendMessage, streaming, withContext],
+    [includeMemory, inputValue, resolveMemoryFlags, sendMessage, streaming, withContext],
   )
 
   const dispatchAgentRun = useCallback(
     async (run: AgentWorkflowRun) => {
       try {
-        await sendMessage(
-          run.goal,
-          undefined,
-          withContext(buildAgentWorkflowPrompt(run.goal, run.approvals)),
-          includeMemory,
-        )
+        const flags = await resolveMemoryFlags()
+        await sendMessage(run.goal, {
+          sendOverride: withContext(buildAgentWorkflowPrompt(run.goal, run.approvals)),
+          includeMemories: includeMemory,
+          ...flags,
+        })
         setAgentRuns((runs) =>
           runs.map((item) => (item.id === run.id ? markAgentWorkflowDispatched(item) : item)),
         )
@@ -409,7 +439,7 @@ export function AITutorView() {
         )
       }
     },
-    [includeMemory, sendMessage, withContext],
+    [includeMemory, resolveMemoryFlags, sendMessage, withContext],
   )
 
   const handleAgentRun = useCallback(async () => {
@@ -520,7 +550,7 @@ export function AITutorView() {
                 <p className="text-xs font-medium text-[var(--color-text-secondary)]">最近会话</p>
                 <button
                   type="button"
-                  onClick={() => createSession('新对话')}
+                  onClick={() => createSession(undefined, '新对话')}
                   disabled={streaming}
                   className="rounded-md p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] hover:text-white disabled:opacity-50"
                   title="新建会话"
@@ -591,23 +621,14 @@ export function AITutorView() {
                           className={cn(
                             'max-w-[86%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm',
                             message.role === 'user'
-                              ? 'rounded-tr-sm bg-[var(--color-accent-primary)] text-white'
+                              ? 'rounded-tr-sm bg-[var(--color-accent-solid)] text-[var(--color-on-accent)]'
                               : 'rounded-tl-sm border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] text-[#E5E7EB]',
                           )}
                         >
                           {message.role === 'user' ? (
                             message.content
-                          ) : (
+                          ) : message.content ? (
                             <AssistantMarkdown content={message.content} />
-                          )}
-                        </div>
-                      </motion.div>
-                    ))}
-                    {streaming && (
-                      <div className="flex justify-start">
-                        <div className="max-w-[86%] rounded-2xl rounded-tl-sm border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-4 py-3 text-sm leading-relaxed text-[#E5E7EB] shadow-sm">
-                          {streamingContent ? (
-                            <AssistantMarkdown content={streamingContent} />
                           ) : (
                             <Loader2
                               size={16}
@@ -615,8 +636,8 @@ export function AITutorView() {
                             />
                           )}
                         </div>
-                      </div>
-                    )}
+                      </motion.div>
+                    ))}
                     {error && (
                       <div className="rounded-lg bg-[#EF4444]/10 px-3 py-2 text-xs text-[#EF4444]">
                         {error}
@@ -643,6 +664,7 @@ export function AITutorView() {
                       )
                     })}
                   </div>
+                  <SendPreview query={inputValue} includeMemory={includeMemory} />
                   <div className="flex items-end gap-2 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] p-2 focus-within:border-[var(--color-accent-purple)]">
                     <textarea
                       value={inputValue}
@@ -662,7 +684,7 @@ export function AITutorView() {
                       type="button"
                       onClick={() => handleSend()}
                       disabled={!inputValue.trim() || streaming}
-                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-accent-primary)] text-white transition-colors hover:bg-[#4F46E5] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-card)] disabled:text-[var(--color-text-muted)]"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-accent-solid)] text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-solid-hover)] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-card)] disabled:text-[var(--color-text-muted)]"
                       title="发送"
                     >
                       {streaming ? (
@@ -722,7 +744,7 @@ export function AITutorView() {
                     type="button"
                     onClick={() => handleSend()}
                     disabled={!inputValue.trim() || streaming}
-                    className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-primary)] px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-[var(--color-bg-hover)] disabled:text-[var(--color-text-muted)]"
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-solid)] px-4 py-2 text-sm font-medium text-[var(--color-on-accent)] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-hover)] disabled:text-[var(--color-text-muted)]"
                   >
                     <GraduationCap size={16} />
                     开始辅导
@@ -906,7 +928,7 @@ export function AITutorView() {
                                         data-agent-approve-tool={approval.toolId}
                                         onClick={() => handleApproveAgentRun(latestAgentRun.id)}
                                         disabled={streaming}
-                                        className="rounded-lg bg-[var(--color-accent-primary)] px-3 py-1.5 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+                                        className="rounded-lg bg-[var(--color-accent-solid)] px-3 py-1.5 text-xs font-medium text-[var(--color-on-accent)] disabled:cursor-not-allowed disabled:opacity-50"
                                       >
                                         批准并继续
                                       </button>
@@ -958,7 +980,7 @@ export function AITutorView() {
                     type="button"
                     onClick={handleAgentRun}
                     disabled={!agentGoal.trim() || streaming || Boolean(activeAgentRun)}
-                    className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-primary)] px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-[var(--color-bg-hover)] disabled:text-[var(--color-text-muted)]"
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-solid)] px-4 py-2 text-sm font-medium text-[var(--color-on-accent)] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-hover)] disabled:text-[var(--color-text-muted)]"
                   >
                     {activeAgentRun?.status === 'needsApproval' ? (
                       <ShieldCheck size={16} />
@@ -1009,9 +1031,9 @@ export function AITutorView() {
                   <p className="text-sm font-medium text-white">历史记录</p>
                   <button
                     type="button"
-                    onClick={() => createSession('新对话')}
+                    onClick={() => createSession(undefined, '新对话')}
                     disabled={streaming}
-                    className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-primary)] px-3 py-2 text-xs font-medium text-white disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-solid)] px-3 py-2 text-xs font-medium text-[var(--color-on-accent)] disabled:opacity-50"
                   >
                     <Plus size={14} />
                     新建

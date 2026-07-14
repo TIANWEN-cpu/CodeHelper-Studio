@@ -54,7 +54,7 @@ function petsRoot(): string {
   return path.join(codexHome(), 'pets')
 }
 
-function safePetId(value: unknown, fallback = 'pet'): string {
+export function safePetId(value: unknown, fallback = 'pet'): string {
   const id = String(value || fallback).trim()
   if (!id || id === '.' || id === '..' || /[\\/]/.test(id)) {
     throw new Error('pet.json 中的 id 无效')
@@ -62,7 +62,7 @@ function safePetId(value: unknown, fallback = 'pet'): string {
   return id.slice(0, 80)
 }
 
-function normalizeSlug(value: unknown): string {
+export function normalizeSlug(value: unknown): string {
   const slug = String(value || '')
     .trim()
     .toLowerCase()
@@ -70,11 +70,11 @@ function normalizeSlug(value: unknown): string {
   return slug
 }
 
-function manifestId(manifest: CodexPetManifest, fallback?: string): string {
+export function manifestId(manifest: CodexPetManifest, fallback?: string): string {
   return safePetId(manifest.id || manifest.pet_id || manifest.name || fallback || 'pet')
 }
 
-function displayName(manifest: CodexPetManifest, fallback: string): string {
+export function displayName(manifest: CodexPetManifest, fallback: string): string {
   return String(manifest.displayName || manifest.display_name || manifest.name || fallback)
 }
 

@@ -316,15 +316,7 @@ export function registerLessonsIPC(): void {
         .prepare('SELECT * FROM lesson_notes WHERE lesson_id = ?')
         .get(lessonId.trim()) as LessonNoteRow | undefined
 
-      if (!row) return null
-
-      return {
-        lessonId: row.lesson_id,
-        content: row.content,
-        tags: JSON.parse(row.tags) as string[],
-        codeSnippets: JSON.parse(row.code_snippets) as string[],
-        updatedAt: row.updated_at,
-      }
+      return row?.content ?? ''
     }),
   )
 
@@ -349,8 +341,6 @@ export function registerLessonsIPC(): void {
            VALUES (?, ?, ?, ?, ?)
            ON CONFLICT(lesson_id) DO UPDATE SET
              content = excluded.content,
-             tags = excluded.tags,
-             code_snippets = excluded.code_snippets,
              updated_at = excluded.updated_at`,
       ).run(lessonId, content, tags, codeSnippets, now)
 
@@ -363,7 +353,7 @@ export function registerLessonsIPC(): void {
     'lessons-search',
     trackPerformance('lessons-search', (_e, query: string) => {
       if (typeof query !== 'string' || !query.trim()) {
-        return [] as SearchResult[]
+        return [] as string[]
       }
 
       const q = query.trim().toLowerCase().slice(0, 200)
@@ -396,7 +386,7 @@ export function registerLessonsIPC(): void {
       }
 
       // Limit results to avoid flooding
-      return results.slice(0, 50)
+      return results.slice(0, 50).map((result) => result.lesson.id)
     }),
   )
 

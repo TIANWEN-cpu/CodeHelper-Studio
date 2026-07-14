@@ -458,6 +458,67 @@ describe('DB schema: settings 表', () => {
   })
 })
 
+describe('DB schema: editor workspaces', () => {
+  it('defines versioned workspace metadata and composite tab identity', () => {
+    const workspaceColumns = queryAll('PRAGMA table_info(editor_workspaces)')
+    expect(workspaceColumns.map((column) => column.name)).toEqual(
+      expect.arrayContaining([
+        'workspace_id',
+        'last_active_tab_id',
+        'generation',
+        'legacy_storage_version',
+      ]),
+    )
+
+    const tabColumns = queryAll('PRAGMA table_info(editor_tabs)')
+    expect(tabColumns.map((column) => column.name)).toEqual(
+      expect.arrayContaining([
+        'workspace_id',
+        'tab_id',
+        'tab_kind',
+        'status',
+        'revision',
+        'last_mutation_id',
+        'last_mutation_fingerprint',
+        'last_view_mutation_id',
+        'last_view_mutation_fingerprint',
+      ]),
+    )
+    expect(tabColumns.find((column) => column.name === 'workspace_id')!.pk).toBe(1)
+    expect(tabColumns.find((column) => column.name === 'tab_id')!.pk).toBe(2)
+    expect(tabColumns.find((column) => column.name === 'tab_kind')!.dflt_value).toBe("'file'")
+  })
+
+  it('isolates identical tab ids by workspace and enforces lifecycle states', () => {
+    db.run("INSERT INTO editor_workspaces (workspace_id) VALUES ('workspace-a')")
+    db.run("INSERT INTO editor_workspaces (workspace_id) VALUES ('workspace-b')")
+    db.run(
+      `INSERT INTO editor_tabs (workspace_id, tab_id, filename, language, status)
+       VALUES ('workspace-a', 'shared-tab', 'a.py', 'python', 'open')`,
+    )
+    db.run(
+      `INSERT INTO editor_tabs (workspace_id, tab_id, filename, language, status)
+       VALUES ('workspace-b', 'shared-tab', 'b.py', 'python', 'closed')`,
+    )
+    expect(
+      queryOne("SELECT COUNT(*) AS count FROM editor_tabs WHERE tab_id = 'shared-tab'")!.count,
+    ).toBe(2)
+    expect(() => {
+      db.run(
+        `INSERT INTO editor_tabs (workspace_id, tab_id, filename, language, status)
+         VALUES ('workspace-a', 'invalid-state', 'bad.py', 'python', 'missing')`,
+      )
+    }).toThrow()
+    expect(() => {
+      db.run(
+        `INSERT INTO editor_tabs
+           (workspace_id, tab_id, filename, language, tab_kind, status)
+         VALUES ('workspace-a', 'invalid-kind', 'bad.py', 'python', 'unknown', 'open')`,
+      )
+    }).toThrow()
+  })
+})
+
 // ─────────────────────────────────────────────
 // Query pattern tests (验证 IPC 中使用的 SQL 语法)
 // ─────────────────────────────────────────────

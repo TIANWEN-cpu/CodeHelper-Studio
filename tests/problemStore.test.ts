@@ -171,6 +171,11 @@ describe('problemStore', () => {
 
       expect(useProblemStore.getState().submitting).toBe(false)
       expect(useProblemStore.getState().submitResult).toEqual(mockResult)
+      expect(mockInvoke).toHaveBeenNthCalledWith(1, 'problems-submit', {
+        problemId: 1,
+        code: 'code',
+        language: 'python',
+      })
     })
 
     it('handles submit error gracefully', async () => {

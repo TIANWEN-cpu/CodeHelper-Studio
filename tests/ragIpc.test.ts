@@ -21,6 +21,12 @@ const mockDB = {
   exec: vi.fn(),
   pragma: vi.fn(),
   close: vi.fn(),
+  // better-sqlite3 transaction(fn) 返回一个调用 fn 的函数；测试里同步直通即可。
+  transaction: vi.fn(
+    (fn: (...args: unknown[]) => unknown) =>
+      (...args: unknown[]) =>
+        fn(...args),
+  ),
 }
 
 vi.mock('../electron/db/index', () => ({
@@ -136,6 +142,8 @@ describe('registerRAGIPC', () => {
 
       const result = await handlers['knowledge-upload']()
       expect(result).toEqual(['doc.txt'])
+      // doc + chunks 写入必须在事务内，保证不留半截文档。
+      expect(mockDB.transaction).toHaveBeenCalled()
     })
 
     it('uploads md file successfully', async () => {
@@ -214,7 +222,7 @@ describe('registerRAGIPC', () => {
       registerRAGIPC()
       await flushMicrotasks() // allow deferred DB init to complete
 
-      const result = handlers['knowledge-list']()
+      const result = await handlers['knowledge-list']()
       expect(result).toEqual(docs)
     })
   })
@@ -330,6 +338,20 @@ describe('registerRAGIPC', () => {
       const longQuery = 'a'.repeat(2000)
       // Should not throw
       await handlers['knowledge-search'](null, longQuery)
+    })
+  })
+
+  describe('knowledge-summarize', () => {
+    it('returns the object contract consumed by knowledgeService.summarizeDocuments', async () => {
+      mockDB.prepare.mockReturnValue(makeStmt([]))
+      const { registerRAGIPC } = await import('../electron/ipc/rag')
+      registerRAGIPC()
+      await flushMicrotasks()
+
+      await expect(handlers['knowledge-summarize'](null, 'graph search')).resolves.toEqual({
+        summary: expect.any(String),
+        keyConcepts: expect.any(Array),
+      })
     })
   })
 })

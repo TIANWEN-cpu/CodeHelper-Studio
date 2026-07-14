@@ -1,6 +1,8 @@
 // 区域格式：驱动应用内"绝对日期"的显示风格。
 // 与设置页"语言与区域 → 区域格式"开关联动，由全局 store 持有当前值。
 
+import { parseDbTimestamp, utcDateKey } from './datetime'
+
 export type RegionFormat = 'zh-CN' | 'iso' | 'en-US'
 
 export const REGION_OPTIONS: { value: RegionFormat; label: string; sample: string }[] = [
@@ -24,12 +26,20 @@ export function formatDate(
   region: RegionFormat,
   opts: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' },
 ): string {
-  const d = input instanceof Date ? input : new Date(input)
+  const d =
+    input instanceof Date
+      ? input
+      : typeof input === 'number'
+        ? new Date(input)
+        : parseDbTimestamp(input)
   if (isNaN(d.getTime())) return ''
   if (region === 'iso') {
-    const base = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+    // 取 UTC 日期（与后端 DATE(timestamp) 及全应用 UTC 口径一致）。
+    // 修复前用本地 getter（getFullYear/getDate…），在 UTC+8 下会把 UTC 23:30
+    // 的日期显示成次日，导致绝对日期比后端少/多一天。
+    const base = utcDateKey(d)
     if (opts.hour != null || opts.minute != null) {
-      return `${base} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+      return `${base} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`
     }
     return base
   }

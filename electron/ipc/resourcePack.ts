@@ -87,7 +87,9 @@ function validateResourcePackRoot(rootPath: string): void {
   const hasKnowledge = existsSync(join(rootPath, 'knowledge-docs'))
   const hasProblems = existsSync(join(rootPath, 'problems'))
   if (!hasKnowledge && !hasProblems) {
-    throw new Error('请选择包含 knowledge-docs 或 problems 子目录的 import-ready 资源包目录')
+    throw new Error(
+      '请选择包含 knowledge-docs 或 problems 子目录的 import-ready/import-batches 资源包目录',
+    )
   }
 }
 
@@ -287,7 +289,7 @@ export function registerResourcePackIPC(): void {
 
         if (!rootPath) {
           const result = await dialog.showOpenDialog({
-            title: '选择 import-ready 资源包目录',
+            title: '选择 import-ready 或 import-batches 资源包目录',
             properties: ['openDirectory'],
           })
 

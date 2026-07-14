@@ -32,7 +32,7 @@ export interface UseSettingsDataReturn {
   deleteAIConfig: (id: number) => Promise<void>
 
   // Models
-  fetchModels: (baseUrl: string, apiKey: string) => Promise<string[]>
+  fetchModels: (baseUrl: string, apiKey: string, configId?: number) => Promise<string[]>
 
   // Platform
   loadPlatformInfo: () => Promise<void>
@@ -128,17 +128,20 @@ export function useSettingsData(): UseSettingsDataReturn {
 
   // ---- Models ----
 
-  const fetchModels = useCallback(async (baseUrl: string, apiKey: string): Promise<string[]> => {
-    try {
-      return await svcFetchModels(baseUrl, apiKey)
-    } catch (e) {
-      if (mountedRef.current) {
-        const message = e instanceof Error ? e.message : String(e)
-        setError(message || '获取模型列表失败')
+  const fetchModels = useCallback(
+    async (baseUrl: string, apiKey: string, configId?: number): Promise<string[]> => {
+      try {
+        return await svcFetchModels(baseUrl, apiKey, configId)
+      } catch (e) {
+        if (mountedRef.current) {
+          const message = e instanceof Error ? e.message : String(e)
+          setError(message || '获取模型列表失败')
+        }
+        throw e
       }
-      throw e
-    }
-  }, [])
+    },
+    [],
+  )
 
   // ---- Platform info ----
 

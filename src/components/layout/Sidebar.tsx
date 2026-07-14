@@ -33,7 +33,20 @@ export function Sidebar() {
     toggleSidebar,
   } = useAppStore()
   const [overview, setOverview] = useState<HomeOverview | null>(null)
+  const [viewportCompact, setViewportCompact] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth <= 720,
+  )
   const mountedRef = useRef(false)
+  const compact = collapsed || viewportCompact
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return
+    const media = window.matchMedia('(max-width: 720px)')
+    const sync = () => setViewportCompact(media.matches)
+    sync()
+    media.addEventListener('change', sync)
+    return () => media.removeEventListener('change', sync)
+  }, [])
 
   const refreshOverview = useCallback(() => {
     homeService
@@ -109,21 +122,21 @@ export function Sidebar() {
   return (
     <motion.div
       initial={false}
-      animate={{ width: collapsed ? 72 : 240 }}
-      className="flex-shrink-0 flex flex-col bg-[var(--color-bg-panel)] border-r border-[var(--color-border-subtle)] overflow-hidden h-full z-20"
+      animate={{ width: compact ? 68 : 228 }}
+      className="app-sidebar flex-shrink-0 flex flex-col bg-[var(--color-bg-panel)] border-r border-[var(--color-border-subtle)] overflow-hidden h-full z-20"
     >
       {/* Logo Area */}
       <div
         className={cn(
-          'h-16 flex items-center mb-4 transition-all duration-300',
-          collapsed ? 'justify-center px-0' : 'px-6',
+          'h-16 flex items-center mb-2 transition-all duration-300',
+          compact ? 'justify-center px-0' : 'px-5',
         )}
       >
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[var(--color-accent-primary)] to-[var(--color-accent-purple)] flex items-center justify-center text-white shrink-0 shadow-sm">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[var(--color-accent-solid)] to-[var(--color-accent-secondary-solid)] flex items-center justify-center text-[var(--color-on-accent)] shrink-0 shadow-sm">
             <Code size={18} strokeWidth={2.5} />
           </div>
-          {!collapsed && (
+          {!compact && (
             <motion.div
               initial={{ opacity: 0, width: 0 }}
               animate={{ opacity: 1, width: 'auto' }}
@@ -143,52 +156,58 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav
-        className={cn(
-          'flex-1 space-y-1 overflow-y-auto hide-scrollbar',
-          collapsed ? 'px-2' : 'px-3',
-        )}
+        className={cn('flex-1 space-y-1 overflow-y-auto hide-scrollbar', compact ? 'px-2' : 'px-3')}
       >
-        {navItems.map((item) => {
+        {navItems.map((item, index) => {
           const Icon = item.icon
           const isActive = currentView === item.id
           const showActiveIndicator = isActive
+          // Alt+N 快捷键提示（与 useViewShortcuts 的 VIEW_SHORTCUT_ORDER 对应，1-based）。
+          const shortcutDigit = index + 1
 
           return (
             <button
               key={item.id}
+              data-testid={`nav-${item.id}`}
               onClick={() => setCurrentView(item.id)}
               className={cn(
                 'w-full flex items-center rounded-lg text-sm font-medium transition-colors group relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg-panel)]',
-                collapsed ? 'justify-center py-3' : 'gap-3 px-3 py-2.5',
+                compact ? 'justify-center py-3' : 'gap-3 px-3 py-2.5',
                 showActiveIndicator
-                  ? 'bg-gradient-to-r from-[var(--color-accent-primary)]/10 to-[var(--color-accent-purple)]/10 text-white'
+                  ? 'bg-[var(--color-bg-active)] text-[var(--color-text-primary)] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-accent-primary)_18%,transparent)]'
                   : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]',
               )}
-              title={collapsed ? item.label : undefined}
+              title={`${item.label} (Alt+${shortcutDigit})`}
             >
               <Icon
                 size={18}
                 className={cn(
                   'shrink-0 transition-colors',
                   showActiveIndicator
-                    ? 'text-[var(--color-accent-purple)]'
+                    ? 'text-[var(--color-accent-primary)]'
                     : item.color ||
                         'text-[var(--color-text-muted)] group-hover:text-[var(--color-text-primary)]',
                 )}
               />
 
-              {!collapsed && <span className="whitespace-nowrap">{item.label}</span>}
+              {!compact && <span className="whitespace-nowrap">{item.label}</span>}
 
-              {showActiveIndicator && !collapsed && (
+              {!compact && (
+                <kbd className="ml-auto px-1.5 py-0.5 text-[10px] font-mono rounded bg-[var(--color-bg-hover)] text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity">
+                  {shortcutDigit}
+                </kbd>
+              )}
+
+              {showActiveIndicator && !compact && (
                 <motion.div
                   layoutId="activeNavIndicator"
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-7 rounded-r-full bg-gradient-to-b from-[var(--color-accent-primary)] to-[var(--color-accent-purple)] shadow-[2px_0_10px_rgba(139,92,246,0.3)]"
+                  className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-[var(--color-accent-primary)]"
                   transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 />
               )}
 
-              {showActiveIndicator && collapsed && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 rounded-r-md bg-gradient-to-b from-[var(--color-accent-primary)] to-[var(--color-accent-purple)]"></div>
+              {showActiveIndicator && compact && (
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 rounded-r-md bg-[var(--color-accent-primary)]"></div>
               )}
             </button>
           )
@@ -199,10 +218,10 @@ export function Sidebar() {
       <div
         className={cn(
           'border-t border-[var(--color-border-subtle)] mt-auto transition-all',
-          collapsed ? 'p-3' : 'p-4',
+          compact ? 'p-3' : 'p-4',
         )}
       >
-        {!collapsed ? (
+        {!compact ? (
           <div
             role="button"
             tabIndex={0}
@@ -213,7 +232,7 @@ export function Sidebar() {
                 setCurrentView('profile')
               }
             }}
-            className="flex items-center gap-3 mb-4 cursor-pointer hover:bg-[var(--color-bg-hover)] p-2 rounded-xl -mx-2 transition-all hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-primary)]"
+            className="flex items-center gap-3 mb-4 cursor-pointer hover:bg-[var(--color-bg-hover)] p-2 rounded-lg -mx-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-primary)]"
           >
             <div className="relative shrink-0">
               <div className="w-10 h-10 rounded-full bg-[#2A2F45] overflow-hidden flex items-center justify-center">
@@ -282,7 +301,7 @@ export function Sidebar() {
         <div
           className={cn(
             'flex text-[var(--color-text-muted)]',
-            collapsed ? 'flex-col items-center gap-4' : 'items-center justify-between',
+            compact ? 'flex-col items-center gap-4' : 'items-center justify-between',
           )}
         >
           <button
@@ -294,12 +313,18 @@ export function Sidebar() {
           </button>
           <button
             onClick={toggleSidebar}
-            className="p-1.5 hover:text-white hover:bg-[var(--color-bg-hover)] rounded-md transition-colors"
-            title={collapsed ? '展开侧边栏' : '收起侧边栏'}
+            className={cn(
+              'p-1.5 hover:text-white hover:bg-[var(--color-bg-hover)] rounded-md transition-colors',
+              viewportCompact && 'cursor-default opacity-45',
+            )}
+            disabled={viewportCompact}
+            title={
+              viewportCompact ? '窄屏下自动收起侧边栏' : collapsed ? '展开侧边栏' : '收起侧边栏'
+            }
           >
             <LayoutPanelLeft
               size={16}
-              className={collapsed ? 'rotate-180 transition-transform' : 'transition-transform'}
+              className={compact ? 'rotate-180 transition-transform' : 'transition-transform'}
             />
           </button>
           <button
@@ -316,8 +341,8 @@ export function Sidebar() {
           onClick={toggleAITutor}
           aria-pressed={showAITutor}
           className={cn(
-            'group relative isolate mt-3 overflow-hidden rounded-xl border border-[var(--color-accent-purple)]/45 bg-gradient-to-r from-[var(--color-accent-primary)] to-[var(--color-accent-purple)] text-white shadow-lg shadow-[var(--color-accent-purple)]/20 transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(139,92,246,0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-purple)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg-panel)]',
-            collapsed
+            'group relative isolate mt-3 overflow-hidden rounded-lg border border-[var(--color-accent-solid)] bg-[var(--color-accent-solid)] text-[var(--color-on-accent)] shadow-md transition-all hover:bg-[var(--color-accent-solid-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg-panel)]',
+            compact
               ? 'flex h-10 w-10 items-center justify-center'
               : 'flex w-full items-center justify-center gap-2 px-3 py-2.5 text-sm font-semibold',
             showAITutor &&
@@ -326,8 +351,8 @@ export function Sidebar() {
           title={showAITutor ? '关闭当前页 AI 面板' : '打开当前页 AI 面板'}
         >
           <span className="absolute inset-0 -z-10 bg-white/0 transition-colors group-hover:bg-white/10" />
-          <Sparkles size={collapsed ? 18 : 16} className="shrink-0" />
-          {!collapsed && <span className="whitespace-nowrap">当前页 AI</span>}
+          <Sparkles size={compact ? 18 : 16} className="shrink-0" />
+          {!compact && <span className="whitespace-nowrap">当前页 AI</span>}
         </button>
       </div>
     </motion.div>

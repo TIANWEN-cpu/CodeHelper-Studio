@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { splitIntoChunks, escapeRegExp } from '../electron/utils/textUtils'
+import { splitIntoChunks, escapeRegExp, escapeLike } from '../electron/utils/textUtils'
 
 describe('splitIntoChunks', () => {
   it('splits text by double newlines respecting max length', () => {
@@ -89,5 +89,33 @@ describe('escapeRegExp', () => {
 
   it('handles complex pattern', () => {
     expect(escapeRegExp('price: $10.00 (USD)')).toBe('price: \\$10\\.00 \\(USD\\)')
+  })
+
+  describe('escapeLike', () => {
+    it('escapes the LIKE wildcard percent', () => {
+      expect(escapeLike('a%b')).toBe('a\\%b')
+    })
+
+    it('escapes the LIKE wildcard underscore', () => {
+      expect(escapeLike('a_b')).toBe('a\\_b')
+    })
+
+    it('escapes the escape character itself (backslash)', () => {
+      expect(escapeLike('a\\b')).toBe('a\\\\b')
+    })
+
+    it('leaves normal text unchanged', () => {
+      expect(escapeLike('hello world')).toBe('hello world')
+      expect(escapeLike('双指针')).toBe('双指针')
+    })
+
+    it('neutralizes a malicious multi-wildcard input', () => {
+      // 原本 %%_ 会在 LIKE 里匹配几乎所有内容；转义后按字面量匹配。
+      expect(escapeLike('%%_')).toBe('\\%\\%\\_')
+    })
+
+    it('handles empty string', () => {
+      expect(escapeLike('')).toBe('')
+    })
   })
 })

@@ -184,8 +184,57 @@ describe('electron/db/index', () => {
 
     // Should NOT have called exec for ALTER TABLE
     const alterCalls = execFn.mock.calls.filter((c: unknown[]) =>
-      (c[0] as string).includes('ALTER TABLE'),
+      (c[0] as string).includes('ALTER TABLE problems'),
     )
     expect(alterCalls).toHaveLength(0)
+  })
+
+  it('migrates an existing chat_history table without the session foreign key', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(false)
+    const problemColumns = [
+      'tracks',
+      'platform',
+      'mode',
+      'exam_style',
+      'year',
+      'official_url',
+      'estimated_time',
+    ].map((name) => ({ name }))
+    mockDBInstance.prepare.mockImplementation((sql: string) => ({
+      all: vi.fn(() => (sql.includes('foreign_key_list') ? [] : problemColumns)),
+      get: vi.fn(),
+      run: vi.fn(),
+    }))
+    const execFn = vi.fn()
+    mockDBInstance.exec = execFn
+
+    getDB()
+
+    expect(execFn).toHaveBeenCalledWith(
+      expect.stringContaining('CREATE TABLE chat_history_migrated'),
+    )
+    expect(execFn).toHaveBeenCalledWith(expect.stringContaining('JOIN chat_sessions'))
+    expect(execFn).toHaveBeenCalledWith(expect.stringContaining('ON DELETE CASCADE'))
+  })
+
+  it('keeps chat_history unchanged when the cascade foreign key already exists', () => {
+    vi.mocked(fs.existsSync).mockReturnValue(false)
+    mockDBInstance.prepare.mockImplementation((sql: string) => ({
+      all: vi.fn(() =>
+        sql.includes('foreign_key_list')
+          ? [{ table: 'chat_sessions', from: 'session_id', on_delete: 'CASCADE' }]
+          : [{ name: 'tracks' }],
+      ),
+      get: vi.fn(),
+      run: vi.fn(),
+    }))
+    const execFn = vi.fn()
+    mockDBInstance.exec = execFn
+
+    getDB()
+
+    expect(execFn.mock.calls.some(([sql]) => String(sql).includes('chat_history_migrated'))).toBe(
+      false,
+    )
   })
 })

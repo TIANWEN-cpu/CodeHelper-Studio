@@ -12,16 +12,18 @@ import { registerDemoDataIPC } from './ipc/demoData'
 import { registerExportIPC } from './ipc/export'
 import { registerExercisesIPC } from './ipc/exercises'
 import { registerLessonsIPC } from './ipc/lessons'
-import { registerAchievementsIPC } from './ipc/achievements'
 import { registerReviewIPC } from './ipc/review'
 import { registerHomeHandlers } from './ipc/home'
 import { registerPetsIPC } from './ipc/pets'
 import { registerResourcePackIPC } from './ipc/resourcePack'
 import { registerLearningRecordsIPC } from './ipc/learningRecords'
+import { registerEditorWorkspaceIPC } from './ipc/editorWorkspace'
 import { logIpcStatsSummary, getIpcStats } from './utils/perfMonitor'
 import { registerIpcHandler, rateLimitMiddleware } from './utils/middleware'
 import { buildContentSecurityPolicy } from './utils/contentSecurityPolicy'
 import { getPreloadScriptPath } from './utils/runtimePaths'
+import { configureTestUserData } from './utils/testUserData'
+import { WindowCloseFlushBroker } from './utils/windowCloseHandshake'
 import { arch, release } from 'os'
 import { join } from 'path'
 
@@ -53,6 +55,8 @@ console.log('[STARTUP] CWD:', process.cwd())
 console.log('[STARTUP] __dirname:', __dirname)
 
 app.setName('CodeHelper')
+configureTestUserData(app)
+const closeFlushBroker = new WindowCloseFlushBroker()
 
 if (process.platform === 'win32') {
   app.setAppUserModelId(app.isPackaged ? 'com.codehelper.app' : 'com.codehelper.app.dev')
@@ -290,6 +294,42 @@ function createWindow(): void {
     throw err
   }
 
+  let allowClose = false
+  let closeInProgress = false
+  const rendererId = mainWindow.webContents.id
+  mainWindow.on('close', (event) => {
+    if (allowClose) return
+    event.preventDefault()
+    if (closeInProgress) return
+    closeInProgress = true
+    void (async () => {
+      const result = await closeFlushBroker.request(rendererId, (payload) => {
+        mainWindow.webContents.send('app-before-close', payload)
+      })
+      if (mainWindow.isDestroyed()) return
+      let shouldClose = result.ok
+      if (!shouldClose) {
+        const response = await dialog.showMessageBox(mainWindow, {
+          type: 'warning',
+          title: '仍有内容未保存',
+          message: '部分编辑内容未能完成持久化。',
+          detail: `${result.error ?? '保存状态未知'}\n\n返回应用可继续处理；选择仍然关闭可能丢失仅存在内存中的内容。`,
+          buttons: ['返回应用', '仍然关闭'],
+          defaultId: 0,
+          cancelId: 0,
+          noLink: true,
+        })
+        shouldClose = response.response === 1
+      }
+      if (!shouldClose || mainWindow.isDestroyed()) return
+      allowClose = true
+      mainWindow.close()
+    })().finally(() => {
+      closeInProgress = false
+    })
+  })
+  mainWindow.on('closed', () => closeFlushBroker.cancelSender(rendererId))
+
   // Content-Security-Policy: prevent XSS via inline script execution
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
     callback({
@@ -436,12 +476,6 @@ function registerDeferredIPC(): void {
     startupError('registerLessonsIPC', e)
   }
   try {
-    registerAchievementsIPC()
-    console.log('[IPC] Registered: achievements handlers')
-  } catch (e) {
-    startupError('registerAchievementsIPC', e)
-  }
-  try {
     registerReviewIPC()
     console.log('[IPC] Registered: review handlers')
   } catch (e) {
@@ -470,6 +504,12 @@ function registerDeferredIPC(): void {
     console.log('[IPC] Registered: learning records handlers')
   } catch (e) {
     startupError('registerLearningRecordsIPC', e)
+  }
+  try {
+    registerEditorWorkspaceIPC()
+    console.log('[IPC] Registered: editor workspace handlers')
+  } catch (e) {
+    startupError('registerEditorWorkspaceIPC', e)
   }
   startupLog('All deferred IPC handlers registered')
 }
@@ -529,6 +569,11 @@ app
     // Platform information endpoint for renderer
     registerIpcHandler('platform-info', () => getPlatformInfo())
     console.log('[IPC] Registered: platform-info')
+
+    registerIpcHandler('app-close-flush-complete', (event, payload) => ({
+      accepted: closeFlushBroker.resolve(event.sender.id, payload),
+    }))
+    console.log('[IPC] Registered: app close flush handshake')
 
     // Register ALL IPC handlers synchronously before creating the window.
     // Using setImmediate() here creates a race condition: the deferred handlers

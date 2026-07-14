@@ -22,6 +22,14 @@ export interface SubmitResult {
   }[]
 }
 
+interface ProblemSubmitResponse {
+  status: string
+  passed: number
+  total: number
+  results: Array<{ input: string; expected: string; actual: string; passed: boolean }>
+  duration: number
+}
+
 export interface Problem {
   id: string
   title: string
@@ -62,16 +70,25 @@ export async function submitToProblem(
   code: string,
   language: string,
 ): Promise<SubmitResult> {
-  const result = await invoke<SubmitResult>('problems-submit', {
+  const result = await invoke<ProblemSubmitResponse>('problems-submit', {
     problemId: Number(problemId),
     code,
     language,
   })
   // 后端通过时返回 status==='accepted'（运行时字段，类型未声明，防御性读取）。
-  if ((result as unknown as { status?: string })?.status === 'accepted') {
+  if (result.status === 'accepted') {
     track('problem_solved', { problemId })
   }
-  return result
+  return {
+    passed: result.status === 'accepted',
+    score: result.total > 0 ? Math.round((result.passed / result.total) * 100) / 100 : 0,
+    details: result.results.map((item) => ({
+      case: item.input,
+      passed: item.passed,
+      expected: item.expected,
+      actual: item.actual,
+    })),
+  }
 }
 
 export async function getProblem(id: string): Promise<Problem> {

@@ -1,8 +1,31 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { getDB } from '../db/index'
 import { getRelevantMemories, markMemoriesUsed } from './chat'
-import { assertAllowedProviderBaseUrl } from '../utils/providerSecurity'
+import { resolveAllowedProviderTarget } from '../utils/providerSecurity'
+import { fetchResolvedProvider } from '../utils/providerFetch'
+import {
+  discardResponseBody,
+  friendlyUpstreamError,
+  redirectBlockedError,
+  isRedirect,
+} from '../utils/httpErrors'
 import type { AIConfigForChat, ChatMessage } from '../types/db'
+import { decryptApiKey } from '../utils/apiKeyStorage'
+
+export function parseSseContentLine(line: string): string | null {
+  const trimmed = line.trim()
+  if (!trimmed.startsWith('data:')) return null
+  const data = trimmed.slice(5).trimStart()
+  if (!data || data === '[DONE]') return null
+  try {
+    const parsed = JSON.parse(data)
+    const content = parsed.choices?.[0]?.delta?.content
+    return typeof content === 'string' && content ? content : null
+  } catch {
+    console.debug('[ai] Skipping malformed SSE chunk:', data.slice(0, 100))
+    return null
+  }
+}
 
 export function registerAIIPC(): void {
   const activeRequests = new Map<string, AbortController>()
@@ -18,6 +41,9 @@ export function registerAIIPC(): void {
         requestId?: string
         includeMemories?: boolean
         sessionId?: string
+        currentUserMessageId?: number
+        ragContext?: RagContext
+        memoryCategories?: string[]
       },
     ) => {
       if (firstCall) {
@@ -47,6 +73,12 @@ export function registerAIIPC(): void {
       if (args.sessionId !== undefined) {
         if (typeof args.sessionId !== 'string') throw new Error('参数无效: sessionId')
         args.sessionId = args.sessionId.trim().slice(0, 200)
+      }
+      if (
+        args.currentUserMessageId !== undefined &&
+        (!Number.isSafeInteger(args.currentUserMessageId) || args.currentUserMessageId < 1)
+      ) {
+        throw new Error('参数无效: currentUserMessageId')
       }
 
       const requestId = args.requestId ?? `req-${Date.now()}`
@@ -86,14 +118,30 @@ export function registerAIIPC(): void {
           throw new Error('未配置AI模型，请先在设置中添加')
         }
 
-        const url = `${assertAllowedProviderBaseUrl(config.base_url)}/chat/completions`
+        config = { ...config, api_key: decryptApiKey(config.api_key) }
+        if (!config.api_key) throw new Error('API key could not be decrypted')
+        const provider = await resolveAllowedProviderTarget(config.base_url)
+        const requestTarget = { ...provider, url: `${provider.url}/chat/completions` }
         const win = BrowserWindow.fromWebContents(event.sender)
-        const withHistory = buildSessionMessages(db, args.sessionId, args.messages)
-        const messages = injectMemories(withHistory, args.includeMemories ?? true)
+        const withHistory = buildSessionMessages(
+          db,
+          args.sessionId,
+          args.messages,
+          args.currentUserMessageId,
+        )
+        const memoryCategories = Array.isArray(args.memoryCategories)
+          ? args.memoryCategories.filter((c): c is string => typeof c === 'string')
+          : undefined
+        const withMemories = injectMemories(
+          withHistory,
+          args.includeMemories ?? true,
+          memoryCategories,
+        )
+        const messages = injectRagContext(withMemories, args.ragContext)
 
         let response: Response
         try {
-          response = await fetch(url, {
+          response = await fetchResolvedProvider(requestTarget, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -104,6 +152,7 @@ export function registerAIIPC(): void {
               messages,
               stream: true,
             }),
+            redirect: 'manual',
             signal: controller.signal,
           })
         } catch (fetchError) {
@@ -111,12 +160,20 @@ export function registerAIIPC(): void {
           if (msg.includes('abort')) {
             throw new Error('AI 请求已取消或超时')
           }
-          throw new Error(`网络连接失败: ${msg}`)
+          console.warn('[ai] chat fetch failed:', msg)
+          throw new Error('网络连接失败，请检查网络或 Base URL')
+        }
+
+        // 出于 SSRF 防护，拒绝跟随上游重定向（可能指向内网/元数据地址）
+        if (isRedirect(response.status)) {
+          await discardResponseBody(response)
+          throw redirectBlockedError('chat')
         }
 
         if (!response.ok) {
-          const text = await response.text().catch(() => '')
-          throw new Error(`AI API 错误 (${response.status}): ${text.slice(0, 300)}`)
+          await discardResponseBody(response)
+          console.warn(`[ai] upstream chat error ${response.status}`)
+          throw new Error(friendlyUpstreamError(response.status, 'chat'))
         }
 
         const reader = response.body?.getReader()
@@ -136,23 +193,19 @@ export function registerAIIPC(): void {
           buffer = lines.pop() || ''
 
           for (const line of lines) {
-            const trimmed = line.trim()
-            if (!trimmed.startsWith('data: ')) continue
-            const data = trimmed.slice(6)
-            if (data === '[DONE]') continue
-
-            try {
-              const json = JSON.parse(data)
-              const content = json.choices?.[0]?.delta?.content
-              if (content && win) {
-                fullContent += content
-                win.webContents.send('ai-chat-chunk', { requestId, chunk: content })
-              }
-            } catch {
-              // Malformed SSE JSON chunk — log at debug level for diagnostics
-              console.debug('[ai] Skipping malformed SSE chunk:', data.slice(0, 100))
+            const content = parseSseContentLine(line)
+            if (content) {
+              fullContent += content
+              if (win) win.webContents.send('ai-chat-chunk', { requestId, chunk: content })
             }
           }
+        }
+
+        buffer += decoder.decode()
+        const finalContent = parseSseContentLine(buffer)
+        if (finalContent) {
+          fullContent += finalContent
+          if (win) win.webContents.send('ai-chat-chunk', { requestId, chunk: finalContent })
         }
 
         if (win) {
@@ -161,7 +214,11 @@ export function registerAIIPC(): void {
         return { success: true, requestId, content: fullContent }
       } finally {
         clearTimeout(requestTimeout)
-        activeRequests.delete(requestId)
+        // 仅当 map 中仍是本次的 controller 时才删除：避免被同 requestId 的后续请求
+        // 取代后，本请求的清理误删掉后续请求的 controller（否则会漏掉对后续请求的取消）。
+        if (activeRequests.get(requestId) === controller) {
+          activeRequests.delete(requestId)
+        }
       }
     },
   )
@@ -172,13 +229,14 @@ const MAX_HISTORY_MESSAGES = 20
 
 /**
  * 按 sessionId 组装发给模型的消息：[会话人设 system?] + [最近历史] + [本轮新消息]。
- * 注意：渲染层在收到回复后才持久化本轮 user 消息，故此时 chat_history 尚不含本轮
- * user，拼接后不会重复。无 sessionId 时按原样返回。
+ * 渲染层会在请求前持久化当前 user 消息；通过数据库行 ID 从历史中精确排除它，
+ * 再使用 outgoing 版本（可能包含 sendOverride 上下文）。无 sessionId 时按原样返回。
  */
-function buildSessionMessages(
+export function buildSessionMessages(
   db: ReturnType<typeof getDB>,
   sessionId: string | undefined,
   outgoing: ChatMessage[],
+  currentUserMessageId?: number,
 ): ChatMessage[] {
   if (!sessionId) return outgoing
   try {
@@ -191,22 +249,34 @@ function buildSessionMessages(
 
     const rows = db
       .prepare(
-        'SELECT role, content FROM chat_history WHERE session_id = ? ORDER BY created_at ASC, id ASC',
+        'SELECT id, role, content FROM chat_history WHERE session_id = ? ORDER BY created_at DESC, id DESC LIMIT ?',
       )
-      .all(sessionId) as { role: string; content: string }[]
-    for (const row of rows.slice(-MAX_HISTORY_MESSAGES)) {
+      .all(sessionId, MAX_HISTORY_MESSAGES + 1) as { id: number; role: string; content: string }[]
+    const history = [...rows]
+      .reverse()
+      .filter((row) => row.id !== currentUserMessageId)
+      .slice(-MAX_HISTORY_MESSAGES)
+    const outgoingWithoutPersona =
+      persona && outgoing[0]?.role === 'system' && outgoing[0].content.trim() === persona
+        ? outgoing.slice(1)
+        : outgoing
+    for (const row of history) {
       if (row.role === 'user' || row.role === 'assistant' || row.role === 'system') {
         prefix.push({ role: row.role, content: row.content })
       }
     }
-    return [...prefix, ...outgoing]
+    return [...prefix, ...outgoingWithoutPersona]
   } catch (error) {
     console.warn('[ai] Failed to build session history, sending outgoing only:', error)
     return outgoing
   }
 }
 
-function injectMemories(messages: ChatMessage[], includeMemories = false): ChatMessage[] {
+function injectMemories(
+  messages: ChatMessage[],
+  includeMemories = false,
+  memoryCategories?: string[],
+): ChatMessage[] {
   if (!includeMemories) {
     return messages
   }
@@ -217,7 +287,7 @@ function injectMemories(messages: ChatMessage[], includeMemories = false): ChatM
         .reverse()
         .find((message) => message.role === 'user')
         ?.content.trim() ?? ''
-    const memories = getRelevantMemories(lastUserMessage)
+    const memories = getRelevantMemories(lastUserMessage, 6, memoryCategories)
 
     if (memories.length === 0) {
       return messages
@@ -233,6 +303,70 @@ function injectMemories(messages: ChatMessage[], includeMemories = false): ChatM
     return [{ role: 'system', content: memoryPrompt }, ...messages]
   } catch (error) {
     console.warn('[ai] Failed to inject memories, proceeding without:', error)
+    return messages
+  }
+}
+
+/** RAG 上下文结构，由渲染层经 knowledge-rag-context 取得后传入。 */
+export type RagContext = {
+  recentProblems?: unknown[]
+  learningHistory?: unknown[]
+  knowledgeChunks?: unknown
+  userProfile?: {
+    preferredLanguage?: string
+    difficultyLevel?: string
+    strongTopics?: string[]
+    weakTopics?: string[]
+  }
+}
+
+const MAX_RAG_CHUNKS = 8
+const MAX_RAG_CHARS = 8000
+
+/**
+ * 将本地学习上下文（知识库片段 + 用户画像）拼成一条 system 消息注入到请求最前面，
+ * 让 AI 回答结合用户的本地学习数据。无有效内容时原样返回。
+ */
+export function injectRagContext(
+  messages: ChatMessage[],
+  rag: RagContext | undefined,
+): ChatMessage[] {
+  if (!rag || typeof rag !== 'object') return messages
+  try {
+    const parts: string[] = []
+
+    const chunks = Array.isArray(rag.knowledgeChunks)
+      ? rag.knowledgeChunks
+          .filter((chunk): chunk is string => typeof chunk === 'string' && chunk.trim().length > 0)
+          .slice(0, MAX_RAG_CHUNKS)
+      : []
+    if (chunks.length > 0) {
+      const joined = chunks
+        .map((chunk, index) => `【片段${index + 1}】${chunk.trim()}`)
+        .join('\n')
+        .slice(0, MAX_RAG_CHARS)
+      parts.push(
+        `以下是与用户问题相关的知识库内容，请优先据此作答，并在使用时自然引用：\n${joined}`,
+      )
+    }
+
+    const profile = rag.userProfile
+    if (profile && typeof profile === 'object') {
+      const bits: string[] = []
+      if (profile.preferredLanguage) bits.push(`偏好语言：${profile.preferredLanguage}`)
+      if (profile.difficultyLevel) bits.push(`水平：${profile.difficultyLevel}`)
+      if (Array.isArray(profile.weakTopics) && profile.weakTopics.length > 0)
+        bits.push(`薄弱点：${profile.weakTopics.slice(0, 10).join('、')}`)
+      if (Array.isArray(profile.strongTopics) && profile.strongTopics.length > 0)
+        bits.push(`擅长：${profile.strongTopics.slice(0, 10).join('、')}`)
+      if (bits.length > 0)
+        parts.push(`用户画像（用于调整讲解深度，不要直接复述）：${bits.join('；')}`)
+    }
+
+    if (parts.length === 0) return messages
+    return [{ role: 'system', content: parts.join('\n\n') }, ...messages]
+  } catch (error) {
+    console.warn('[ai] Failed to inject RAG context, proceeding without:', error)
     return messages
   }
 }

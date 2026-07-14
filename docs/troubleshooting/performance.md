@@ -121,7 +121,7 @@ const theme = useAppStore((s) => s.theme)
 const store = useAppStore()
 ```
 
-### 3. Monaco Editor 优化
+### 3. 代码编辑器（CodeMirror）优化
 
 - 编辑器按需加载，不在首屏渲染
 - 标签页状态持久化到 localStorage，避免重复初始化
@@ -262,7 +262,7 @@ if (duration > 100) {
 - [ ] 回调函数使用 `useCallback`
 - [ ] 计算结果使用 `useMemo`
 - [ ] Zustand 选择器粒度足够细
-- [ ] Monaco Editor 配置已缓存
+- [ ] CodeMirror 编辑器按需加载
 - [ ] AI 请求有取消机制
 - [ ] 代码执行有并发和超时限制
 - [ ] 无内存泄漏（事件监听已清理）

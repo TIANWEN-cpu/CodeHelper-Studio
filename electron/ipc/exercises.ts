@@ -2,8 +2,15 @@ import { ipcMain } from 'electron'
 import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { getDB } from '../db/index'
+import {
+  clearExerciseDraft,
+  getExerciseDraft,
+  saveExerciseDraft,
+} from '../db/exerciseDraftRepository'
 import { runCodeSnippet } from '../utils/codeRunner'
 import { trackPerformance } from '../utils/perfMonitor'
+import { mergeErrorTypes, normalizeOutput, normalizeSql } from '../utils/problemMeta'
+import type { MistakeRow, ProblemRow } from '../types/db'
 
 // ---------------------------------------------------------------------------
 // Exercise data model
@@ -28,6 +35,12 @@ export interface Exercise {
   tests: ExerciseTest[]
   required_keywords: string[]
   forbidden_keywords: string[]
+  source_type?: 'exercise' | 'problem'
+  source?: string
+  languages?: string[]
+  platform?: string
+  mode?: string
+  problem_id?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -35,6 +48,8 @@ export interface Exercise {
 // ---------------------------------------------------------------------------
 
 let exerciseCache: Exercise[] | null = null
+let problemExerciseCache: Exercise[] | null = null
+let problemExerciseCacheKey = ''
 
 function loadExercises(): Exercise[] {
   if (exerciseCache) return exerciseCache
@@ -64,6 +79,137 @@ function loadExercises(): Exercise[] {
   return exerciseCache
 }
 
+function parseJsonArray<T>(
+  raw: string | null | undefined,
+  fallback: T[],
+  guard?: (value: unknown) => value is T,
+): T[] {
+  if (!raw) return fallback
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return fallback
+    return guard ? parsed.filter(guard) : (parsed as T[])
+  } catch {
+    return fallback
+  }
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === 'string'
+}
+
+export function isProblemTestCase(value: unknown): value is { input: string; expected: string } {
+  if (!value || typeof value !== 'object') return false
+  const item = value as Record<string, unknown>
+  return typeof item.input === 'string' && typeof item.expected === 'string'
+}
+
+export function parseStarterCode(
+  raw: string | null | undefined,
+  preferredLanguage = 'python',
+): string {
+  if (!raw) return ''
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (typeof parsed === 'string') return parsed
+    if (parsed && typeof parsed === 'object') {
+      const record = parsed as Record<string, unknown>
+      const candidate = record[preferredLanguage] ?? record.python ?? Object.values(record)[0]
+      return typeof candidate === 'string' ? candidate : ''
+    }
+  } catch {
+    return raw
+  }
+  return ''
+}
+
+export function difficultyLabel(difficulty: string): string {
+  if (difficulty === 'easy') return '基础'
+  if (difficulty === 'medium') return '进阶'
+  if (difficulty === 'hard') return '综合'
+  return difficulty
+}
+
+function trackFromProblem(row: ProblemRow): string {
+  const tracks = parseJsonArray<string>(row.tracks, [], isString)
+  return tracks[0] ?? row.source ?? 'imported-problems'
+}
+
+function problemToExercise(row: ProblemRow): Exercise {
+  const languages = parseJsonArray<string>(row.languages, ['python'], isString)
+  const tests = parseJsonArray<{ input: string; expected: string }>(
+    row.test_cases,
+    [],
+    isProblemTestCase,
+  )
+  const tags = parseJsonArray<string>(row.tags, [], isString)
+  const meta = [
+    row.source ? `来源：${row.source}` : null,
+    row.platform ? `平台：${row.platform}` : null,
+    row.mode ? `模式：${row.mode}` : null,
+    tags.length > 0 ? `标签：${tags.join('、')}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n')
+  return {
+    id: `problem:${row.id}`,
+    title: row.title,
+    track_id: trackFromProblem(row),
+    difficulty: difficultyLabel(row.difficulty),
+    prompt: meta ? `${row.description}\n\n${meta}` : row.description,
+    lesson_id: `problem-${row.id}`,
+    hints: [],
+    starter_code: parseStarterCode(row.starter_code, languages[0] ?? 'python'),
+    expected_nodes: [],
+    required_names: [],
+    tests: tests.map((test) => ({ expression: test.input, expected: test.expected })),
+    required_keywords: [],
+    forbidden_keywords: [],
+    source_type: 'problem',
+    source: row.source,
+    languages,
+    platform: row.platform,
+    mode: row.mode,
+    problem_id: row.id,
+  }
+}
+
+function listProblemExercises(): Exercise[] {
+  const db = getDB()
+  const stats = db.prepare('SELECT COUNT(*) AS count, MAX(id) AS maxId FROM problems').get() as {
+    count: number
+    maxId: number | null
+  }
+  const cacheKey = `${stats.count}:${stats.maxId ?? 0}`
+  if (problemExerciseCache && problemExerciseCacheKey === cacheKey) return problemExerciseCache
+
+  const rows = db
+    .prepare(
+      `SELECT id, title, description, difficulty, tags, languages, examples, test_cases, starter_code,
+              source, tracks, platform, mode, exam_style, year, official_url, estimated_time
+       FROM problems
+       ORDER BY id ASC`,
+    )
+    .all() as ProblemRow[]
+  problemExerciseCache = rows.map(problemToExercise)
+  problemExerciseCacheKey = cacheKey
+  return problemExerciseCache
+}
+
+function getProblemExercise(id: string): Exercise | null {
+  const problemId = Number(id.replace(/^problem:/, ''))
+  if (!Number.isInteger(problemId) || problemId < 1) return null
+  const row = getDB()
+    .prepare(
+      `SELECT id, title, description, difficulty, tags, languages, examples, test_cases, starter_code,
+              source, tracks, platform, mode, exam_style, year, official_url, estimated_time
+       FROM problems
+       WHERE id = ?`,
+    )
+    .get(problemId) as ProblemRow | undefined
+  return row ? problemToExercise(row) : null
+}
+
 // ---------------------------------------------------------------------------
 // Evaluation helpers
 // ---------------------------------------------------------------------------
@@ -72,7 +218,7 @@ function loadExercises(): Exercise[] {
  * Build a Python harness that imports the user's code and runs each test
  * expression, printing structured JSON results to stdout.
  */
-function buildPythonTestHarness(userCode: string, tests: ExerciseTest[]): string {
+export function buildPythonTestHarness(userCode: string, tests: ExerciseTest[]): string {
   const testJson = JSON.stringify(tests)
   return `
 import json, sys
@@ -105,7 +251,7 @@ interface TestCaseResult {
  * Check keyword constraints in the user's code (case-insensitive for
  * required_keywords, exact for forbidden_keywords).
  */
-function checkKeywords(
+export function checkKeywords(
   code: string,
   required: string[],
   forbidden: string[],
@@ -129,7 +275,7 @@ function checkKeywords(
 }
 
 /** Map difficulty to language (C# and C tracks use keyword-only evaluation). */
-function languageForTrack(trackId: string): string {
+export function languageForTrack(trackId: string): string {
   switch (trackId) {
     case 'python':
     case 'integration':
@@ -142,6 +288,147 @@ function languageForTrack(trackId: string): string {
       return 'csharp'
     default:
       return 'python'
+  }
+}
+
+async function evaluateProblemExercise(args: {
+  exerciseId: string
+  code: string
+  language?: string
+}): Promise<{
+  passed: boolean
+  score: number
+  feedback_lines: string[]
+  stdout: string
+  duration_sec: number
+}> {
+  const problemId = Number(args.exerciseId.replace(/^problem:/, ''))
+  const db = getDB()
+  const problem = getDB().prepare('SELECT * FROM problems WHERE id = ?').get(problemId) as
+    | ProblemRow
+    | undefined
+  if (!problem) throw new Error(`题目不存在: ${args.exerciseId}`)
+
+  const testCases = parseJsonArray<{ input: string; expected: string }>(
+    problem.test_cases,
+    [],
+    isProblemTestCase,
+  )
+  if (testCases.length === 0) {
+    return {
+      passed: false,
+      score: 0,
+      feedback_lines: ['该导入题暂时没有测试用例，无法自动评测。'],
+      stdout: '',
+      duration_sec: 0,
+    }
+  }
+
+  const language = (
+    args.language ||
+    parseJsonArray<string>(problem.languages, ['python'], isString)[0] ||
+    'python'
+  )
+    .trim()
+    .slice(0, 50)
+  const startTime = Date.now()
+  const results: { input: string; expected: string; actual: string; passed: boolean }[] = []
+  let status: 'accepted' | 'wrong_answer' | 'compile_error' | 'runtime_error' | 'timeout' =
+    'accepted'
+
+  if (language === 'sql') {
+    for (const test of testCases) {
+      const actual = normalizeSql(args.code)
+      const expected = normalizeSql(String(test.expected))
+      const passed = actual === expected
+      results.push({
+        input: test.input,
+        expected: test.expected,
+        actual: args.code.trim(),
+        passed,
+      })
+      if (!passed) {
+        status = 'wrong_answer'
+        break
+      }
+    }
+  } else {
+    for (const test of testCases) {
+      const result = await runCodeSnippet(args.code, language, test.input)
+      const actual = result.stdout.trim()
+      const passed =
+        result.exitCode === 0 && normalizeOutput(actual) === normalizeOutput(String(test.expected))
+      results.push({ input: test.input, expected: test.expected, actual, passed })
+
+      if (result.exitCode !== 0) {
+        status =
+          result.stage === 'compile'
+            ? 'compile_error'
+            : result.timedOut
+              ? 'timeout'
+              : 'runtime_error'
+        break
+      }
+
+      if (!passed) {
+        status = 'wrong_answer'
+        break
+      }
+    }
+  }
+
+  const duration = Date.now() - startTime
+  const passedCount = results.filter((result) => result.passed).length
+  if (passedCount === testCases.length) {
+    status = 'accepted'
+  }
+
+  db.prepare(
+    'INSERT INTO submissions (problem_id, language, code, status, passed_cases, total_cases, duration_ms) VALUES (?,?,?,?,?,?,?)',
+  ).run(problemId, language, args.code, status, passedCount, testCases.length, duration)
+
+  if (status !== 'accepted') {
+    const existing = db.prepare('SELECT * FROM mistakes WHERE problem_id = ?').get(problemId) as
+      | MistakeRow
+      | undefined
+    const errorTypes = mergeErrorTypes(existing?.error_types, status)
+    if (existing) {
+      db.prepare(
+        'UPDATE mistakes SET error_count = error_count + 1, last_wrong_code = ?, error_types = ?, updated_at = CURRENT_TIMESTAMP WHERE problem_id = ?',
+      ).run(args.code, JSON.stringify(errorTypes), problemId)
+    } else {
+      db.prepare(
+        'INSERT INTO mistakes (problem_id, last_wrong_code, error_types) VALUES (?,?,?)',
+      ).run(problemId, args.code, JSON.stringify(errorTypes))
+    }
+    db.prepare(
+      `INSERT OR IGNORE INTO review_schedule (exercise_id, interval_days, ease_factor, repetitions, next_review)
+       VALUES (?, 1, 2.5, 0, date('now'))`,
+    ).run(String(problemId))
+  } else {
+    db.prepare('UPDATE mistakes SET correct_code = ? WHERE problem_id = ?').run(
+      args.code,
+      problemId,
+    )
+  }
+
+  const feedbackLines = [
+    status === 'accepted'
+      ? `全部通过 (${passedCount}/${testCases.length})`
+      : `通过 ${passedCount}/${testCases.length} 个测试`,
+    ...results.slice(0, 6).map((result, index) => {
+      if (result.passed) return `用例 ${index + 1} 通过`
+      return `用例 ${index + 1} 未通过：期望 ${result.expected}，实际 ${result.actual}`
+    }),
+  ]
+  if (results.length > 6) feedbackLines.push(`其余 ${results.length - 6} 个用例已省略`)
+
+  return {
+    passed: status === 'accepted',
+    score: Math.round((passedCount / testCases.length) * 100) / 100,
+    feedback_lines: feedbackLines,
+    stdout: '',
+    duration_sec: Math.round((duration / 1000) * 100) / 100,
   }
 }
 
@@ -174,7 +461,10 @@ export function registerExercisesIPC(): void {
           }
         }
 
-        let list = loadExercises()
+        let list = [
+          ...loadExercises().map((exercise) => ({ ...exercise, source_type: 'exercise' as const })),
+          ...listProblemExercises(),
+        ]
 
         if (filters?.track_id) {
           list = list.filter((ex) => ex.track_id === filters.track_id)
@@ -195,7 +485,9 @@ export function registerExercisesIPC(): void {
       if (typeof id !== 'string' || !id.trim()) throw new Error('参数无效: id')
       id = id.trim().slice(0, 200)
       const exercises = loadExercises()
-      const exercise = exercises.find((ex) => ex.id === id)
+      const exercise = id.startsWith('problem:')
+        ? getProblemExercise(id)
+        : exercises.find((ex) => ex.id === id)
       if (!exercise) throw new Error(`练习不存在: ${id}`)
       return exercise
     }),
@@ -209,11 +501,7 @@ export function registerExercisesIPC(): void {
         throw new Error('参数无效: exerciseId')
       exerciseId = exerciseId.trim().slice(0, 200)
 
-      const row = getDB()
-        .prepare('SELECT code, updated_at FROM exercise_drafts WHERE exercise_id = ?')
-        .get(exerciseId) as { code: string; updated_at: string } | undefined
-
-      return row ?? null
+      return getExerciseDraft(getDB(), exerciseId)
     }),
   )
 
@@ -222,28 +510,41 @@ export function registerExercisesIPC(): void {
     'exercises-draft-save',
     trackPerformance(
       'exercises-draft-save',
-      (_e, args: { exerciseId: string; code: string; title?: string }) => {
+      (
+        _e,
+        args: {
+          exerciseId: string
+          code: string
+          language: string
+          baseRevision: number
+          title?: string
+        },
+      ) => {
         if (!args || typeof args !== 'object') throw new Error('参数无效')
         if (typeof args.exerciseId !== 'string' || !args.exerciseId.trim())
           throw new Error('参数无效: exerciseId')
         if (typeof args.code !== 'string') throw new Error('参数无效: code')
+        if (args.code.length > 100_000) throw new Error('草稿超过 100000 字符，无法保存')
+        if (typeof args.language !== 'string' || !args.language.trim())
+          throw new Error('参数无效: language')
+        if (args.language.length > 40) throw new Error('参数无效: language')
+        if (!Number.isSafeInteger(args.baseRevision) || args.baseRevision < 0)
+          throw new Error('参数无效: baseRevision')
 
         args.exerciseId = args.exerciseId.trim().slice(0, 200)
-        args.code = args.code.slice(0, 100_000)
+        args.language = args.language.trim()
         if (args.title !== undefined) {
           if (typeof args.title !== 'string') throw new Error('参数无效: title')
           args.title = args.title.trim().slice(0, 500)
         }
 
-        getDB()
-          .prepare(
-            `INSERT INTO exercise_drafts (exercise_id, title, code, updated_at)
-             VALUES (?, ?, ?, datetime('now'))
-             ON CONFLICT(exercise_id) DO UPDATE SET title = excluded.title, code = excluded.code, updated_at = excluded.updated_at`,
-          )
-          .run(args.exerciseId, args.title ?? null, args.code)
-
-        return { success: true }
+        return saveExerciseDraft(getDB(), {
+          exerciseId: args.exerciseId,
+          title: args.title,
+          code: args.code,
+          language: args.language,
+          baseRevision: args.baseRevision,
+        })
       },
     ),
   )
@@ -251,15 +552,18 @@ export function registerExercisesIPC(): void {
   // -- exercises-draft-clear -------------------------------------------------
   ipcMain.handle(
     'exercises-draft-clear',
-    trackPerformance('exercises-draft-clear', (_e, exerciseId: string) => {
-      if (typeof exerciseId !== 'string' || !exerciseId.trim())
-        throw new Error('参数无效: exerciseId')
-      exerciseId = exerciseId.trim().slice(0, 200)
+    trackPerformance(
+      'exercises-draft-clear',
+      (_e, args: { exerciseId: string; baseRevision: number }) => {
+        if (!args || typeof args !== 'object') throw new Error('参数无效')
+        if (typeof args.exerciseId !== 'string' || !args.exerciseId.trim())
+          throw new Error('参数无效: exerciseId')
+        if (!Number.isSafeInteger(args.baseRevision) || args.baseRevision < 0)
+          throw new Error('参数无效: baseRevision')
 
-      getDB().prepare('DELETE FROM exercise_drafts WHERE exercise_id = ?').run(exerciseId)
-
-      return { success: true }
-    }),
+        return clearExerciseDraft(getDB(), args.exerciseId.trim().slice(0, 200), args.baseRevision)
+      },
+    ),
   )
 
   // -- exercises-evaluate ----------------------------------------------------
@@ -269,7 +573,7 @@ export function registerExercisesIPC(): void {
       'exercises-evaluate',
       async (
         _e,
-        args: { exerciseId: string; code: string },
+        args: { exerciseId: string; code: string; language?: string },
       ): Promise<{
         passed: boolean
         score: number
@@ -284,6 +588,14 @@ export function registerExercisesIPC(): void {
 
         args.exerciseId = args.exerciseId.trim().slice(0, 200)
         args.code = args.code.slice(0, 100_000)
+        if (args.language !== undefined) {
+          if (typeof args.language !== 'string') throw new Error('参数无效: language')
+          args.language = args.language.trim().slice(0, 50)
+        }
+
+        if (args.exerciseId.startsWith('problem:')) {
+          return evaluateProblemExercise(args)
+        }
 
         const exercises = loadExercises()
         const exercise = exercises.find((ex) => ex.id === args.exerciseId)

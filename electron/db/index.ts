@@ -59,9 +59,10 @@ export function getDB(): Database.Database {
 
     try {
       ensureSchemaColumns(db)
-      console.log('[STARTUP] Schema columns ensured')
+      ensureChatHistoryForeignKey(db)
+      console.log('[STARTUP] Schema migrations ensured')
     } catch (err) {
-      console.error('[ERROR] ensureSchemaColumns failed:', err)
+      console.error('[ERROR] Schema migration failed:', err)
       throw err
     }
 
@@ -94,5 +95,55 @@ function ensureSchemaColumns(database: Database.Database) {
     if (!existing.has(item.name)) {
       database.exec(item.sql)
     }
+  }
+}
+
+export function ensureChatHistoryForeignKey(database: Database.Database): void {
+  const foreignKeys = database.prepare('PRAGMA foreign_key_list(chat_history)').all() as Array<{
+    table: string
+    from: string
+    on_delete: string
+  }>
+  const hasSessionCascade = foreignKeys.some(
+    (foreignKey) =>
+      foreignKey.table === 'chat_sessions' &&
+      foreignKey.from === 'session_id' &&
+      foreignKey.on_delete.toUpperCase() === 'CASCADE',
+  )
+  if (hasSessionCascade) return
+
+  try {
+    database.exec(`
+      BEGIN IMMEDIATE;
+      DROP TABLE IF EXISTS chat_history_migrated;
+      CREATE TABLE chat_history_migrated (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+        role TEXT CHECK(role IN ('user','assistant','system')),
+        content TEXT NOT NULL,
+        model TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      INSERT OR IGNORE INTO chat_sessions (id, title)
+      SELECT DISTINCT h.session_id, 'Recovered conversation'
+      FROM chat_history h
+      LEFT JOIN chat_sessions s ON s.id = h.session_id
+      WHERE s.id IS NULL;
+      INSERT INTO chat_history_migrated (id, session_id, role, content, model, created_at)
+      SELECT h.id, h.session_id, h.role, h.content, h.model, h.created_at
+      FROM chat_history h;
+      DROP TABLE chat_history;
+      ALTER TABLE chat_history_migrated RENAME TO chat_history;
+      CREATE INDEX IF NOT EXISTS idx_chat_history_session
+        ON chat_history(session_id, created_at, id);
+      COMMIT;
+    `)
+  } catch (error) {
+    try {
+      database.exec('ROLLBACK')
+    } catch {
+      // The migration may have failed before the transaction began.
+    }
+    throw error
   }
 }

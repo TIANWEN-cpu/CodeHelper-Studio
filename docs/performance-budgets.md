@@ -19,7 +19,7 @@
 | 资源               | 预算    | 说明                                       |
 | ------------------ | ------- | ------------------------------------------ |
 | 主进程 RSS         | < 200MB | Electron 主进程常驻内存。                  |
-| 渲染进程 RSS       | < 300MB | React 应用 + Monaco Editor。               |
+| 渲染进程 RSS       | < 300MB | React 应用 + CodeMirror 编辑器。           |
 | SQLite 缓存        | < 50MB  | better-sqlite3 页面缓存。                  |
 | 单次 AI 会话上下文 | < 10MB  | 聊天历史 + RAG 上下文拼接后的 token 数据。 |
 

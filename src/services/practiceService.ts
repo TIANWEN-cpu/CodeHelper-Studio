@@ -18,6 +18,12 @@ export interface Exercise {
   starter_code?: string
   hints?: string[]
   tests?: string[]
+  source_type?: 'exercise' | 'problem'
+  source?: string
+  languages?: string[]
+  platform?: string
+  mode?: string
+  problem_id?: number
 }
 
 export interface SubmitResult {
@@ -27,6 +33,20 @@ export interface SubmitResult {
   stdout: string
   duration_sec: number
 }
+
+export interface PracticeDraft {
+  exerciseId: string
+  title: string | null
+  code: string
+  language: string | null
+  revision: number
+  updatedAt: string
+  deleted: boolean
+}
+
+export type DraftMutationResult =
+  | { status: 'saved'; draft: PracticeDraft }
+  | { status: 'conflict'; current: PracticeDraft | null }
 
 export interface ReviewItem {
   exercise_id: string
@@ -54,9 +74,9 @@ export async function getExercise(id: string): Promise<Exercise> {
 export async function submitCode(
   exerciseId: string,
   code: string,
-  _language: string,
+  language: string,
 ): Promise<SubmitResult> {
-  const result = await invoke<SubmitResult>('exercises-evaluate', { exerciseId, code })
+  const result = await invoke<SubmitResult>('exercises-evaluate', { exerciseId, code, language })
   if (result?.passed) {
     // 练习通过算作"解答通过一道题"。
     track('problem_solved', { exerciseId })
@@ -66,19 +86,32 @@ export async function submitCode(
 
 // --------------- Drafts ---------------
 
-/** Retrieve the saved draft code for an exercise, or null if none exists. */
-export async function getDraft(exerciseId: string): Promise<string | null> {
-  return invoke<string | null>('exercises-draft-get', exerciseId)
+/** Retrieve the versioned draft record for an exercise, including tombstones. */
+export async function getDraft(exerciseId: string): Promise<PracticeDraft | null> {
+  return invoke<PracticeDraft | null>('exercises-draft-get', exerciseId)
 }
 
 /** Persist a draft of the user's code for an exercise. */
-export async function saveDraft(exerciseId: string, code: string): Promise<void> {
-  return invoke<void>('exercises-draft-save', { exerciseId, code })
+export async function saveDraft(
+  exerciseId: string,
+  code: string,
+  language: string,
+  baseRevision: number,
+): Promise<DraftMutationResult> {
+  return invoke<DraftMutationResult>('exercises-draft-save', {
+    exerciseId,
+    code,
+    language,
+    baseRevision,
+  })
 }
 
-/** Delete the saved draft for an exercise. */
-export async function clearDraft(exerciseId: string): Promise<void> {
-  return invoke<void>('exercises-draft-clear', exerciseId)
+/** Replace the current draft with a revisioned tombstone. */
+export async function clearDraft(
+  exerciseId: string,
+  baseRevision: number,
+): Promise<DraftMutationResult> {
+  return invoke<DraftMutationResult>('exercises-draft-clear', { exerciseId, baseRevision })
 }
 
 // --------------- Spaced-Repetition Review ---------------

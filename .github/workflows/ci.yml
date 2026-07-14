@@ -84,6 +84,11 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
+      # Unit tests that touch SQLite need a Node-built better-sqlite3 binding.
+      # Full `npm ci` would also rebuild Electron natives and is much slower here.
+      - name: Rebuild better-sqlite3 for Node
+        run: npm rebuild better-sqlite3
+
       - name: Run tests with coverage
         run: npm run test:coverage
 
@@ -104,6 +109,27 @@ jobs:
           name: coverage-report
           path: coverage/
           retention-days: 14
+
+  electron-draft-test:
+    name: Electron Persistence
+    runs-on: windows-latest
+    needs: lint-format-typecheck
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies with Electron native modules
+        run: npm ci
+
+      - name: Verify exercise drafts in Electron
+        run: npm run test:electron-drafts
+
+      - name: Verify editor workspaces in Electron
+        run: npm run test:electron-workspace
 
   # ---------------------------------------------------------------
   # 4. Bundle size check
@@ -205,3 +231,14 @@ jobs:
 
       - name: Build renderer & main
         run: npm run build
+
+      - name: Verify SQL utility process
+        if: runner.os != 'Linux'
+        run: npm run test:electron-sql
+
+      - name: Verify SQL utility process (Linux)
+        if: runner.os == 'Linux'
+        env:
+          # GitHub-hosted runners cannot set chrome-sandbox setuid; disable sandbox for smoke only.
+          ELECTRON_DISABLE_SANDBOX: '1'
+        run: xvfb-run -a npm run test:electron-sql

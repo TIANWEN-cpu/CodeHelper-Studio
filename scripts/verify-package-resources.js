@@ -2,6 +2,7 @@
 
 const fs = require('fs')
 const path = require('path')
+const { listPackage } = require('@electron/asar')
 
 const root = path.resolve(__dirname, '..')
 const resourcesRoot = process.env.CODEHELPER_PACKAGE_RESOURCES
@@ -25,8 +26,19 @@ const requiredPaths = [
   path.join('demo', 'sample-knowledge', 'algorithm-patterns.md'),
   path.join('demo', 'sample-solutions', 'two-sum.py'),
   path.join('problems', 'leetcode.json'),
+  path.join('resource-catalogs', 'community-cs-resources.json'),
   path.join('db', 'schema.sql'),
+  path.join(
+    'app.asar.unpacked',
+    'node_modules',
+    'better-sqlite3',
+    'build',
+    'Release',
+    'better_sqlite3.node',
+  ),
 ]
+
+const requiredAsarPaths = ['out/main/index.js', 'out/main/sqlRunnerUtility.js']
 
 const countedDirs = [
   path.join('content', 'metadata'),
@@ -41,12 +53,19 @@ const countedDirs = [
   path.join('demo', 'sample-knowledge'),
   path.join('demo', 'sample-solutions'),
   'problems',
+  'resource-catalogs',
   'db',
 ]
 
 const missing = requiredPaths.filter((relativePath) => {
   return !fs.existsSync(path.join(resourcesRoot, relativePath))
 })
+
+const asarPath = path.join(resourcesRoot, 'app.asar')
+const asarEntries = fs.existsSync(asarPath)
+  ? new Set(listPackage(asarPath).map((entry) => entry.replace(/^[/\\]+/, '').replace(/\\/g, '/')))
+  : new Set()
+const missingAsarPaths = requiredAsarPaths.filter((relativePath) => !asarEntries.has(relativePath))
 
 console.log(`[verify-package] resources root: ${resourcesRoot}`)
 
@@ -64,6 +83,14 @@ for (const relativePath of countedDirs) {
 if (missing.length > 0) {
   console.error('[verify-package] missing required package resources:')
   for (const relativePath of missing) {
+    console.error(`  - ${relativePath}`)
+  }
+  process.exit(1)
+}
+
+if (missingAsarPaths.length > 0) {
+  console.error('[verify-package] missing required app.asar entries:')
+  for (const relativePath of missingAsarPaths) {
     console.error(`  - ${relativePath}`)
   }
   process.exit(1)

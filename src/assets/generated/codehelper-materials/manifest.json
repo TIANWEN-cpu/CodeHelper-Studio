@@ -1,0 +1,290 @@
+[
+  {
+    "key": "hero-workbench",
+    "file": "hero-workbench.png",
+    "title": "Workbench",
+    "category": "hero",
+    "width": 1600,
+    "height": 900
+  },
+  {
+    "key": "hero-ai-tutor",
+    "file": "hero-ai-tutor.png",
+    "title": "AI Tutor",
+    "category": "hero",
+    "width": 1600,
+    "height": 900
+  },
+  {
+    "key": "hero-practice-lab",
+    "file": "hero-practice-lab.png",
+    "title": "Practice Lab",
+    "category": "hero",
+    "width": 1600,
+    "height": 900
+  },
+  {
+    "key": "hero-learning-path",
+    "file": "hero-learning-path.png",
+    "title": "Learning Path",
+    "category": "hero",
+    "width": 1600,
+    "height": 900
+  },
+  {
+    "key": "hero-knowledge-base",
+    "file": "hero-knowledge-base.png",
+    "title": "Knowledge Base",
+    "category": "hero",
+    "width": 1600,
+    "height": 900
+  },
+  {
+    "key": "card-code-review",
+    "file": "card-code-review.png",
+    "title": "Review",
+    "category": "card",
+    "width": 960,
+    "height": 540
+  },
+  {
+    "key": "card-algorithm-map",
+    "file": "card-algorithm-map.png",
+    "title": "Algorithm Map",
+    "category": "card",
+    "width": 960,
+    "height": 540
+  },
+  {
+    "key": "card-debug-console",
+    "file": "card-debug-console.png",
+    "title": "Debug Console",
+    "category": "card",
+    "width": 960,
+    "height": 540
+  },
+  {
+    "key": "card-note-capture",
+    "file": "card-note-capture.png",
+    "title": "Notes",
+    "category": "card",
+    "width": 960,
+    "height": 540
+  },
+  {
+    "key": "card-ai-agent",
+    "file": "card-ai-agent.png",
+    "title": "AI Agent",
+    "category": "card",
+    "width": 960,
+    "height": 540
+  },
+  {
+    "key": "card-progress-chart",
+    "file": "card-progress-chart.png",
+    "title": "Progress",
+    "category": "card",
+    "width": 960,
+    "height": 540
+  },
+  {
+    "key": "empty-no-activity",
+    "file": "empty-no-activity.png",
+    "title": "No Activity",
+    "category": "empty-state",
+    "width": 960,
+    "height": 720
+  },
+  {
+    "key": "empty-no-lessons",
+    "file": "empty-no-lessons.png",
+    "title": "No Lessons",
+    "category": "empty-state",
+    "width": 960,
+    "height": 720
+  },
+  {
+    "key": "empty-no-practice",
+    "file": "empty-no-practice.png",
+    "title": "No Practice",
+    "category": "empty-state",
+    "width": 960,
+    "height": 720
+  },
+  {
+    "key": "empty-no-knowledge",
+    "file": "empty-no-knowledge.png",
+    "title": "No Knowledge",
+    "category": "empty-state",
+    "width": 960,
+    "height": 720
+  },
+  {
+    "key": "empty-no-search-results",
+    "file": "empty-no-search-results.png",
+    "title": "No Results",
+    "category": "empty-state",
+    "width": 960,
+    "height": 720
+  },
+  {
+    "key": "empty-offline-mode",
+    "file": "empty-offline-mode.png",
+    "title": "Offline",
+    "category": "empty-state",
+    "width": 960,
+    "height": 720
+  },
+  {
+    "key": "streak-badge",
+    "file": "streak-badge.png",
+    "title": "Streak Badge",
+    "category": "badge",
+    "width": 512,
+    "height": 512
+  },
+  {
+    "key": "focus-badge",
+    "file": "focus-badge.png",
+    "title": "Focus Badge",
+    "category": "badge",
+    "width": 512,
+    "height": 512
+  },
+  {
+    "key": "review-badge",
+    "file": "review-badge.png",
+    "title": "Review Badge",
+    "category": "badge",
+    "width": 512,
+    "height": 512
+  },
+  {
+    "key": "practice-badge",
+    "file": "practice-badge.png",
+    "title": "Practice Badge",
+    "category": "badge",
+    "width": 512,
+    "height": 512
+  },
+  {
+    "key": "mastery-badge",
+    "file": "mastery-badge.png",
+    "title": "Mastery Badge",
+    "category": "badge",
+    "width": 512,
+    "height": 512
+  },
+  {
+    "key": "background-aurora-grid",
+    "file": "background-aurora-grid.png",
+    "title": "Aurora Grid",
+    "category": "background",
+    "width": 1920,
+    "height": 1080
+  },
+  {
+    "key": "background-nebula-panels",
+    "file": "background-nebula-panels.png",
+    "title": "Nebula Panels",
+    "category": "background",
+    "width": 1920,
+    "height": 1080
+  },
+  {
+    "key": "background-graphite-flow",
+    "file": "background-graphite-flow.png",
+    "title": "Graphite Flow",
+    "category": "background",
+    "width": 1920,
+    "height": 1080
+  },
+  {
+    "key": "landscape-mountain-dawn",
+    "file": "landscape-mountain-dawn.png",
+    "title": "Mountain Dawn",
+    "category": "wallpaper",
+    "width": 1920,
+    "height": 1080
+  },
+  {
+    "key": "landscape-rainy-city",
+    "file": "landscape-rainy-city.png",
+    "title": "Rainy City",
+    "category": "wallpaper",
+    "width": 1920,
+    "height": 1080
+  },
+  {
+    "key": "landscape-forest-terminal",
+    "file": "landscape-forest-terminal.png",
+    "title": "Forest Terminal",
+    "category": "wallpaper",
+    "width": 1920,
+    "height": 1080
+  },
+  {
+    "key": "landscape-ocean-night",
+    "file": "landscape-ocean-night.png",
+    "title": "Ocean Night",
+    "category": "wallpaper",
+    "width": 1920,
+    "height": 1080
+  },
+  {
+    "key": "anime-neon-study",
+    "file": "anime-neon-study.png",
+    "title": "Neon Study",
+    "category": "wallpaper",
+    "width": 1920,
+    "height": 1080
+  },
+  {
+    "key": "anime-cyber-sakura",
+    "file": "anime-cyber-sakura.png",
+    "title": "Cyber Sakura",
+    "category": "wallpaper",
+    "width": 1920,
+    "height": 1080
+  },
+  {
+    "key": "anime-coding-assistant",
+    "file": "anime-coding-assistant.png",
+    "title": "Coding Assistant",
+    "category": "wallpaper",
+    "width": 1920,
+    "height": 1080
+  },
+  {
+    "key": "workspace-focus-scene",
+    "file": "workspace-focus-scene.png",
+    "title": "Focus Scene",
+    "category": "wallpaper",
+    "width": 1920,
+    "height": 1080
+  },
+  {
+    "key": "theme-deep-space",
+    "file": "theme-deep-space.png",
+    "title": "Deep Space",
+    "category": "wallpaper",
+    "width": 1672,
+    "height": 941
+  },
+  {
+    "key": "theme-forest-focus",
+    "file": "theme-forest-focus.png",
+    "title": "Forest Focus",
+    "category": "wallpaper",
+    "width": 1672,
+    "height": 941
+  },
+  {
+    "key": "theme-anime-study",
+    "file": "theme-anime-study.png",
+    "title": "Anime Study",
+    "category": "wallpaper",
+    "width": 1672,
+    "height": 941
+  }
+]

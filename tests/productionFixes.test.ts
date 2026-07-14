@@ -20,7 +20,7 @@ vi.stubGlobal('window', {
 
 const settingsService = await import('../src/services/settingsService')
 const aiService = await import('../src/services/aiService')
-const { normalizeChatSessions } = await import('../src/hooks/useAIChat')
+const { normalizeChatSessions } = await import('../src/stores/chatStore')
 const { AI_PANEL_MAX_WIDTH, useAppStore } = await import('../src/store')
 
 function emit(channel: string, payload: unknown) {
@@ -463,11 +463,11 @@ describe('production fix coverage', () => {
     expect(stylesSource).toContain('.home-hero-layout')
     expect(stylesSource).toContain('container-type: inline-size;')
     expect(stylesSource).toContain('grid-template-columns: minmax(0, 1fr);')
-    expect(stylesSource).toContain('@container (min-width: 1120px)')
+    expect(stylesSource).toContain('@container (min-width: 900px)')
     expect(homeSource).toContain('home-hero-card lg:col-span-2 xl:col-span-4')
     expect(homeSource).toContain('surface-card xl:col-span-2')
     expect(stylesSource).toContain('animation: hero-float-contained')
-    expect(stylesSource).toContain('min-height: 420px;')
+    expect(stylesSource).toContain('min-height: 380px;')
     expect(stylesSource).toContain('.home-hero-workbench-lines')
     expect(stylesSource).toContain('overflow: auto;')
     expect(stylesSource).toContain('.home-hero-workbench-shell')
@@ -557,6 +557,32 @@ describe('production fix coverage', () => {
     expect(curatedProblems.every((problem) => problem.tracks?.includes('ai-tutor'))).toBe(true)
   })
 
+  it('keeps responsive motion, accent, pet, and settings persistence contracts aligned', async () => {
+    const [appSource, petSource, sidebarSource, settingsSource, appearanceSource, stylesSource] =
+      await Promise.all([
+        readFile(join(process.cwd(), 'src/App.tsx'), 'utf8'),
+        readFile(join(process.cwd(), 'src/components/AIPet.tsx'), 'utf8'),
+        readFile(join(process.cwd(), 'src/components/layout/Sidebar.tsx'), 'utf8'),
+        readFile(join(process.cwd(), 'src/views/SettingsView.tsx'), 'utf8'),
+        readFile(join(process.cwd(), 'src/lib/appearance.ts'), 'utf8'),
+        readFile(join(process.cwd(), 'src/index.css'), 'utf8'),
+      ])
+
+    expect(appSource).toContain("<MotionConfig reducedMotion={reducedMotion ? 'always' : 'user'}>")
+    expect(appSource).toContain("attributeFilter: ['data-reduce-motion']")
+    expect(petSource).toContain('const PET_MOBILE_WIDTH = 64')
+    expect(petSource).toContain('if (width <= PET_MOBILE_BREAKPOINT)')
+    expect(sidebarSource).toContain("window.matchMedia('(max-width: 720px)')")
+    expect(sidebarSource).toContain('const compact = collapsed || viewportCompact')
+    expect(appearanceSource).toContain("DEFAULT_ACCENT_COLOR = '#2FB7A5'")
+    expect(settingsSource).toContain('persistAppearance(key, value)')
+    expect(settingsSource).toContain('flushAppearanceWrites()')
+    expect(stylesSource).toContain(
+      '--color-accent-solid: color-mix(in srgb, var(--color-accent-primary) 45%, #000);',
+    )
+    expect(stylesSource).toContain(".ai-pet:not([data-current-view='profile'])")
+  })
+
   it('separates model switching, provider model imports, and global search semantics', async () => {
     const headerSource = await readFile(
       join(process.cwd(), 'src/components/layout/Header.tsx'),
@@ -574,12 +600,15 @@ describe('production fix coverage', () => {
     expect(headerSource).toContain("'当前' : '切换'")
     expect(headerSource).toContain('<Cpu size={14} />')
     expect(headerSource).not.toContain('<Check size={14} />')
-    expect(headerSource).toContain('w-[220px]')
-    expect(headerSource).toContain('max-w-[420px]')
+    expect(headerSource).toContain('w-[170px]')
+    expect(headerSource).toContain('max-w-[460px]')
+    expect(headerSource).toContain('className="relative hidden min-[721px]:block"')
     expect(headerSource).toContain('placeholder="快速跳转..."')
-    expect(headerSource).toContain('搜索页面或功能')
+    expect(headerSource).toContain('搜索页面、课程、练习或知识库')
+    expect(headerSource).toContain('buildCommandResults')
     expect(headerSource).toContain('pt-20')
-    expect(headerSource).toContain('<span>终端</span>')
+    expect(headerSource).toContain('aria-label="打开工作区终端"')
+    expect(headerSource).not.toContain('<span>终端</span>')
     expect(headerSource).toContain("setCurrentView('workspace')")
     expect(headerSource).not.toContain('打开命令终端...')
 

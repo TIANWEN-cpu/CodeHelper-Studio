@@ -147,7 +147,7 @@ CodeHelper 在以下方面实现了无障碍支持：
 
 以下是当前版本在无障碍方面的已知不足：
 
-1. **Monaco 编辑器的无障碍由上游控制**：Monaco Editor 自行管理其内部的无障碍支持（如行号播报、代码折叠等），CodeHelper 无法覆盖其行为。Monaco 的屏幕阅读器模式需要用户在编辑器中手动启用（`Ctrl+Shift+U` 或通过命令面板）。
+1. **代码编辑器的无障碍由上游控制**：CodeHelper 使用 CodeMirror 6（基于 contenteditable，自带 ARIA 语义与屏幕阅读器支持）。其内部的无障碍行为（如行号播报、代码折叠的语义）由 CodeMirror 上游实现，CodeHelper 无法深度覆盖。屏幕阅读器用户可借助浏览器的原生光标浏览与 CodeMirror 的 ARIA 标记进行导航。
 
 2. **统计图表缺少详细数据替代**：SVG 图表提供了 `aria-label` 摘要描述，但未提供完整的文本数据表格作为替代视图。屏幕阅读器用户只能获得概要信息。
 

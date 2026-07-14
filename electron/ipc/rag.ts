@@ -7,7 +7,27 @@ import { trackPerformance } from '../utils/perfMonitor'
 import type { KnowledgeChunkRow } from '../types/db'
 import type Database from 'better-sqlite3'
 
-type ScoredKnowledgeChunk = KnowledgeChunkRow & { score: number }
+export type ScoredKnowledgeChunk = KnowledgeChunkRow & { score: number }
+type KnowledgeDocListRow = {
+  id: number
+  filename: string
+  file_type: string | null
+  chunk_count: number
+  created_at: string
+  content_preview?: string | null
+}
+type KnowledgeDocDetailRow = KnowledgeDocListRow & {
+  content: string | null
+}
+type KnowledgeDocMetadata = {
+  display_title?: string
+  source_repo?: string
+  source_url?: string
+  source_path?: string
+  category?: string
+  category_dir?: string
+  tags?: string[]
+}
 
 // ---------------------------------------------------------------------------
 // Deferred DB wrapper — prevents blocking startup with synchronous DB init.
@@ -90,6 +110,61 @@ function validateKnowledgeQuery(query: string): string {
   return query.trim().slice(0, 1000)
 }
 
+export function extractYamlScalar(frontMatter: string, key: string): string | undefined {
+  const match = frontMatter.match(new RegExp(`^${key}:\\s*"?([^"\\r\\n]+)"?\\s*$`, 'm'))
+  return match?.[1]?.trim()
+}
+
+export function extractYamlTags(frontMatter: string): string[] {
+  const tagsBlock = frontMatter.match(/^tags:\s*\r?\n((?:\s+-\s*.*\r?\n?)+)/m)?.[1]
+  if (!tagsBlock) return []
+  return tagsBlock
+    .split(/\r?\n/)
+    .map((line) => line.match(/^\s+-\s*"?([^"]+)"?\s*$/)?.[1]?.trim())
+    .filter((tag): tag is string => Boolean(tag))
+}
+
+export function titleFromFilename(filename: string): string {
+  return filename
+    .replace(/\.md$/i, '')
+    .split('__')
+    .slice(-1)[0]
+    .replace(/^[a-f0-9]{8,}_?/i, '')
+    .replace(/[-_]+/g, ' ')
+    .trim()
+}
+
+function enrichKnowledgeDoc<T extends KnowledgeDocListRow | KnowledgeDocDetailRow>(
+  row: T,
+): T & KnowledgeDocMetadata {
+  const preview = 'content' in row ? row.content : row.content_preview
+  if (typeof preview !== 'string') return row
+
+  const frontMatter = preview.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? ''
+  const displayTitle = extractYamlScalar(frontMatter, 'title') ?? titleFromFilename(row.filename)
+  const metadata: KnowledgeDocMetadata = {
+    display_title: displayTitle,
+    source_repo: extractYamlScalar(frontMatter, 'source_repo'),
+    source_url: extractYamlScalar(frontMatter, 'source_url'),
+    source_path: extractYamlScalar(frontMatter, 'source_path'),
+    category: extractYamlScalar(frontMatter, 'category'),
+    category_dir: extractYamlScalar(frontMatter, 'category_dir'),
+  }
+  const tags = extractYamlTags(frontMatter)
+  if (tags.length > 0) metadata.tags = tags
+
+  return Object.fromEntries(
+    Object.entries({ ...row, ...metadata }).filter(([, value]) => value !== undefined),
+  ) as unknown as T & KnowledgeDocMetadata
+}
+
+/**
+ * 关键词检索上限：knowledge_chunks 可能很大，而 LIKE '%kw%' 无法走索引，
+ * 会全表扫。这里给 SQL 一个硬上限，避免把数千条 chunk 全部读进内存再做 JS 精排。
+ * 该上限远大于调用方最终需要的 limit（默认 5~10），只用于先收窄候选集。
+ */
+const KEYWORD_SCAN_MAX = 200
+
 function keywordSearch(query: string, limit = 5): ScoredKnowledgeChunk[] {
   const normalizedQuery = validateKnowledgeQuery(query)
   const keywords = normalizedQuery
@@ -103,18 +178,23 @@ function keywordSearch(query: string, limit = 5): ScoredKnowledgeChunk[] {
 
   const conditions = keywords.map(() => 'LOWER(kc.content) LIKE ?').join(' OR ')
   const params = keywords.map((kw) => `%${kw}%`)
+  // 用 SQL LIMIT 收窄候选集（取最近 KEYWORD_SCAN_MAX 条命中），避免全量搬进内存。
   const matchingChunks = db
     .prepare(
-      `SELECT kc.*, kd.filename FROM knowledge_chunks kc JOIN knowledge_docs kd ON kc.doc_id = kd.id WHERE ${conditions}`,
+      `SELECT kc.*, kd.filename FROM knowledge_chunks kc JOIN knowledge_docs kd ON kc.doc_id = kd.id
+       WHERE ${conditions}
+       ORDER BY kc.id DESC
+       LIMIT ?`,
     )
-    .all(...params) as KnowledgeChunkRow[]
+    .all(...params, KEYWORD_SCAN_MAX) as KnowledgeChunkRow[]
 
+  // 预编译关键词正则一次，复用于所有 chunk（原先每个 chunk 都 new RegExp，CPU 热点）。
+  const matchers = keywords.map((kw) => new RegExp(escapeRegExp(kw), 'g'))
   const scored = matchingChunks.map((chunk) => {
     const text = chunk.content.toLowerCase()
     let score = 0
-    for (const kw of keywords) {
-      const matches = (text.match(new RegExp(escapeRegExp(kw), 'g')) || []).length
-      score += matches
+    for (const re of matchers) {
+      score += (text.match(re) || []).length
     }
     return { ...chunk, score }
   })
@@ -123,7 +203,7 @@ function keywordSearch(query: string, limit = 5): ScoredKnowledgeChunk[] {
   return scored.slice(0, limit)
 }
 
-function topConceptsFromChunks(chunks: ScoredKnowledgeChunk[], limit = 8): string[] {
+export function topConceptsFromChunks(chunks: ScoredKnowledgeChunk[], limit = 8): string[] {
   const counts = new Map<string, number>()
   const stopWords = new Set([
     'the',
@@ -213,20 +293,26 @@ export function registerRAGIPC(): void {
         // Split into chunks (~500 chars)
         const chunks = splitIntoChunks(content, 500)
 
-        const docResult = db
-          .prepare(
-            'INSERT INTO knowledge_docs (filename, file_type, content, chunk_count) VALUES (?,?,?,?)',
-          )
-          .run(filename, ext, content, chunks.length)
+        // 单文件的 doc + chunks 写入包进事务：避免中途失败留下
+        // chunk_count 与实际 chunk 数不一致的“半截文档”。
+        const insertDoc = db.transaction(
+          (docFilename: string, docExt: string, docContent: string) => {
+            const docResult = db
+              .prepare(
+                'INSERT INTO knowledge_docs (filename, file_type, content, chunk_count) VALUES (?,?,?,?)',
+              )
+              .run(docFilename, docExt, docContent, chunks.length)
 
-        const docId = docResult.lastInsertRowid
-        const insertChunk = db.prepare(
-          'INSERT INTO knowledge_chunks (doc_id, content, chunk_index) VALUES (?,?,?)',
+            const docId = docResult.lastInsertRowid
+            const insertChunk = db.prepare(
+              'INSERT INTO knowledge_chunks (doc_id, content, chunk_index) VALUES (?,?,?)',
+            )
+            chunks.forEach((chunk, i) => {
+              insertChunk.run(docId, chunk, i)
+            })
+          },
         )
-
-        chunks.forEach((chunk, i) => {
-          insertChunk.run(docId, chunk, i)
-        })
+        insertDoc(filename, ext, content)
 
         uploaded.push(filename)
       }
@@ -235,15 +321,34 @@ export function registerRAGIPC(): void {
     }),
   )
 
-  ipcMain.handle('knowledge-list', () => {
-    const db = getReadyDB()
-    if (!db) return [] // DB not ready yet — return empty list gracefully.
+  ipcMain.handle('knowledge-list', async () => {
+    const db = await getDBWithTimeout()
     return db
       .prepare(
-        'SELECT id, filename, file_type, chunk_count, created_at FROM knowledge_docs ORDER BY created_at DESC',
+        `SELECT id, filename, file_type, chunk_count, created_at, substr(content, 1, 1800) AS content_preview
+         FROM knowledge_docs
+         ORDER BY created_at DESC, id DESC`,
       )
       .all()
+      .map((row) => enrichKnowledgeDoc(row as KnowledgeDocListRow))
   })
+
+  ipcMain.handle(
+    'knowledge-get',
+    trackPerformance('knowledge-get', (_e, id: number) => {
+      if (typeof id !== 'number' || !Number.isFinite(id) || id < 1) throw new Error('参数无效: id')
+      const db = getReadyDB()
+      if (!db) return null
+      const row = db
+        .prepare(
+          `SELECT id, filename, file_type, content, chunk_count, created_at
+           FROM knowledge_docs
+           WHERE id = ?`,
+        )
+        .get(id) as KnowledgeDocDetailRow | undefined
+      return row ? enrichKnowledgeDoc(row) : null
+    }),
+  )
 
   ipcMain.handle(
     'knowledge-delete',

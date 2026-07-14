@@ -1,0 +1,225 @@
+// home.ts 顶层 import electron/db/fs/perfMonitor，且模块加载时用 process.resourcesPath
+// 拼 CONTENT_DIR_CANDIDATES（Node 测试环境无此属性）。用 vi.hoisted 在模块加载前 stub 它。
+vi.hoisted(() => {
+  ;(process as { resourcesPath?: string }).resourcesPath = ''
+})
+vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
+vi.mock('../electron/db/index', () => ({ getDB: vi.fn() }))
+vi.mock('../electron/utils/perfMonitor', () => ({ trackPerformance: vi.fn() }))
+
+import { describe, it, expect } from 'vitest'
+import { computeLevel, getFirstLesson, computeStreak, getTotalLessons } from '../electron/ipc/home'
+
+describe('computeLevel (XP → 等级曲线)', () => {
+  it('xp=0 时为 1 级，0/50 进度', () => {
+    expect(computeLevel(0)).toEqual({ level: 1, xpInLevel: 0, xpForNextLevel: 50 })
+  })
+
+  it('xp=50 恰好升到 2 级（满级后归零）', () => {
+    expect(computeLevel(50)).toEqual({ level: 2, xpInLevel: 0, xpForNextLevel: 150 })
+  })
+
+  it('xp=200 升到 3 级', () => {
+    expect(computeLevel(200)).toEqual({ level: 3, xpInLevel: 0, xpForNextLevel: 250 })
+  })
+
+  it('xp=450 升到 4 级', () => {
+    expect(computeLevel(450)).toEqual({ level: 4, xpInLevel: 0, xpForNextLevel: 350 })
+  })
+
+  it('级内进度正确（xp=49 → 1级 49/50）', () => {
+    expect(computeLevel(49)).toEqual({ level: 1, xpInLevel: 49, xpForNextLevel: 50 })
+  })
+
+  it('刚过阈值（xp=51 → 2级 1/150）', () => {
+    expect(computeLevel(51)).toEqual({ level: 2, xpInLevel: 1, xpForNextLevel: 150 })
+  })
+
+  it('负 xp 被钳制为 0', () => {
+    expect(computeLevel(-100)).toEqual({ level: 1, xpInLevel: 0, xpForNextLevel: 50 })
+  })
+
+  it('小数 xp 向下取整', () => {
+    expect(computeLevel(50.9).xpInLevel).toBe(0) // floor(50.9)=50 → 2级起点
+  })
+
+  it('level 与 xpInLevel + xpAtCurrent 一致（不变式）', () => {
+    for (const xp of [0, 30, 100, 250, 1000, 5000]) {
+      const r = computeLevel(xp)
+      expect(r.xpInLevel).toBeGreaterThanOrEqual(0)
+      expect(r.xpInLevel).toBeLessThan(r.xpForNextLevel)
+      expect(r.level).toBeGreaterThanOrEqual(1)
+    }
+  })
+})
+
+describe('getFirstLesson', () => {
+  it('返回课程地图中第一条课程', () => {
+    const courseMap = {
+      tracks: [
+        {
+          id: 'py',
+          title: 'Python',
+          icon: 'i',
+          summary: '',
+          modules: [
+            {
+              id: 'm1',
+              title: '基础',
+              summary: '',
+              lessons: [
+                {
+                  id: 'lesson-1',
+                  title: '第一课',
+                  summary: '',
+                  path: '',
+                  difficulty: 'easy',
+                  estimated_minutes: 10,
+                  tags: [],
+                  prerequisites: [],
+                  outcomes: [],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }
+    const result = getFirstLesson(courseMap as never)
+    expect(result).toEqual({
+      trackId: 'py',
+      moduleId: 'm1',
+      lessonId: 'lesson-1',
+      title: '第一课',
+      moduleTitle: '基础',
+    })
+  })
+
+  it('跳过空模块，找到第一个有课程 的模块', () => {
+    const courseMap = {
+      tracks: [
+        {
+          id: 't1',
+          title: 'T1',
+          icon: 'i',
+          summary: '',
+          modules: [
+            { id: 'empty', title: '空', summary: '', lessons: [] },
+            {
+              id: 'm2',
+              title: 'M2',
+              summary: '',
+              lessons: [
+                {
+                  id: 'l2',
+                  title: '课2',
+                  summary: '',
+                  path: '',
+                  difficulty: 'easy',
+                  estimated_minutes: 5,
+                  tags: [],
+                  prerequisites: [],
+                  outcomes: [],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }
+    expect(getFirstLesson(courseMap as never)?.moduleId).toBe('m2')
+  })
+
+  it('无任何课程时返回 null', () => {
+    expect(getFirstLesson({ tracks: [] } as never)).toBeNull()
+    expect(
+      getFirstLesson({
+        tracks: [{ id: 't', title: '', icon: '', summary: '', modules: [] }],
+      } as never),
+    ).toBeNull()
+  })
+})
+
+describe('computeStreak (连续学习天数，UTC)', () => {
+  it('空活动列表返回 0', () => {
+    expect(computeStreak([], '2026-07-03')).toBe(0)
+  })
+
+  it('今天有活动、昨天也有 → 连续计数含今天', () => {
+    expect(computeStreak(['2026-07-03', '2026-07-02'], '2026-07-03')).toBe(2)
+  })
+
+  it('今天没活动但昨天有 → 从昨天起算（不断 streak）', () => {
+    expect(computeStreak(['2026-07-02', '2026-07-01'], '2026-07-03')).toBe(2)
+  })
+
+  it('今天和昨天都没活动 → 返回 0', () => {
+    expect(computeStreak(['2026-06-01'], '2026-07-03')).toBe(0)
+  })
+
+  it('中间断档则停止计数', () => {
+    // 今天有、昨天没有、前天有 → 只算今天（1）
+    expect(computeStreak(['2026-07-03', '2026-07-01'], '2026-07-03')).toBe(1)
+  })
+
+  it('长连续记录正确累加', () => {
+    const days = ['2026-07-03', '2026-07-02', '2026-07-01', '2026-06-30', '2026-06-29']
+    expect(computeStreak(days, '2026-07-03')).toBe(5)
+  })
+
+  it('今天没活动时，连续记录从昨天起算且跨月正确', () => {
+    // today=2026-07-01（无活动），昨天 06-30、06-29 有 → streak=2
+    expect(computeStreak(['2026-06-30', '2026-06-29'], '2026-07-01')).toBe(2)
+  })
+
+  it('活动日期乱序不影响结果（用 Set 去重）', () => {
+    expect(computeStreak(['2026-07-02', '2026-07-03', '2026-07-01'], '2026-07-03')).toBe(3)
+  })
+})
+
+describe('getTotalLessons', () => {
+  const mkMap = (counts: number[][]) => ({
+    tracks: counts.map((mods, ti) => ({
+      id: `t${ti}`,
+      title: '',
+      icon: '',
+      summary: '',
+      modules: mods.map((lc, mi) => ({
+        id: `m${ti}-${mi}`,
+        title: '',
+        summary: '',
+        lessons: Array.from({ length: lc }, (_, li) => ({
+          id: `l${li}`,
+          title: '',
+          summary: '',
+          path: '',
+          difficulty: 'easy',
+          estimated_minutes: 1,
+          tags: [],
+          prerequisites: [],
+          outcomes: [],
+        })),
+      })),
+    })),
+  })
+
+  it('汇总所有轨道/模块的课程数', () => {
+    // track0: [3, 2]=5, track1: [1, 4]=5 → 总10
+    expect(
+      getTotalLessons(
+        mkMap([
+          [3, 2],
+          [1, 4],
+        ]) as never,
+      ),
+    ).toBe(10)
+  })
+
+  it('空课程地图返回 0', () => {
+    expect(getTotalLessons({ tracks: [] } as never)).toBe(0)
+  })
+
+  it('含空模块时正确跳过', () => {
+    expect(getTotalLessons(mkMap([[0, 3], [0]]) as never)).toBe(3)
+  })
+})

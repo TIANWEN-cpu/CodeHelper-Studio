@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- Test mocks require flexible typing for spawn/spawnSync overrides */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+/* eslint-disable @typescript-eslint/no-explicit-any -- Test mocks require flexible typing */
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { EventEmitter } from 'events'
 import { PassThrough } from 'stream'
 
@@ -10,6 +10,7 @@ import { PassThrough } from 'stream'
 const mockState = vi.hoisted(() => ({
   queryResults: [] as Record<string, unknown>[],
   execError: null as string | null,
+  sqlHang: false,
 }))
 
 // ─────────────────────────────────────────────
@@ -20,6 +21,9 @@ vi.mock('electron', () => ({
   app: {
     getPath: vi.fn().mockReturnValue('/tmp'),
   },
+  utilityProcess: {
+    fork: vi.fn(),
+  },
 }))
 
 vi.mock('fs', () => ({
@@ -27,9 +31,12 @@ vi.mock('fs', () => ({
   writeFileSync: vi.fn(),
 }))
 
+vi.mock('fs/promises', () => ({
+  rm: vi.fn().mockResolvedValue(undefined),
+}))
+
 vi.mock('child_process', () => ({
   spawn: vi.fn(),
-  spawnSync: vi.fn(),
   execFileSync: vi.fn(),
 }))
 
@@ -52,7 +59,9 @@ vi.mock('better-sqlite3', () => {
 // Imports (after mocks)
 // ─────────────────────────────────────────────
 
-import { spawn, spawnSync, execFileSync } from 'child_process'
+import { spawn, execFileSync } from 'child_process'
+import { utilityProcess } from 'electron'
+import { rm } from 'fs/promises'
 import { runCodeSnippet } from '../electron/utils/codeRunner'
 
 // ─────────────────────────────────────────────
@@ -78,6 +87,43 @@ function mockChildProcess(exitCode = 0, stdoutData = '', stderrData = '') {
   return proc
 }
 
+function mockSqlUtilityProcess() {
+  const child = Object.assign(new EventEmitter(), {
+    pid: 12_345 as number | undefined,
+    kill: vi.fn(() => {
+      process.nextTick(() => {
+        child.pid = undefined
+        child.emit('exit', 1)
+      })
+      return true
+    }),
+    postMessage: vi.fn((request: { queryLast: boolean }) => {
+      if (mockState.sqlHang) return
+      process.nextTick(() => {
+        const response = mockState.execError
+          ? { ok: false, error: mockState.execError }
+          : request.queryLast
+            ? {
+                ok: true,
+                stdout:
+                  mockState.queryResults.length === 0
+                    ? '查询成功，结果为空'
+                    : JSON.stringify(mockState.queryResults, null, 2),
+              }
+            : { ok: true, stdout: '执行成功' }
+        child.emit('message', response)
+        process.nextTick(() => {
+          child.pid = undefined
+          child.emit('exit', response.ok ? 0 : 1)
+        })
+      })
+    }),
+  })
+
+  process.nextTick(() => child.emit('spawn'))
+  return child
+}
+
 // ─────────────────────────────────────────────
 // Tests
 // ─────────────────────────────────────────────
@@ -88,7 +134,13 @@ describe('codeRunner', () => {
     vi.useRealTimers()
     mockState.queryResults = []
     mockState.execError = null
+    mockState.sqlHang = false
     vi.mocked(execFileSync).mockReturnValue('C:\\resolved\\cmd.exe\n')
+    vi.mocked(utilityProcess.fork).mockImplementation(() => mockSqlUtilityProcess() as any)
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   // ─────────────────────────────────────────────
@@ -131,7 +183,7 @@ describe('codeRunner', () => {
 
     it('无效 SQL 返回错误', async () => {
       mockState.execError = 'near "INVALID": syntax error'
-      const result = await runCodeSnippet('INVALID SQL', 'sql')
+      const result = await runCodeSnippet('SELECT FROM', 'sql')
       expect(result.stage).toBe('sql')
       expect(result.exitCode).toBe(1)
       expect(result.stderr).toContain('syntax error')
@@ -211,6 +263,101 @@ describe('codeRunner', () => {
       expect(result.exitCode).toBe(0)
       expect(result.stage).toBe('sql')
     })
+
+    it('rejects file access and writable pragmas before forking', async () => {
+      await expect(
+        runCodeSnippet("ATTACH DATABASE 'secret.db' AS secret", 'sql'),
+      ).resolves.toMatchObject({ exitCode: 1, stderr: expect.stringContaining('禁止') })
+      await expect(runCodeSnippet('PRAGMA schema_version(123)', 'sql')).resolves.toMatchObject({
+        exitCode: 1,
+        stderr: expect.stringContaining('只读'),
+      })
+      expect(utilityProcess.fork).not.toHaveBeenCalled()
+    })
+
+    it('rejects oversized UTF-8 SQL input before forking', async () => {
+      const result = await runCodeSnippet(`SELECT '${'界'.repeat(100_000)}'`, 'sql')
+
+      expect(result).toMatchObject({ exitCode: 1, stderr: expect.stringContaining('256KB') })
+      expect(utilityProcess.fork).not.toHaveBeenCalled()
+    })
+
+    it('keeps timeout authoritative when a late utility response arrives', async () => {
+      vi.useFakeTimers()
+      const child = Object.assign(new EventEmitter(), {
+        pid: 2_147_480_001 as number | undefined,
+        kill: vi.fn(() => true),
+        postMessage: vi.fn(),
+      })
+      vi.mocked(utilityProcess.fork).mockReturnValue(child as any)
+      process.nextTick(() => child.emit('spawn'))
+
+      const promise = runCodeSnippet(
+        'WITH cnt(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM cnt) SELECT * FROM cnt',
+        'sql',
+      )
+      await vi.advanceTimersByTimeAsync(3_001)
+      child.emit('message', { ok: true, stdout: 'late success' })
+      child.pid = undefined
+      child.emit('exit', 1)
+
+      await expect(promise).resolves.toMatchObject({ exitCode: 1, timedOut: true })
+      expect(child.postMessage).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not post SQL after timing out before the utility process spawns', async () => {
+      vi.useFakeTimers()
+      const child = Object.assign(new EventEmitter(), {
+        pid: 2_147_480_002 as number | undefined,
+        kill: vi.fn(() => false),
+        postMessage: vi.fn(),
+      })
+      vi.mocked(utilityProcess.fork).mockReturnValue(child as any)
+
+      const promise = runCodeSnippet('SELECT 1', 'sql')
+      await vi.advanceTimersByTimeAsync(5_001)
+      await expect(promise).resolves.toMatchObject({ exitCode: 1, timedOut: true })
+      child.emit('spawn')
+      expect(child.postMessage).not.toHaveBeenCalled()
+
+      child.pid = undefined
+      child.emit('exit', 1)
+      await Promise.resolve()
+    })
+
+    it('does not release concurrency slots for utility processes that never exit', async () => {
+      vi.useFakeTimers()
+      const children = Array.from({ length: 5 }, (_, index) =>
+        Object.assign(new EventEmitter(), {
+          pid: (2_147_480_100 + index) as number | undefined,
+          kill: vi.fn(() => false),
+          postMessage: vi.fn(),
+        }),
+      )
+      let childIndex = 0
+      vi.mocked(utilityProcess.fork).mockImplementation(() => {
+        const child = children[childIndex++]
+        process.nextTick(() => child.emit('spawn'))
+        return child as any
+      })
+
+      const pending = children.map(() => runCodeSnippet('SELECT 1', 'sql'))
+      await vi.advanceTimersByTimeAsync(5_001)
+      const timedOut = await Promise.all(pending)
+      expect(timedOut.every((result) => result.timedOut)).toBe(true)
+
+      await expect(runCodeSnippet('SELECT 2', 'sql')).resolves.toMatchObject({
+        exitCode: 1,
+        stderr: expect.stringContaining('并发'),
+      })
+      expect(utilityProcess.fork).toHaveBeenCalledTimes(5)
+
+      for (const child of children) {
+        child.pid = undefined
+        child.emit('exit', 1)
+      }
+      await Promise.resolve()
+    })
   })
 
   // ─────────────────────────────────────────────
@@ -224,6 +371,7 @@ describe('codeRunner', () => {
       expect(result.stage).toBe('run')
       expect(result.exitCode).toBe(0)
       expect(result.stdout).toContain('hi')
+      expect(vi.mocked(spawn).mock.calls[0][1]?.join(' ')).toContain('--max-old-space-size=256')
     })
 
     it('rust 返回不支持', async () => {
@@ -290,6 +438,26 @@ describe('codeRunner', () => {
       expect(result.exitCode).toBe(1)
       expect(result.stderr).toBe('SyntaxError')
     })
+
+    it('uses an isolated cwd, strips unrelated environment secrets, and cleans up', async () => {
+      vi.stubEnv('CODEHELPER_TEST_SECRET', 'do-not-inherit')
+      vi.mocked(spawn).mockReturnValue(mockChildProcess(0, 'ok') as any)
+
+      await runCodeSnippet('print("ok")', 'python')
+
+      const options = vi.mocked(spawn).mock.calls[0][2] as {
+        cwd: string
+        env: NodeJS.ProcessEnv
+      }
+      expect(options.cwd).toContain('codehelper-run')
+      expect(options.env.CODEHELPER_TEST_SECRET).toBeUndefined()
+      expect(options.env.HOME).toBe(options.cwd)
+      expect(options.env.TEMP).toBe(options.cwd)
+      expect(rm).toHaveBeenCalledWith(
+        options.cwd,
+        expect.objectContaining({ recursive: true, force: true }),
+      )
+    })
   })
 
   // ─────────────────────────────────────────────
@@ -298,10 +466,7 @@ describe('codeRunner', () => {
 
   describe('C 编译与执行', () => {
     it('编译失败返回编译阶段错误', async () => {
-      vi.mocked(spawnSync).mockReturnValue({
-        status: 1,
-        stderr: Buffer.from('error: expected ;'),
-      } as any)
+      vi.mocked(spawn).mockReturnValue(mockChildProcess(1, '', 'error: expected ;') as any)
 
       const result = await runCodeSnippet('int main() {}', 'c')
       expect(result.stage).toBe('compile')
@@ -309,9 +474,37 @@ describe('codeRunner', () => {
       expect(result.stderr).toContain('expected ;')
     })
 
+    it('编译超时保留 compile 阶段和 timedOut 标志', async () => {
+      vi.useFakeTimers()
+      const proc = Object.assign(new EventEmitter(), {
+        stdin: new PassThrough(),
+        stdout: new PassThrough(),
+        stderr: new PassThrough(),
+        pid: 24680,
+        kill: vi.fn(() => {
+          proc.emit('close', null)
+          return true
+        }),
+      })
+      vi.mocked(spawn).mockReturnValue(proc as any)
+      vi.mocked(execFileSync).mockImplementation(() => {
+        throw new Error('taskkill failed')
+      })
+
+      const promise = runCodeSnippet('int main() {}', 'c')
+      await vi.advanceTimersByTimeAsync(15_001)
+
+      await expect(promise).resolves.toMatchObject({
+        stage: 'compile',
+        exitCode: 1,
+        timedOut: true,
+      })
+    })
+
     it('编译成功后运行并返回输出', async () => {
-      vi.mocked(spawnSync).mockReturnValue({ status: 0 } as any)
-      vi.mocked(spawn).mockReturnValue(mockChildProcess(0, 'Hello C\n') as any)
+      vi.mocked(spawn)
+        .mockImplementationOnce(() => mockChildProcess(0) as any)
+        .mockImplementationOnce(() => mockChildProcess(0, 'Hello C\n') as any)
 
       const result = await runCodeSnippet('#include <stdio.h>', 'c')
       expect(result.stage).toBe('run')
@@ -322,10 +515,9 @@ describe('codeRunner', () => {
 
   describe('C++ 编译与执行', () => {
     it('编译失败返回编译阶段错误', async () => {
-      vi.mocked(spawnSync).mockReturnValue({
-        status: 1,
-        stderr: Buffer.from('undefined reference to main'),
-      } as any)
+      vi.mocked(spawn).mockReturnValue(
+        mockChildProcess(1, '', 'undefined reference to main') as any,
+      )
 
       const result = await runCodeSnippet('int x = 0;', 'cpp')
       expect(result.stage).toBe('compile')
@@ -334,8 +526,9 @@ describe('codeRunner', () => {
     })
 
     it('编译成功后运行', async () => {
-      vi.mocked(spawnSync).mockReturnValue({ status: 0 } as any)
-      vi.mocked(spawn).mockReturnValue(mockChildProcess(0, 'Hello C++\n') as any)
+      vi.mocked(spawn)
+        .mockImplementationOnce(() => mockChildProcess(0) as any)
+        .mockImplementationOnce(() => mockChildProcess(0, 'Hello C++\n') as any)
 
       const result = await runCodeSnippet('#include <iostream>', 'cpp')
       expect(result.stage).toBe('run')
@@ -350,10 +543,7 @@ describe('codeRunner', () => {
 
   describe('C# 编译与执行', () => {
     it('编译失败返回编译阶段错误', async () => {
-      vi.mocked(spawnSync).mockReturnValue({
-        status: 1,
-        stderr: Buffer.from('CS1002: ; expected'),
-      } as any)
+      vi.mocked(spawn).mockReturnValue(mockChildProcess(1, '', 'CS1002: ; expected') as any)
 
       const result = await runCodeSnippet('class Program {}', 'csharp')
       expect(result.stage).toBe('compile')
@@ -362,8 +552,9 @@ describe('codeRunner', () => {
     })
 
     it('编译成功后运行', async () => {
-      vi.mocked(spawnSync).mockReturnValue({ status: 0 } as any)
-      vi.mocked(spawn).mockReturnValue(mockChildProcess(0, 'Hello C#\n') as any)
+      vi.mocked(spawn)
+        .mockImplementationOnce(() => mockChildProcess(0) as any)
+        .mockImplementationOnce(() => mockChildProcess(0, 'Hello C#\n') as any)
 
       const result = await runCodeSnippet('Console.WriteLine("Hello C#")', 'csharp')
       expect(result.stage).toBe('run')
@@ -444,7 +635,50 @@ describe('codeRunner', () => {
       const result = await promise
       expect(result.exitCode).toBe(1)
       expect(result.stderr).toContain('超时')
+      expect(result.timedOut).toBe(true)
       expect(proc.kill).toHaveBeenCalled()
+    })
+
+    it('kill failure settles requests but keeps live processes in the concurrency cap', async () => {
+      vi.useFakeTimers()
+      const procs = Array.from({ length: 5 }, (_, index) =>
+        Object.assign(new EventEmitter(), {
+          stdin: new PassThrough(),
+          stdout: new PassThrough(),
+          stderr: new PassThrough(),
+          pid: 54_321 + index,
+          kill: vi.fn(() => false),
+        }),
+      )
+      let spawnIndex = 0
+      vi.mocked(spawn).mockImplementation(() => procs[spawnIndex++] as any)
+      vi.mocked(execFileSync).mockImplementation(() => {
+        throw new Error('taskkill failed')
+      })
+
+      const promises = procs.map(() => runCodeSnippet('while(true){}', 'python'))
+      await vi.advanceTimersByTimeAsync(12_001)
+
+      const results = await Promise.all(promises)
+      expect(results).toEqual(
+        expect.arrayContaining([expect.objectContaining({ exitCode: 1, timedOut: true })]),
+      )
+
+      await expect(runCodeSnippet('print("blocked")', 'python')).resolves.toMatchObject({
+        exitCode: 1,
+        stderr: expect.stringContaining('并发'),
+      })
+      expect(spawn).toHaveBeenCalledTimes(5)
+
+      for (const proc of procs) proc.emit('close', null)
+      await Promise.resolve()
+
+      vi.useRealTimers()
+      vi.mocked(spawn).mockReturnValue(mockChildProcess(0, 'next') as any)
+      await expect(runCodeSnippet('print("next")', 'python')).resolves.toMatchObject({
+        exitCode: 0,
+        stdout: 'next',
+      })
     })
   })
 
@@ -453,17 +687,22 @@ describe('codeRunner', () => {
   // ─────────────────────────────────────────────
 
   describe('runProcess 输出溢出', () => {
-    it('stdout 超过 1MB 时终止进程', async () => {
+    it('stdout 超过 1MB 时终止进程树', async () => {
       const proc = Object.assign(new EventEmitter(), {
         stdin: new PassThrough(),
         stdout: new PassThrough(),
         stderr: new PassThrough(),
+        pid: 4321,
         kill: vi.fn(() => {
           proc.emit('close', null)
         }),
       })
 
       vi.mocked(spawn).mockReturnValue(proc as any)
+      // Make execFileSync (taskkill) throw so the fallback proc.kill() emits close on Windows.
+      vi.mocked(execFileSync).mockImplementation(() => {
+        throw new Error('taskkill failed')
+      })
 
       const promise = runCodeSnippet('infinite_print', 'python')
 
@@ -474,19 +713,25 @@ describe('codeRunner', () => {
       const result = await promise
       expect(result.exitCode).toBe(1)
       expect(result.stderr).toContain('1MB')
+      expect(proc.kill).toHaveBeenCalled()
     })
 
-    it('stderr 超过 1MB 时终止进程', async () => {
+    it('stderr 超过 1MB 时终止进程树', async () => {
       const proc = Object.assign(new EventEmitter(), {
         stdin: new PassThrough(),
         stdout: new PassThrough(),
         stderr: new PassThrough(),
+        pid: 8765,
         kill: vi.fn(() => {
           proc.emit('close', null)
         }),
       })
 
       vi.mocked(spawn).mockReturnValue(proc as any)
+      // Make execFileSync (taskkill) throw so the fallback proc.kill() emits close on Windows.
+      vi.mocked(execFileSync).mockImplementation(() => {
+        throw new Error('taskkill failed')
+      })
 
       const promise = runCodeSnippet('bad_code', 'python')
 
@@ -497,6 +742,7 @@ describe('codeRunner', () => {
       const result = await promise
       expect(result.exitCode).toBe(1)
       expect(result.stderr).toContain('1MB')
+      expect(proc.kill).toHaveBeenCalled()
     })
   })
 
@@ -561,6 +807,29 @@ describe('codeRunner', () => {
 
       await runCodeSnippet('print("no input")', 'python')
       expect(stdinWritten).toBe(false)
+    })
+
+    it('ignores asynchronous EPIPE when the child exits before reading stdin', async () => {
+      vi.mocked(spawn).mockImplementation(() => {
+        const proc = Object.assign(new EventEmitter(), {
+          stdin: new PassThrough(),
+          stdout: new PassThrough(),
+          stderr: new PassThrough(),
+          kill: vi.fn(),
+        })
+
+        process.nextTick(() => {
+          proc.stdin.emit('error', Object.assign(new Error('broken pipe'), { code: 'EPIPE' }))
+          proc.stdout.end()
+          proc.stderr.end()
+          proc.emit('close', 0)
+        })
+        return proc as any
+      })
+
+      await expect(runCodeSnippet('pass', 'python', 'input')).resolves.toMatchObject({
+        exitCode: 0,
+      })
     })
   })
 
