@@ -5,6 +5,7 @@ import {
   deleteEditorTab,
   ensureEditorWorkspaceSchema,
   loadEditorWorkspace,
+  migrateLegacyEditorWorkspace,
   reopenEditorTab,
   saveEditorTab,
   setActiveEditorTab,
@@ -69,6 +70,43 @@ describe.runIf(canLoadNativeDatabase())('editor workspace repository', () => {
       tabs: [{ id: 'tab-a', content: 'print("a")', status: 'open' }],
       recentlyClosedTabs: [],
     })
+  })
+
+  it('persists file, problem, and exercise tab kinds', () => {
+    expect(saveEditorTab(database, tab())).toMatchObject({
+      status: 'saved',
+      tab: { id: 'tab-a', kind: 'file' },
+    })
+    expect(
+      saveEditorTab(
+        database,
+        tab({
+          id: 'problem-a',
+          mutationId: 'mutation-problem-a',
+          kind: 'problem',
+          problemId: 'problem-a',
+          position: 1,
+        }),
+      ),
+    ).toMatchObject({ status: 'saved', tab: { id: 'problem-a', kind: 'problem' } })
+    expect(
+      saveEditorTab(
+        database,
+        tab({
+          id: 'exercise-a',
+          mutationId: 'mutation-exercise-a',
+          kind: 'exercise',
+          problemId: 'exercise-a',
+          position: 2,
+        }),
+      ),
+    ).toMatchObject({ status: 'saved', tab: { id: 'exercise-a', kind: 'exercise' } })
+
+    expect(loadEditorWorkspace(database).tabs.map((item) => [item.id, item.kind])).toEqual([
+      ['tab-a', 'file'],
+      ['problem-a', 'problem'],
+      ['exercise-a', 'exercise'],
+    ])
   })
 
   it('isolates workspaces and merges independent tabs without snapshot loss', () => {
@@ -298,8 +336,8 @@ describe.runIf(canLoadNativeDatabase())('editor workspace repository', () => {
     ensureEditorWorkspaceSchema(database)
     expect(loadEditorWorkspace(database)).toMatchObject({
       activeTabId: 'tab-open',
-      tabs: [{ id: 'tab-open', revision: 2, status: 'open' }],
-      recentlyClosedTabs: [{ id: 'tab-closed', revision: 3, status: 'closed' }],
+      tabs: [{ id: 'tab-open', kind: 'file', revision: 2, status: 'open' }],
+      recentlyClosedTabs: [{ id: 'tab-closed', kind: 'file', revision: 3, status: 'closed' }],
     })
     expect(
       database
@@ -318,5 +356,248 @@ describe.runIf(canLoadNativeDatabase())('editor workspace repository', () => {
         }),
       ),
     ).toMatchObject({ status: 'saved', tab: { workspaceId: 'secondary' } })
+  })
+
+  it('adds tab kind to the previous versioned schema without losing data', () => {
+    database.close()
+    database = new Database(':memory:')
+    database.exec(`
+      CREATE TABLE editor_workspaces (
+        workspace_id TEXT PRIMARY KEY,
+        last_active_tab_id TEXT,
+        generation INTEGER NOT NULL DEFAULT 0,
+        legacy_storage_version INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT
+      );
+      CREATE TABLE editor_tabs (
+        workspace_id TEXT NOT NULL,
+        tab_id TEXT NOT NULL,
+        filename TEXT NOT NULL,
+        language TEXT NOT NULL,
+        content TEXT NOT NULL DEFAULT '',
+        problem_id TEXT,
+        cursor_line INTEGER,
+        cursor_column INTEGER,
+        scroll_top REAL NOT NULL DEFAULT 0,
+        tab_position INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'open',
+        revision INTEGER NOT NULL DEFAULT 1,
+        last_mutation_id TEXT,
+        last_mutation_kind TEXT,
+        last_mutation_fingerprint TEXT,
+        client_id TEXT,
+        last_view_mutation_id TEXT,
+        last_view_mutation_fingerprint TEXT,
+        view_client_id TEXT,
+        created_at TEXT,
+        updated_at TEXT,
+        view_updated_at TEXT,
+        closed_at TEXT,
+        deleted_at TEXT,
+        PRIMARY KEY (workspace_id, tab_id)
+      );
+      INSERT INTO editor_workspaces (workspace_id, last_active_tab_id)
+      VALUES ('default', 'old-tab');
+      INSERT INTO editor_tabs (
+        workspace_id, tab_id, filename, language, content, status, revision,
+        created_at, updated_at, view_updated_at
+      ) VALUES (
+        'default', 'old-tab', 'old.py', 'python', 'preserved', 'open', 4,
+        '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z'
+      );
+    `)
+
+    ensureEditorWorkspaceSchema(database)
+
+    expect(
+      database.prepare("SELECT tab_kind FROM editor_tabs WHERE tab_id = 'old-tab'").get(),
+    ).toEqual({ tab_kind: 'file' })
+    expect(loadEditorWorkspace(database)).toMatchObject({
+      activeTabId: 'old-tab',
+      tabs: [{ id: 'old-tab', kind: 'file', content: 'preserved', revision: 4 }],
+    })
+  })
+
+  it('atomically imports the versioned local workspace only once', () => {
+    const input = {
+      workspaceId: 'default',
+      mutationId: 'legacy-migration-1',
+      clientId: 'client-a',
+      storageVersion: 2,
+      activeTabId: 'local-b',
+      tabs: [
+        {
+          id: 'local-a',
+          filename: 'a.py',
+          language: 'python',
+          content: 'print("a")',
+          kind: 'file' as const,
+          problemId: null,
+          cursorPosition: { lineNumber: 3, column: 2 },
+          scrollTop: 24,
+          position: 0,
+          status: 'open' as const,
+        },
+        {
+          id: 'local-b',
+          filename: 'b.js',
+          language: 'javascript',
+          content: 'console.log("b")',
+          kind: 'problem' as const,
+          problemId: 'problem-b',
+          cursorPosition: null,
+          scrollTop: 0,
+          position: 1,
+          status: 'open' as const,
+        },
+        {
+          id: 'local-closed',
+          filename: 'closed.py',
+          language: 'python',
+          content: 'closed content',
+          kind: 'exercise' as const,
+          problemId: null,
+          cursorPosition: null,
+          scrollTop: 0,
+          position: 0,
+          status: 'closed' as const,
+        },
+      ],
+    }
+
+    const migrated = migrateLegacyEditorWorkspace(database, input)
+    expect(migrated).toMatchObject({
+      status: 'migrated',
+      workspace: {
+        activeTabId: 'local-b',
+        legacyStorageVersion: 2,
+        tabs: [
+          {
+            id: 'local-a',
+            kind: 'file',
+            cursorPosition: { lineNumber: 3, column: 2 },
+            scrollTop: 24,
+          },
+          { id: 'local-b', kind: 'problem', problemId: 'problem-b' },
+        ],
+        recentlyClosedTabs: [{ id: 'local-closed', kind: 'exercise', content: 'closed content' }],
+      },
+    })
+
+    expect(
+      migrateLegacyEditorWorkspace(database, { ...input, mutationId: 'legacy-migration-2' }),
+    ).toMatchObject({ status: 'already-migrated', workspace: { tabs: [{}, {}] } })
+    expect(loadEditorWorkspace(database).tabs).toHaveLength(2)
+  })
+
+  it('preserves an id conflict as a deterministic recovered copy', () => {
+    saveEditorTab(database, tab({ content: 'new database content' }))
+
+    const result = migrateLegacyEditorWorkspace(database, {
+      workspaceId: 'default',
+      mutationId: 'legacy-conflict',
+      clientId: 'client-a',
+      storageVersion: 2,
+      activeTabId: 'tab-a',
+      tabs: [
+        {
+          id: 'tab-a',
+          filename: 'a.py',
+          language: 'python',
+          content: 'valuable local content',
+          problemId: null,
+          cursorPosition: null,
+          scrollTop: 0,
+          position: 0,
+          status: 'open',
+        },
+      ],
+    })
+
+    expect(result.recoveredTabIds).toHaveLength(1)
+    expect(result.workspace.tabs.map((item) => item.content)).toEqual([
+      'new database content',
+      'valuable local content',
+    ])
+    expect(result.workspace.tabs[1].filename).toContain('.recovered.')
+  })
+
+  it('preserves a legacy closed tab when SQLite has the same content open', () => {
+    saveEditorTab(database, tab({ content: 'same content' }))
+
+    const result = migrateLegacyEditorWorkspace(database, {
+      workspaceId: 'default',
+      mutationId: 'legacy-status-conflict',
+      clientId: 'client-a',
+      storageVersion: 2,
+      activeTabId: null,
+      tabs: [
+        {
+          id: 'tab-a',
+          filename: 'a.py',
+          language: 'python',
+          content: 'same content',
+          kind: 'file',
+          problemId: null,
+          cursorPosition: null,
+          scrollTop: 0,
+          position: 0,
+          status: 'closed',
+        },
+      ],
+    })
+
+    expect(result.recoveredTabMappings['tab-a']).toMatch(/^recovered-tab-a-/)
+    expect(result.workspace.tabs).toEqual([
+      expect.objectContaining({ id: 'tab-a', status: 'open' }),
+    ])
+    expect(result.workspace.recentlyClosedTabs).toEqual([
+      expect.objectContaining({
+        id: result.recoveredTabMappings['tab-a'],
+        content: 'same content',
+        status: 'closed',
+      }),
+    ])
+  })
+
+  it('rolls back every imported tab and the version marker when migration fails', () => {
+    expect(() =>
+      migrateLegacyEditorWorkspace(database, {
+        workspaceId: 'default',
+        mutationId: 'legacy-failure',
+        clientId: 'client-a',
+        storageVersion: 2,
+        activeTabId: 'valid-first',
+        tabs: [
+          {
+            id: 'valid-first',
+            filename: 'valid.py',
+            language: 'python',
+            content: 'valid',
+            problemId: null,
+            cursorPosition: null,
+            scrollTop: 0,
+            position: 0,
+            status: 'open',
+          },
+          {
+            id: 'invalid-second',
+            filename: 'invalid.py',
+            language: 'python',
+            content: 'invalid',
+            problemId: null,
+            cursorPosition: null,
+            scrollTop: -1,
+            position: 1,
+            status: 'open',
+          },
+        ],
+      }),
+    ).toThrow()
+
+    expect(loadEditorWorkspace(database)).toMatchObject({
+      tabs: [],
+      legacyStorageVersion: 0,
+    })
   })
 })

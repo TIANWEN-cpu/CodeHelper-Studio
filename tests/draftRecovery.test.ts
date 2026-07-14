@@ -7,6 +7,7 @@ import {
   PRACTICE_DRAFT_RECOVERY_KEY,
   clearDraftRecovery,
   readDraftRecovery,
+  readDraftRecoveryWithStatus,
   writeDraftRecovery,
 } from '../src/utils/draftRecovery'
 
@@ -97,30 +98,77 @@ describe('practice draft recovery', () => {
     expect(readDraftRecovery('exercise-a')).toBeNull()
   })
 
-  it('evicts old entries before the recovery area reaches its capacity', () => {
+  it('rejects a new entry at capacity without deleting older unsynchronized drafts', () => {
     vi.useFakeTimers()
-    const draftCount = MAX_PRACTICE_RECOVERY_ENTRIES + 5
-    for (let index = 0; index < draftCount; index += 1) {
+    for (let index = 0; index < MAX_PRACTICE_RECOVERY_ENTRIES; index += 1) {
       vi.setSystemTime(new Date(2026, 0, 1, 0, 0, index))
       expect(
+        writeDraftRecovery(`exercise-${index}`, { code: 'saved', language: 'python' }, 0, 1),
+      ).toBeNull()
+    }
+
+    const error = writeDraftRecovery(
+      'exercise-overflow',
+      { code: 'must not evict another draft', language: 'python' },
+      0,
+      1,
+    )
+
+    const stored = JSON.parse(values.get(PRACTICE_DRAFT_RECOVERY_KEY) ?? '{}') as Record<
+      string,
+      { code: string }
+    >
+    expect(error).toContain('现有草稿均已保留')
+    expect(Object.keys(stored)).toHaveLength(MAX_PRACTICE_RECOVERY_ENTRIES)
+    expect(readDraftRecovery('exercise-0')).not.toBeNull()
+    expect(readDraftRecovery('exercise-overflow')).toBeNull()
+  })
+
+  it('backs up corrupt JSON and refuses to overwrite it silently', () => {
+    const corrupt = '{broken recovery json'
+    values.set(PRACTICE_DRAFT_RECOVERY_KEY, corrupt)
+
+    const readResult = readDraftRecoveryWithStatus('exercise-a')
+    const writeError = writeDraftRecovery(
+      'exercise-a',
+      { code: 'new code', language: 'python' },
+      0,
+      1,
+    )
+
+    expect(readResult).toMatchObject({ entry: null, error: expect.stringContaining('JSON 已损坏') })
+    expect(writeError).toContain('已停止写入')
+    expect(values.get(PRACTICE_DRAFT_RECOVERY_KEY)).toBe(corrupt)
+    expect(
+      [...values.entries()].some(
+        ([key, value]) =>
+          key.startsWith(`${PRACTICE_DRAFT_RECOVERY_KEY}.corrupt.`) && value === corrupt,
+      ),
+    ).toBe(true)
+    expect(
+      [...values.keys()].filter((key) => key.startsWith(`${PRACTICE_DRAFT_RECOVERY_KEY}.corrupt.`)),
+    ).toHaveLength(1)
+  })
+
+  it('rejects total capacity overflow without pruning existing drafts', () => {
+    const fullDraftCount = Math.floor(
+      MAX_PRACTICE_RECOVERY_TOTAL_LENGTH / MAX_PRACTICE_DRAFT_LENGTH,
+    )
+    for (let index = 0; index < fullDraftCount; index += 1) {
+      expect(
         writeDraftRecovery(
-          `exercise-${index}`,
-          { code: 'x'.repeat(60_000), language: 'python' },
+          `large-${index}`,
+          { code: 'x'.repeat(MAX_PRACTICE_DRAFT_LENGTH), language: 'python' },
           0,
           1,
         ),
       ).toBeNull()
     }
 
-    const stored = JSON.parse(values.get(PRACTICE_DRAFT_RECOVERY_KEY) ?? '{}') as Record<
-      string,
-      { code: string }
-    >
-    expect(Object.keys(stored).length).toBeLessThanOrEqual(MAX_PRACTICE_RECOVERY_ENTRIES)
-    expect(
-      Object.values(stored).reduce((total, entry) => total + entry.code.length, 0),
-    ).toBeLessThanOrEqual(MAX_PRACTICE_RECOVERY_TOTAL_LENGTH)
-    expect(readDraftRecovery(`exercise-${draftCount - 1}`)).not.toBeNull()
-    expect(readDraftRecovery('exercise-0')).toBeNull()
+    expect(writeDraftRecovery('large-overflow', { code: 'x', language: 'python' }, 0, 1)).toContain(
+      '现有草稿均已保留',
+    )
+    expect(readDraftRecovery('large-0')?.code).toHaveLength(MAX_PRACTICE_DRAFT_LENGTH)
+    expect(readDraftRecovery('large-overflow')).toBeNull()
   })
 })

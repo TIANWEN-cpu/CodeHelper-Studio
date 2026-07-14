@@ -654,6 +654,7 @@ describe('2. Boundary tests', () => {
           filename: 'second.py',
           language: 'python',
           content: 'second',
+          kind: 'file',
         },
       ])
       expect(useEditorStore.getState().activeTabId).toBe('dup')

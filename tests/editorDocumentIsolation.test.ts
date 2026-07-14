@@ -40,12 +40,17 @@ describe('editor document isolation', () => {
     expect(reused.document()).not.toBe('tab B')
   })
 
-  it('keys the editor by execution scope so every tab and exercise gets a fresh history', () => {
+  it('keys the editor by execution scope and hydration epoch so restored views get fresh state', () => {
     const workspaceSource = readFileSync('src/views/WorkspaceView.tsx', 'utf8')
     const codeEditorSource = readFileSync('src/components/editor/CodeEditor.tsx', 'utf8')
     const isolated = editorHarness('tab B')
 
-    expect(workspaceSource).toContain('key={executionScopeId}')
+    expect(workspaceSource).toContain(
+      'key={`${executionScopeId}:${isExerciseMode ? 0 : editorHydrationEpoch}`}',
+    )
+    expect(workspaceSource).toContain(
+      'const editorHydrationEpoch = useEditorStore((state) => state.hydrationEpoch)',
+    )
     expect(codeEditorSource).toContain('const [initialSelection] = useState')
     expect(codeEditorSource).toContain('const [restoredScrollTop] = useState')
     expect(codeEditorSource).toContain('scrollElement.scrollTop = restoredScrollTop')

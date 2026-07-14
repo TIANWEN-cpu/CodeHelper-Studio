@@ -19,6 +19,7 @@ vi.mock('electron', () => ({
 }))
 
 const mockLoad = vi.fn()
+const mockMigrate = vi.fn()
 const mockSave = vi.fn()
 const mockUpdateViewState = vi.fn()
 const mockClose = vi.fn()
@@ -28,6 +29,7 @@ const mockSetActive = vi.fn()
 vi.mock('../electron/db/editorWorkspaceRepository', () => ({
   DEFAULT_EDITOR_WORKSPACE_ID: 'default',
   loadEditorWorkspace: (...args: unknown[]) => mockLoad(...args),
+  migrateLegacyEditorWorkspace: (...args: unknown[]) => mockMigrate(...args),
   saveEditorTab: (...args: unknown[]) => mockSave(...args),
   updateEditorTabViewState: (...args: unknown[]) => mockUpdateViewState(...args),
   closeEditorTab: (...args: unknown[]) => mockClose(...args),
@@ -51,6 +53,7 @@ const identity = {
 beforeEach(() => {
   send.mockReset()
   mockLoad.mockReset()
+  mockMigrate.mockReset()
   mockSave.mockReset()
   mockUpdateViewState.mockReset()
   mockClose.mockReset()
@@ -74,6 +77,7 @@ describe('editor workspace IPC', () => {
       filename: 'a.py',
       language: 'python',
       content: 'print(1)',
+      kind: 'problem',
       problemId: null,
       position: 0,
       baseRevision: 0,
@@ -86,6 +90,7 @@ describe('editor workspace IPC', () => {
         mutationId: 'mutation-a',
         clientId: 'client-a',
         id: 'tab-a',
+        kind: 'problem',
         baseRevision: 0,
       }),
     )
@@ -109,6 +114,10 @@ describe('editor workspace IPC', () => {
       position: 0,
       baseRevision: 0,
     })
+    expect(mockSave).toHaveBeenLastCalledWith(
+      mockDB,
+      expect.objectContaining({ id: 'tab-a', kind: 'file' }),
+    )
     expect(send).not.toHaveBeenCalled()
 
     mockSave.mockReturnValue({
@@ -155,6 +164,18 @@ describe('editor workspace IPC', () => {
       }),
     ).rejects.toThrow('mutationId')
     await expect(
+      handlers['editor-tab-save'](event, {
+        ...identity,
+        id: 'tab-a',
+        filename: 'a.py',
+        language: 'python',
+        content: '',
+        kind: 'unknown',
+        position: 0,
+        baseRevision: 0,
+      }),
+    ).rejects.toThrow('kind')
+    await expect(
       handlers['editor-workspace-load'](event, { workspaceId: 'unexpected' }),
     ).rejects.toThrow('workspaceId')
   })
@@ -167,6 +188,12 @@ describe('editor workspace IPC', () => {
       tab: { id: 'tab-a', revision },
     })
     mockLoad.mockReturnValue({ workspaceId: 'default', tabs: [] })
+    mockMigrate.mockReturnValue({
+      status: 'migrated',
+      workspace: { workspaceId: 'default', tabs: [] },
+      recoveredTabIds: [],
+      recoveredTabMappings: {},
+    })
     mockUpdateViewState.mockReturnValue({
       status: 'saved',
       applied: true,
@@ -187,6 +214,25 @@ describe('editor workspace IPC', () => {
     mockSetActive.mockReturnValue({ activeTabId: 'tab-a', generation: 5 })
 
     await handlers['editor-workspace-load'](event, { workspaceId: 'default' })
+    await handlers['editor-workspace-migrate-legacy'](event, {
+      ...identity,
+      storageVersion: 2,
+      activeTabId: 'tab-a',
+      tabs: [
+        {
+          id: 'tab-a',
+          filename: 'a.py',
+          language: 'python',
+          content: 'print(1)',
+          kind: 'exercise',
+          problemId: null,
+          cursorPosition: { lineNumber: 2, column: 3 },
+          scrollTop: 42,
+          position: 0,
+          status: 'open',
+        },
+      ],
+    })
     await handlers['editor-tab-update-view-state'](event, {
       ...identity,
       id: 'tab-a',
@@ -217,6 +263,15 @@ describe('editor workspace IPC', () => {
     })
 
     expect(mockLoad).toHaveBeenCalledWith(mockDB, 'default')
+    expect(mockMigrate).toHaveBeenCalledWith(
+      mockDB,
+      expect.objectContaining({
+        workspaceId: 'default',
+        storageVersion: 2,
+        activeTabId: 'tab-a',
+        tabs: [expect.objectContaining({ id: 'tab-a', kind: 'exercise', status: 'open' })],
+      }),
+    )
     expect(mockUpdateViewState).toHaveBeenCalledWith(
       mockDB,
       expect.objectContaining({ id: 'tab-a', scrollTop: 42 }),

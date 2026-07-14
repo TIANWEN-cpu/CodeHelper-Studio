@@ -475,6 +475,7 @@ describe('DB schema: editor workspaces', () => {
       expect.arrayContaining([
         'workspace_id',
         'tab_id',
+        'tab_kind',
         'status',
         'revision',
         'last_mutation_id',
@@ -485,6 +486,7 @@ describe('DB schema: editor workspaces', () => {
     )
     expect(tabColumns.find((column) => column.name === 'workspace_id')!.pk).toBe(1)
     expect(tabColumns.find((column) => column.name === 'tab_id')!.pk).toBe(2)
+    expect(tabColumns.find((column) => column.name === 'tab_kind')!.dflt_value).toBe("'file'")
   })
 
   it('isolates identical tab ids by workspace and enforces lifecycle states', () => {
@@ -505,6 +507,13 @@ describe('DB schema: editor workspaces', () => {
       db.run(
         `INSERT INTO editor_tabs (workspace_id, tab_id, filename, language, status)
          VALUES ('workspace-a', 'invalid-state', 'bad.py', 'python', 'missing')`,
+      )
+    }).toThrow()
+    expect(() => {
+      db.run(
+        `INSERT INTO editor_tabs
+           (workspace_id, tab_id, filename, language, tab_kind, status)
+         VALUES ('workspace-a', 'invalid-kind', 'bad.py', 'python', 'unknown', 'open')`,
       )
     }).toThrow()
   })
