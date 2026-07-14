@@ -3,6 +3,12 @@ const { app, utilityProcess } = require('electron')
 const { existsSync } = require('fs')
 const { join, resolve } = require('path')
 
+// CI Linux runners cannot set chrome-sandbox setuid (mode 4755 / root).
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('no-sandbox')
+  app.commandLine.appendSwitch('disable-setuid-sandbox')
+}
+
 const utilityPath = process.env.CODEHELPER_SQL_UTILITY_PATH
   ? resolve(process.env.CODEHELPER_SQL_UTILITY_PATH)
   : join(__dirname, '..', 'out', 'main', 'sqlRunnerUtility.js')
