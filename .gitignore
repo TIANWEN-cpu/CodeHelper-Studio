@@ -47,3 +47,7 @@ coverage/
 *.tmp
 *temp_commit_log*
 *temp_msg_check*
+
+# Local Playwright / agent output
+output/
+
