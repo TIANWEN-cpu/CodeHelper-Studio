@@ -238,4 +238,7 @@ jobs:
 
       - name: Verify SQL utility process (Linux)
         if: runner.os == 'Linux'
+        env:
+          # GitHub-hosted runners cannot set chrome-sandbox setuid; disable sandbox for smoke only.
+          ELECTRON_DISABLE_SANDBOX: '1'
         run: xvfb-run -a npm run test:electron-sql
