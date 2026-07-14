@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3'
+import { createRequire } from 'node:module'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   closeEditorTab,
@@ -12,6 +12,25 @@ import {
   updateEditorTabViewState,
   type SaveEditorTabInput,
 } from '../electron/db/editorWorkspaceRepository'
+
+type BetterSqlite3 = typeof import('better-sqlite3')
+type BetterSqlite3Database = import('better-sqlite3').Database
+
+function loadNativeDatabase(): BetterSqlite3 | null {
+  try {
+    // Dynamic require so unit CI with `--ignore-scripts` can skip instead of
+    // failing the whole suite when better-sqlite3 bindings were never built.
+    const require = createRequire(import.meta.url)
+    const Database = require('better-sqlite3') as BetterSqlite3
+    const probe = new Database(':memory:')
+    probe.close()
+    return Database
+  } catch {
+    return null
+  }
+}
+
+const Database = loadNativeDatabase()
 
 function tab(overrides: Partial<SaveEditorTabInput> = {}): SaveEditorTabInput {
   return {
@@ -29,22 +48,11 @@ function tab(overrides: Partial<SaveEditorTabInput> = {}): SaveEditorTabInput {
   }
 }
 
-function canLoadNativeDatabase(): boolean {
-  try {
-    const probe = new Database(':memory:')
-    probe.close()
-    return true
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('NODE_MODULE_VERSION')) return false
-    throw error
-  }
-}
-
-describe.runIf(canLoadNativeDatabase())('editor workspace repository', () => {
-  let database: Database.Database
+describe.runIf(Database !== null)('editor workspace repository', () => {
+  let database: BetterSqlite3Database
 
   beforeEach(() => {
-    database = new Database(':memory:')
+    database = new Database!(':memory:')
     ensureEditorWorkspaceSchema(database)
   })
 
