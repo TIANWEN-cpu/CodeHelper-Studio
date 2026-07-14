@@ -28,6 +28,11 @@ export interface SearchResult {
   chunk_index: number
 }
 
+export interface KnowledgeSummary {
+  summary: string
+  keyConcepts: string[]
+}
+
 export interface ResourcePackImportResult {
   rootPath: string
   manifest?: {
@@ -97,6 +102,6 @@ export async function getRAGContext(query: string): Promise<RAGContext> {
   return invoke<RAGContext>('knowledge-rag-context', query)
 }
 
-export async function summarize(query: string): Promise<string> {
-  return invoke<string>('knowledge-summarize', query)
+export async function summarizeDocuments(query: string): Promise<KnowledgeSummary> {
+  return invoke<KnowledgeSummary>('knowledge-summarize', query)
 }

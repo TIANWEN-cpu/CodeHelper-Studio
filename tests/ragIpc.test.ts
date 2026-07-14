@@ -340,4 +340,18 @@ describe('registerRAGIPC', () => {
       await handlers['knowledge-search'](null, longQuery)
     })
   })
+
+  describe('knowledge-summarize', () => {
+    it('returns the object contract consumed by knowledgeService.summarizeDocuments', async () => {
+      mockDB.prepare.mockReturnValue(makeStmt([]))
+      const { registerRAGIPC } = await import('../electron/ipc/rag')
+      registerRAGIPC()
+      await flushMicrotasks()
+
+      await expect(handlers['knowledge-summarize'](null, 'graph search')).resolves.toEqual({
+        summary: expect.any(String),
+        keyConcepts: expect.any(Array),
+      })
+    })
+  })
 })
