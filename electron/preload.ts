@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 console.log('[STARTUP] Preload script executing...')
 
 export const allowedInvokeChannels = new Set([
+  'app-close-flush-complete',
   'run-code',
   'db-get-setting',
   'db-set-setting',
@@ -95,6 +96,7 @@ export const allowedInvokeChannels = new Set([
   'exercises-evaluate',
   // Versioned editor workspace
   'editor-workspace-load',
+  'editor-workspace-migrate-legacy',
   'editor-tab-save',
   'editor-tab-update-view-state',
   'editor-tab-close',
@@ -113,6 +115,7 @@ export const allowedInvokeChannels = new Set([
 ])
 
 export const allowedEventChannels = new Set([
+  'app-before-close',
   'ai-chat-chunk',
   'ai-chat-done',
   'editor-workspace-changed',

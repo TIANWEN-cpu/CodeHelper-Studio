@@ -7,8 +7,14 @@ import { AIPet } from './components/AIPet'
 import { ToastContainer } from './components/ToastContainer'
 import { registerToast } from './utils/errorHandler'
 import { toast } from './stores/toastStore'
+import { useEditorStore } from './stores/editorStore'
 import { useAppStore } from './store'
 import { useViewShortcuts } from './hooks/useViewShortcuts'
+import { bindAppCloseLifecycle, registerAppCloseFlushHandler } from './services/appCloseLifecycle'
+import {
+  ensureEditorWorkspaceSync,
+  flushEditorWorkspaceForClose,
+} from './services/editorWorkspaceSync'
 import {
   loadAppearance,
   applyAll,
@@ -85,6 +91,24 @@ function App() {
   // 把错误处理器的 toast 出口接到全局通知容器（此前 registerToast 从未被调用）。
   useEffect(() => {
     registerToast((_type, message) => toast.error(message))
+  }, [])
+
+  useEffect(() => {
+    // Restore before starting the application-scoped synchronizer so direct entry into
+    // practice still preserves the workspace topology. Both operations are idempotent
+    // when React StrictMode replays this effect during development.
+    useEditorStore.getState().restoreTabs()
+    void ensureEditorWorkspaceSync()
+
+    const unregisterWorkspace = registerAppCloseFlushHandler('editor-workspace', async () => {
+      const ok = await flushEditorWorkspaceForClose()
+      return ok ? { ok: true } : { ok: false, error: '编辑器工作区仍有内容未完成持久化' }
+    })
+    const unbindCloseLifecycle = bindAppCloseLifecycle()
+    return () => {
+      unbindCloseLifecycle()
+      unregisterWorkspace()
+    }
   }, [])
 
   // 启动时从数据库读回外观设置并应用到 DOM；"跟随系统"时监听系统主题变化。

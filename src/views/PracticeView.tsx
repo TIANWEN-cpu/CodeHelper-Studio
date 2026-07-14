@@ -20,6 +20,14 @@ import { usePracticeData } from '@/hooks/usePracticeData'
 import { consumePendingDeepLink, subscribeDeepLink } from '@/lib/deepLink'
 import { recordRecent } from '@/lib/recentItems'
 import { readPracticeSession, writePracticeSession } from '@/utils/practiceSession'
+import { toast } from '@/stores/toastStore'
+import { exerciseTabId, useEditorStore } from '@/stores/editorStore'
+import { getEditorTabCloseWarning } from '@/utils/editorTabClose'
+import {
+  closeEditorWorkspaceTabLocally,
+  getEditorTabPersistenceState,
+  requestCloseEditorWorkspaceTab,
+} from '@/services/editorWorkspaceSync'
 
 // ---- Difficulty helpers ----
 
@@ -36,6 +44,24 @@ const difficultyColor: Record<string, string> = {
 }
 
 const PAGE_SIZE = 80
+
+const EXERCISE_EXTENSION: Record<string, string> = {
+  python: 'py',
+  javascript: 'js',
+  c: 'c',
+  cpp: 'cpp',
+  csharp: 'cs',
+  sql: 'sql',
+}
+
+function exerciseFilename(title: string | undefined, id: string, language: string): string {
+  const base = (title || id)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+  return `${base || `exercise_${id}`}.${EXERCISE_EXTENSION[language] ?? 'txt'}`
+}
 
 function getDifficultyLabel(d: string): string {
   const lower = d.toLowerCase()
@@ -88,6 +114,11 @@ export function PracticeView() {
   const [sourceFilter, setSourceFilter] = useState<'all' | 'exercise' | 'problem'>('all')
   const [detailTab, setDetailTab] = useState<'desc' | 'hints'>('desc')
   const [page, setPage] = useState(1)
+  const initialTargetHandledRef = React.useRef(false)
+
+  const editorHydrated = useEditorStore((state) => state.hydrated)
+  const editorTabs = useEditorStore((state) => state.tabs)
+  const activeEditorTabId = useEditorStore((state) => state.activeTabId)
 
   const {
     exercises,
@@ -107,30 +138,147 @@ export function PracticeView() {
     draftDirty,
     draftError,
     draftConflict,
+    flushDraft,
+    deactivateExercise,
     keepLocalDraft,
     reloadPersistedDraft,
   } = usePracticeData()
 
-  // When exercise is selected, switch to detail view
   const handleSelectExercise = React.useCallback(
     async (id: string) => {
       const selected = await selectExercise(id)
-      if (!selected) return
+      if (!selected) return false
+
+      const exercise = exercises.find((item) => item.id === id)
+      const preferredLanguage = exercise?.languages?.[0] || 'python'
+      const tabId = exerciseTabId(id)
+      const state = useEditorStore.getState()
+      const openTab = state.tabs.find((tab) => tab.id === tabId)
+      const closedTab = state.recentlyClosedTabs.find((tab) => tab.id === tabId)
+      if (openTab) {
+        state.setActiveTab(tabId)
+      } else if (closedTab) {
+        state.reopenTab(tabId)
+      } else {
+        state.addTab({
+          id: tabId,
+          kind: 'exercise',
+          problemId: id,
+          filename: exerciseFilename(exercise?.title, id, preferredLanguage),
+          language: preferredLanguage,
+          content: '',
+        })
+      }
+
       recordRecent({ kind: 'exercise', id })
       writePracticeSession(id)
       setDetailTab('desc')
       setViewMode('detail')
+      return true
     },
-    [selectExercise],
+    [exercises, selectExercise],
   )
 
-  // 命令面板深链：挂载时领取待处理目标，并订阅后续实时事件。
+  const handleCloseExerciseTab = React.useCallback(
+    async (tabId: string) => {
+      const beforeClose = useEditorStore.getState()
+      const tab = beforeClose.tabs.find((item) => item.id === tabId)
+      if (!tab || tab.kind !== 'exercise') return
+      const exerciseTabs = beforeClose.tabs.filter((item) => item.kind === 'exercise')
+      const closedIndex = exerciseTabs.findIndex((item) => item.id === tabId)
+      const wasActive = beforeClose.activeTabId === tabId
+
+      if (wasActive) {
+        const result = await flushDraft()
+        if (result.durability === 'none') {
+          toast.error(result.error ?? '草稿未能写入数据库或恢复区，标签保持打开')
+          return
+        }
+        if (result.durability === 'recovery') {
+          toast.info('数据库暂不可用，最新草稿已保存在本地恢复区')
+        }
+      }
+
+      const persistence = getEditorTabPersistenceState(tabId)
+      const editorState = useEditorStore.getState()
+      const warning = getEditorTabCloseWarning({
+        pending: persistence.pending,
+        conflict: persistence.conflict,
+        degraded: persistence.degraded || editorState.databaseStatus === 'degraded',
+        persistenceError: editorState.persistenceError,
+        error: persistence.error ?? editorState.databaseError,
+      })
+      if (warning && !window.confirm(warning)) return
+
+      let closed = await requestCloseEditorWorkspaceTab(tabId)
+      if (!closed) {
+        const closeLocally = window.confirm(
+          'SQLite 标签同步仍未成功。确定后将仅在本地关闭标签，练习代码仍由草稿恢复区保护。',
+        )
+        if (!closeLocally) return
+        await closeEditorWorkspaceTabLocally(tabId)
+        closed = true
+        toast.info('练习标签已仅在本地关闭，可从最近关闭中恢复')
+      }
+      if (!closed || !wasActive) return
+
+      const remaining = useEditorStore.getState().tabs.filter((item) => item.kind === 'exercise')
+      const next = remaining[Math.min(Math.max(closedIndex, 0), Math.max(remaining.length - 1, 0))]
+      if (next?.problemId) {
+        const switched = await handleSelectExercise(next.problemId)
+        if (!switched) {
+          useEditorStore.getState().reopenTab(tabId)
+          toast.error('无法安全切换到下一个练习，已重新打开原标签')
+        }
+        return
+      }
+
+      const deactivated = await deactivateExercise()
+      if (deactivated.durability === 'none') {
+        useEditorStore.getState().reopenTab(tabId)
+        toast.error(deactivated.error ?? '无法安全关闭最后一个练习标签')
+        return
+      }
+      setViewMode('list')
+    },
+    [deactivateExercise, flushDraft, handleSelectExercise],
+  )
+
   React.useEffect(() => {
+    if (!currentExercise) return
+    const tabId = exerciseTabId(currentExercise.id)
+    const tab = useEditorStore.getState().tabs.find((item) => item.id === tabId)
+    if (!tab) return
+    const filename = exerciseFilename(currentExercise.title, currentExercise.id, language)
+    if (
+      tab.filename === filename &&
+      tab.language === language &&
+      tab.problemId === currentExercise.id
+    )
+      return
+    useEditorStore.getState().updateTab(tabId, {
+      filename,
+      language,
+      problemId: currentExercise.id,
+    })
+  }, [currentExercise, language])
+
+  // Restored active exercise topology is authoritative. The old session key is only a fallback.
+  React.useEffect(() => {
+    if (!editorHydrated || initialTargetHandledRef.current) return
+    initialTargetHandledRef.current = true
     const pending = consumePendingDeepLink('exercise')
-    const target = pending ?? readPracticeSession()?.exerciseId
+    const activeExercise = editorTabs.find(
+      (tab) => tab.id === activeEditorTabId && tab.kind === 'exercise' && tab.problemId,
+    )
+    const target = pending ?? activeExercise?.problemId ?? readPracticeSession()?.exerciseId
     if (target) void handleSelectExercise(target)
-    return subscribeDeepLink('exercise', (id) => void handleSelectExercise(id))
-  }, [handleSelectExercise])
+  }, [activeEditorTabId, editorHydrated, editorTabs, handleSelectExercise])
+
+  React.useEffect(
+    () => subscribeDeepLink('exercise', (id) => void handleSelectExercise(id)),
+    [handleSelectExercise],
+  )
 
   // Filter exercises by search and difficulty
   const trackOptions = Array.from(
@@ -557,6 +705,7 @@ export function PracticeView() {
             currentExercise
               ? {
                   id: currentExercise.id,
+                  tabId: exerciseTabId(currentExercise.id),
                   title: currentExercise.title,
                   code,
                   setCode,
@@ -571,6 +720,8 @@ export function PracticeView() {
                   draftConflict,
                   keepLocalDraft,
                   reloadPersistedDraft,
+                  selectTab: handleSelectExercise,
+                  closeTab: handleCloseExerciseTab,
                 }
               : null
           }

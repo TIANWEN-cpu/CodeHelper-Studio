@@ -3,6 +3,7 @@ import { createHash } from 'crypto'
 
 export const DEFAULT_EDITOR_WORKSPACE_ID = 'default'
 
+export type EditorTabKind = 'file' | 'problem' | 'exercise'
 export type EditorTabStatus = 'open' | 'closed' | 'deleted'
 export type EditorTabMutationKind = 'save' | 'close' | 'reopen' | 'delete'
 
@@ -12,6 +13,7 @@ export interface EditorTabRecord {
   filename: string
   language: string
   content: string
+  kind: EditorTabKind
   problemId: string | null
   cursorPosition: { lineNumber: number; column: number } | null
   scrollTop: number
@@ -44,6 +46,7 @@ export interface SaveEditorTabInput extends EditorTabMutationIdentity {
   filename: string
   language: string
   content: string
+  kind?: EditorTabKind
   problemId?: string | null
   position: number
   baseRevision: number
@@ -68,6 +71,32 @@ export interface EditorTabViewStateRecord {
 export interface VersionedEditorTabMutationInput extends EditorTabMutationIdentity {
   id: string
   baseRevision: number
+}
+
+export interface LegacyEditorTabInput {
+  id: string
+  filename: string
+  language: string
+  content: string
+  kind?: EditorTabKind
+  problemId?: string | null
+  cursorPosition: { lineNumber: number; column: number } | null
+  scrollTop: number
+  position: number
+  status: 'open' | 'closed'
+}
+
+export interface MigrateLegacyEditorWorkspaceInput extends EditorTabMutationIdentity {
+  storageVersion: number
+  activeTabId: string | null
+  tabs: LegacyEditorTabInput[]
+}
+
+export interface MigrateLegacyEditorWorkspaceResult {
+  status: 'migrated' | 'already-migrated'
+  workspace: EditorWorkspaceRecord
+  recoveredTabIds: string[]
+  recoveredTabMappings: Record<string, string>
 }
 
 export type EditorTabMutationResult =
@@ -107,6 +136,7 @@ interface EditorTabRow {
   filename: string
   language: string
   content: string
+  tab_kind: EditorTabKind | null
   problem_id: string | null
   cursor_line: number | null
   cursor_column: number | null
@@ -149,7 +179,7 @@ interface EditorWorkspaceRow {
 }
 
 const RECENTLY_CLOSED_LIMIT = 20
-const TAB_FIELDS = `workspace_id, tab_id, filename, language, content, problem_id,
+const TAB_FIELDS = `workspace_id, tab_id, filename, language, content, tab_kind, problem_id,
   cursor_line, cursor_column, scroll_top, tab_position, status, revision,
   last_mutation_id, last_mutation_kind, last_mutation_fingerprint, client_id,
   last_view_mutation_id, last_view_mutation_fingerprint, view_client_id,
@@ -163,6 +193,7 @@ const REQUIRED_TAB_COLUMNS = new Set([
   'filename',
   'language',
   'content',
+  'tab_kind',
   'problem_id',
   'cursor_line',
   'cursor_column',
@@ -183,10 +214,12 @@ const REQUIRED_TAB_COLUMNS = new Set([
   'closed_at',
   'deleted_at',
 ])
-const VERSIONED_TAB_COLUMNS_WITHOUT_FINGERPRINTS = new Set(
+const BASE_VERSIONED_TAB_COLUMNS = new Set(
   [...REQUIRED_TAB_COLUMNS].filter(
     (column) =>
-      column !== 'last_mutation_fingerprint' && column !== 'last_view_mutation_fingerprint',
+      column !== 'tab_kind' &&
+      column !== 'last_mutation_fingerprint' &&
+      column !== 'last_view_mutation_fingerprint',
   ),
 )
 const LEGACY_DRAFT_COLUMNS = new Set([
@@ -222,6 +255,7 @@ function createEditorWorkspaceTables(database: Database.Database): void {
       filename TEXT NOT NULL,
       language TEXT NOT NULL,
       content TEXT NOT NULL DEFAULT '',
+      tab_kind TEXT NOT NULL DEFAULT 'file' CHECK(tab_kind IN ('file', 'problem', 'exercise')),
       problem_id TEXT,
       cursor_line INTEGER,
       cursor_column INTEGER,
@@ -305,12 +339,13 @@ function migrateLegacyDraftSchema(database: Database.Database): void {
 
     database.exec(`
       INSERT INTO editor_tabs (
-        workspace_id, tab_id, filename, language, content, problem_id,
+        workspace_id, tab_id, filename, language, content, tab_kind, problem_id,
         cursor_line, cursor_column, scroll_top, tab_position, status, revision,
         created_at, updated_at, view_updated_at, closed_at
       )
       SELECT
-        '${DEFAULT_EDITOR_WORKSPACE_ID}', tab_id, filename, language, content, problem_id,
+        '${DEFAULT_EDITOR_WORKSPACE_ID}', tab_id, filename, language, content,
+        CASE WHEN problem_id IS NOT NULL THEN 'problem' ELSE 'file' END, problem_id,
         cursor_line, cursor_column,
         CASE WHEN scroll_top >= 0 THEN scroll_top ELSE 0 END,
         CASE WHEN tab_position >= 0 THEN tab_position ELSE 0 END,
@@ -344,7 +379,15 @@ export function ensureEditorWorkspaceSchema(database: Database.Database): void {
   if (tableExists(database, 'editor_tabs')) {
     const columns = tableColumns(database, 'editor_tabs')
     if (!includesAll(columns, REQUIRED_TAB_COLUMNS)) {
-      if (includesAll(columns, VERSIONED_TAB_COLUMNS_WITHOUT_FINGERPRINTS)) {
+      if (includesAll(columns, BASE_VERSIONED_TAB_COLUMNS)) {
+        if (!columns.has('tab_kind')) {
+          database.exec(
+            "ALTER TABLE editor_tabs ADD COLUMN tab_kind TEXT NOT NULL DEFAULT 'file' CHECK(tab_kind IN ('file', 'problem', 'exercise'))",
+          )
+        }
+        database.exec(
+          "UPDATE editor_tabs SET tab_kind = 'problem' WHERE problem_id IS NOT NULL AND tab_kind = 'file'",
+        )
         if (!columns.has('last_mutation_fingerprint')) {
           database.exec('ALTER TABLE editor_tabs ADD COLUMN last_mutation_fingerprint TEXT')
         }
@@ -370,6 +413,11 @@ function ensureWorkspace(database: Database.Database, workspaceId: string): void
     .run(workspaceId)
 }
 
+function normalizeEditorTabKind(value: unknown, problemId?: unknown): EditorTabKind {
+  if (value === 'problem' || value === 'exercise') return value
+  return typeof problemId === 'string' && problemId.trim() ? 'problem' : 'file'
+}
+
 function mapTab(row: EditorTabRow): EditorTabRecord {
   const lineNumber = Number(row.cursor_line)
   const column = Number(row.cursor_column)
@@ -379,6 +427,7 @@ function mapTab(row: EditorTabRow): EditorTabRecord {
     filename: row.filename,
     language: row.language,
     content: row.content,
+    kind: normalizeEditorTabKind(row.tab_kind, row.problem_id),
     problemId: row.problem_id,
     cursorPosition:
       Number.isSafeInteger(lineNumber) &&
@@ -433,6 +482,7 @@ function saveFingerprint(input: SaveEditorTabInput): string {
     input.filename,
     input.language,
     input.content,
+    normalizeEditorTabKind(input.kind, input.problemId),
     input.problemId ?? null,
     input.position,
     input.baseRevision,
@@ -445,6 +495,92 @@ function viewStateFingerprint(input: UpdateEditorTabViewStateInput): string {
 
 function versionedMutationFingerprint(input: VersionedEditorTabMutationInput): string {
   return fingerprint([input.id, input.baseRevision])
+}
+
+function sameLegacyBody(row: EditorTabRow, input: LegacyEditorTabInput): boolean {
+  return (
+    row.language === input.language &&
+    row.content === input.content &&
+    normalizeEditorTabKind(row.tab_kind, row.problem_id) ===
+      normalizeEditorTabKind(input.kind, input.problemId) &&
+    row.problem_id === (input.problemId ?? null)
+  )
+}
+
+function sameLegacyContent(row: EditorTabRow, input: LegacyEditorTabInput): boolean {
+  return (
+    row.filename === input.filename && row.status === input.status && sameLegacyBody(row, input)
+  )
+}
+
+function recoveredTabId(input: LegacyEditorTabInput): string {
+  const suffix = fingerprint([
+    input.id,
+    input.filename,
+    input.language,
+    input.content,
+    normalizeEditorTabKind(input.kind, input.problemId),
+    input.problemId ?? null,
+    input.status,
+  ]).slice(0, 16)
+  const source = input.id.replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 160) || 'tab'
+  return `recovered-${source}-${suffix}`.slice(0, 200)
+}
+
+function recoveredFilename(filename: string): string {
+  const dot = filename.lastIndexOf('.')
+  if (dot <= 0) return `${filename}.recovered`.slice(0, 255)
+  return `${filename.slice(0, dot)}.recovered${filename.slice(dot)}`.slice(0, 255)
+}
+
+function insertLegacyTab(
+  database: Database.Database,
+  input: MigrateLegacyEditorWorkspaceInput,
+  tab: LegacyEditorTabInput,
+  id: string,
+  filename: string,
+  position: number,
+): void {
+  const requestFingerprint = fingerprint([
+    'legacy-migration',
+    input.storageVersion,
+    tab,
+    id,
+    filename,
+    position,
+  ])
+  const result = database
+    .prepare(
+      `INSERT INTO editor_tabs (
+         workspace_id, tab_id, filename, language, content, tab_kind, problem_id,
+         cursor_line, cursor_column, scroll_top, tab_position, status, revision,
+         last_mutation_id, last_mutation_kind, last_mutation_fingerprint, client_id,
+         closed_at
+       ) VALUES (
+         @workspaceId, @id, @filename, @language, @content, @kind, @problemId,
+         @cursorLine, @cursorColumn, @scrollTop, @position, @status, 1,
+         @mutationId, 'save', @requestFingerprint, @clientId,
+         CASE WHEN @status = 'closed' THEN strftime('%Y-%m-%dT%H:%M:%fZ', 'now') ELSE NULL END
+       )`,
+    )
+    .run({
+      workspaceId: input.workspaceId,
+      id,
+      filename,
+      language: tab.language,
+      content: tab.content,
+      kind: normalizeEditorTabKind(tab.kind, tab.problemId),
+      problemId: tab.problemId ?? null,
+      cursorLine: tab.cursorPosition?.lineNumber ?? null,
+      cursorColumn: tab.cursorPosition?.column ?? null,
+      scrollTop: tab.scrollTop,
+      position,
+      status: tab.status,
+      mutationId: input.mutationId,
+      clientId: input.clientId,
+      requestFingerprint,
+    })
+  if (result.changes !== 1) throw new Error(`旧工作区标签迁移失败: ${id}`)
 }
 
 function readTabRow(
@@ -564,6 +700,103 @@ export function loadEditorWorkspace(
   }
 }
 
+export function migrateLegacyEditorWorkspace(
+  database: Database.Database,
+  input: MigrateLegacyEditorWorkspaceInput,
+): MigrateLegacyEditorWorkspaceResult {
+  ensureEditorWorkspaceSchema(database)
+  return database.transaction((): MigrateLegacyEditorWorkspaceResult => {
+    ensureWorkspace(database, input.workspaceId)
+    const currentVersionRow = database
+      .prepare('SELECT legacy_storage_version FROM editor_workspaces WHERE workspace_id = ?')
+      .get(input.workspaceId) as { legacy_storage_version: number }
+    if (Number(currentVersionRow.legacy_storage_version) >= input.storageVersion) {
+      return {
+        status: 'already-migrated',
+        workspace: loadEditorWorkspace(database, input.workspaceId),
+        recoveredTabIds: [],
+        recoveredTabMappings: {},
+      }
+    }
+
+    const recoveredTabIds: string[] = []
+    const recoveredTabMappings: Record<string, string> = {}
+    const migratedIds = new Map<string, string>()
+    let nextOpenPosition = (
+      database
+        .prepare(
+          `SELECT COALESCE(MAX(tab_position), -1) + 1 AS position
+           FROM editor_tabs WHERE workspace_id = ? AND status = 'open'`,
+        )
+        .get(input.workspaceId) as { position: number }
+    ).position
+
+    for (const tab of input.tabs) {
+      const current = readTabRow(database, input.workspaceId, tab.id)
+      if (!current) {
+        const position = tab.status === 'open' ? nextOpenPosition++ : tab.position
+        insertLegacyTab(database, input, tab, tab.id, tab.filename, position)
+        migratedIds.set(tab.id, tab.id)
+        continue
+      }
+      if (sameLegacyContent(current, tab)) {
+        migratedIds.set(tab.id, tab.id)
+        continue
+      }
+
+      const recoveryId = recoveredTabId(tab)
+      const recoveryPosition = tab.status === 'open' ? nextOpenPosition++ : tab.position
+      insertLegacyTab(
+        database,
+        input,
+        tab,
+        recoveryId,
+        recoveredFilename(tab.filename),
+        recoveryPosition,
+      )
+      const recovered = readTabRow(database, input.workspaceId, recoveryId)
+      if (recovered && recovered.status === tab.status && sameLegacyBody(recovered, tab)) {
+        recoveredTabIds.push(recoveryId)
+        recoveredTabMappings[tab.id] = recoveryId
+        migratedIds.set(tab.id, recoveryId)
+      }
+    }
+
+    const preferredActiveId = input.activeTabId
+      ? (migratedIds.get(input.activeTabId) ?? input.activeTabId)
+      : null
+    const validActive = preferredActiveId
+      ? (database
+          .prepare(
+            `SELECT tab_id FROM editor_tabs
+             WHERE workspace_id = ? AND tab_id = ? AND status = 'open'`,
+          )
+          .get(input.workspaceId, preferredActiveId) as { tab_id: string } | undefined)
+      : undefined
+    database
+      .prepare(
+        `UPDATE editor_workspaces SET
+           last_active_tab_id = COALESCE(last_active_tab_id, @activeTabId),
+           legacy_storage_version = @storageVersion,
+           generation = generation + 1,
+           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE workspace_id = @workspaceId`,
+      )
+      .run({
+        workspaceId: input.workspaceId,
+        activeTabId: validActive?.tab_id ?? null,
+        storageVersion: input.storageVersion,
+      })
+
+    return {
+      status: 'migrated',
+      workspace: loadEditorWorkspace(database, input.workspaceId),
+      recoveredTabIds,
+      recoveredTabMappings,
+    }
+  })()
+}
+
 export function saveEditorTab(
   database: Database.Database,
   input: SaveEditorTabInput,
@@ -577,12 +810,12 @@ export function saveEditorTab(
       savedRow = database
         .prepare(
           `INSERT INTO editor_tabs (
-             workspace_id, tab_id, filename, language, content, problem_id,
+             workspace_id, tab_id, filename, language, content, tab_kind, problem_id,
              tab_position, status, revision, last_mutation_id, last_mutation_kind,
              last_mutation_fingerprint, client_id
            )
            VALUES (
-             @workspaceId, @id, @filename, @language, @content, @problemId,
+             @workspaceId, @id, @filename, @language, @content, @kind, @problemId,
              @position, 'open', 1, @mutationId, 'save', @requestFingerprint, @clientId
            )
            ON CONFLICT(workspace_id, tab_id) DO NOTHING
@@ -590,6 +823,7 @@ export function saveEditorTab(
         )
         .get({
           ...input,
+          kind: normalizeEditorTabKind(input.kind, input.problemId),
           problemId: input.problemId ?? null,
           requestFingerprint,
         }) as EditorTabRow | undefined
@@ -600,6 +834,7 @@ export function saveEditorTab(
              filename = @filename,
              language = @language,
              content = @content,
+             tab_kind = @kind,
              problem_id = @problemId,
              tab_position = @position,
              revision = revision + 1,
@@ -616,6 +851,7 @@ export function saveEditorTab(
         )
         .get({
           ...input,
+          kind: normalizeEditorTabKind(input.kind, input.problemId),
           problemId: input.problemId ?? null,
           requestFingerprint,
         }) as EditorTabRow | undefined

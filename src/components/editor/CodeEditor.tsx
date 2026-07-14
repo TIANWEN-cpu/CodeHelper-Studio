@@ -117,6 +117,8 @@ export function CodeEditor({
 
   return (
     <div
+      data-testid="code-editor"
+      data-language={language}
       className="h-full w-full overflow-hidden"
       onKeyDownCapture={(e) => {
         if (onRun && (e.ctrlKey || e.metaKey) && e.key === 'Enter') {

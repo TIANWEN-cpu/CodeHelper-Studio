@@ -168,6 +168,7 @@ export function Sidebar() {
           return (
             <button
               key={item.id}
+              data-testid={`nav-${item.id}`}
               onClick={() => setCurrentView(item.id)}
               className={cn(
                 'w-full flex items-center rounded-lg text-sm font-medium transition-colors group relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg-panel)]',

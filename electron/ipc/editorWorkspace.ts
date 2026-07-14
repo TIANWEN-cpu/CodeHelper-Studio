@@ -5,13 +5,16 @@ import {
   closeEditorTab,
   deleteEditorTab,
   loadEditorWorkspace,
+  migrateLegacyEditorWorkspace,
   reopenEditorTab,
   saveEditorTab,
   setActiveEditorTab,
   updateEditorTabViewState,
   type EditorTabMutationResult,
   type EditorTabViewStateMutationResult,
+  type EditorTabKind,
   type SaveEditorTabInput,
+  type MigrateLegacyEditorWorkspaceInput,
   type UpdateEditorTabViewStateInput,
   type VersionedEditorTabMutationInput,
 } from '../db/editorWorkspaceRepository'
@@ -24,6 +27,8 @@ const MAX_CLIENT_ID_LENGTH = 200
 const MAX_FILENAME_LENGTH = 255
 const MAX_LANGUAGE_LENGTH = 40
 const MAX_CONTENT_LENGTH = 5_000_000
+const MAX_MIGRATION_TABS = 60
+const MAX_MIGRATION_TOTAL_CONTENT = 10_000_000
 
 type WorkspaceMutationKind = 'saved' | 'closed' | 'reopened' | 'deleted'
 
@@ -49,6 +54,12 @@ function safeRevision(value: unknown, minimum = 0): number {
 function safePosition(value: unknown): number {
   if (!Number.isSafeInteger(value) || Number(value) < 0) throw new Error('参数无效: position')
   return Number(value)
+}
+
+function sanitizeTabKind(value: unknown): EditorTabKind {
+  if (value === undefined || value === null || value === 'file') return 'file'
+  if (value === 'problem' || value === 'exercise') return value
+  throw new Error('参数无效: kind')
 }
 
 function requireObject(value: unknown): Record<string, unknown> {
@@ -88,9 +99,69 @@ function sanitizeSaveInput(value: unknown): SaveEditorTabInput {
     filename: requiredString(input.filename, 'filename', MAX_FILENAME_LENGTH),
     language: requiredString(input.language, 'language', MAX_LANGUAGE_LENGTH),
     content: input.content,
+    kind: sanitizeTabKind(input.kind),
     problemId,
     position: safePosition(input.position),
     baseRevision: safeRevision(input.baseRevision),
+  }
+}
+
+function sanitizeLegacyMigration(value: unknown): MigrateLegacyEditorWorkspaceInput {
+  const input = requireObject(value)
+  if (input.storageVersion !== 2) throw new Error('参数无效: storageVersion')
+  if (!Array.isArray(input.tabs) || input.tabs.length > MAX_MIGRATION_TABS) {
+    throw new Error('参数无效: tabs')
+  }
+  let totalContent = 0
+  const tabs = input.tabs.map((value, position) => {
+    const tab = requireObject(value)
+    if (typeof tab.content !== 'string') throw new Error('参数无效: content')
+    totalContent += tab.content.length
+    if (tab.content.length > MAX_CONTENT_LENGTH || totalContent > MAX_MIGRATION_TOTAL_CONTENT) {
+      throw new Error('旧工作区内容超过迁移上限')
+    }
+    if (tab.status !== 'open' && tab.status !== 'closed') throw new Error('参数无效: status')
+    const cursor = tab.cursorPosition
+    if (
+      cursor !== null &&
+      (!cursor ||
+        typeof cursor !== 'object' ||
+        !Number.isSafeInteger((cursor as { lineNumber?: unknown }).lineNumber) ||
+        Number((cursor as { lineNumber: number }).lineNumber) < 1 ||
+        !Number.isSafeInteger((cursor as { column?: unknown }).column) ||
+        Number((cursor as { column: number }).column) < 1)
+    ) {
+      throw new Error('参数无效: cursorPosition')
+    }
+    if (!Number.isFinite(tab.scrollTop) || Number(tab.scrollTop) < 0) {
+      throw new Error('参数无效: scrollTop')
+    }
+    const problemId =
+      tab.problemId === undefined || tab.problemId === null
+        ? null
+        : requiredString(tab.problemId, 'problemId', MAX_TAB_ID_LENGTH)
+    return {
+      id: requiredString(tab.id, 'id', MAX_TAB_ID_LENGTH),
+      filename: requiredString(tab.filename, 'filename', MAX_FILENAME_LENGTH),
+      language: requiredString(tab.language, 'language', MAX_LANGUAGE_LENGTH),
+      content: tab.content,
+      kind: sanitizeTabKind(tab.kind),
+      problemId,
+      cursorPosition: cursor as MigrateLegacyEditorWorkspaceInput['tabs'][number]['cursorPosition'],
+      scrollTop: Number(tab.scrollTop),
+      position: tab.position === undefined ? position : safePosition(tab.position),
+      status: tab.status as 'open' | 'closed',
+    }
+  })
+  const activeTabId =
+    input.activeTabId === null
+      ? null
+      : requiredString(input.activeTabId, 'activeTabId', MAX_TAB_ID_LENGTH)
+  return {
+    ...sanitizeIdentity(input),
+    storageVersion: 2,
+    activeTabId,
+    tabs,
   }
 }
 
@@ -182,6 +253,12 @@ export function registerEditorWorkspaceIPC(): void {
       const input = requireObject(value)
       return loadEditorWorkspace(getDB(), sanitizeWorkspaceId(input.workspaceId))
     }),
+  )
+  ipcMain.handle(
+    'editor-workspace-migrate-legacy',
+    trackPerformance('editor-workspace-migrate-legacy', (_event, value: unknown) =>
+      migrateLegacyEditorWorkspace(getDB(), sanitizeLegacyMigration(value)),
+    ),
   )
   ipcMain.handle(
     'editor-tab-save',

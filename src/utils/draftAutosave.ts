@@ -168,6 +168,16 @@ export class DraftAutosaveCoordinator {
     return this.flush()
   }
 
+  /**
+   * Drops the active in-memory draft after the caller has independently confirmed
+   * that either SQLite or the recovery log contains the latest snapshot.
+   */
+  deactivate(): void {
+    this.clearTimer()
+    this.active = null
+    this.retryBlocked = false
+  }
+
   private startWorker(): void {
     if (this.worker) return
     this.worker = this.runWorker().finally(() => {

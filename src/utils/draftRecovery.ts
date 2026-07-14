@@ -15,26 +15,17 @@ export interface DraftRecoveryEntry extends DraftSnapshot {
 
 type DraftRecoveryMap = Record<string, Omit<DraftRecoveryEntry, 'legacy'>>
 
-function pruneDrafts(drafts: DraftRecoveryMap, preferredExerciseId?: string): DraftRecoveryMap {
-  const entries = Object.entries(drafts).sort(([leftId, left], [rightId, right]) => {
-    if (leftId === preferredExerciseId) return -1
-    if (rightId === preferredExerciseId) return 1
-    return right.updatedAt - left.updatedAt
-  })
-  const result: DraftRecoveryMap = {}
-  let totalLength = 0
-  let entryCount = 0
-
-  for (const [exerciseId, entry] of entries) {
-    if (entryCount >= MAX_PRACTICE_RECOVERY_ENTRIES) break
-    if (totalLength + entry.code.length > MAX_PRACTICE_RECOVERY_TOTAL_LENGTH) continue
-    result[exerciseId] = entry
-    totalLength += entry.code.length
-    entryCount += 1
-  }
-
-  return result
+export interface DraftRecoveryReadResult {
+  entry: DraftRecoveryEntry | null
+  error: string | null
 }
+
+interface DraftRecoveryMapReadResult {
+  drafts: DraftRecoveryMap
+  error: string | null
+}
+
+const corruptRecoveryBackups = new WeakMap<Storage, Map<string, string | null>>()
 
 function storage(): Storage | null {
   if (typeof window === 'undefined') return null
@@ -45,16 +36,56 @@ function storage(): Storage | null {
   }
 }
 
-function readAll(): DraftRecoveryMap {
-  const target = storage()
-  if (!target) return {}
+function backupCorruptRecovery(target: Storage, key: string, raw: string): string | null {
+  const signature = `${key}\u0000${raw}`
+  const existing = corruptRecoveryBackups.get(target)?.get(signature)
+  if (existing !== undefined) return existing
+  const backupKey = `${key}.corrupt.${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  let storedKey: string | null = null
   try {
-    const parsed = JSON.parse(target.getItem(PRACTICE_DRAFT_RECOVERY_KEY) ?? '{}') as unknown
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    target.setItem(backupKey, raw)
+    storedKey = backupKey
+  } catch {
+    storedKey = null
+  }
+  const backups = corruptRecoveryBackups.get(target) ?? new Map<string, string | null>()
+  backups.set(signature, storedKey)
+  corruptRecoveryBackups.set(target, backups)
+  return storedKey
+}
+
+function corruptRecoveryError(target: Storage, key: string, raw: string, message: string): string {
+  const backupKey = backupCorruptRecovery(target, key, raw)
+  return backupKey
+    ? `${message}；原始数据已备份到 ${backupKey}，为避免覆盖已停止写入`
+    : `${message}；原始数据备份失败，为避免覆盖已停止写入`
+}
+
+function readAll(): DraftRecoveryMapReadResult {
+  const target = storage()
+  if (!target) return { drafts: {}, error: null }
+  const raw = target.getItem(PRACTICE_DRAFT_RECOVERY_KEY)
+  if (!raw) return { drafts: {}, error: null }
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {
+        drafts: {},
+        error: corruptRecoveryError(
+          target,
+          PRACTICE_DRAFT_RECOVERY_KEY,
+          raw,
+          '练习草稿恢复区格式无效',
+        ),
+      }
+    }
     const result: DraftRecoveryMap = {}
+    let invalidEntry = false
     for (const [exerciseId, value] of Object.entries(parsed as Record<string, unknown>)) {
-      if (!exerciseId.trim() || exerciseId.length > 200) continue
-      if (!value || typeof value !== 'object') continue
+      if (!exerciseId.trim() || exerciseId.length > 200 || !value || typeof value !== 'object') {
+        invalidEntry = true
+        continue
+      }
       const entry = value as Partial<DraftRecoveryEntry>
       if (
         typeof entry.code !== 'string' ||
@@ -69,6 +100,7 @@ function readAll(): DraftRecoveryMap {
         typeof entry.updatedAt !== 'number' ||
         !Number.isFinite(entry.updatedAt)
       ) {
+        invalidEntry = true
         continue
       }
       result[exerciseId] = {
@@ -79,9 +111,27 @@ function readAll(): DraftRecoveryMap {
         updatedAt: entry.updatedAt,
       }
     }
-    return pruneDrafts(result)
+    return invalidEntry
+      ? {
+          drafts: result,
+          error: corruptRecoveryError(
+            target,
+            PRACTICE_DRAFT_RECOVERY_KEY,
+            raw,
+            '练习草稿恢复区包含损坏条目',
+          ),
+        }
+      : { drafts: result, error: null }
   } catch {
-    return {}
+    return {
+      drafts: {},
+      error: corruptRecoveryError(
+        target,
+        PRACTICE_DRAFT_RECOVERY_KEY,
+        raw,
+        '练习草稿恢复区 JSON 已损坏',
+      ),
+    }
   }
 }
 
@@ -131,8 +181,16 @@ function removeLegacyEntry(exerciseId: string): void {
 }
 
 export function readDraftRecovery(exerciseId: string): DraftRecoveryEntry | null {
-  const entry = readAll()[exerciseId]
-  return entry ? { ...entry, legacy: false } : readLegacy(exerciseId)
+  return readDraftRecoveryWithStatus(exerciseId).entry
+}
+
+export function readDraftRecoveryWithStatus(exerciseId: string): DraftRecoveryReadResult {
+  const result = readAll()
+  const entry = result.drafts[exerciseId]
+  return {
+    entry: entry ? { ...entry, legacy: false } : readLegacy(exerciseId),
+    error: result.error,
+  }
 }
 
 /** Returns an error message instead of hiding quota or size failures. */
@@ -153,14 +211,24 @@ export function writeDraftRecovery(
   const target = storage()
   if (!target) return '当前环境不支持草稿恢复存储'
   try {
-    const drafts = readAll()
+    const current = readAll()
+    if (current.error) return current.error
+    const drafts = current.drafts
     drafts[exerciseId] = {
       ...snapshot,
       baseRevision,
       localVersion,
       updatedAt: Date.now(),
     }
-    target.setItem(PRACTICE_DRAFT_RECOVERY_KEY, JSON.stringify(pruneDrafts(drafts, exerciseId)))
+    const entries = Object.values(drafts)
+    if (entries.length > MAX_PRACTICE_RECOVERY_ENTRIES) {
+      return `草稿恢复区最多保存 ${MAX_PRACTICE_RECOVERY_ENTRIES} 个未同步草稿；现有草稿均已保留，请先恢复或清理后重试`
+    }
+    const totalLength = entries.reduce((total, entry) => total + entry.code.length, 0)
+    if (totalLength > MAX_PRACTICE_RECOVERY_TOTAL_LENGTH) {
+      return `草稿恢复区总量超过 ${MAX_PRACTICE_RECOVERY_TOTAL_LENGTH} 字符；现有草稿均已保留，请先恢复或清理后重试`
+    }
+    target.setItem(PRACTICE_DRAFT_RECOVERY_KEY, JSON.stringify(drafts))
     removeLegacyEntry(exerciseId)
     return null
   } catch (error) {
@@ -175,7 +243,9 @@ export function clearDraftRecovery(
   const target = storage()
   if (!target) return
   try {
-    const drafts = readAll()
+    const result = readAll()
+    if (result.error) return
+    const drafts = result.drafts
     const current = drafts[exerciseId]
     if (current) {
       if (expected && current.code !== expected.snapshot.code) return

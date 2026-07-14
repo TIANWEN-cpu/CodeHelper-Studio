@@ -73,6 +73,42 @@ interface BrowserPracticeDraft {
   deleted: boolean
 }
 const practiceDrafts = new Map<string, BrowserPracticeDraft>()
+interface BrowserEditorTab {
+  workspaceId: string
+  id: string
+  filename: string
+  language: string
+  content: string
+  kind: 'file' | 'problem' | 'exercise'
+  problemId: string | null
+  cursorPosition: { lineNumber: number; column: number } | null
+  scrollTop: number
+  position: number
+  status: 'open' | 'closed' | 'deleted'
+  revision: number
+  updatedAt: string
+  viewUpdatedAt: string
+  closedAt: string | null
+  deletedAt: string | null
+}
+const browserEditorTabs = new Map<string, BrowserEditorTab>()
+let browserEditorActiveTabId: string | null = null
+let browserEditorGeneration = 0
+let browserEditorLegacyStorageVersion = 0
+
+function browserEditorWorkspace() {
+  const tabs = [...browserEditorTabs.values()]
+  return {
+    workspaceId: 'default',
+    tabs: tabs.filter((tab) => tab.status === 'open').sort((a, b) => a.position - b.position),
+    activeTabId: browserEditorActiveTabId,
+    recentlyClosedTabs: tabs
+      .filter((tab) => tab.status === 'closed')
+      .sort((a, b) => (b.closedAt ?? '').localeCompare(a.closedAt ?? '')),
+    generation: browserEditorGeneration,
+    legacyStorageVersion: browserEditorLegacyStorageVersion,
+  }
+}
 const mockKnowledgeDocs = [
   {
     id: 1,
@@ -404,6 +440,207 @@ async function invoke(channel: string, ...args: unknown[]) {
         stdout: '',
         duration_sec: 0,
       }
+    case 'editor-workspace-load': {
+      return browserEditorWorkspace()
+    }
+    case 'editor-workspace-migrate-legacy': {
+      const input = args[0] as {
+        storageVersion: number
+        activeTabId: string | null
+        tabs: Array<{
+          id: string
+          filename: string
+          language: string
+          content: string
+          kind?: 'file' | 'problem' | 'exercise'
+          problemId?: string | null
+          cursorPosition: { lineNumber: number; column: number } | null
+          scrollTop: number
+          position: number
+          status: 'open' | 'closed'
+        }>
+      }
+      if (browserEditorLegacyStorageVersion >= input.storageVersion) {
+        return {
+          status: 'already-migrated',
+          workspace: browserEditorWorkspace(),
+          recoveredTabIds: [],
+          recoveredTabMappings: {},
+        }
+      }
+      const recoveredTabIds: string[] = []
+      const recoveredTabMappings: Record<string, string> = {}
+      for (const item of input.tabs) {
+        const current = browserEditorTabs.get(item.id)
+        let id = item.id
+        let filename = item.filename
+        if (
+          current &&
+          (current.content !== item.content ||
+            current.language !== item.language ||
+            current.kind !== (item.kind ?? 'file') ||
+            current.filename !== item.filename)
+        ) {
+          id = `recovered-${item.id}-${item.content.length}`
+          filename = `${item.filename}.recovered`
+          recoveredTabIds.push(id)
+          recoveredTabMappings[item.id] = id
+        } else if (current) {
+          continue
+        }
+        const now = new Date().toISOString()
+        browserEditorTabs.set(id, {
+          workspaceId: 'default',
+          id,
+          filename,
+          language: item.language,
+          content: item.content,
+          kind: item.kind ?? 'file',
+          problemId: item.problemId ?? null,
+          cursorPosition: item.cursorPosition,
+          scrollTop: item.scrollTop,
+          position: item.position,
+          status: item.status,
+          revision: 1,
+          updatedAt: now,
+          viewUpdatedAt: now,
+          closedAt: item.status === 'closed' ? now : null,
+          deletedAt: null,
+        })
+      }
+      browserEditorLegacyStorageVersion = input.storageVersion
+      if (input.activeTabId && browserEditorTabs.get(input.activeTabId)?.status === 'open') {
+        browserEditorActiveTabId = input.activeTabId
+      }
+      browserEditorGeneration += 1
+      return {
+        status: 'migrated',
+        workspace: browserEditorWorkspace(),
+        recoveredTabIds,
+        recoveredTabMappings,
+      }
+    }
+    case 'editor-tab-save': {
+      const input = args[0] as {
+        id: string
+        filename: string
+        language: string
+        content: string
+        kind?: 'file' | 'problem' | 'exercise'
+        problemId?: string | null
+        position: number
+        baseRevision: number
+      }
+      const current = browserEditorTabs.get(input.id) ?? null
+      if (
+        (!current && input.baseRevision !== 0) ||
+        (current && (current.revision !== input.baseRevision || current.status !== 'open'))
+      ) {
+        return { status: 'conflict', current, generation: browserEditorGeneration }
+      }
+      const now = new Date().toISOString()
+      const tab: BrowserEditorTab = {
+        workspaceId: 'default',
+        id: input.id,
+        filename: input.filename,
+        language: input.language,
+        content: input.content,
+        kind: input.kind ?? 'file',
+        problemId: input.problemId ?? null,
+        cursorPosition: current?.cursorPosition ?? null,
+        scrollTop: current?.scrollTop ?? 0,
+        position: input.position,
+        status: 'open',
+        revision: (current?.revision ?? 0) + 1,
+        updatedAt: now,
+        viewUpdatedAt: current?.viewUpdatedAt ?? now,
+        closedAt: null,
+        deletedAt: null,
+      }
+      browserEditorTabs.set(tab.id, tab)
+      browserEditorGeneration += 1
+      return { status: 'saved', tab, generation: browserEditorGeneration, applied: true }
+    }
+    case 'editor-tab-update-view-state': {
+      const input = args[0] as {
+        id: string
+        cursorPosition: { lineNumber: number; column: number } | null
+        scrollTop: number
+      }
+      const current = browserEditorTabs.get(input.id) ?? null
+      if (!current || current.status !== 'open') {
+        return { status: 'conflict', current: null, generation: browserEditorGeneration }
+      }
+      const viewUpdatedAt = new Date().toISOString()
+      const tab = {
+        ...current,
+        cursorPosition: input.cursorPosition,
+        scrollTop: input.scrollTop,
+        viewUpdatedAt,
+      }
+      browserEditorTabs.set(tab.id, tab)
+      browserEditorGeneration += 1
+      return {
+        status: 'saved',
+        viewState: {
+          workspaceId: 'default',
+          id: tab.id,
+          cursorPosition: tab.cursorPosition,
+          scrollTop: tab.scrollTop,
+          status: tab.status,
+          revision: tab.revision,
+          viewUpdatedAt,
+        },
+        generation: browserEditorGeneration,
+        applied: true,
+      }
+    }
+    case 'editor-tab-close':
+    case 'editor-tab-reopen':
+    case 'editor-tab-delete': {
+      const input = args[0] as { id: string; baseRevision: number }
+      const current = browserEditorTabs.get(input.id) ?? null
+      const from =
+        channel === 'editor-tab-reopen'
+          ? 'closed'
+          : channel === 'editor-tab-close'
+            ? 'open'
+            : 'closed'
+      if (!current || current.status !== from || current.revision !== input.baseRevision) {
+        return { status: 'conflict', current, generation: browserEditorGeneration }
+      }
+      const now = new Date().toISOString()
+      const status =
+        channel === 'editor-tab-reopen'
+          ? 'open'
+          : channel === 'editor-tab-close'
+            ? 'closed'
+            : 'deleted'
+      const tab: BrowserEditorTab = {
+        ...current,
+        status,
+        position:
+          status === 'open'
+            ? Math.max(-1, ...[...browserEditorTabs.values()].map((item) => item.position)) + 1
+            : current.position,
+        revision: current.revision + 1,
+        updatedAt: now,
+        closedAt: status === 'closed' ? now : status === 'open' ? null : current.closedAt,
+        deletedAt: status === 'deleted' ? now : null,
+      }
+      browserEditorTabs.set(tab.id, tab)
+      browserEditorGeneration += 1
+      return { status: 'saved', tab, generation: browserEditorGeneration, applied: true }
+    }
+    case 'editor-workspace-set-active': {
+      const input = args[0] as { activeTabId: string | null }
+      browserEditorActiveTabId =
+        input.activeTabId && browserEditorTabs.get(input.activeTabId)?.status === 'open'
+          ? input.activeTabId
+          : null
+      browserEditorGeneration += 1
+      return { activeTabId: browserEditorActiveTabId, generation: browserEditorGeneration }
+    }
     case 'chat-sessions-list':
       return sessions.map(cloneSession)
     case 'chat-session-create': {

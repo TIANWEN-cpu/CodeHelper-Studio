@@ -2,6 +2,7 @@ import { invoke, onEvent } from './ipc'
 
 export const DEFAULT_EDITOR_WORKSPACE_ID = 'default'
 
+export type EditorTabKind = 'file' | 'problem' | 'exercise'
 export type EditorTabStatus = 'open' | 'closed' | 'deleted'
 export type EditorWorkspaceMutationKind = 'saved' | 'view-state' | 'closed' | 'reopened' | 'deleted'
 
@@ -11,6 +12,7 @@ export interface EditorTabRecord {
   filename: string
   language: string
   content: string
+  kind: EditorTabKind
   problemId: string | null
   cursorPosition: { lineNumber: number; column: number } | null
   scrollTop: number
@@ -43,6 +45,7 @@ export interface SaveEditorTabInput extends EditorMutationIdentity {
   filename: string
   language: string
   content: string
+  kind?: EditorTabKind
   problemId?: string | null
   position: number
   baseRevision: number
@@ -120,10 +123,42 @@ export interface SetActiveEditorTabResult {
   generation: number
 }
 
+export interface LegacyEditorTabInput {
+  id: string
+  filename: string
+  language: string
+  content: string
+  kind?: EditorTabKind
+  problemId?: string | null
+  cursorPosition: { lineNumber: number; column: number } | null
+  scrollTop: number
+  position: number
+  status: 'open' | 'closed'
+}
+
+export interface MigrateLegacyEditorWorkspaceInput extends EditorMutationIdentity {
+  storageVersion: number
+  activeTabId: string | null
+  tabs: LegacyEditorTabInput[]
+}
+
+export interface MigrateLegacyEditorWorkspaceResult {
+  status: 'migrated' | 'already-migrated'
+  workspace: EditorWorkspaceRecord
+  recoveredTabIds: string[]
+  recoveredTabMappings: Record<string, string>
+}
+
 export function loadEditorWorkspace(
   workspaceId: string = DEFAULT_EDITOR_WORKSPACE_ID,
 ): Promise<EditorWorkspaceRecord> {
   return invoke<EditorWorkspaceRecord>('editor-workspace-load', { workspaceId })
+}
+
+export function migrateLegacyEditorWorkspace(
+  input: MigrateLegacyEditorWorkspaceInput,
+): Promise<MigrateLegacyEditorWorkspaceResult> {
+  return invoke<MigrateLegacyEditorWorkspaceResult>('editor-workspace-migrate-legacy', input)
 }
 
 export function saveEditorTab(input: SaveEditorTabInput): Promise<EditorTabMutationResult> {

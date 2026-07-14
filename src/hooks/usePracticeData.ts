@@ -18,11 +18,24 @@ import {
   DraftConflictError,
   type DraftSnapshot,
 } from '@/utils/draftAutosave'
-import { clearDraftRecovery, readDraftRecovery, writeDraftRecovery } from '@/utils/draftRecovery'
+import {
+  clearDraftRecovery,
+  readDraftRecoveryWithStatus,
+  writeDraftRecovery,
+} from '@/utils/draftRecovery'
 import { resolvePracticeDraft } from '@/utils/practiceDraftResolution'
+import { bindDraftFlushLifecycle } from '@/utils/draftLifecycle'
+import { registerAppCloseFlushHandler } from '@/services/appCloseLifecycle'
 
 interface DraftConflictState {
   current: PracticeDraft | null
+}
+
+export type DraftDurability = 'database' | 'recovery' | 'none'
+
+export interface DraftFlushResult {
+  durability: DraftDurability
+  error: string | null
 }
 
 export interface UsePracticeDataReturn {
@@ -41,7 +54,8 @@ export interface UsePracticeDataReturn {
   draftDirty: boolean
   draftError: string | null
   draftConflict: boolean
-  flushDraft: () => Promise<void>
+  flushDraft: () => Promise<DraftFlushResult>
+  deactivateExercise: () => Promise<DraftFlushResult>
   clearCurrentDraft: () => Promise<void>
   keepLocalDraft: () => void
   reloadPersistedDraft: () => void
@@ -146,14 +160,51 @@ export function usePracticeData(): UsePracticeDataReturn {
     if (mountedRef.current) setter(value)
   }, [])
 
-  const flushPendingDraft = useCallback(async () => {
+  const flushPendingDraft = useCallback(async (): Promise<DraftFlushResult> => {
+    const coordinator = autosaveRef.current
+    const state = coordinator?.getState()
+    if (!coordinator || !state || !coordinator.hasPending()) {
+      return { durability: 'database', error: null }
+    }
+
+    const recoveryError = writeDraftRecovery(
+      state.exerciseId,
+      state.snapshot,
+      state.baseRevision,
+      state.localVersion,
+    )
     try {
-      await autosaveRef.current?.flush()
-      return true
-    } catch {
-      return false
+      await coordinator.flush()
+      if (!coordinator.hasPending()) return { durability: 'database', error: null }
+      return recoveryError
+        ? { durability: 'none', error: recoveryError }
+        : { durability: 'recovery', error: null }
+    } catch (flushError) {
+      const message = flushError instanceof Error ? flushError.message : '练习草稿数据库保存失败'
+      return recoveryError
+        ? { durability: 'none', error: `${message}；${recoveryError}` }
+        : { durability: 'recovery', error: message }
     }
   }, [])
+
+  useEffect(
+    () =>
+      bindDraftFlushLifecycle(async () => {
+        await flushPendingDraft()
+      }),
+    [flushPendingDraft],
+  )
+
+  useEffect(
+    () =>
+      registerAppCloseFlushHandler('practice-draft', async () => {
+        const result = await flushPendingDraft()
+        return result.durability !== 'none'
+          ? { ok: true }
+          : { ok: false, error: result.error ?? '练习草稿仍未完成持久化' }
+      }),
+    [flushPendingDraft],
+  )
 
   const loadExercises = useCallback(
     async (trackId?: string, difficulty?: string) => {
@@ -175,10 +226,13 @@ export function usePracticeData(): UsePracticeDataReturn {
 
   const selectExercise = useCallback(
     async (id: string) => {
-      if (activeExerciseId.current === id) return flushPendingDraft()
+      if (activeExerciseId.current === id) {
+        const result = await flushPendingDraft()
+        return result.durability !== 'none'
+      }
 
       const requestId = ++exerciseRequestId.current
-      if (!(await flushPendingDraft())) return false
+      if ((await flushPendingDraft()).durability === 'none') return false
       if (exerciseRequestId.current !== requestId) return false
 
       submitRequestId.current += 1
@@ -190,10 +244,11 @@ export function usePracticeData(): UsePracticeDataReturn {
       try {
         const [exercise, draft] = await Promise.all([getExercise(id), getDraft(id)])
         if (exerciseRequestId.current !== requestId) return false
-        if (!(await flushPendingDraft())) return false
+        if ((await flushPendingDraft()).durability === 'none') return false
         if (exerciseRequestId.current !== requestId) return false
         const preferredLanguage = exercise.languages?.[0] || 'python'
-        const recovery = readDraftRecovery(id)
+        const recoveryResult = readDraftRecoveryWithStatus(id)
+        const recovery = recoveryResult.entry
         const resolved = resolvePracticeDraft(
           draft,
           recovery,
@@ -208,9 +263,15 @@ export function usePracticeData(): UsePracticeDataReturn {
           autosave: resolved.autosave,
           conflict: resolved.conflict,
         })
-        if (resolved.dirty && !resolved.conflict) {
-          writeDraftRecovery(id, resolved.snapshot, resolved.baseRevision, resolved.localVersion)
-        }
+        const recoveryWriteError =
+          resolved.dirty && !resolved.conflict
+            ? writeDraftRecovery(
+                id,
+                resolved.snapshot,
+                resolved.baseRevision,
+                resolved.localVersion,
+              )
+            : null
 
         activeExerciseId.current = id
         codeRef.current = resolved.snapshot.code
@@ -220,7 +281,9 @@ export function usePracticeData(): UsePracticeDataReturn {
         safeUpdate(setDraftDirty, resolved.dirty)
         safeUpdate(
           setDraftError,
-          resolved.conflict ? '检测到本地草稿与已保存版本冲突，请选择处理方式' : null,
+          resolved.conflict
+            ? '检测到本地草稿与已保存版本冲突，请选择处理方式'
+            : (recoveryResult.error ?? recoveryWriteError),
         )
         safeUpdate(setDraftConflict, resolved.conflict ? { current: draft } : null)
         safeUpdate(setCurrentExercise, exercise)
@@ -341,6 +404,29 @@ export function usePracticeData(): UsePracticeDataReturn {
     setDraftConflict(null)
   }, [currentExercise, draftConflict])
 
+  const deactivateExercise = useCallback(async (): Promise<DraftFlushResult> => {
+    exerciseRequestId.current += 1
+    submitRequestId.current += 1
+    const result = await flushPendingDraft()
+    if (result.durability === 'none') {
+      safeUpdate(setDraftError, result.error ?? '练习草稿未能写入数据库或恢复区')
+      return result
+    }
+    autosaveRef.current?.deactivate()
+    activeExerciseId.current = null
+    codeRef.current = ''
+    languageRef.current = 'python'
+    safeUpdate(setCurrentExercise, null)
+    safeUpdate(setCode, '')
+    safeUpdate(setLanguage, 'python')
+    safeUpdate(setDraftDirty, false)
+    safeUpdate(setDraftConflict, null)
+    safeUpdate(setSubmitResult, null)
+    safeUpdate(setSubmitting, false)
+    if (result.durability === 'database') safeUpdate(setDraftError, null)
+    return result
+  }, [flushPendingDraft, safeUpdate])
+
   const submitCode = useCallback(
     async (exerciseId: string, codeToSubmit: string, lang: string) => {
       safeUpdate(setSubmitting, true)
@@ -400,9 +486,8 @@ export function usePracticeData(): UsePracticeDataReturn {
     draftDirty,
     draftError,
     draftConflict: Boolean(draftConflict),
-    flushDraft: async () => {
-      await flushPendingDraft()
-    },
+    flushDraft: flushPendingDraft,
+    deactivateExercise,
     clearCurrentDraft,
     keepLocalDraft,
     reloadPersistedDraft,

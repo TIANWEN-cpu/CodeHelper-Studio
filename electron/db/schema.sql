@@ -221,6 +221,7 @@ CREATE TABLE IF NOT EXISTS editor_tabs (
   filename TEXT NOT NULL,
   language TEXT NOT NULL,
   content TEXT NOT NULL DEFAULT '',
+  tab_kind TEXT NOT NULL DEFAULT 'file' CHECK(tab_kind IN ('file', 'problem', 'exercise')),
   problem_id TEXT,
   cursor_line INTEGER,
   cursor_column INTEGER,
