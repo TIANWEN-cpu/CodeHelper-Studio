@@ -2,7 +2,7 @@
  * Real Docker integration smoke for strong isolation.
  * Skips automatically when the daemon or pinned images are unavailable.
  */
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect, beforeAll, vi } from 'vitest'
 import { execFileSync } from 'child_process'
 import { readdirSync } from 'fs'
 import { join } from 'path'
@@ -13,6 +13,10 @@ import {
   DOCKER_TIMEOUT_MS,
 } from '../electron/utils/dockerRunner'
 import { runCodeSnippet } from '../electron/utils/codeRunner'
+
+vi.mock('electron', () => {
+  throw new Error('Docker isolation must not load the Electron runtime')
+})
 
 function dockerReady(): boolean {
   try {

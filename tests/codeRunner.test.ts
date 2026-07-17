@@ -1152,6 +1152,57 @@ describe('codeRunner', () => {
       expect(proc.kill).toHaveBeenCalled()
     })
 
+    it.each([
+      {
+        name: 'Node EFBIG diagnostic',
+        stderr: [
+          'Error: EFBIG: file too large, ftruncate',
+          "  code: 'EFBIG',",
+          "  syscall: 'ftruncate'",
+        ].join('\n'),
+        signal: null,
+      },
+      {
+        name: 'POSIX file-size signal',
+        stderr: '',
+        signal: 'SIGXFSZ' as NodeJS.Signals,
+      },
+    ])('normalizes $name to the product quota error and cleans up', async ({ stderr, signal }) => {
+      const proc = Object.assign(new EventEmitter(), {
+        stdin: new PassThrough(),
+        stdout: new PassThrough(),
+        stderr: new PassThrough(),
+        kill: vi.fn(),
+      })
+      vi.mocked(spawn).mockReturnValue(proc as any)
+
+      process.nextTick(() => {
+        if (stderr) proc.stderr.end(stderr)
+        else proc.stderr.end()
+        proc.stdout.end()
+        proc.emit('close', signal ? null : 1, signal)
+      })
+
+      await expect(runCodeSnippet('write oversized file', 'javascript')).resolves.toMatchObject({
+        exitCode: 1,
+        stderr: expect.stringContaining('临时目录写入超过50MB限制'),
+      })
+      expect(rm).toHaveBeenCalledWith(
+        expect.stringContaining('codehelper-run'),
+        expect.objectContaining({ recursive: true, force: true }),
+      )
+    })
+
+    it('preserves unrelated failures that merely mention EFBIG', async () => {
+      const stderr = 'application label EFBIG is unavailable'
+      vi.mocked(spawn).mockReturnValue(mockChildProcess(1, '', stderr) as any)
+
+      await expect(runCodeSnippet('fail normally', 'javascript')).resolves.toMatchObject({
+        exitCode: 1,
+        stderr,
+      })
+    })
+
     it('目录扫描失败时保守终止进程树', async () => {
       const proc = Object.assign(new EventEmitter(), {
         stdin: new PassThrough(),

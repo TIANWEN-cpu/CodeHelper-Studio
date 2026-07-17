@@ -33,7 +33,7 @@ v2.4.0 是 CodeHelper 的 Beta Candidate 收口版本，重点完成数据可靠
 
 ### 验证
 
-- 单元测试与覆盖率：2510 通过，2 条平台/专用 harness 跳过。
+- 单元测试与覆盖率：2515 通过，2 条平台/专用 harness 跳过。
 - Electron E2E：24/24。
 - Docker isolation：28/28。
 - 知识检索：33/33；Agent：23/23。

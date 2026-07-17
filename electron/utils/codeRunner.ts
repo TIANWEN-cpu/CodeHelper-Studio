@@ -1,7 +1,7 @@
 import { spawn, execFileSync, type ChildProcessWithoutNullStreams } from 'child_process'
 import { mkdirSync, writeFileSync } from 'fs'
 import { rm } from 'fs/promises'
-import { utilityProcess, type UtilityProcess } from 'electron'
+import type { UtilityProcess } from 'electron'
 import { randomUUID } from 'crypto'
 import { basename, dirname, join, resolve } from 'path'
 import { tmpdir } from 'os'
@@ -67,6 +67,12 @@ const EXE_EXT = IS_WIN ? '.exe' : ''
 
 const resolvedPaths = new Map<string, string>()
 const MAX_RESOLVED_PATHS = 50
+let utilityProcessPromise: Promise<(typeof import('electron'))['utilityProcess']> | undefined
+
+function loadUtilityProcess(): Promise<(typeof import('electron'))['utilityProcess']> {
+  utilityProcessPromise ??= import('electron').then((runtime) => runtime.utilityProcess)
+  return utilityProcessPromise
+}
 
 function resolveCommand(cmd: string): string {
   const cached = resolvedPaths.get(cmd)
@@ -132,6 +138,18 @@ function formatSpawnError(error: Error, commandHint?: string): string {
     return `未找到可执行文件${hint}。请在“运行环境”状态中查看工具链探测结果与安装建议。\n原始错误：${message}`
   }
   return message
+}
+
+function isFileSizeLimitFailure(
+  stderr: string,
+  signal: NodeJS.Signals | null | undefined,
+): boolean {
+  if (signal === 'SIGXFSZ') return true
+
+  // Node reports RLIMIT_FSIZE failures as EFBIG, but the exact stack format
+  // varies between releases. Requiring the errno and its description avoids
+  // treating an unrelated mention of EFBIG as a quota violation.
+  return /\bEFBIG\b/.test(stderr) && /file too large/i.test(stderr)
 }
 
 function createRunDir(): string {
@@ -531,16 +549,33 @@ function forceKillUtilityProcess(child: UtilityProcess): boolean {
   }
 }
 
-function runSqlUtility(request: SqlRunnerRequest, runDir: string): Promise<SqlUtilityRunResult> {
+async function runSqlUtility(
+  request: SqlRunnerRequest,
+  runDir: string,
+): Promise<SqlUtilityRunResult> {
   if (activeProcesses >= MAX_CONCURRENT) {
-    return Promise.resolve({
+    return {
       error: '并发执行数量已达上限，请稍后重试',
       processExited: true,
       exited: Promise.resolve(),
-    })
+    }
   }
 
   activeProcesses++
+
+  // Node-only paths (including Docker isolation tests) must not require an
+  // installed Electron binary merely by importing the shared runner module.
+  let utilityProcess: (typeof import('electron'))['utilityProcess']
+  try {
+    utilityProcess = await loadUtilityProcess()
+  } catch (error) {
+    activeProcesses--
+    return {
+      error: error instanceof Error ? error.message : String(error),
+      processExited: true,
+      exited: Promise.resolve(),
+    }
+  }
   let resolveExited: () => void = () => undefined
   const exited = new Promise<void>((resolve) => {
     resolveExited = resolve
@@ -1043,7 +1078,7 @@ function runProcess(
       console.warn('[codeRunner] Failed to close stdin:', error)
     }
 
-    const finishAfterRootExit = (code: number | null) => {
+    const finishAfterRootExit = (code: number | null, signal?: NodeJS.Signals | null) => {
       if (rootExited) return
       rootExited = true
       if (timers.run) clearTimeout(timers.run)
@@ -1062,6 +1097,15 @@ function runProcess(
           proc.stderr.destroy()
         }
         await directoryMonitor?.checkNow()
+        // POSIX RLIMIT_FSIZE may reject ftruncate/write before the polling
+        // monitor can observe an oversized file. Normalize that OS-level
+        // failure to the same product quota result used by the monitor.
+        if (!directoryViolation && code !== 0 && isFileSizeLimitFailure(stderr, signal)) {
+          directoryViolation = {
+            kind: 'size',
+            actualBytes: MAX_FILE_SIZE_BYTES + 1,
+          }
+        }
         terminationConfirmed = true
         releaseSlot()
         if (directoryViolation || outputExceeded || timedOut) settle(terminationResult())
@@ -1071,12 +1115,12 @@ function runProcess(
       }
       void finish()
     }
-    proc.once('exit', (code) => finishAfterRootExit(code))
-    proc.once('close', (code) => {
+    proc.once('exit', (code, signal) => finishAfterRootExit(code, signal))
+    proc.once('close', (code, signal) => {
       // close confirms stdout/stderr have drained. Spawn failures may emit it
       // without a preceding exit, while inherited pipes may delay it forever.
       resolveProcessClosed()
-      finishAfterRootExit(code)
+      finishAfterRootExit(code, signal)
     })
     proc.on('error', (error) => {
       processError = error

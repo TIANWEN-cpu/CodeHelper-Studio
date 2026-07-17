@@ -124,8 +124,8 @@ localStorage 恢复层。灾难恢复仍需把完整 `userData` 复制到外部�
 
 2026-07-17 收口验收记录包括：
 
-- 单元测试与覆盖率各 2510 通过、2 条平台/专用 Electron harness 跳过；
-- 覆盖率：Statements 71.32%、Branches 66.60%、Functions 76.72%、Lines 73.58%；
+- 单元测试与覆盖率各 2515 通过、2 条平台/专用 Electron harness 跳过；
+- 覆盖率：Statements 71.34%、Branches 66.63%、Functions 76.77%、Lines 73.59%；
 - Electron E2E 24/24；
 - Docker isolation 28/28；
 - 知识检索 33/33；

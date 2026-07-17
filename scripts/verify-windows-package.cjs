@@ -63,6 +63,22 @@ function run(command, args, options = {}) {
   return result
 }
 
+function createWindowsPowerShellEnvironment(overrides = {}, baseEnvironment = process.env) {
+  const environment = { ...baseEnvironment, ...overrides }
+  for (const key of Object.keys(environment)) {
+    if (key.toLowerCase() === 'psmodulepath') delete environment[key]
+  }
+  return environment
+}
+
+function runWindowsPowerShell(script, options = {}) {
+  const { env = {}, ...runOptions } = options
+  return run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+    ...runOptions,
+    env: createWindowsPowerShellEnvironment(env),
+  })
+}
+
 function sha256(filePath) {
   return createHash('sha256').update(readFileSync(filePath)).digest('hex')
 }
@@ -79,11 +95,16 @@ function normalizeThumbprint(value) {
   return typeof value === 'string' ? value.replace(/[^a-fA-F0-9]/g, '').toUpperCase() : null
 }
 
-function readAuthenticode(filePath) {
-  const script = [
+function buildAuthenticodePowerShellScript() {
+  return [
     "$ErrorActionPreference = 'Stop'",
-    '$signature = Get-AuthenticodeSignature -LiteralPath $env:CODEHELPER_SIGNATURE_PATH',
     '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()',
+    "$securityModule = Join-Path $PSHOME 'Modules\\Microsoft.PowerShell.Security\\Microsoft.PowerShell.Security.psd1'",
+    'if (-not (Test-Path -LiteralPath $securityModule -PathType Leaf)) {',
+    "  throw 'The host-local Microsoft.PowerShell.Security module is unavailable'",
+    '}',
+    'Import-Module -Name $securityModule -Force -ErrorAction Stop',
+    '$signature = Microsoft.PowerShell.Security\\Get-AuthenticodeSignature -LiteralPath $env:CODEHELPER_SIGNATURE_PATH',
     '[pscustomobject]@{',
     '  status = [string]$signature.Status',
     '  statusMessage = [string]$signature.StatusMessage',
@@ -92,8 +113,11 @@ function readAuthenticode(filePath) {
     '  timestampThumbprint = if ($signature.TimeStamperCertificate) { $signature.TimeStamperCertificate.Thumbprint } else { $null }',
     '} | ConvertTo-Json -Compress',
   ].join('\n')
-  const result = run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
-    env: { ...process.env, CODEHELPER_SIGNATURE_PATH: filePath },
+}
+
+function readAuthenticode(filePath) {
+  const result = runWindowsPowerShell(buildAuthenticodePowerShellScript(), {
+    env: { CODEHELPER_SIGNATURE_PATH: filePath },
   })
   return JSON.parse(result.stdout.trim())
 }
@@ -271,8 +295,8 @@ function listSmokeProcesses(token) {
     '  $_.CommandLine -and $_.CommandLine.Contains($env:CODEHELPER_SMOKE_TOKEN)',
     '} | ForEach-Object { [Console]::WriteLine([string]$_.ProcessId) }',
   ].join('\n')
-  const result = run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
-    env: { ...process.env, CODEHELPER_SMOKE_TOKEN: token },
+  const result = runWindowsPowerShell(script, {
+    env: { CODEHELPER_SMOKE_TOKEN: token },
     timeout: 30_000,
   })
   return result.stdout
@@ -293,8 +317,8 @@ function listExecutableProcesses(executablePath) {
     '  )',
     '} | ForEach-Object { [Console]::WriteLine([string]$_.ProcessId) }',
   ].join('\n')
-  const result = run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
-    env: { ...process.env, CODEHELPER_SMOKE_EXECUTABLE: executablePath },
+  const result = runWindowsPowerShell(script, {
+    env: { CODEHELPER_SMOKE_EXECUTABLE: executablePath },
     timeout: 30_000,
   })
   return result.stdout
@@ -316,7 +340,7 @@ function stopProcesses(processIds) {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 30_000,
-    env: { ...process.env, CODEHELPER_PROCESS_IDS: unique.join(',') },
+    env: createWindowsPowerShellEnvironment({ CODEHELPER_PROCESS_IDS: unique.join(',') }),
   })
 }
 
@@ -687,9 +711,13 @@ function main() {
   )
 }
 
-try {
-  main()
-} catch (error) {
-  console.error(error instanceof Error ? error.stack || error.message : error)
-  process.exit(1)
+if (require.main === module) {
+  try {
+    main()
+  } catch (error) {
+    console.error(error instanceof Error ? error.stack || error.message : error)
+    process.exit(1)
+  }
 }
+
+module.exports = { buildAuthenticodePowerShellScript, createWindowsPowerShellEnvironment }

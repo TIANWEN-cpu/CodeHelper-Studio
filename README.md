@@ -128,7 +128,7 @@
 - 主窗口导航、CSP、BrowserWindow sandbox 和文件导入导出 IPC 完成 fail-closed 安全加固。
 - `better-sqlite3` 的 Node/Electron ABI 由测试、开发和打包命令自动探测切换。
 - Windows NSIS 与 Portable 增加安装、重启持久化、卸载、Fuses、哈希和更新 metadata 门禁。
-- 完整依赖审计为 0；本地验收达到单元测试 2510 项、Electron E2E 24/24 和 Docker 28/28。
+- 完整依赖审计为 0；本地验收达到单元测试 2515 项、Electron E2E 24/24 和 Docker 28/28。
 
 完整变更见 [CHANGELOG.md](CHANGELOG.md)，发布说明见 [RELEASE.md](RELEASE.md)。
 
