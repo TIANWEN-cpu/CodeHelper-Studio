@@ -8,6 +8,11 @@
 
 v2.4.0 是 CodeHelper 的 Beta Candidate 收口版本，重点完成数据可靠性、受控代码执行、混合知识检索、可审计 Agent、数据库保护、安全边界和 Windows 发布门禁。
 
+### 发布说明
+
+- Windows Installer 与 Portable 有意采用未签名发布模式，系统可能显示“未知发布者”或 SmartScreen 提示；Release 提供 `SHA256SUMS.txt` 和不可变资产校验。
+- 工作流严格要求所有相关 EXE 的 Authenticode 状态为 `NotSigned`，不会接受未知错误、损坏签名或意外混入的证书。
+
 ### 新功能 / 改进
 
 - **持久化与恢复**：工作区、练习草稿和标签拓扑以 SQLite 为权威存储，支持版本迁移、多窗口 revision、冲突副本、异常退出与 Renderer crash 恢复。
@@ -34,7 +39,7 @@ v2.4.0 是 CodeHelper 的 Beta Candidate 收口版本，重点完成数据可靠
 
 ### 验证
 
-- 单元测试与覆盖率：2516 通过，2 条平台/专用 harness 跳过。
+- 单元测试与覆盖率：2518 通过，2 条平台/专用 harness 跳过。
 - Electron E2E：24/24。
 - Docker isolation：28/28。
 - 知识检索：33/33；Agent：23/23。

@@ -6,6 +6,13 @@
 
 v2.4.0 是 CodeHelper 的 Beta Candidate 收口版本。它把此前分散的数据恢复、代码运行、知识库和 AI 工作流整合为可验证的桌面产品闭环，并补齐安全、备份、审计和 Windows 发布门禁。
 
+## Windows 发布说明
+
+本版本的 Windows Installer 与 Portable 资产按当前项目策略有意保持未签名。Windows 可能显示
+“未知发布者”或触发 SmartScreen；用户应仅从本仓库 Release 下载，并使用随附的
+`SHA256SUMS.txt` 校验文件。发布工作流会验证所有相关 EXE 的 Authenticode 状态严格为
+`NotSigned`，同时保留完整安装、运行、重启、卸载、资源、Fuses、哈希和 Immutable Release 门禁。
+
 ## 亮点
 
 - **数据丢失防护**：工作区、练习草稿、标签顺序、光标和滚动位置以 SQLite 为权威存储；异常退出、Renderer crash、多窗口分叉和旧 schema 均有真实 Electron 恢复路径。
@@ -32,7 +39,7 @@ v2.4.0 是 CodeHelper 的 Beta Candidate 收口版本。它把此前分散的数
 
 ## 验证
 
-- 单元测试与覆盖率：2516 通过，2 条平台/专用 Electron harness 跳过。
+- 单元测试与覆盖率：2518 通过，2 条平台/专用 Electron harness 跳过。
 - Electron E2E：24/24。
 - Docker isolation：28/28。
 - 知识检索：33/33。

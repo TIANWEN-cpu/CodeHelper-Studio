@@ -122,9 +122,23 @@ function readAuthenticode(filePath) {
   return JSON.parse(result.stdout.trim())
 }
 
-function requireValidSignature(name, signature) {
-  if (!requireSignature) return
-  if (signature.status !== 'Valid') fail(`${name} signature is ${signature.status}`)
+function requireAuthenticodePolicy(name, signature, signatureRequired = requireSignature) {
+  const status = typeof signature?.status === 'string' ? signature.status : 'Missing'
+  if (!signatureRequired) {
+    if (status !== 'NotSigned') {
+      fail(`${name} signature is ${status}; expected NotSigned for an unsigned release`)
+    }
+    if (
+      signature.signerSubject ||
+      normalizeThumbprint(signature.signerThumbprint) ||
+      signature.timestampThumbprint
+    ) {
+      fail(`${name} unexpectedly contains signing certificate evidence`)
+    }
+    return
+  }
+
+  if (status !== 'Valid') fail(`${name} signature is ${status}`)
   const signerThumbprint = normalizeThumbprint(signature.signerThumbprint)
   if (!signerThumbprint) fail(`${name} signature has no signer certificate`)
   if (!signature.timestampThumbprint) fail(`${name} signature has no timestamp certificate`)
@@ -592,16 +606,22 @@ function verifyInstalledPackage(installerPath, unpackedExecutable, unpackedSigna
     waitForFile(uninstaller)
 
     const installedSignature = readAuthenticode(installedExecutable)
-    requireValidSignature('installed CodeHelper.exe', installedSignature)
+    requireAuthenticodePolicy('installed CodeHelper.exe', installedSignature)
     requireMatchingSigner('installed CodeHelper.exe', installedSignature, unpackedSignature)
     if (sha256(installedExecutable) !== sha256(unpackedExecutable)) {
       fail('installed CodeHelper.exe hash does not match win-unpacked/CodeHelper.exe')
     }
 
     const uninstallerSignature = readAuthenticode(uninstaller)
-    requireValidSignature('installed uninstaller', uninstallerSignature)
+    requireAuthenticodePolicy('installed uninstaller', uninstallerSignature)
     requireMatchingSigner('installed uninstaller', uninstallerSignature, unpackedSignature)
-    smoke = runPackagedSmoke(installedExecutable, 'installed', jobHostHash)
+    smoke = {
+      ...runPackagedSmoke(installedExecutable, 'installed', jobHostHash),
+      authenticode: {
+        installedExecutable: installedSignature,
+        uninstaller: uninstallerSignature,
+      },
+    }
   } catch (error) {
     primaryFailure = error
   }
@@ -646,7 +666,7 @@ function main() {
   const unpackedExecutable = path.join(distRoot, 'win-unpacked', 'CodeHelper.exe')
   if (!existsSync(unpackedExecutable)) fail('win-unpacked/CodeHelper.exe is missing')
   const unpackedSignature = readAuthenticode(unpackedExecutable)
-  requireValidSignature('win-unpacked/CodeHelper.exe', unpackedSignature)
+  requireAuthenticodePolicy('win-unpacked/CodeHelper.exe', unpackedSignature)
   const packagedExecutable = createFileRecord(
     'win-unpacked/CodeHelper.exe',
     unpackedExecutable,
@@ -663,7 +683,7 @@ function main() {
   )
   if (!existsSync(jobHostPath)) fail('packaged codehelper-job-host.exe is missing')
   const jobHostSignature = readAuthenticode(jobHostPath)
-  requireValidSignature('packaged codehelper-job-host.exe', jobHostSignature)
+  requireAuthenticodePolicy('packaged codehelper-job-host.exe', jobHostSignature)
   requireMatchingSigner('packaged codehelper-job-host.exe', jobHostSignature, unpackedSignature)
   const packagedResources = [
     createFileRecord(
@@ -678,7 +698,7 @@ function main() {
     const filePath = path.join(distRoot, name)
     const signature = signatureTargets.has(name) ? readAuthenticode(filePath) : null
     if (signature) {
-      requireValidSignature(name, signature)
+      requireAuthenticodePolicy(name, signature)
       requireMatchingSigner(name, signature, unpackedSignature)
     }
     const record = createFileRecord(name, filePath, signature)
@@ -720,4 +740,8 @@ if (require.main === module) {
   }
 }
 
-module.exports = { buildAuthenticodePowerShellScript, createWindowsPowerShellEnvironment }
+module.exports = {
+  buildAuthenticodePowerShellScript,
+  createWindowsPowerShellEnvironment,
+  requireAuthenticodePolicy,
+}

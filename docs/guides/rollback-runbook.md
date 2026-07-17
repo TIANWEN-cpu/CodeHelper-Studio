@@ -22,7 +22,7 @@
 以下情况可进入回滚评估：
 
 - 启动、保存或迁移导致可重复的数据损坏；
-- 签名、打包资源或发布资产来源无法证明；
+- 清单声明的签名策略、打包资源或发布资产来源无法证明；
 - 核心工作区、练习草稿、知识检索或 Agent 审批出现高影响回归；
 - 安装、升级或卸载使大量用户无法继续使用；
 - 安全事件需要立即停止推荐当前版本。
@@ -80,9 +80,9 @@ Get-AuthenticodeSignature .\CodeHelper-Installer-<version>.exe |
 
 必须满足：
 
-- Authenticode `Status` 为 `Valid`；
-- 有可信时间戳；
-- 证书指纹符合该版本发布记录；
+- Authenticode 状态与该版本 `release-manifest.json` 的策略一致；当前未签名版本必须为
+  `NotSigned`，且 signer 与时间戳证书为空；
+- 未来签名版本则必须为 `Valid`，并符合其时间戳和证书指纹记录；
 - Release API 的 tag、target commit、draft、prerelease 和 immutable 状态符合记录；
 - `SHA256SUMS.txt`、GitHub server digest 和下载字节一致。
 
@@ -126,7 +126,7 @@ schema 时，有两个安全选择：
 2. 使用当前版本的卸载程序卸载应用。
 3. 确认安装目录和 `CodeHelper.exe` 已消失。
 4. 确认 `%APPDATA%\codehelper` 仍存在；卸载不应删除用户数据。
-5. 安装第 2 步验证过的旧签名安装包。
+5. 安装第 2 步按其签名策略验证过的旧安装包。
 6. 只有在 schema 兼容已证明或匹配备份已恢复后才启动旧版本。
 
 Portable 回退同样必须使用重新下载并验证过的可执行文件；Portable 不等于隔离数据目录，不能用
@@ -163,7 +163,7 @@ Portable 回退同样必须使用重新下载并验证过的可执行文件；Po
 事件只有在以下内容全部归档后才能关闭：
 
 - 问题版本及已知良好版本的 tag/SHA/Release ID；
-- 原始和重新下载资产的哈希、签名、时间戳与 server digest；
+- 原始和重新下载资产的哈希、签名策略证据与 server digest；
 - 用户数据备份 ID、哈希和 quick check；
 - schema 兼容性结论及测试环境；
 - 回退后两次启动的核心闭环结果；

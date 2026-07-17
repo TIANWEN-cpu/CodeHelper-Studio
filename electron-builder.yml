@@ -26,9 +26,9 @@ win:
   extraResources:
     - from: resources/bin/win32-x64/codehelper-job-host.exe
       to: bin/win32-x64/codehelper-job-host.exe
-  # Code signing placeholder — set CSC_LINK and CSC_KEY_PASSWORD env vars on CI
-  # for official release builds. Local CI may explicitly set
-  # CSC_IDENTITY_AUTO_DISCOVERY=false to create an unsigned smoke package.
+  # Future signed releases may set CSC_LINK and CSC_KEY_PASSWORD in protected CI.
+  # The current official workflow sets CSC_IDENTITY_AUTO_DISCOVERY=false and
+  # verifies that every Windows executable is intentionally unsigned.
   #   certificateFile: path/to/certificate.pfx
   #   certificatePassword: ${CSC_KEY_PASSWORD}
   #   rfc3161TimeStampServer: http://timestamp.digicert.com

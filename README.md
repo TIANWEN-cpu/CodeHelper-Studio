@@ -128,7 +128,7 @@
 - 主窗口导航、CSP、BrowserWindow sandbox 和文件导入导出 IPC 完成 fail-closed 安全加固。
 - `better-sqlite3` 的 Node/Electron ABI 由测试、开发和打包命令自动探测切换。
 - Windows NSIS 与 Portable 增加安装、重启持久化、卸载、Fuses、哈希和更新 metadata 门禁。
-- 完整依赖审计为 0；本地验收达到单元测试 2516 项、Electron E2E 24/24 和 Docker 28/28。
+- 完整依赖审计为 0；本地验收达到单元测试 2518 项、Electron E2E 24/24 和 Docker 28/28。
 
 完整变更见 [CHANGELOG.md](CHANGELOG.md)，发布说明见 [RELEASE.md](RELEASE.md)。
 
@@ -226,13 +226,13 @@ Release 工作流由 `.github/workflows/release.yml` 驱动：
 - 当前正式 Release 只发布 Windows NSIS 安装包、Portable 包、更新 metadata 与审计清单。
 - macOS / Linux 暂不上传官方安装包，避免把未充分验证的平台产物交给用户。
 - GitHub Release 由 workflow 的发布阶段统一创建，Electron Builder 打包阶段不会提前发布。
-- 正式发布锁定精确 tag/SHA，强制 Authenticode，并验证资源、Electron Fuses、更新清单、
-  NSIS 安装/重启/卸载、Portable 运行、Immutable Releases 和发布后 server digest；已发布资产不覆盖。
+- 正式发布锁定精确 tag/SHA；当前 Windows 资产明确采用未签名模式，所有 EXE 的 Authenticode
+  必须为 `NotSigned` 且不能夹带证书信息，同时验证资源、Electron Fuses、更新清单、NSIS
+  安装/重启/卸载、Portable 运行、Immutable Releases 和发布后 server digest；已发布资产不覆盖。
 
 `latest.yml` 和 blockmap 只是 Electron Updater 兼容 metadata。当前应用没有 `electron-updater` 或
 应用内自动检查、下载、安装更新功能。正式发布还要求在活跃的
-`TIANWEN-cpu/CodeHelper-Studio` 仓库配置受保护 `release` Environment、签名 secrets 和 GitHub
-Immutable Releases。
+`TIANWEN-cpu/CodeHelper-Studio` 仓库使用 `release` Environment，并启用 GitHub Immutable Releases。
 
 本地 Windows 打包验证：
 
@@ -242,7 +242,9 @@ npm run package:win
 npm run verify:package:win
 ```
 
-无签名本地包只用于 smoke，不能作为正式 Release。完整流程见
+本地产物不能直接改名上传；正式 Release 会从 release SHA 在 GitHub Windows runner 上重新构建，
+再次确认全部 EXE 为 `NotSigned`，并生成独立哈希与审计清单。未签名包会显示“未知发布者”，也可能
+触发 Windows SmartScreen。完整流程见
 [构建与发布](docs/guides/deployment.md) 和
 [发布与回滚清单](docs/guides/release-checklist.md)。数据保护和事故处置见
 [备份与恢复手册](docs/guides/backup-restore-runbook.md) 与

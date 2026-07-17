@@ -7,17 +7,17 @@
 
 ## 发布记录
 
-| 项目                | 记录 |
-| ------------------- | ---- |
-| 版本                | `v`  |
-| Release tag         |      |
-| Release SHA         |      |
-| 默认分支            |      |
-| Workflow run        |      |
-| 签名证书指纹        |      |
-| 上一个已知良好版本  |      |
-| 发布负责人 / 审批人 |      |
-| 数据回滚负责人      |      |
+| 项目                | 记录       |
+| ------------------- | ---------- |
+| 版本                | `v`        |
+| Release tag         |            |
+| Release SHA         |            |
+| 默认分支            |            |
+| Workflow run        |            |
+| Windows 发布模式    | `unsigned` |
+| 上一个已知良好版本  |            |
+| 发布负责人 / 审批人 |            |
+| 数据回滚负责人      |            |
 
 ## 发布前
 
@@ -27,8 +27,8 @@
 - [ ] 迁移变更已验证旧数据库原地升级；已记录是否允许降级读取。
 - [ ] GitHub Environment `release` 已启用所需审批人和部署限制。
 - [ ] GitHub 仓库已启用 Immutable Releases。
-- [ ] 已确认 Windows 签名证书和时间戳服务可用，且 secret 仅存在于受保护发布环境。
-- [ ] 已记录上一个已知良好 Release 的 tag、SHA、签名指纹和 `SHA256SUMS.txt`。
+- [ ] 已确认 Windows 发布模式为 `unsigned`，自动证书发现关闭，且构建环境未注入签名变量。
+- [ ] 已记录上一个已知良好 Release 的 tag、SHA、签名策略和 `SHA256SUMS.txt`。
 - [ ] 已在设置页创建并验证手动完整数据库备份，manifest 中的 SHA-256、quick check、应用版本和
       schema 版本均已记录。
 - [ ] 已把关键数据库快照或完整 `userData` 副本复制到原 `userData` 之外，不把同盘备份或 JSON
@@ -50,14 +50,14 @@
 - [ ] Prepare、Build 和 Publish 阶段复核 tag 仍指向同一 SHA。
 - [ ] 未删除、移动或复用任何已推送的 release tag。
 
-## 构建与签名
+## 构建与 Authenticode
 
-- [ ] 官方产物由 release SHA 在 Windows runner 上重新构建，不复用普通 CI 的无签名包。
-- [ ] `CSC_LINK` 与 `CSC_KEY_PASSWORD` 均存在；缺失时 workflow fail-closed。
-- [ ] 安装程序、Portable、Job Host、unpacked/installed 应用与卸载程序的 Authenticode 状态均为 `Valid`。
-- [ ] 所有发布 EXE 含可信时间戳，签名证书指纹一致并符合预期证书策略。
+- [ ] 官方产物由 release SHA 在 Windows runner 上重新构建，不复用本地或普通 CI 产物。
+- [ ] `CODEHELPER_WINDOWS_RELEASE_MODE=unsigned`、`CSC_IDENTITY_AUTO_DISCOVERY=false`，且签名变量均未设置。
+- [ ] 安装程序、Portable、Job Host、unpacked/installed 应用与卸载程序的 Authenticode 状态均精确为 `NotSigned`。
+- [ ] 所有 Authenticode 记录都没有 signer、证书指纹或时间戳证书；未知错误和损坏签名会 fail-closed。
 - [ ] Job Host 通过 Windows x64 PE 校验，其大小和 SHA-256 已记录在发布清单。
-- [ ] 证书、密码和临时密钥材料未出现在日志、artifact 或仓库中。
+- [ ] 未向日志、artifact、清单或仓库写入任何签名凭据。
 
 ## 包内容与运行
 
@@ -89,7 +89,7 @@ SHA256SUMS.txt
 
 - [ ] `release-manifest.json` 的版本和 `sourceCommit` 与 tag/SHA 一致，`workflowCommit` 与当前
       workflow SHA 一致。
-- [ ] 清单要求正式签名，并记录生成时间、文件大小、SHA-256 和 Authenticode 证据。
+- [ ] 清单记录 `signatureRequired=false`、生成时间、文件大小、SHA-256 和完整 `NotSigned` 证据。
 - [ ] `SHA256SUMS.txt` 覆盖安装程序、blockmap、Portable 和 `latest.yml`，且没有引用缺失或
       额外文件；`release-manifest.json` 另做结构与字段校验。
 - [ ] 同 tag GitHub Release 不存在；workflow 使用 create-only API，不会更新或覆盖已有 Release。
@@ -106,7 +106,7 @@ SHA256SUMS.txt
 sha256sum -c SHA256SUMS.txt
 ```
 
-- [ ] 重新核对下载后的 EXE 签名状态、时间戳和证书指纹。
+- [ ] 重新核对下载后的 EXE 均为 `NotSigned`，且没有 signer 或时间戳证书。
 - [ ] GitHub Release tag target 与记录的 release SHA 一致。
 - [ ] 安装程序和 Portable 各完成一次干净环境启动检查。
 - [ ] Release API 返回 `immutable: true`。
@@ -127,7 +127,7 @@ sha256sum -c SHA256SUMS.txt
 [发布回滚手册](rollback-runbook.md) 执行，最低要求为：
 
 - [ ] 记录故障版本、tag、SHA、workflow、Release ID、资产哈希和影响范围。
-- [ ] 从 GitHub 重新下载已知良好版本并验证签名、时间戳、哈希和 immutable 状态。
+- [ ] 从 GitHub 重新下载已知良好版本并验证其清单声明的签名策略、哈希和 immutable 状态。
 - [ ] 完全退出应用后按 [备份与恢复手册](backup-restore-runbook.md) 复制整个 `userData`。
 - [ ] 对候选数据库快照核对 manifest、SHA-256、quick check 和 schema，并在隔离副本中完成恢复
       演练；当前应用没有一键恢复。
