@@ -642,6 +642,9 @@ jobs:
       - name: Write changelog file
         run: |
           cat > release_notes.md << 'NOTES_EOF'
+          > [!WARNING]
+          > **Unsigned Windows release:** The Installer and Portable assets are intentionally unsigned. Windows may display **Unknown Publisher** or a Microsoft Defender SmartScreen prompt. Download only from this GitHub Release and verify `SHA256SUMS.txt`.
+
           ${{ needs.prepare.outputs.changelog }}
           NOTES_EOF
 
