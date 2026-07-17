@@ -5,7 +5,6 @@ import {
   RotateCcw,
   Settings,
   Download,
-  Upload,
   Info,
   Loader2,
   Gauge,
@@ -17,6 +16,7 @@ import {
   Trash2,
   AlertTriangle,
   Brain,
+  Activity,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSettingsData } from '../hooks/useSettingsData'
@@ -34,7 +34,10 @@ import {
   type CodexPetDefinition,
 } from '../lib/pets'
 import {
+  AI_PET_SIZE_MAX,
+  AI_PET_SIZE_MIN,
   DEFAULT_ACCENT_COLOR,
+  DEFAULT_AI_PET_SIZE,
   applyThemeColor,
   applyScale,
   applyFontSize,
@@ -54,6 +57,8 @@ import {
 } from '../lib/appearance'
 import { AIModelSettings } from './settings/AIModelSettings'
 import { MemorySettings } from './settings/MemorySettings'
+import { DataProtectionSettings } from './settings/DataProtectionSettings'
+import { CapabilityStatusSettings } from './settings/CapabilityStatusSettings'
 import { REGION_OPTIONS } from '../lib/locale'
 import { CODE_THEME_OPTIONS, DEFAULT_CODE_THEME } from '../lib/codeThemes'
 import { CodeEditor } from '../components/editor/CodeEditor'
@@ -152,9 +157,21 @@ const GLASS_BLUR_MARKS = [6, 12, 18, 24, 32]
 
 // ---- Helper: Toggle Switch ----
 
-function ToggleSwitch({ active, onToggle }: { active: boolean; onToggle: () => void }) {
+function ToggleSwitch({
+  active,
+  onToggle,
+  ariaLabel,
+}: {
+  active: boolean
+  onToggle: () => void
+  ariaLabel?: string
+}) {
   return (
     <button
+      type="button"
+      role="switch"
+      aria-checked={active}
+      aria-label={ariaLabel}
       onClick={onToggle}
       className={cn(
         'w-10 h-6 rounded-full relative flex items-center shrink-0 transition-colors',
@@ -330,7 +347,7 @@ async function fileToCompactAvatarDataUrl(file: File): Promise<string> {
 // ---- Component ----
 
 export function SettingsView() {
-  const { getSetting, platformInfo, exportData, importData } = useSettingsData()
+  const { getSetting, platformInfo } = useSettingsData()
 
   // 主题(dark/light)由全局 store 统一管理，使侧边栏/Header/设置页三处同步。
   const theme = useAppStore((s) => s.theme)
@@ -364,6 +381,8 @@ export function SettingsView() {
   const setGlassBlur = useAppStore((s) => s.setGlassBlur)
   const aiPetEnabled = useAppStore((s) => s.aiPetEnabled)
   const setAIPetEnabled = useAppStore((s) => s.setAIPetEnabled)
+  const aiPetSize = useAppStore((s) => s.aiPetSize)
+  const setAIPetSize = useAppStore((s) => s.setAIPetSize)
 
   const [activeTab, setActiveTab] = React.useState(() => {
     try {
@@ -373,10 +392,6 @@ export function SettingsView() {
     }
   })
   const [loaded, setLoaded] = React.useState(false)
-  const [dataActionStatus, setDataActionStatus] = React.useState<DataActionStatus>({
-    kind: 'idle',
-    message: '',
-  })
   const [profileName, setProfileName] = React.useState('')
   const [profileAvatar, setProfileAvatar] = React.useState('')
   const [profileActionStatus, setProfileActionStatus] = React.useState<DataActionStatus>({
@@ -437,6 +452,7 @@ export function SettingsView() {
           'background_style',
           'animation_level',
           'ai_pet_enabled',
+          'ai_pet_size',
           PROFILE_NAME_KEY,
           PROFILE_AVATAR_KEY,
         ]
@@ -474,6 +490,7 @@ export function SettingsView() {
           setAnimationLevel(vals.animation_level as AnimationLevel)
         }
         if (vals.ai_pet_enabled != null) setAIPetEnabled(vals.ai_pet_enabled === 'true')
+        if (vals.ai_pet_size != null) setAIPetSize(Number(vals.ai_pet_size))
         setProfileName(vals[PROFILE_NAME_KEY]?.trim() || '')
         setProfileAvatar(vals[PROFILE_AVATAR_KEY]?.trim() || '')
       } catch {
@@ -490,6 +507,7 @@ export function SettingsView() {
   }, [
     getSetting,
     setAIPetEnabled,
+    setAIPetSize,
     setAnimationLevel,
     setBackgroundStyle,
     setGlassBlur,
@@ -501,7 +519,7 @@ export function SettingsView() {
     const applySettingsTab = (tab: unknown) => {
       if (
         typeof tab === 'string' &&
-        ['account', 'appearance', 'ai', 'memory', 'data', 'about'].includes(tab)
+        ['account', 'appearance', 'ai', 'memory', 'data', 'capabilities', 'about'].includes(tab)
       ) {
         setActiveTab(tab)
       }
@@ -552,6 +570,7 @@ export function SettingsView() {
     { id: 'ai', label: 'AI 模型', icon: Settings },
     { id: 'memory', label: '记忆', icon: Brain },
     { id: 'data', label: '数据', icon: Download },
+    { id: 'capabilities', label: '能力', icon: Activity },
     { id: 'about', label: '关于', icon: Info },
   ]
 
@@ -633,6 +652,7 @@ export function SettingsView() {
     setGlassStyle('layered')
     setGlassBlur(18)
     setAIPetEnabled(true)
+    setAIPetSize(DEFAULT_AI_PET_SIZE)
     // 布局默认值（同步 store + 持久化）
     setShowAITutor(false)
     setBottomPanelCollapsed(false)
@@ -657,6 +677,7 @@ export function SettingsView() {
       background_style: 'soft',
       animation_level: 'balanced',
       ai_pet_enabled: 'true',
+      ai_pet_size: String(DEFAULT_AI_PET_SIZE),
       show_ai_panel: 'false',
       show_bottom_panel: 'true',
       compact_sidebar: 'false',
@@ -809,32 +830,6 @@ export function SettingsView() {
     setPetActionStatus({ kind: 'success', message: `已导入 ${result.pet.displayName}` })
   }
 
-  const handleExportData = React.useCallback(async () => {
-    setDataActionStatus({ kind: 'loading', message: '正在导出数据...' })
-    try {
-      await exportData()
-      setDataActionStatus({ kind: 'success', message: '数据导出完成。' })
-    } catch (error) {
-      setDataActionStatus({
-        kind: 'error',
-        message: getDataActionError(error, '导出数据失败。'),
-      })
-    }
-  }, [exportData])
-
-  const handleImportData = React.useCallback(async () => {
-    setDataActionStatus({ kind: 'loading', message: '正在导入数据...' })
-    try {
-      await importData()
-      setDataActionStatus({ kind: 'success', message: '数据导入完成。' })
-    } catch (error) {
-      setDataActionStatus({
-        kind: 'error',
-        message: getDataActionError(error, '导入数据失败。'),
-      })
-    }
-  }, [importData])
-
   const effectSettings = [
     {
       title: '高对比度模式',
@@ -893,6 +888,7 @@ export function SettingsView() {
       },
     },
   ]
+  const selectedPet = availablePets.find((pet) => pet.id === selectedPetId) || BUILT_IN_FIREFLY_PET
 
   // ---- Render ----
   return (
@@ -1289,7 +1285,59 @@ export function SettingsView() {
                         <ToggleSwitch
                           active={aiPetEnabled}
                           onToggle={() => setAIPetEnabled(!aiPetEnabled)}
+                          ariaLabel="AI 桌宠"
                         />
+                      </div>
+
+                      <div className="mt-4 flex items-center gap-4 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]/70 px-3 py-3">
+                        <div className="flex h-14 w-14 shrink-0 items-end justify-center overflow-visible rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)]">
+                          <div
+                            style={{
+                              transform: `scale(${aiPetSize / 100})`,
+                              transformOrigin: 'center bottom',
+                            }}
+                          >
+                            <CodexPetSprite
+                              pet={selectedPet}
+                              className="settings-pet-sprite codex-pet-sprite"
+                              label={`${selectedPet.displayName} 大小预览`}
+                              animateIdle={animationLevel !== 'calm'}
+                            />
+                          </div>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-2 flex items-center justify-between gap-3">
+                            <label
+                              htmlFor="ai-pet-size"
+                              className="text-xs font-medium text-[var(--color-text-secondary)]"
+                            >
+                              桌宠大小
+                            </label>
+                            <span className="min-w-10 text-right text-xs font-semibold tabular-nums text-[var(--color-text-primary)]">
+                              {aiPetSize}%
+                            </span>
+                          </div>
+                          <input
+                            id="ai-pet-size"
+                            type="range"
+                            min={AI_PET_SIZE_MIN}
+                            max={AI_PET_SIZE_MAX}
+                            step={5}
+                            value={aiPetSize}
+                            onChange={(event) => setAIPetSize(Number(event.target.value))}
+                            className="h-1.5 w-full cursor-pointer appearance-none rounded-full"
+                            style={{
+                              background: `linear-gradient(to right, var(--color-accent-purple) 0%, var(--color-accent-purple) ${((aiPetSize - AI_PET_SIZE_MIN) / (AI_PET_SIZE_MAX - AI_PET_SIZE_MIN)) * 100}%, var(--color-border-subtle) ${((aiPetSize - AI_PET_SIZE_MIN) / (AI_PET_SIZE_MAX - AI_PET_SIZE_MIN)) * 100}%, var(--color-border-subtle) 100%)`,
+                              accentColor: 'var(--color-accent-purple)',
+                            }}
+                            aria-label="AI 桌宠大小"
+                            aria-valuetext={`${aiPetSize}%`}
+                          />
+                          <div className="mt-1 flex justify-between text-[10px] text-[var(--color-text-muted)]">
+                            <span>{AI_PET_SIZE_MIN}%</span>
+                            <span>{AI_PET_SIZE_MAX}%</span>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="mt-4 grid grid-cols-2 gap-2">
@@ -1770,64 +1818,9 @@ export function SettingsView() {
           </div>
         )}
 
-        {activeTab === 'data' && (
-          <div className="space-y-6 pb-4">
-            <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
-              <h3 className="font-semibold text-white text-[15px] mb-4">数据管理</h3>
-              <p className="text-xs text-[var(--color-text-muted)] mb-6">
-                导出和导入你的学习数据与配置
-              </p>
+        {activeTab === 'data' && <DataProtectionSettings />}
 
-              {dataActionStatus.kind !== 'idle' && (
-                <div
-                  role="status"
-                  aria-live="polite"
-                  className={cn(
-                    'mb-4 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs',
-                    dataActionStatus.kind === 'error'
-                      ? 'border-red-500/40 bg-red-500/10 text-red-200'
-                      : dataActionStatus.kind === 'success'
-                        ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
-                        : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] text-[var(--color-text-secondary)]',
-                  )}
-                >
-                  {dataActionStatus.kind === 'success' ? <Check size={14} /> : <Info size={14} />}
-                  <span>{dataActionStatus.message}</span>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button
-                  onClick={handleExportData}
-                  disabled={dataActionStatus.kind === 'loading'}
-                  className="flex items-center gap-3 p-4 rounded-lg border border-[var(--color-border-subtle)] hover:border-[var(--color-accent-purple)] transition-colors text-left disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  <div className="w-10 h-10 rounded-lg bg-[var(--color-accent-purple)]/10 flex items-center justify-center">
-                    <Download size={18} className="text-[var(--color-accent-purple)]" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-white">导出数据</p>
-                    <p className="text-xs text-[var(--color-text-muted)]">将数据保存为备份文件</p>
-                  </div>
-                </button>
-
-                <button
-                  onClick={handleImportData}
-                  disabled={dataActionStatus.kind === 'loading'}
-                  className="flex items-center gap-3 p-4 rounded-lg border border-[var(--color-border-subtle)] hover:border-[var(--color-accent-purple)] transition-colors text-left disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  <div className="w-10 h-10 rounded-lg bg-[var(--color-accent-purple)]/10 flex items-center justify-center">
-                    <Upload size={18} className="text-[var(--color-accent-purple)]" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-white">导入数据</p>
-                    <p className="text-xs text-[var(--color-text-muted)]">从备份文件恢复数据</p>
-                  </div>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {activeTab === 'capabilities' && <CapabilityStatusSettings />}
 
         {activeTab === 'about' && (
           <div className="space-y-6 pb-4">

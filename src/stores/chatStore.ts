@@ -22,6 +22,7 @@ type Memory = Record<string, unknown>
  * - memoryCategories：按类别发送白名单（隐私控制），undefined=全部。
  * - llmExtract：true 时用 LLM 智能抽取记忆替代本地正则捕获。
  * - configId：指定 AI 配置；缺省用默认配置。
+ * - captureMemory：是否从本轮用户文本写入长期记忆；Agent 审计运行会关闭。
  */
 export type SendMessageOptions = {
   sendOverride?: string
@@ -30,6 +31,7 @@ export type SendMessageOptions = {
   memoryCategories?: string[]
   llmExtract?: boolean
   configId?: number
+  captureMemory?: boolean
 }
 
 type ChatStore = {
@@ -48,6 +50,7 @@ type ChatStore = {
   deleteSession: (id: string) => Promise<void>
   renameSession: (id: string, title: string) => Promise<void>
   sendMessage: (content: string, options?: SendMessageOptions) => Promise<void>
+  cancelCurrentRequest: () => Promise<boolean>
   appendChunk: (payload: { requestId: string; chunk: string }) => void
   finishStream: (payload: { requestId: string; content: string }) => Promise<void>
   loadPresets: () => Promise<void>
@@ -70,6 +73,12 @@ function makeTitle(content: string) {
 
 let sessionSwitchRequestId = 0
 let pendingSessionSwitchId: string | null = null
+const cancelledRequestIds = new Set<string>()
+
+function throwIfRequestCancelled(requestId: string): void {
+  if (!cancelledRequestIds.delete(requestId)) return
+  throw new Error('AI 请求已取消')
+}
 
 /** 去重会话列表（按 id，保留首次出现），避免重复 key 渲染。 */
 export function normalizeChatSessions<T extends { id?: string }>(list: T[]): T[] {
@@ -159,6 +168,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       memoryCategories,
       llmExtract = false,
       configId,
+      captureMemory = true,
     } = options
     let sessionId = get().activeSessionId
     if (!sessionId) sessionId = await get().createSession()
@@ -187,17 +197,21 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       if (!Number.isSafeInteger(currentUserMessageId) || currentUserMessageId < 1) {
         throw new Error('消息保存未返回有效 ID')
       }
+      throwIfRequestCancelled(requestId)
       // 从用户消息捕获长期记忆：开启 LLM 抽取则智能抽取，否则用本地正则规则。
       // best-effort：抽取失败（如网络超时）不应中断本轮对话。
-      try {
-        if (llmExtract) {
-          await typedInvoke('chat-memory-extract', { content, configId, sessionId })
-        } else {
-          await typedInvoke('chat-memory-capture', { content, session_id: sessionId })
+      if (captureMemory) {
+        try {
+          if (llmExtract) {
+            await typedInvoke('chat-memory-extract', { content, configId, sessionId })
+          } else {
+            await typedInvoke('chat-memory-capture', { content, session_id: sessionId })
+          }
+        } catch (memErr) {
+          console.warn('[ChatStore] 记忆捕获失败，继续对话:', memErr)
         }
-      } catch (memErr) {
-        console.warn('[ChatStore] 记忆捕获失败，继续对话:', memErr)
       }
+      throwIfRequestCancelled(requestId)
       if (session?.title === '新对话') await get().renameSession(sessionId, makeTitle(content))
       // RAG：检索本地知识库片段与用户画像随请求发送；关闭或失败时跳过，不影响对话。
       let rag: unknown
@@ -208,6 +222,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           console.warn('[ChatStore] RAG 检索失败，跳过知识库注入:', ragErr)
         }
       }
+      throwIfRequestCancelled(requestId)
       // 实际发给模型的内容可带上下文/教学前缀（sendOverride）；显示与入库仍用原始 content。
       const messages = [
         ...(session?.system_prompt
@@ -226,6 +241,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         currentUserMessageId,
       })
     } catch (error) {
+      cancelledRequestIds.delete(requestId)
       const msg = errorMessage(error)
       reportError(error, 'chat.sendMessage', { showToast: true })
       set((state) => ({
@@ -239,6 +255,24 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         ),
       }))
     }
+  },
+  cancelCurrentRequest: async () => {
+    const requestId = get().currentRequestId
+    if (!requestId) return false
+    cancelledRequestIds.add(requestId)
+    let cancelled = false
+    try {
+      const result = await typedInvoke<{ cancelled: boolean }>('ai-chat-cancel', requestId)
+      cancelled = result.cancelled
+    } catch {
+      // The local cancellation marker still prevents a not-yet-dispatched request.
+    }
+    set((state) => ({
+      streaming: false,
+      currentRequestId: state.currentRequestId === requestId ? null : state.currentRequestId,
+      error: 'AI 请求已取消',
+    }))
+    return cancelled || cancelledRequestIds.has(requestId)
   },
   appendChunk: ({ requestId, chunk }) => {
     const state = get()

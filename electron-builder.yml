@@ -23,9 +23,12 @@ win:
       arch:
         - x64
   icon: resources/icons/icon.ico
-  signAndEditExecutable: false
+  extraResources:
+    - from: resources/bin/win32-x64/codehelper-job-host.exe
+      to: bin/win32-x64/codehelper-job-host.exe
   # Code signing placeholder — set CSC_LINK and CSC_KEY_PASSWORD env vars on CI
-  # or uncomment below for local signing:
+  # for official release builds. Local CI may explicitly set
+  # CSC_IDENTITY_AUTO_DISCOVERY=false to create an unsigned smoke package.
   #   certificateFile: path/to/certificate.pfx
   #   certificatePassword: ${CSC_KEY_PASSWORD}
   #   rfc3161TimeStampServer: http://timestamp.digicert.com
@@ -40,6 +43,9 @@ nsis:
   uninstallerIcon: resources/icons/icon.ico
   installerHeaderIcon: resources/icons/icon.ico
   deleteAppDataOnUninstall: false
+
+portable:
+  artifactName: '${productName}-${version}-Portable.${ext}'
 
 # macOS build configuration
 mac:

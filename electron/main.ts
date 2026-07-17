@@ -18,14 +18,28 @@ import { registerPetsIPC } from './ipc/pets'
 import { registerResourcePackIPC } from './ipc/resourcePack'
 import { registerLearningRecordsIPC } from './ipc/learningRecords'
 import { registerEditorWorkspaceIPC } from './ipc/editorWorkspace'
+import { registerAgentIPC } from './ipc/agent'
+import { registerMaintenanceIPC } from './ipc/maintenance'
+import { registerCapabilitiesIPC } from './ipc/capabilities'
+import { closeDB } from './db/index'
 import { logIpcStatsSummary, getIpcStats } from './utils/perfMonitor'
 import { registerIpcHandler, rateLimitMiddleware } from './utils/middleware'
 import { buildContentSecurityPolicy } from './utils/contentSecurityPolicy'
 import { getPreloadScriptPath } from './utils/runtimePaths'
 import { configureTestUserData } from './utils/testUserData'
 import { WindowCloseFlushBroker } from './utils/windowCloseHandshake'
+import { shouldShowBrowserWindow } from './utils/testWindowVisibility'
+import { createMainWindowNavigationGuard } from './utils/navigationGuard'
+import {
+  resolvePackagedSmokeUserDataPath,
+  runPackagedSmokeIfRequested,
+} from './utils/packagedSmoke'
 import { arch, release } from 'os'
 import { join } from 'path'
+import { pathToFileURL } from 'url'
+import { randomUUID } from 'crypto'
+
+process.env.CODEHELPER_RECOVERY_BOOT_ID = randomUUID()
 
 // ---------------------------------------------------------------------------
 // Diagnostic startup timer
@@ -55,8 +69,40 @@ console.log('[STARTUP] CWD:', process.cwd())
 console.log('[STARTUP] __dirname:', __dirname)
 
 app.setName('CodeHelper')
-configureTestUserData(app)
+const packagedSmokeUserDataPath = resolvePackagedSmokeUserDataPath(app.isPackaged)
+const configuredTestUserDataPath = configureTestUserData(app)
+if (packagedSmokeUserDataPath && configuredTestUserDataPath !== packagedSmokeUserDataPath) {
+  throw new Error('Packaged smoke failed to configure its isolated userData directory')
+}
 const closeFlushBroker = new WindowCloseFlushBroker()
+
+async function flushAllRendererWindows() {
+  const windows = BrowserWindow.getAllWindows().filter((window) => !window.isDestroyed())
+  const results = await Promise.all(
+    windows.map((window) =>
+      closeFlushBroker.request(window.webContents.id, (payload) => {
+        window.webContents.send('app-before-close', payload)
+      }),
+    ),
+  )
+  const failures = results.filter((result) => !result.ok)
+  return failures.length === 0
+    ? { ok: true }
+    : {
+        ok: false,
+        error: failures.map((failure) => failure.error || 'Renderer flush failed').join('; '),
+        recoveryAvailable: failures.every((failure) => failure.recoveryAvailable === true),
+      }
+}
+
+function scheduleRendererReloadAfterPortableImport(): void {
+  setTimeout(() => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (window.isDestroyed() || window.webContents.isDestroyed()) continue
+      window.webContents.reload()
+    }
+  }, 750)
+}
 
 if (process.platform === 'win32') {
   app.setAppUserModelId(app.isPackaged ? 'com.codehelper.app' : 'com.codehelper.app.dev')
@@ -254,8 +300,52 @@ function createWindowContextMenu(
   }
 }
 
-function createWindow(): void {
+function getExpectedRendererUrl(): string {
+  if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
+    return process.env['ELECTRON_RENDERER_URL']
+  }
+  return pathToFileURL(join(__dirname, '../renderer/index.html')).toString()
+}
+
+const MAX_RENDERER_RECOVERY_ATTEMPTS = 3
+const RENDERER_RECOVERY_STABLE_MS = 10_000
+
+async function loadRenderer(
+  mainWindow: BrowserWindow,
+  rendererRecoveryReason?: string,
+): Promise<void> {
+  if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
+    const rendererUrl = new URL(process.env['ELECTRON_RENDERER_URL'])
+    if (rendererRecoveryReason) {
+      rendererUrl.searchParams.set('rendererRecovery', rendererRecoveryReason)
+    }
+    console.log('[STARTUP] Loading renderer from dev server:', rendererUrl.toString())
+    await mainWindow.loadURL(rendererUrl.toString())
+    return
+  }
+
+  const rendererPath = join(__dirname, '../renderer/index.html')
+  console.log('[STARTUP] Loading renderer from file:', rendererPath)
+  await mainWindow.loadFile(
+    rendererPath,
+    rendererRecoveryReason ? { query: { rendererRecovery: rendererRecoveryReason } } : undefined,
+  )
+}
+
+interface CreateWindowOptions {
+  rendererRecoveryReason?: string
+  rendererRecoveryAttempts?: number
+  bounds?: { x: number; y: number; width: number; height: number }
+  maximized?: boolean
+  fullScreen?: boolean
+}
+
+function createWindow(options: CreateWindowOptions = {}): BrowserWindow {
   startupLog('Window creation starting')
+  const navigationGuard = createMainWindowNavigationGuard({
+    expectedRendererUrl: getExpectedRendererUrl(),
+    openExternal: (url) => shell.openExternal(url),
+  })
   const preloadPath = getPreloadScriptPath(__dirname)
   const iconPath = getApplicationIconPath()
   const applicationIcon = nativeImage.createFromPath(iconPath)
@@ -272,8 +362,7 @@ function createWindow(): void {
   let mainWindow: BrowserWindow
   try {
     mainWindow = new BrowserWindow({
-      width: 1200,
-      height: 800,
+      ...(options.bounds ?? { width: 1200, height: 800 }),
       minWidth: 900,
       minHeight: 600,
       backgroundColor: '#1e1e2e',
@@ -283,8 +372,12 @@ function createWindow(): void {
         preload: preloadPath,
         contextIsolation: true,
         nodeIntegration: false,
+        sandbox: true,
         webSecurity: true,
         navigateOnDragDrop: false,
+        webviewTag: false,
+        allowRunningInsecureContent: false,
+        experimentalFeatures: false,
       },
     })
     mainWindow.setIcon(applicationIcon)
@@ -296,6 +389,9 @@ function createWindow(): void {
 
   let allowClose = false
   let closeInProgress = false
+  let rendererReplacementStarted = false
+  let rendererRecoveryAttempts = options.rendererRecoveryAttempts ?? 0
+  let rendererStableTimer: ReturnType<typeof setTimeout> | null = null
   const rendererId = mainWindow.webContents.id
   mainWindow.on('close', (event) => {
     if (allowClose) return
@@ -309,11 +405,14 @@ function createWindow(): void {
       if (mainWindow.isDestroyed()) return
       let shouldClose = result.ok
       if (!shouldClose) {
+        const recoveryOnly = result.recoveryAvailable === true
         const response = await dialog.showMessageBox(mainWindow, {
           type: 'warning',
-          title: '仍有内容未保存',
-          message: '部分编辑内容未能完成持久化。',
-          detail: `${result.error ?? '保存状态未知'}\n\n返回应用可继续处理；选择仍然关闭可能丢失仅存在内存中的内容。`,
+          title: recoveryOnly ? '内容仅保存在恢复区' : '仍有内容未保存',
+          message: recoveryOnly ? '部分编辑内容尚未写入 SQLite。' : '部分编辑内容未能完成持久化。',
+          detail: recoveryOnly
+            ? `${result.error ?? '最新内容已保存在本地恢复区'}\n\n返回应用可继续重试；选择仍然关闭后，下次启动会尝试从恢复区恢复。`
+            : `${result.error ?? '保存状态未知'}\n\n返回应用可继续处理；选择仍然关闭可能丢失仅存在内存中的内容。`,
           buttons: ['返回应用', '仍然关闭'],
           defaultId: 0,
           cancelId: 0,
@@ -328,7 +427,10 @@ function createWindow(): void {
       closeInProgress = false
     })
   })
-  mainWindow.on('closed', () => closeFlushBroker.cancelSender(rendererId))
+  mainWindow.on('closed', () => {
+    closeFlushBroker.cancelSender(rendererId)
+    if (rendererStableTimer) clearTimeout(rendererStableTimer)
+  })
 
   // Content-Security-Policy: prevent XSS via inline script execution
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
@@ -347,11 +449,41 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     startupLog('Window ready-to-show — displaying window')
-    mainWindow.show()
+    if (options.maximized) mainWindow.maximize()
+    if (options.fullScreen) mainWindow.setFullScreen(true)
+    if (shouldShowBrowserWindow()) mainWindow.show()
+    else startupLog('E2E headless window remains hidden')
   })
 
   mainWindow.webContents.on('did-finish-load', () => {
     startupLog('Renderer did-finish-load')
+    if (rendererStableTimer) clearTimeout(rendererStableTimer)
+    if (rendererRecoveryAttempts > 0) {
+      rendererStableTimer = setTimeout(() => {
+        rendererRecoveryAttempts = 0
+        rendererStableTimer = null
+      }, RENDERER_RECOVERY_STABLE_MS)
+    }
+    void runPackagedSmokeIfRequested(mainWindow, {
+      isPackaged: app.isPackaged,
+      version: app.getVersion(),
+      executablePath: process.execPath,
+      userDataPath: app.getPath('userData'),
+      appPath: app.getAppPath(),
+      resourcesPath: process.resourcesPath,
+    })
+      .then((ran) => {
+        if (!ran) return
+        closeDB()
+        if (!mainWindow.isDestroyed()) mainWindow.destroy()
+        app.quit()
+      })
+      .catch((error) => {
+        startupError('Packaged smoke failed before result capture', error)
+        closeDB()
+        if (!mainWindow.isDestroyed()) mainWindow.destroy()
+        app.exit(1)
+      })
   })
 
   // Forward renderer console to main process
@@ -369,6 +501,68 @@ function createWindow(): void {
 
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
     console.error('[ERROR] Renderer process gone:', details.reason, details.exitCode)
+    closeFlushBroker.cancelSender(rendererId)
+    if (
+      details.reason === 'clean-exit' ||
+      allowClose ||
+      closeInProgress ||
+      mainWindow.isDestroyed()
+    ) {
+      return
+    }
+
+    rendererRecoveryAttempts += 1
+    if (rendererRecoveryAttempts <= MAX_RENDERER_RECOVERY_ATTEMPTS) {
+      if (rendererReplacementStarted) return
+      rendererReplacementStarted = true
+      setImmediate(() => {
+        if (mainWindow.isDestroyed()) return
+        try {
+          createWindow({
+            rendererRecoveryReason: details.reason,
+            rendererRecoveryAttempts,
+            bounds: mainWindow.getBounds(),
+            maximized: mainWindow.isMaximized(),
+            fullScreen: mainWindow.isFullScreen(),
+          })
+          mainWindow.destroy()
+        } catch (error) {
+          rendererReplacementStarted = false
+          startupError('Renderer recovery window creation failed', error)
+        }
+      })
+      return
+    }
+
+    void dialog
+      .showMessageBox(mainWindow, {
+        type: 'error',
+        title: '界面进程反复崩溃',
+        message: 'CodeHelper 界面无法保持稳定运行。',
+        detail: '最新编辑仍保留在本地恢复区。可以再重新加载一次，或关闭窗口后重新启动 CodeHelper。',
+        buttons: ['重新加载', '关闭窗口'],
+        defaultId: 0,
+        cancelId: 1,
+        noLink: true,
+      })
+      .then(({ response }) => {
+        if (mainWindow.isDestroyed()) return
+        if (response === 0) {
+          try {
+            createWindow({
+              rendererRecoveryReason: details.reason,
+              bounds: mainWindow.getBounds(),
+              maximized: mainWindow.isMaximized(),
+              fullScreen: mainWindow.isFullScreen(),
+            })
+            mainWindow.destroy()
+          } catch (error) {
+            startupError('Manual renderer recovery window creation failed', error)
+          }
+        } else {
+          mainWindow.destroy()
+        }
+      })
   })
 
   mainWindow.webContents.on('unresponsive', () => {
@@ -383,30 +577,14 @@ function createWindow(): void {
     createWindowContextMenu(mainWindow, params)
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    try {
-      const parsed = new URL(details.url)
-      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-        shell.openExternal(details.url)
-      } else {
-        console.warn(
-          `[security] Blocked navigation to disallowed protocol: ${parsed.protocol} (${details.url})`,
-        )
-      }
-    } catch {
-      console.warn(`[security] Blocked navigation to invalid URL: ${details.url}`)
-    }
-    return { action: 'deny' }
-  })
+  mainWindow.webContents.setWindowOpenHandler(navigationGuard.handleWindowOpen)
+  mainWindow.webContents.on('will-navigate', navigationGuard.handleWillNavigate)
+  mainWindow.webContents.on('will-redirect', navigationGuard.handleWillRedirect)
 
-  if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
-    console.log('[STARTUP] Loading renderer from dev server:', process.env['ELECTRON_RENDERER_URL'])
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
-  } else {
-    const rendererPath = join(__dirname, '../renderer/index.html')
-    console.log('[STARTUP] Loading renderer from file:', rendererPath)
-    mainWindow.loadFile(rendererPath)
-  }
+  void loadRenderer(mainWindow, options.rendererRecoveryReason).catch((error) =>
+    startupError('Initial renderer load failed', error),
+  )
+  return mainWindow
 }
 
 /** Log memory usage and warn if heap exceeds 512 MB. */
@@ -458,7 +636,10 @@ function registerDeferredIPC(): void {
     startupError('registerDemoDataIPC', e)
   }
   try {
-    registerExportIPC()
+    registerExportIPC({
+      requestRendererFlush: flushAllRendererWindows,
+      scheduleRendererReload: scheduleRendererReloadAfterPortableImport,
+    })
     console.log('[IPC] Registered: export/import handlers')
   } catch (e) {
     startupError('registerExportIPC', e)
@@ -565,6 +746,12 @@ app
     } catch (e) {
       startupError('registerAIIPC', e)
     }
+    try {
+      registerAgentIPC()
+      console.log('[IPC] Registered: Agent handlers')
+    } catch (e) {
+      startupError('registerAgentIPC', e)
+    }
 
     // Platform information endpoint for renderer
     registerIpcHandler('platform-info', () => getPlatformInfo())
@@ -574,6 +761,19 @@ app
       accepted: closeFlushBroker.resolve(event.sender.id, payload),
     }))
     console.log('[IPC] Registered: app close flush handshake')
+
+    try {
+      registerMaintenanceIPC({ requestRendererFlush: flushAllRendererWindows })
+      console.log('[IPC] Registered: maintenance handlers')
+    } catch (e) {
+      startupError('registerMaintenanceIPC', e)
+    }
+    try {
+      registerCapabilitiesIPC()
+      console.log('[IPC] Registered: system capabilities handler')
+    } catch (e) {
+      startupError('registerCapabilitiesIPC', e)
+    }
 
     // Register ALL IPC handlers synchronously before creating the window.
     // Using setImmediate() here creates a race condition: the deferred handlers
@@ -608,4 +808,10 @@ app
 app.on('window-all-closed', () => {
   console.log('[STARTUP] All windows closed, platform:', process.platform)
   if (process.platform !== 'darwin') app.quit()
+})
+
+app.on('will-quit', () => {
+  // `will-quit` runs after BrowserWindow close handshakes, so the renderer's
+  // final editor/draft IPC writes complete before SQLite checkpoints and closes.
+  closeDB()
 })

@@ -5,6 +5,7 @@ import { useAppStore } from '@/store'
 import { CodexPetSprite } from '@/components/CodexPetSprite'
 import { ACTIVITY_EVENT } from '@/services/analyticsService'
 import { getPetReaction, pickIdleAnimation } from '@/lib/petReactions'
+import { clampAIPetSize, DEFAULT_AI_PET_SIZE } from '@/lib/appearance'
 import {
   BUILT_IN_FIREFLY_PET,
   listInstalledPets,
@@ -40,16 +41,21 @@ interface PetPosition {
 interface StoredPetPosition extends PetPosition {
   viewportWidth: number
   viewportHeight: number
+  petSize?: number
 }
 
-function defaultPosition(): PetPosition {
+function defaultPosition(petSize = DEFAULT_AI_PET_SIZE): PetPosition {
   if (typeof window === 'undefined') return { x: 0, y: 0 }
   const minX = getPetMinX()
-  const footprint = getPetFootprint()
-  return clampPosition({
-    x: Math.max(minX, window.innerWidth - footprint.width - footprint.margin),
-    y: Math.max(PET_SAFE_TOP, window.innerHeight - footprint.height - footprint.margin),
-  })
+  const footprint = getPetFootprint(undefined, petSize)
+  return clampPosition(
+    {
+      x: Math.max(minX, window.innerWidth - footprint.width - footprint.margin),
+      y: Math.max(PET_SAFE_TOP, window.innerHeight - footprint.height - footprint.margin),
+    },
+    undefined,
+    petSize,
+  )
 }
 
 function getPetMinX(): number {
@@ -64,27 +70,57 @@ function isCompactPetViewport(
   return width <= PET_COMPACT_BREAKPOINT || height <= PET_COMPACT_HEIGHT_BREAKPOINT
 }
 
-export function getPetFootprintForViewport(width: number, height: number, view?: string) {
+function scalePetFootprint(
+  footprint: { width: number; height: number; margin: number },
+  petSize: number,
+) {
+  const scale = clampAIPetSize(petSize) / 100
+  return {
+    width: Math.round(footprint.width * scale),
+    height: Math.round(footprint.height * scale),
+    margin: footprint.margin,
+  }
+}
+
+export function getPetFootprintForViewport(
+  width: number,
+  height: number,
+  view?: string,
+  petSize = DEFAULT_AI_PET_SIZE,
+) {
   if (view === 'profile') {
-    return { width: PET_PROFILE_WIDTH, height: PET_PROFILE_HEIGHT, margin: PET_PROFILE_DOCK_MARGIN }
+    return scalePetFootprint(
+      { width: PET_PROFILE_WIDTH, height: PET_PROFILE_HEIGHT, margin: PET_PROFILE_DOCK_MARGIN },
+      petSize,
+    )
   }
   if (width <= PET_MOBILE_BREAKPOINT) {
-    return { width: PET_MOBILE_WIDTH, height: PET_MOBILE_HEIGHT, margin: PET_MOBILE_MARGIN }
+    return scalePetFootprint(
+      { width: PET_MOBILE_WIDTH, height: PET_MOBILE_HEIGHT, margin: PET_MOBILE_MARGIN },
+      petSize,
+    )
   }
   if (isCompactPetViewport(width, height)) {
-    return { width: PET_COMPACT_WIDTH, height: PET_COMPACT_HEIGHT, margin: PET_COMPACT_MARGIN }
+    return scalePetFootprint(
+      { width: PET_COMPACT_WIDTH, height: PET_COMPACT_HEIGHT, margin: PET_COMPACT_MARGIN },
+      petSize,
+    )
   }
-  return { width: PET_WIDTH, height: PET_HEIGHT, margin: PET_MARGIN }
+  return scalePetFootprint({ width: PET_WIDTH, height: PET_HEIGHT, margin: PET_MARGIN }, petSize)
 }
 
-function getPetFootprint(view?: string) {
-  if (typeof window === 'undefined') return getPetFootprintForViewport(1920, 1080, view)
-  return getPetFootprintForViewport(window.innerWidth, window.innerHeight, view)
+function getPetFootprint(view?: string, petSize = DEFAULT_AI_PET_SIZE) {
+  if (typeof window === 'undefined') return getPetFootprintForViewport(1920, 1080, view, petSize)
+  return getPetFootprintForViewport(window.innerWidth, window.innerHeight, view, petSize)
 }
 
-function clampPosition(pos: PetPosition, view?: string): PetPosition {
+function clampPosition(
+  pos: PetPosition,
+  view?: string,
+  petSize = DEFAULT_AI_PET_SIZE,
+): PetPosition {
   if (typeof window === 'undefined') return pos
-  const footprint = getPetFootprint(view)
+  const footprint = getPetFootprint(view, petSize)
   const minX = Math.min(
     getPetMinX(),
     Math.max(footprint.margin, window.innerWidth - footprint.width - footprint.margin),
@@ -101,9 +137,9 @@ function clampPosition(pos: PetPosition, view?: string): PetPosition {
   }
 }
 
-function getViewDockPosition(view: string): PetPosition | null {
+function getViewDockPosition(view: string, petSize = DEFAULT_AI_PET_SIZE): PetPosition | null {
   if (typeof window === 'undefined' || view !== 'profile') return null
-  const footprint = getPetFootprint(view)
+  const footprint = getPetFootprint(view, petSize)
   return {
     x: Math.max(getPetMinX(), window.innerWidth - footprint.width - footprint.margin),
     y: Math.max(PET_SAFE_TOP, window.innerHeight - footprint.height - footprint.margin),
@@ -114,21 +150,29 @@ function shouldDockForView(view: string): boolean {
   return getViewDockPosition(view) != null
 }
 
-function readStoredPosition(): PetPosition {
-  if (typeof window === 'undefined') return defaultPosition()
+function readStoredPosition(petSize = DEFAULT_AI_PET_SIZE): PetPosition {
+  if (typeof window === 'undefined') return defaultPosition(petSize)
   try {
     const raw = window.localStorage.getItem(PET_POSITION_STORAGE_KEY)
-    if (!raw) return defaultPosition()
+    if (!raw) return defaultPosition(petSize)
     const parsed = JSON.parse(raw) as Partial<StoredPetPosition>
-    if (!Number.isFinite(parsed.x) || !Number.isFinite(parsed.y)) return defaultPosition()
+    if (!Number.isFinite(parsed.x) || !Number.isFinite(parsed.y)) return defaultPosition(petSize)
     const stored = { x: Number(parsed.x), y: Number(parsed.y) }
     const hasStoredViewport =
       Number.isFinite(parsed.viewportWidth) && Number.isFinite(parsed.viewportHeight)
-    const footprint = getPetFootprint()
+    const footprint = getPetFootprint(undefined, petSize)
     if (hasStoredViewport) {
       const previousWidth = Number(parsed.viewportWidth)
       const previousHeight = Number(parsed.viewportHeight)
-      const previousFootprint = getPetFootprintForViewport(previousWidth, previousHeight)
+      const previousPetSize = Number.isFinite(parsed.petSize)
+        ? clampAIPetSize(Number(parsed.petSize))
+        : petSize
+      const previousFootprint = getPetFootprintForViewport(
+        previousWidth,
+        previousHeight,
+        undefined,
+        previousPetSize,
+      )
       const wasDockedRight =
         stored.x >= previousWidth - previousFootprint.width - previousFootprint.margin - 24
       const wasDockedBottom =
@@ -139,19 +183,20 @@ function readStoredPosition(): PetPosition {
       stored.x = window.innerWidth - footprint.width - footprint.margin
       stored.y = window.innerHeight - footprint.height - footprint.margin
     }
-    return clampPosition(stored)
+    return clampPosition(stored, undefined, petSize)
   } catch {
-    return defaultPosition()
+    return defaultPosition(petSize)
   }
 }
 
-function persistPosition(pos: PetPosition) {
+function persistPosition(pos: PetPosition, petSize = DEFAULT_AI_PET_SIZE) {
   if (typeof window === 'undefined') return
   try {
     const stored: StoredPetPosition = {
       ...pos,
       viewportWidth: window.innerWidth,
       viewportHeight: window.innerHeight,
+      petSize: clampAIPetSize(petSize),
     }
     window.localStorage.setItem(PET_POSITION_STORAGE_KEY, JSON.stringify(stored))
   } catch {
@@ -161,6 +206,7 @@ function persistPosition(pos: PetPosition) {
 
 export function AIPet() {
   const aiPetEnabled = useAppStore((s) => s.aiPetEnabled)
+  const aiPetSize = useAppStore((s) => s.aiPetSize)
   const animationLevel = useAppStore((s) => s.animationLevel)
   const currentView = useAppStore((s) => s.currentView)
   const setShowAITutor = useAppStore((s) => s.setShowAITutor)
@@ -169,7 +215,7 @@ export function AIPet() {
 
   const [expanded, setExpanded] = useState(false)
   const [dragging, setDragging] = useState(false)
-  const [position, setPosition] = useState<PetPosition>(() => readStoredPosition())
+  const [position, setPosition] = useState<PetPosition>(() => readStoredPosition(aiPetSize))
   const [pet, setPet] = useState<CodexPetDefinition>(BUILT_IN_FIREFLY_PET)
   const [petState, setPetState] = useState('idle')
   const [bubble, setBubble] = useState<string | null>(null)
@@ -183,6 +229,7 @@ export function AIPet() {
   const liveRef = useRef({ dragging, expanded, currentView, aiPetEnabled, petState })
   liveRef.current = { dragging, expanded, currentView, aiPetEnabled, petState }
   const latestPositionRef = useRef(position)
+  const previousPetSizeRef = useRef(aiPetSize)
   const viewportRef = useRef({ width: window.innerWidth, height: window.innerHeight })
   const dragRef = useRef<{
     pointerId: number
@@ -229,21 +276,24 @@ export function AIPet() {
     return labels[currentView] ?? '当前页面'
   }, [currentView])
 
-  const applyTransform = useCallback((next: PetPosition) => {
-    if (!rootRef.current) return
-    rootRef.current.style.transform = `translate3d(${next.x}px, ${next.y}px, 0)`
-  }, [])
+  const applyTransform = useCallback(
+    (next: PetPosition) => {
+      if (!rootRef.current) return
+      rootRef.current.style.transform = `translate3d(${next.x}px, ${next.y}px, 0) scale(${aiPetSize / 100})`
+    },
+    [aiPetSize],
+  )
 
   const scheduleTransform = useCallback(
     (next: PetPosition) => {
-      latestPositionRef.current = clampPosition(next, currentView)
+      latestPositionRef.current = clampPosition(next, currentView, aiPetSize)
       if (frameRef.current != null) return
       frameRef.current = window.requestAnimationFrame(() => {
         frameRef.current = null
         applyTransform(latestPositionRef.current)
       })
     },
-    [applyTransform, currentView],
+    [aiPetSize, applyTransform, currentView],
   )
 
   useEffect(() => {
@@ -254,15 +304,52 @@ export function AIPet() {
   useEffect(() => {
     setPosition((prev) => {
       const next = shouldDockForView(currentView)
-        ? clampPosition(getViewDockPosition(currentView) ?? prev, currentView)
-        : clampPosition(prev, currentView)
+        ? clampPosition(getViewDockPosition(currentView, aiPetSize) ?? prev, currentView, aiPetSize)
+        : clampPosition(prev, currentView, aiPetSize)
       if (next.x === prev.x && next.y === prev.y) return prev
       latestPositionRef.current = next
       applyTransform(next)
-      persistPosition(next)
+      persistPosition(next, aiPetSize)
       return next
     })
-  }, [applyTransform, currentView])
+  }, [aiPetSize, applyTransform, currentView])
+
+  useEffect(() => {
+    const previousSize = previousPetSizeRef.current
+    previousPetSizeRef.current = aiPetSize
+    if (previousSize === aiPetSize) return
+
+    setPosition((prev) => {
+      const previousFootprint = getPetFootprintForViewport(
+        window.innerWidth,
+        window.innerHeight,
+        currentView,
+        previousSize,
+      )
+      const nextFootprint = getPetFootprint(currentView, aiPetSize)
+      const wasDockedRight =
+        prev.x >= window.innerWidth - previousFootprint.width - previousFootprint.margin - 24
+      const wasDockedBottom =
+        prev.y >= window.innerHeight - previousFootprint.height - previousFootprint.margin - 24
+      const resizedPosition = {
+        x: wasDockedRight ? window.innerWidth - nextFootprint.width - nextFootprint.margin : prev.x,
+        y: wasDockedBottom
+          ? window.innerHeight - nextFootprint.height - nextFootprint.margin
+          : prev.y,
+      }
+      const next = shouldDockForView(currentView)
+        ? clampPosition(
+            getViewDockPosition(currentView, aiPetSize) ?? resizedPosition,
+            currentView,
+            aiPetSize,
+          )
+        : clampPosition(resizedPosition, currentView, aiPetSize)
+      latestPositionRef.current = next
+      applyTransform(next)
+      persistPosition(next, aiPetSize)
+      return next
+    })
+  }, [aiPetSize, applyTransform, currentView])
 
   useEffect(() => {
     const handleResize = () => {
@@ -272,6 +359,7 @@ export function AIPet() {
           previousViewport.width,
           previousViewport.height,
           currentView,
+          aiPetSize,
         )
         const wasDockedRight =
           prev.x >= previousViewport.width - previousFootprint.width - previousFootprint.margin - 24
@@ -279,23 +367,27 @@ export function AIPet() {
           prev.y >=
           previousViewport.height - previousFootprint.height - previousFootprint.margin - 24
         viewportRef.current = { width: window.innerWidth, height: window.innerHeight }
-        const footprint = getPetFootprint(currentView)
+        const footprint = getPetFootprint(currentView, aiPetSize)
         const resizedPosition = {
           x: wasDockedRight ? window.innerWidth - footprint.width - footprint.margin : prev.x,
           y: wasDockedBottom ? window.innerHeight - footprint.height - footprint.margin : prev.y,
         }
         const next = shouldDockForView(currentView)
-          ? clampPosition(getViewDockPosition(currentView) ?? prev, currentView)
-          : clampPosition(resizedPosition, currentView)
+          ? clampPosition(
+              getViewDockPosition(currentView, aiPetSize) ?? prev,
+              currentView,
+              aiPetSize,
+            )
+          : clampPosition(resizedPosition, currentView, aiPetSize)
         latestPositionRef.current = next
         applyTransform(next)
-        persistPosition(next)
+        persistPosition(next, aiPetSize)
         return next
       })
     }
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
-  }, [applyTransform, currentView])
+  }, [aiPetSize, applyTransform, currentView])
 
   useEffect(
     () => () => {
@@ -400,13 +492,13 @@ export function AIPet() {
       setDragging(false)
       setPetState('idle')
       setPosition(next)
-      persistPosition(next)
+      persistPosition(next, aiPetSize)
       rootRef.current?.releasePointerCapture?.(event.pointerId)
       window.removeEventListener('pointermove', handlePointerMove)
       window.removeEventListener('pointerup', finishDrag)
       window.removeEventListener('pointercancel', finishDrag)
     },
-    [handlePointerMove],
+    [aiPetSize, handlePointerMove],
   )
 
   const handleDragStart = useCallback(
@@ -453,6 +545,7 @@ export function AIPet() {
       data-ai-pet-root
       data-codex-pet-root
       data-active-pet-id={pet.id}
+      data-ai-pet-size={aiPetSize}
       data-animation-level={animationLevel}
       data-current-view={currentView}
       className={cn(
@@ -460,7 +553,13 @@ export function AIPet() {
         expanded && 'is-expanded',
         dragging && 'is-dragging',
       )}
-      style={{ transform: `translate3d(${position.x}px, ${position.y}px, 0)` }}
+      style={
+        {
+          '--ai-pet-inverse-scale': String(100 / aiPetSize),
+          transform: `translate3d(${position.x}px, ${position.y}px, 0) scale(${aiPetSize / 100})`,
+          transformOrigin: 'top left',
+        } as React.CSSProperties
+      }
     >
       {expanded && (
         <div className="ai-pet-card" data-ai-pet-actions>
@@ -497,7 +596,7 @@ export function AIPet() {
         {bubble && !dragging && (
           <div
             role="status"
-            className="ai-pet-bubble pointer-events-none absolute left-1/2 -top-1 z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] px-3 py-1.5 text-xs font-medium text-white shadow-lg"
+            className="ai-pet-bubble pointer-events-none absolute left-1/2 -top-1 z-10 whitespace-nowrap rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] px-3 py-1.5 text-xs font-medium text-white shadow-lg"
           >
             {bubble}
           </div>

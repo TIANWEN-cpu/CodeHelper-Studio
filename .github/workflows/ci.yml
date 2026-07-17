@@ -28,9 +28,13 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
-      - name: npm audit (high & critical)
-        run: npm audit --audit-level=high
-        continue-on-error: true
+      # Production dependencies ship to users — treat high/critical as a hard gate.
+      - name: Production dependency audit (hard gate — high & critical)
+        run: npm audit --omit=dev --audit-level=high
+
+      # Full tree (incl. dev tooling) is informational only.
+      - name: Full dependency audit (report only, includes dev)
+        run: npm audit --audit-level=high || true
 
       - name: Check for outdated dependencies
         run: npm outdated || true
@@ -130,6 +134,21 @@ jobs:
 
       - name: Verify editor workspaces in Electron
         run: npm run test:electron-workspace
+
+      - name: Verify corrupt database isolation in Electron
+        run: npm run test:electron-database-recovery
+
+      - name: Verify real Electron data-loss and multi-window flows
+        run: npm run test:e2e
+
+      - name: Upload Electron E2E diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-e2e-diagnostics
+          path: output/playwright/
+          if-no-files-found: ignore
+          retention-days: 7
 
   # ---------------------------------------------------------------
   # 4. Bundle size check
@@ -232,6 +251,14 @@ jobs:
       - name: Build renderer & main
         run: npm run build
 
+      - name: Verify Windows Job Host lifecycle
+        if: runner.os == 'Windows'
+        run: npm run test:job-host
+
+      - name: Verify supervised code runner
+        if: runner.os == 'Windows'
+        run: npm run test:electron-runner
+
       - name: Verify SQL utility process
         if: runner.os != 'Linux'
         run: npm run test:electron-sql
@@ -242,3 +269,50 @@ jobs:
           # GitHub-hosted runners cannot set chrome-sandbox setuid; disable sandbox for smoke only.
           ELECTRON_DISABLE_SANDBOX: '1'
         run: xvfb-run -a npm run test:electron-sql
+
+  # ---------------------------------------------------------------
+  # 6. Windows package smoke — full unsigned build + install verify
+  # ---------------------------------------------------------------
+  windows-package:
+    name: Windows Package Smoke
+    runs-on: windows-latest
+    needs: lint-format-typecheck
+    env:
+      # Produce an unsigned smoke package; official signing happens in release.yml.
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies with Electron native modules
+        run: npm ci
+
+      - name: Build and package Windows (unsigned)
+        run: npm run package:win
+
+      - name: Verify packaged Windows build (resources, fuses, install smoke, hashes)
+        run: npm run verify:package:win
+
+      - name: Upload release manifest and checksums
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-package-manifest
+          path: |
+            dist-release/release-manifest.json
+            dist-release/SHA256SUMS.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload packaged smoke diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-package-diagnostics
+          path: output/playwright/
+          if-no-files-found: ignore
+          retention-days: 7

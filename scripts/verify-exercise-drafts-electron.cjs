@@ -7,6 +7,12 @@ const Module = require('node:module')
 const os = require('node:os')
 const path = require('node:path')
 const ts = require('typescript')
+const {
+  createIsolatedElectronUserData,
+  finishIsolatedElectronTest,
+} = require('./electron-test-user-data.cjs')
+
+const isolatedUserData = createIsolatedElectronUserData(app, 'codehelper-draft-electron-user-data-')
 
 app.disableHardwareAcceleration()
 
@@ -59,6 +65,42 @@ function run() {
       deleted: false,
     },
   )
+  const migratedEdit = repository.saveExerciseDraft(legacy, {
+    exerciseId: 'legacy',
+    code: 'print(2)',
+    language: 'python',
+    baseRevision: 1,
+  })
+  assert.equal(migratedEdit.status, 'saved')
+  assert.equal(migratedEdit.draft.title, 'Legacy')
+  assert.equal(migratedEdit.draft.revision, 2)
+  const migratedEditRetry = repository.saveExerciseDraft(legacy, {
+    exerciseId: 'legacy',
+    code: 'print(2)',
+    language: 'python',
+    baseRevision: 1,
+  })
+  assert.equal(migratedEditRetry.status, 'saved')
+  assert.equal(migratedEditRetry.draft.title, 'Legacy')
+  assert.equal(migratedEditRetry.draft.revision, 2)
+  const explicitTitleClear = repository.saveExerciseDraft(legacy, {
+    exerciseId: 'legacy',
+    title: null,
+    code: 'print(3)',
+    language: 'python',
+    baseRevision: 2,
+  })
+  assert.equal(explicitTitleClear.status, 'saved')
+  assert.equal(explicitTitleClear.draft.title, null)
+  const explicitTitleClearRetry = repository.saveExerciseDraft(legacy, {
+    exerciseId: 'legacy',
+    title: null,
+    code: 'print(3)',
+    language: 'python',
+    baseRevision: 2,
+  })
+  assert.equal(explicitTitleClearRetry.status, 'saved')
+  assert.equal(explicitTitleClearRetry.draft.revision, 3)
   legacy.close()
 
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'codehelper-draft-electron-'))
@@ -68,6 +110,7 @@ function run() {
     assert.equal(
       repository.saveExerciseDraft(first, {
         exerciseId: 'exercise-a',
+        title: 'Exercise A',
         code: 'console.log(1)',
         language: 'javascript',
         baseRevision: 0,
@@ -84,7 +127,7 @@ function run() {
       },
       {
         exerciseId: 'exercise-a',
-        title: null,
+        title: 'Exercise A',
         code: 'console.log(1)',
         language: 'javascript',
         revision: 1,
@@ -108,11 +151,13 @@ function run() {
     assert.equal(firstWriter.status, 'saved')
     assert.equal(staleWriter.status, 'conflict')
     assert.equal(repository.getExerciseDraft(reopened, 'exercise-a').code, 'writer one')
+    assert.equal(repository.getExerciseDraft(reopened, 'exercise-a').title, 'Exercise A')
 
     const cleared = repository.clearExerciseDraft(reopened, 'exercise-a', 2)
     assert.equal(cleared.status, 'saved')
     assert.equal(cleared.draft.deleted, true)
     assert.equal(cleared.draft.revision, 3)
+    assert.equal(cleared.draft.title, 'Exercise A')
 
     const resurrect = repository.saveExerciseDraft(reopened, {
       exerciseId: 'exercise-a',
@@ -167,9 +212,9 @@ app
   .then(() => {
     run()
     console.log('DRAFT_ELECTRON_E2E_OK')
-    app.exit(0)
+    finishIsolatedElectronTest(app, isolatedUserData, 0)
   })
   .catch((error) => {
     console.error(error)
-    app.exit(1)
+    finishIsolatedElectronTest(app, isolatedUserData, 1)
   })

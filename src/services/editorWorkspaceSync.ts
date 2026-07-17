@@ -13,13 +13,22 @@ import {
   type EditorWorkspaceRecord,
 } from './editorWorkspaceService'
 import {
+  applyPendingEditorViewRecovery,
   backupEditorWorkspaceSnapshot,
+  captureEditorTabViewRecovery,
   clearEditorTabRecovery,
+  clearEditorTabViewRecovery,
   EDITOR_STORAGE_VERSION,
   flushPersistTabs,
   useEditorStore,
   type EditorTab,
 } from '@/stores/editorStore'
+import {
+  isDraftBackedPracticeTab,
+  legacyExerciseRecoveryFilename,
+  legacyExerciseRecoveryTabId,
+  stableEditorWorkspaceHash,
+} from '@/shared/editorWorkspaceContract'
 
 const CONTENT_SAVE_DELAY_MS = 500
 const VIEW_SAVE_DELAY_MS = 500
@@ -50,6 +59,11 @@ export interface EditorTabPersistenceState {
   error: string | null
 }
 
+export interface EditorWorkspaceCloseFlushResult {
+  durability: 'database' | 'recovery' | 'none'
+  error: string | null
+}
+
 const defaultDependencies: EditorWorkspaceSyncDependencies = {
   load: loadEditorWorkspace,
   migrateLegacy: migrateLegacyEditorWorkspace,
@@ -66,34 +80,25 @@ function makeClientId(): string {
   return random ? `editor-${random}` : `editor-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
-function canonicalizePersistedEditorTab<T extends { kind: EditorTab['kind']; content: string }>(
-  tab: T,
-): T {
-  return tab.kind === 'exercise' && tab.content !== '' ? { ...tab, content: '' } : tab
+function canonicalizePersistedEditorTab<
+  T extends { id: string; kind: EditorTab['kind']; content: string },
+>(tab: T): T {
+  return isDraftBackedPracticeTab(tab) && tab.content !== '' ? { ...tab, content: '' } : tab
 }
 
-function hasLegacyExerciseContent(tab: { kind: EditorTab['kind']; content: string }): boolean {
-  return tab.kind === 'exercise' && tab.content !== ''
-}
-
-function recoveredExerciseFilename(filename: string): string {
-  const extensionIndex = filename.lastIndexOf('.')
-  return extensionIndex > 0
-    ? `${filename.slice(0, extensionIndex)}.exercise-recovered${filename.slice(extensionIndex)}`
-    : `${filename}.exercise-recovered`
+function hasLegacyExerciseContent(tab: {
+  id: string
+  kind: EditorTab['kind']
+  content: string
+}): boolean {
+  return isDraftBackedPracticeTab(tab) && tab.content !== ''
 }
 
 function legacyExerciseRecoveryTab(source: EditorTab | EditorTabRecord): EditorTab | null {
   if (!hasLegacyExerciseContent(source)) return null
-  const baseId = source.id.replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 100) || 'exercise'
-  const fingerprint = mutationFingerprint({
-    id: source.id,
-    language: source.language,
-    content: source.content,
-  }).replace(/:/g, '-')
   return {
-    id: `recovered-exercise-${baseId}-${fingerprint}`.slice(0, 200),
-    filename: recoveredExerciseFilename(source.filename),
+    id: legacyExerciseRecoveryTabId(source),
+    filename: legacyExerciseRecoveryFilename(source.filename),
     language: source.language,
     content: source.content,
     kind: 'file',
@@ -165,12 +170,92 @@ function sameContent(tab: EditorTab, record: EditorTabRecord): boolean {
   )
 }
 
-function sameViewState(left: EditorTab, right: EditorTab): boolean {
+function hasProtectedLocalIntent(tab: EditorTab): boolean {
+  return (
+    tab.localOnly === true || tab.syncConflict === true || Boolean(tab.recoverySourceKeys?.length)
+  )
+}
+
+function hasUnresolvedRecoveryConflict(tab: EditorTab): boolean {
+  return tab.syncConflict === true && Boolean(tab.recoverySourceKeys?.length)
+}
+
+function databaseAssistedDegradedRestoreMessage(message: string | null): string {
+  const terminalSuffixes = ['；恢复失败，已打开默认工作区', '；已使用仍可读取的工作区数据']
+  const detail = terminalSuffixes.reduce(
+    (current, suffix) => (current.endsWith(suffix) ? current.slice(0, -suffix.length) : current),
+    message?.trim() || '本地工作区或恢复日志存在损坏',
+  )
+  return `${detail}；已从 SQLite 加载可用工作区数据，但无法确认损坏记录中是否还有未同步内容，恢复仍处于降级状态。`
+}
+
+function shouldPreferUpgradeRemote(tab: EditorTab, record: EditorTabRecord | undefined): boolean {
+  if (hasProtectedLocalIntent(tab)) return false
+  return !record || tab.revision === undefined || tab.revision !== record.revision
+}
+
+type ReloadMergeDecision =
+  | 'continue'
+  | 'accept-remote'
+  | 'accept-remote-deletion'
+  | 'persist-local'
+  | 'conflict'
+
+function decideReloadMerge(
+  tab: EditorTab,
+  localStatus: 'open' | 'closed',
+  record: EditorTabRecord | undefined,
+  baseRecords?: ReadonlyMap<string, EditorTabRecord>,
+): ReloadMergeDecision {
+  if (!baseRecords) return 'continue'
+  const base = baseRecords.get(tab.id)
+  if (!record) {
+    if (!base) return 'continue'
+    const localChanged = base.status !== localStatus || !sameContent(tab, base)
+    return localChanged ? 'conflict' : 'accept-remote-deletion'
+  }
+  if (record.status === localStatus && sameContent(tab, record)) return 'continue'
+  if (!base) return 'conflict'
+  const localChanged = base.status !== localStatus || !sameContent(tab, base)
+  const remoteChanged = base.status !== record.status || !sameContent(recordToTab(base), record)
+  if (localChanged && remoteChanged) return 'conflict'
+  if (remoteChanged) return 'accept-remote'
+  if (localChanged) return 'persist-local'
+  return 'continue'
+}
+
+function sameViewState(
+  left: { cursorPosition?: EditorTab['cursorPosition'] | null; scrollTop?: number },
+  right: { cursorPosition?: EditorTab['cursorPosition'] | null; scrollTop?: number },
+): boolean {
   return (
     left.cursorPosition?.lineNumber === right.cursorPosition?.lineNumber &&
     left.cursorPosition?.column === right.cursorPosition?.column &&
     (left.scrollTop ?? 0) === (right.scrollTop ?? 0)
   )
+}
+
+function timestamp(value: string | undefined): number {
+  const parsed = value ? Date.parse(value) : Number.NaN
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+type EditorViewMergeDecision = 'same' | 'local' | 'remote'
+
+type EditorTabQueueIntent = 'content' | 'view' | 'topology'
+
+function decideEditorViewMerge(tab: EditorTab, record: EditorTabRecord): EditorViewMergeDecision {
+  if (sameViewState(tab, record)) return 'same'
+  return timestamp(tab.viewUpdatedAt) > timestamp(record.viewUpdatedAt) ? 'local' : 'remote'
+}
+
+function applyRemoteView(tab: EditorTab, record: EditorTabRecord): EditorTab {
+  return {
+    ...tab,
+    cursorPosition: record.cursorPosition ?? undefined,
+    scrollTop: record.scrollTop,
+    viewUpdatedAt: record.viewUpdatedAt,
+  }
 }
 
 function samePersistedContent(left: EditorTab, right: EditorTab): boolean {
@@ -183,11 +268,6 @@ function samePersistedContent(left: EditorTab, right: EditorTab): boolean {
     (canonicalLeft.kind ?? 'file') === (canonicalRight.kind ?? 'file') &&
     (canonicalLeft.problemId ?? null) === (canonicalRight.problemId ?? null)
   )
-}
-
-function timestamp(value: string | undefined): number {
-  const parsed = value ? Date.parse(value) : Number.NaN
-  return Number.isFinite(parsed) ? parsed : 0
 }
 
 function mutationFingerprint(value: unknown): string {
@@ -225,9 +305,12 @@ export class EditorWorkspaceSynchronizer {
   private reloadPromise: Promise<void> | null = null
   private reloadRequested = false
   private workspacePendingCount = 0
-  private readonly initialTouchedTabIds = new Set<string>()
+  private readonly initialContentTouchedTabIds = new Set<string>()
+  private readonly initialViewTouchedTabIds = new Set<string>()
+  private readonly initialTopologyTouchedTabIds = new Set<string>()
   private initialActiveTouched = false
   private readonly conflicts = new Map<string, EditorTabRecord | null>()
+  private readonly recoveryConflictSnapshots = new Map<string, EditorTab>()
   private readonly failures = new Map<string, string>()
   private readonly closingTabIds = new Set<string>()
   private readonly closingDirtyTabIds = new Set<string>()
@@ -236,6 +319,9 @@ export class EditorWorkspaceSynchronizer {
     string,
     { fingerprint: string; mutationId: string }
   >()
+  private readonly queuedMutationCounts = new Map<string, Record<EditorTabQueueIntent, number>>()
+  private readonly contentPersistCounts = new Map<string, number>()
+  private readonly viewMutationEpochs = new Map<string, number>()
 
   constructor(
     private readonly dependencies: EditorWorkspaceSyncDependencies = defaultDependencies,
@@ -400,15 +486,19 @@ export class EditorWorkspaceSynchronizer {
       : (this.conflicts.entries().next().value as [string, EditorTabRecord | null] | undefined)
     if (!conflict || !this.conflicts.has(conflict[0])) return true
     const [id, databaseRecord] = conflict
-    if (resolution === 'use-database') {
-      this.applyDatabaseConflictResolution(id, databaseRecord ?? null)
-      return true
-    }
-
     const state = useEditorStore.getState()
     const local =
       state.tabs.find((tab) => tab.id === id) ??
       state.recentlyClosedTabs.find((tab) => tab.id === id)
+    if (resolution === 'use-database') {
+      const recoveryLocal = local ?? this.recoveryConflictSnapshots.get(id)
+      if (recoveryLocal && !this.clearRecoveryForTab(recoveryLocal, true)) {
+        this.markRecoveryCleanupFailure(id)
+        return false
+      }
+      this.applyDatabaseConflictResolution(id, databaseRecord ?? null)
+      return true
+    }
     if (!local) return false
 
     if (resolution === 'save-copy') {
@@ -416,7 +506,7 @@ export class EditorWorkspaceSynchronizer {
       this.withSuppressedObserver(() => useEditorStore.getState().addTab(copy))
       try {
         const copyState = useEditorStore.getState()
-        await this.persistOpenTab(
+        const saved = await this.persistOpenTab(
           copy,
           Math.max(
             0,
@@ -424,8 +514,14 @@ export class EditorWorkspaceSynchronizer {
           ),
           true,
         )
+        if (!saved) return false
       } catch (error) {
         this.markFailure(error, `content:${copy.id}`)
+        return false
+      }
+      if (!this.clearRecoveryForTab(local, true)) {
+        this.markRecoveryCleanupFailure(id)
+        return false
       }
       this.applyDatabaseConflictResolution(id, databaseRecord ?? null)
       this.withSuppressedObserver(() => useEditorStore.getState().setActiveTab(copy.id))
@@ -456,6 +552,10 @@ export class EditorWorkspaceSynchronizer {
         true,
       )
       if (!saved) return false
+      if (!this.clearRecoveryForTab(currentLocal, true)) {
+        this.markRecoveryCleanupFailure(id)
+        return false
+      }
       this.conflicts.delete(id)
       this.clearConflictFlag(id)
       this.clearFailuresForTab(id)
@@ -468,28 +568,67 @@ export class EditorWorkspaceSynchronizer {
     }
   }
 
+  private rememberRecoveryConflict(tab: EditorTab): void {
+    if (!tab.recoverySourceKeys?.length || this.recoveryConflictSnapshots.has(tab.id)) return
+    this.recoveryConflictSnapshots.set(tab.id, {
+      ...tab,
+      ...(tab.cursorPosition ? { cursorPosition: { ...tab.cursorPosition } } : {}),
+      recoverySourceKeys: [...(tab.recoverySourceKeys ?? [])],
+    })
+  }
+
+  private captureRecoveryConflictSnapshots(): void {
+    const state = useEditorStore.getState()
+    for (const tab of [...state.tabs, ...state.recentlyClosedTabs]) {
+      this.rememberRecoveryConflict(tab)
+    }
+  }
+
+  private hasInitialContentIntent(id: string): boolean {
+    return this.initialContentTouchedTabIds.has(id) || this.initialTopologyTouchedTabIds.has(id)
+  }
+
+  private hasInitialViewIntent(id: string): boolean {
+    return this.initialViewTouchedTabIds.has(id)
+  }
+
+  private hasInitialTabIntent(id: string): boolean {
+    return this.hasInitialContentIntent(id) || this.hasInitialViewIntent(id)
+  }
+
+  private consumeInitialTabIntent(id: string): void {
+    this.initialContentTouchedTabIds.delete(id)
+    this.initialViewTouchedTabIds.delete(id)
+    this.initialTopologyTouchedTabIds.delete(id)
+  }
+
   private async initialize(): Promise<void> {
     this.setDatabaseState('syncing', null)
     this.initializing = true
     this.reconciling = true
+    this.captureRecoveryConflictSnapshots()
     this.subscribeRemote()
     this.subscribeStore()
     try {
       let remote = await this.dependencies.load(DEFAULT_EDITOR_WORKSPACE_ID)
       if (this.stopped) return
+      const loadedStorageVersion = remote.legacyStorageVersion
+      const upgradedExistingWorkspace =
+        loadedStorageVersion > 0 && loadedStorageVersion < EDITOR_STORAGE_VERSION
       this.seedRemote(remote)
-      // Only import localStorage into an uninitialized SQLite workspace.
-      // Already-versioned workspaces (v1/v2/v3) reconcile in place so a version
-      // bump never replaces durable remote tabs with an empty or stale local payload.
-      if (remote.legacyStorageVersion === 0) {
+      // Import the full local snapshot only into an uninitialized SQLite workspace.
+      // Marker v1/v2 workspaces still run the repository's in-place v3 data upgrade,
+      // but receive no local topology payload so stale snapshots cannot replace SQLite.
+      if (remote.legacyStorageVersion < EDITOR_STORAGE_VERSION) {
         const local = canonicalizeLocalWorkspace(useEditorStore.getState())
         const hasLocalSnapshot = local.lastPersistedAt !== null || local.dirty
-        if (hasLocalSnapshot) backupEditorWorkspaceSnapshot()
+        const shouldImportLocalSnapshot = remote.legacyStorageVersion === 0 && hasLocalSnapshot
+        if (shouldImportLocalSnapshot) backupEditorWorkspaceSnapshot()
         const migrationPayload = {
           workspaceId: DEFAULT_EDITOR_WORKSPACE_ID,
           storageVersion: EDITOR_STORAGE_VERSION,
-          activeTabId: hasLocalSnapshot ? local.activeTabId : null,
-          tabs: hasLocalSnapshot
+          activeTabId: shouldImportLocalSnapshot ? local.activeTabId : null,
+          tabs: shouldImportLocalSnapshot
             ? [
                 ...local.tabs.map((tab, position) => ({
                   id: tab.id,
@@ -529,7 +668,7 @@ export class EditorWorkspaceSynchronizer {
         this.remapRecoveredMigrationTabs(migration.recoveredTabMappings, remote)
         this.replaceRemote(remote)
       }
-      await this.reconcileInitialWorkspace(remote)
+      await this.reconcileInitialWorkspace(remote, undefined, upgradedExistingWorkspace)
       this.clearFailure('initialize')
       this.initializing = false
       this.scheduleBufferedInitialChanges()
@@ -595,12 +734,27 @@ export class EditorWorkspaceSynchronizer {
       }))
     })
     for (const [sourceId, recoveredId] of Object.entries(mappings)) {
-      if (this.initialTouchedTabIds.delete(sourceId)) this.initialTouchedTabIds.add(recoveredId)
+      for (const touched of [
+        this.initialContentTouchedTabIds,
+        this.initialViewTouchedTabIds,
+        this.initialTopologyTouchedTabIds,
+      ]) {
+        if (touched.delete(sourceId)) touched.add(recoveredId)
+      }
+      const conflictSnapshot = this.recoveryConflictSnapshots.get(sourceId)
+      if (conflictSnapshot) {
+        this.recoveryConflictSnapshots.delete(sourceId)
+        this.recoveryConflictSnapshots.set(recoveredId, { ...conflictSnapshot, id: recoveredId })
+      }
     }
     flushPersistTabs()
   }
 
-  private async reconcileInitialWorkspace(remote: EditorWorkspaceRecord): Promise<void> {
+  private async reconcileInitialWorkspace(
+    remote: EditorWorkspaceRecord,
+    baseRecords?: ReadonlyMap<string, EditorTabRecord>,
+    preferRemoteSnapshot = false,
+  ): Promise<void> {
     const local = canonicalizeLocalWorkspace(useEditorStore.getState())
     const hasLocalSnapshot = local.lastPersistedAt !== null || local.dirty
     if (!hasLocalSnapshot && (remote.tabs.length > 0 || remote.recentlyClosedTabs.length > 0)) {
@@ -615,6 +769,16 @@ export class EditorWorkspaceSynchronizer {
           ),
         )
       }
+      const hydrated = useEditorStore.getState()
+      for (const record of remote.tabs) {
+        const tab = hydrated.tabs.find((item) => item.id === record.id)
+        if (!tab || !sameContent(tab, record)) continue
+        if (sameViewState(tab, record)) {
+          clearEditorTabViewRecovery(captureEditorTabViewRecovery(tab.id))
+          continue
+        }
+        if (decideEditorViewMerge(tab, record) === 'local') await this.persistViewState(tab.id)
+      }
       return
     }
 
@@ -624,36 +788,149 @@ export class EditorWorkspaceSynchronizer {
     const desiredOpen: EditorTab[] = []
     const desiredClosed: EditorTab[] = []
     const initialTasks: Array<() => Promise<void>> = []
+    const scheduledViewSaveIds = new Set<string>()
     const seen = new Set<string>()
 
     local.tabs.forEach((tab, position) => {
       const record = remoteById.get(tab.id)
-      const touchedDuringInitialization = this.initialTouchedTabIds.has(tab.id)
-      const hasProtectedLocalIntent =
-        tab.localOnly === true ||
-        Boolean(tab.recoverySourceKeys?.length) ||
-        this.hasFailureForTab(tab.id)
-      const localUpdatedAt = record ? timestamp(tab.updatedAt) : 0
-      const remoteUpdatedAt = record ? timestamp(record.updatedAt) : 0
-      const shouldPersistLocal =
-        touchedDuringInitialization || (localUpdatedAt > 0 && localUpdatedAt > remoteUpdatedAt)
       seen.add(tab.id)
       if (tab.syncConflict) {
-        if (record?.status === 'open' && sameContent(tab, record)) {
-          desiredOpen.push({
-            ...tab,
-            syncConflict: undefined,
-            localOnly: undefined,
-            revision: record.revision,
-            updatedAt: record.updatedAt,
+        this.rememberRecoveryConflict(tab)
+        this.consumeInitialTabIntent(tab.id)
+        const recordMatches = record?.status === 'open' && sameContent(tab, record)
+        desiredOpen.push({
+          ...tab,
+          ...(record ? { revision: record.revision } : {}),
+          ...(recordMatches ? { updatedAt: record.updatedAt } : {}),
+        })
+        this.conflicts.set(tab.id, record ?? null)
+        const canPersistRecoveryConflict =
+          hasUnresolvedRecoveryConflict(tab) &&
+          (!record ||
+            (record.status === 'open' &&
+              tab.revision !== undefined &&
+              tab.revision === record.revision &&
+              !recordMatches))
+        if (canPersistRecoveryConflict) {
+          initialTasks.push(async () => {
+            const currentState = useEditorStore.getState()
+            const current = currentState.tabs.find((item) => item.id === tab.id) ?? tab
+            await this.persistOpenTab(
+              current,
+              Math.max(
+                0,
+                currentState.tabs.findIndex((item) => item.id === tab.id),
+              ),
+              true,
+            )
           })
-        } else {
-          desiredOpen.push({
-            ...tab,
-            ...(record ? { revision: record.revision } : {}),
-          })
-          this.conflicts.set(tab.id, record ?? null)
         }
+        return
+      }
+      const touchedDuringInitialLoad = baseRecords === undefined && this.hasInitialTabIntent(tab.id)
+      const hasInitialContentIntent =
+        touchedDuringInitialLoad &&
+        (this.hasInitialContentIntent(tab.id) || hasProtectedLocalIntent(tab))
+      const hasInitialViewIntent = touchedDuringInitialLoad && this.hasInitialViewIntent(tab.id)
+      if (touchedDuringInitialLoad && record?.status === 'open' && sameContent(tab, record)) {
+        this.consumeInitialTabIntent(tab.id)
+      } else if (touchedDuringInitialLoad && !hasInitialContentIntent) {
+        this.consumeInitialTabIntent(tab.id)
+        if (!record) {
+          if (tab.revision !== undefined) {
+            desiredOpen.push({ ...tab, syncConflict: true })
+            this.conflicts.set(tab.id, null)
+            return
+          }
+          desiredOpen.push(tab)
+          initialTasks.push(async () => {
+            const saved = await this.persistCurrentOpenTab(tab.id, tab, position)
+            if (saved && hasInitialViewIntent) await this.persistViewState(tab.id)
+          })
+          return
+        }
+        if (record.status !== 'open') {
+          desiredClosed.push(recordToTab(record))
+          clearEditorTabViewRecovery(captureEditorTabViewRecovery(tab.id))
+          return
+        }
+        const viewDecision = decideEditorViewMerge(tab, record)
+        const remoteTab = recordToTab(record)
+        desiredOpen.push(
+          viewDecision === 'local'
+            ? {
+                ...remoteTab,
+                cursorPosition: tab.cursorPosition,
+                scrollTop: tab.scrollTop,
+                viewUpdatedAt: tab.viewUpdatedAt,
+              }
+            : remoteTab,
+        )
+        if (viewDecision === 'local') {
+          scheduledViewSaveIds.add(tab.id)
+          initialTasks.push(() => this.persistViewState(tab.id))
+        } else {
+          clearEditorTabViewRecovery(captureEditorTabViewRecovery(tab.id))
+        }
+        return
+      } else if (touchedDuringInitialLoad) {
+        this.consumeInitialTabIntent(tab.id)
+        const canPersistAtKnownRevision =
+          (!record && tab.revision === undefined) ||
+          (record !== undefined && tab.revision !== undefined && tab.revision === record.revision)
+        if (!canPersistAtKnownRevision) {
+          desiredOpen.push({ ...tab, syncConflict: true })
+          this.conflicts.set(tab.id, record ?? null)
+          return
+        }
+        const viewDecision = record ? decideEditorViewMerge(tab, record) : 'local'
+        const touchedTab =
+          record && viewDecision === 'remote'
+            ? applyRemoteView({ ...tab, revision: record.revision }, record)
+            : record
+              ? { ...tab, revision: record.revision }
+              : tab
+        desiredOpen.push(touchedTab)
+        if (record && viewDecision !== 'local') {
+          clearEditorTabViewRecovery(captureEditorTabViewRecovery(tab.id))
+        }
+        if (hasInitialViewIntent && viewDecision === 'local') {
+          scheduledViewSaveIds.add(tab.id)
+        }
+        initialTasks.push(async () => {
+          const saved = await this.persistCurrentOpenTab(tab.id, tab, position)
+          if (saved && hasInitialViewIntent && viewDecision === 'local') {
+            await this.persistViewState(tab.id)
+          }
+        })
+        return
+      }
+      if (preferRemoteSnapshot && shouldPreferUpgradeRemote(tab, record)) {
+        if (record?.status === 'open') desiredOpen.push(recordToTab(record))
+        else if (record?.status === 'closed') desiredClosed.push(recordToTab(record))
+        return
+      }
+      const reloadDecision = decideReloadMerge(tab, 'open', record, baseRecords)
+      if (reloadDecision === 'conflict') {
+        desiredOpen.push({
+          ...tab,
+          syncConflict: true,
+          ...(record ? { revision: record.revision } : {}),
+        })
+        this.conflicts.set(tab.id, record ?? null)
+        return
+      }
+      if (reloadDecision === 'accept-remote-deletion') return
+      if (reloadDecision === 'accept-remote' && record) {
+        if (record.status === 'open') desiredOpen.push(recordToTab(record))
+        else desiredClosed.push(recordToTab(record))
+        return
+      }
+      if (reloadDecision === 'persist-local' && record) {
+        desiredOpen.push({ ...tab, revision: record.revision })
+        initialTasks.push(async () => {
+          await this.persistCurrentOpenTab(tab.id, tab, position)
+        })
         return
       }
       if (!record) {
@@ -664,86 +941,124 @@ export class EditorWorkspaceSynchronizer {
         return
       }
       if (record.status === 'open' && sameContent(tab, record)) {
-        desiredOpen.push({
+        const viewDecision = decideEditorViewMerge(tab, record)
+        const recoveryCleared = this.clearRecoveryForTab(tab)
+        const reconciled = {
           ...tab,
           syncConflict: undefined,
-          localOnly: undefined,
+          localOnly: recoveryCleared ? undefined : tab.localOnly,
+          recoverySourceKeys: recoveryCleared ? undefined : tab.recoverySourceKeys,
+          recoveryOriginalId: recoveryCleared ? undefined : tab.recoveryOriginalId,
           revision: record.revision,
           updatedAt: record.updatedAt,
-        })
-        if (
-          record.position !== position ||
-          tab.cursorPosition?.lineNumber !== record.cursorPosition?.lineNumber ||
-          tab.cursorPosition?.column !== record.cursorPosition?.column ||
-          (tab.scrollTop ?? 0) !== record.scrollTop
-        ) {
+          ...(viewDecision === 'local' ? {} : { viewUpdatedAt: record.viewUpdatedAt }),
+        }
+        desiredOpen.push(
+          viewDecision === 'remote' ? applyRemoteView(reconciled, record) : reconciled,
+        )
+        if (viewDecision !== 'local') {
+          clearEditorTabViewRecovery(captureEditorTabViewRecovery(tab.id))
+        }
+        if (record.position !== position || viewDecision === 'local') {
+          if (viewDecision === 'local') scheduledViewSaveIds.add(tab.id)
           initialTasks.push(async () => {
             const saved = await this.persistCurrentOpenTab(tab.id, tab, position)
-            if (saved) await this.persistViewState(tab.id)
+            if (saved && viewDecision === 'local') await this.persistViewState(tab.id)
           })
         }
         return
       }
-      if (tab.revision === undefined || tab.revision !== record.revision) {
-        if (shouldPersistLocal) {
-          desiredOpen.push({ ...tab, revision: record.revision })
-          initialTasks.push(async () => {
-            await this.persistCurrentOpenTab(tab.id, tab, position)
-          })
-        } else if (hasProtectedLocalIntent) {
-          desiredOpen.push({ ...tab, syncConflict: true })
-          this.conflicts.set(tab.id, record)
-        } else if (record.status === 'open') desiredOpen.push(recordToTab(record))
-        else desiredClosed.push(recordToTab(record))
-        return
-      }
-      if (shouldPersistLocal) {
-        desiredOpen.push({ ...tab, revision: record.revision })
-        initialTasks.push(async () => {
-          await this.persistCurrentOpenTab(tab.id, tab, position)
-        })
-      } else if (remoteUpdatedAt > localUpdatedAt && !hasProtectedLocalIntent) {
-        if (record.status === 'open') desiredOpen.push(recordToTab(record))
-        else desiredClosed.push(recordToTab(record))
-      } else {
+      if (
+        tab.revision === undefined ||
+        tab.revision !== record.revision ||
+        record.status !== 'open'
+      ) {
         desiredOpen.push({ ...tab, syncConflict: true })
         this.conflicts.set(tab.id, record)
+        return
       }
+      desiredOpen.push({ ...tab, revision: record.revision })
+      initialTasks.push(async () => {
+        await this.persistCurrentOpenTab(tab.id, tab, position)
+      })
     })
-
-    for (const record of remote.tabs) {
-      if (!seen.has(record.id)) desiredOpen.push(recordToTab(record))
-    }
 
     local.recentlyClosedTabs.forEach((tab) => {
       const record = remoteById.get(tab.id)
-      const touchedDuringInitialization = this.initialTouchedTabIds.has(tab.id)
-      const hasProtectedLocalIntent =
-        tab.localOnly === true ||
-        Boolean(tab.recoverySourceKeys?.length) ||
-        this.hasFailureForTab(tab.id)
-      const localUpdatedAt = record ? timestamp(tab.updatedAt) : 0
-      const remoteUpdatedAt = record ? timestamp(record.updatedAt) : 0
-      const shouldPersistLocal =
-        touchedDuringInitialization || (localUpdatedAt > 0 && localUpdatedAt > remoteUpdatedAt)
       if (seen.has(tab.id)) return
       seen.add(tab.id)
       if (tab.syncConflict) {
-        if (record?.status === 'closed' && sameContent(tab, record)) {
-          desiredClosed.push({
-            ...tab,
-            syncConflict: undefined,
-            localOnly: undefined,
-            revision: record.revision,
-            updatedAt: record.updatedAt,
-          })
-        } else {
-          desiredClosed.push({
-            ...tab,
-            ...(record ? { revision: record.revision } : {}),
-          })
-          this.conflicts.set(tab.id, record ?? null)
+        this.rememberRecoveryConflict(tab)
+        this.consumeInitialTabIntent(tab.id)
+        const recordMatches = record?.status === 'closed' && sameContent(tab, record)
+        desiredClosed.push({
+          ...tab,
+          ...(record ? { revision: record.revision } : {}),
+          ...(recordMatches ? { updatedAt: record.updatedAt } : {}),
+        })
+        this.conflicts.set(tab.id, record ?? null)
+        return
+      }
+      const touchedDuringInitialLoad = baseRecords === undefined && this.hasInitialTabIntent(tab.id)
+      const hasInitialContentIntent =
+        touchedDuringInitialLoad &&
+        (this.hasInitialContentIntent(tab.id) || hasProtectedLocalIntent(tab))
+      if (touchedDuringInitialLoad && record?.status === 'closed' && sameContent(tab, record)) {
+        this.consumeInitialTabIntent(tab.id)
+      } else if (touchedDuringInitialLoad && !hasInitialContentIntent) {
+        this.consumeInitialTabIntent(tab.id)
+        if (!record) {
+          if (tab.revision !== undefined) {
+            desiredClosed.push({ ...tab, syncConflict: true })
+            this.conflicts.set(tab.id, null)
+            return
+          }
+          desiredClosed.push(tab)
+          initialTasks.push(() => this.persistCurrentClosedTab(tab.id, tab))
+          return
         }
+        if (record.status === 'open') desiredOpen.push(recordToTab(record))
+        else desiredClosed.push(recordToTab(record))
+        clearEditorTabViewRecovery(captureEditorTabViewRecovery(tab.id))
+        return
+      } else if (touchedDuringInitialLoad) {
+        this.consumeInitialTabIntent(tab.id)
+        const canPersistAtKnownRevision =
+          (!record && tab.revision === undefined) ||
+          (record !== undefined && tab.revision !== undefined && tab.revision === record.revision)
+        if (!canPersistAtKnownRevision) {
+          desiredClosed.push({ ...tab, syncConflict: true })
+          this.conflicts.set(tab.id, record ?? null)
+          return
+        }
+        desiredClosed.push(record ? { ...tab, revision: record.revision } : tab)
+        initialTasks.push(() => this.persistCurrentClosedTab(tab.id, tab))
+        return
+      }
+      if (preferRemoteSnapshot && shouldPreferUpgradeRemote(tab, record)) {
+        if (record?.status === 'open') desiredOpen.push(recordToTab(record))
+        else if (record?.status === 'closed') desiredClosed.push(recordToTab(record))
+        return
+      }
+      const reloadDecision = decideReloadMerge(tab, 'closed', record, baseRecords)
+      if (reloadDecision === 'conflict') {
+        desiredClosed.push({
+          ...tab,
+          syncConflict: true,
+          ...(record ? { revision: record.revision } : {}),
+        })
+        this.conflicts.set(tab.id, record ?? null)
+        return
+      }
+      if (reloadDecision === 'accept-remote-deletion') return
+      if (reloadDecision === 'accept-remote' && record) {
+        if (record.status === 'open') desiredOpen.push(recordToTab(record))
+        else desiredClosed.push(recordToTab(record))
+        return
+      }
+      if (reloadDecision === 'persist-local' && record) {
+        desiredClosed.push({ ...tab, revision: record.revision })
+        initialTasks.push(() => this.persistCurrentClosedTab(tab.id, tab))
         return
       }
       if (!record) {
@@ -752,38 +1067,34 @@ export class EditorWorkspaceSynchronizer {
         return
       }
       if (record.status === 'closed' && sameContent(tab, record)) {
+        const recoveryCleared = this.clearRecoveryForTab(tab)
         desiredClosed.push({
           ...tab,
           syncConflict: undefined,
-          localOnly: undefined,
+          localOnly: recoveryCleared ? undefined : tab.localOnly,
+          recoverySourceKeys: recoveryCleared ? undefined : tab.recoverySourceKeys,
+          recoveryOriginalId: recoveryCleared ? undefined : tab.recoveryOriginalId,
           revision: record.revision,
           updatedAt: record.updatedAt,
         })
         return
       }
-      if (tab.revision === undefined || tab.revision !== record.revision) {
-        if (shouldPersistLocal) {
-          desiredClosed.push({ ...tab, revision: record.revision })
-          initialTasks.push(() => this.persistCurrentClosedTab(tab.id, tab))
-        } else if (hasProtectedLocalIntent) {
-          desiredClosed.push({ ...tab, syncConflict: true })
-          this.conflicts.set(tab.id, record)
-        } else if (record.status === 'open') desiredOpen.push(recordToTab(record))
-        else desiredClosed.push(recordToTab(record))
-        return
-      }
-      if (shouldPersistLocal) {
-        desiredClosed.push({ ...tab, revision: record.revision })
-        initialTasks.push(() => this.persistCurrentClosedTab(tab.id, tab))
-      } else if (remoteUpdatedAt > localUpdatedAt && !hasProtectedLocalIntent) {
-        if (record.status === 'open') desiredOpen.push(recordToTab(record))
-        else desiredClosed.push(recordToTab(record))
-      } else {
+      if (
+        tab.revision === undefined ||
+        tab.revision !== record.revision ||
+        record.status !== 'closed'
+      ) {
         desiredClosed.push({ ...tab, syncConflict: true })
         this.conflicts.set(tab.id, record)
+        return
       }
+      desiredClosed.push({ ...tab, revision: record.revision })
+      initialTasks.push(() => this.persistCurrentClosedTab(tab.id, tab))
     })
 
+    for (const record of remote.tabs) {
+      if (!seen.has(record.id)) desiredOpen.push(recordToTab(record))
+    }
     for (const record of remote.recentlyClosedTabs) {
       if (!seen.has(record.id)) desiredClosed.push(recordToTab(record))
     }
@@ -803,12 +1114,45 @@ export class EditorWorkspaceSynchronizer {
       })
     }
 
+    const pendingViews = applyPendingEditorViewRecovery(desiredOpen, desiredClosed)
+    const reconcileView = (tab: EditorTab, status: 'open' | 'closed'): EditorTab => {
+      const record = remoteById.get(tab.id)
+      if (!record || record.status !== status) return tab
+      const decision = decideEditorViewMerge(tab, record)
+      if (decision === 'local') {
+        if (
+          status === 'open' &&
+          !tab.syncConflict &&
+          !this.conflicts.has(tab.id) &&
+          !scheduledViewSaveIds.has(tab.id)
+        ) {
+          scheduledViewSaveIds.add(tab.id)
+          initialTasks.push(() => this.persistViewState(tab.id))
+        }
+        return tab
+      }
+      clearEditorTabViewRecovery(captureEditorTabViewRecovery(tab.id))
+      return decision === 'remote'
+        ? applyRemoteView(tab, record)
+        : { ...tab, viewUpdatedAt: record.viewUpdatedAt }
+    }
+    const reconciledOpen = pendingViews.tabs.map((tab) => reconcileView(tab, 'open'))
+    const reconciledClosed = pendingViews.recentlyClosedTabs.map((tab) =>
+      reconcileView(tab, 'closed'),
+    )
+
     const preferredActive =
-      (this.initialActiveTouched || local.lastPersistedAt !== null || local.dirty) &&
-      desiredOpen.some((tab) => tab.id === local.activeTabId)
+      (this.initialActiveTouched ||
+        (!preferRemoteSnapshot && (local.lastPersistedAt !== null || local.dirty))) &&
+      reconciledOpen.some((tab) => tab.id === local.activeTabId)
         ? local.activeTabId
         : remote.activeTabId
-    this.replaceStoreWorkspace(desiredOpen, desiredClosed, preferredActive)
+    this.replaceStoreWorkspace(
+      reconciledOpen,
+      reconciledClosed,
+      preferredActive,
+      remoteById.size > 0,
+    )
 
     for (const task of initialTasks) {
       if (this.stopped) return
@@ -824,10 +1168,15 @@ export class EditorWorkspaceSynchronizer {
       remoteSources,
       remoteSources.map((record) => record.id),
     )
-    this.replaceStoreWorkspace(
+    const viewRecovered = applyPendingEditorViewRecovery(
       [...remote.tabs.map(recordToTab), ...recovered],
       remote.recentlyClosedTabs.map(recordToTab),
+    )
+    this.replaceStoreWorkspace(
+      viewRecovered.tabs,
+      viewRecovered.recentlyClosedTabs,
       remote.activeTabId,
+      remoteSources.length > 0,
     )
     flushPersistTabs()
     return recovered
@@ -837,6 +1186,7 @@ export class EditorWorkspaceSynchronizer {
     tabs: EditorTab[],
     recentlyClosedTabs: EditorTab[],
     activeTabId: string | null,
+    loadedDatabaseWorkspace = false,
   ): void {
     const currentState = useEditorStore.getState()
     const nextActive =
@@ -854,6 +1204,8 @@ export class EditorWorkspaceSynchronizer {
           (!samePersistedContent(currentActiveTab, nextActiveTab) ||
             !sameViewState(currentActiveTab, nextActiveTab)),
         ))
+    const databaseAssistedDegradedRestore =
+      currentState.restoreStatus === 'degraded' && loadedDatabaseWorkspace
     this.withSuppressedObserver(() => {
       useEditorStore.setState({
         tabs,
@@ -862,6 +1214,12 @@ export class EditorWorkspaceSynchronizer {
         hydrated: true,
         dirty: false,
         persistenceError: null,
+        ...(databaseAssistedDegradedRestore
+          ? {
+              restoreStatus: 'degraded' as const,
+              restoreMessage: databaseAssistedDegradedRestoreMessage(currentState.restoreMessage),
+            }
+          : {}),
         hydrationEpoch: shouldRehydrateActive
           ? currentState.hydrationEpoch + 1
           : currentState.hydrationEpoch,
@@ -942,14 +1300,13 @@ export class EditorWorkspaceSynchronizer {
       const before = previousTabs.get(id)
       const changedLocation =
         state.tabs.some((tab) => tab.id === id) !== previous.tabs.some((tab) => tab.id === id)
-      if (
-        !current ||
-        !before ||
-        changedLocation ||
-        !samePersistedContent(current, before) ||
-        !sameViewState(current, before)
-      ) {
-        this.initialTouchedTabIds.add(id)
+      if (before) this.rememberRecoveryConflict(before)
+      if (!current || !before || changedLocation) this.initialTopologyTouchedTabIds.add(id)
+      if (!current || !before || !samePersistedContent(current, before)) {
+        this.initialContentTouchedTabIds.add(id)
+      }
+      if (current && before && !sameViewState(current, before)) {
+        this.initialViewTouchedTabIds.add(id)
       }
     }
     if (state.activeTabId !== previous.activeTabId) this.initialActiveTouched = true
@@ -957,18 +1314,27 @@ export class EditorWorkspaceSynchronizer {
 
   private scheduleBufferedInitialChanges(): void {
     const state = useEditorStore.getState()
-    for (const id of this.initialTouchedTabIds) {
+    const touchedIds = new Set([
+      ...this.initialContentTouchedTabIds,
+      ...this.initialViewTouchedTabIds,
+      ...this.initialTopologyTouchedTabIds,
+    ])
+    for (const id of touchedIds) {
       const openTab = state.tabs.find((tab) => tab.id === id)
       if (openTab) {
-        this.scheduleContentSave(id)
-        this.scheduleViewSave(id)
+        if (this.hasInitialContentIntent(id)) this.scheduleContentSave(id)
+        if (this.hasInitialViewIntent(id)) this.scheduleViewSave(id)
         continue
       }
       const closedTab = state.recentlyClosedTabs.find((tab) => tab.id === id)
-      if (closedTab) this.scheduleClose(closedTab, this.records.get(id)?.position ?? 0)
+      if (closedTab && this.hasInitialContentIntent(id)) {
+        this.scheduleClose(closedTab, this.records.get(id)?.position ?? 0)
+      }
     }
     if (this.initialActiveTouched) this.scheduleActiveTab(state.activeTabId)
-    this.initialTouchedTabIds.clear()
+    this.initialContentTouchedTabIds.clear()
+    this.initialViewTouchedTabIds.clear()
+    this.initialTopologyTouchedTabIds.clear()
     this.initialActiveTouched = false
   }
 
@@ -1126,6 +1492,23 @@ export class EditorWorkspaceSynchronizer {
     position: number,
     allowConflict = false,
   ): Promise<boolean> {
+    const count = (this.contentPersistCounts.get(tab.id) ?? 0) + 1
+    this.contentPersistCounts.set(tab.id, count)
+    try {
+      return await this.persistOpenTabMutation(tab, position, allowConflict)
+    } finally {
+      const remaining = Math.max(0, (this.contentPersistCounts.get(tab.id) ?? 1) - 1)
+      if (remaining === 0) this.contentPersistCounts.delete(tab.id)
+      else this.contentPersistCounts.set(tab.id, remaining)
+      this.markSyncedIfIdle()
+    }
+  }
+
+  private async persistOpenTabMutation(
+    tab: EditorTab,
+    position: number,
+    allowConflict = false,
+  ): Promise<boolean> {
     const persistedTab = canonicalizePersistedEditorTab(tab)
     if (this.stopped) return false
     if (this.conflicts.has(persistedTab.id) && !allowConflict) return false
@@ -1185,6 +1568,19 @@ export class EditorWorkspaceSynchronizer {
       (mutationId) => this.dependencies.save({ ...payload, mutationId }),
     )
     if (result.status === 'conflict') {
+      if (
+        result.current?.status === 'open' &&
+        sameContent(persistedTab, result.current) &&
+        result.current.position === position
+      ) {
+        this.clearFailure(`content:${persistedTab.id}`)
+        this.clearRecoveryForTab(persistedTab)
+        this.acceptGeneration(result.generation)
+        this.acceptRecord(result.current)
+        this.applyRecordMetadata(result.current)
+        this.markSyncedIfIdle()
+        return true
+      }
       this.markConflict(persistedTab.id, result.current)
       this.acceptGeneration(result.generation)
       return false
@@ -1274,9 +1670,15 @@ export class EditorWorkspaceSynchronizer {
       scrollTop: tab.scrollTop ?? 0,
       clientId: this.clientId,
     }
+    const viewRecoveryExpectation = captureEditorTabViewRecovery(id)
+    const viewMutationEpoch = this.viewMutationEpochs.get(id) ?? 0
     const result = await this.invokeIdempotentMutation('view', id, payload, (mutationId) =>
       this.dependencies.updateViewState({ ...payload, mutationId }),
     )
+    if ((this.viewMutationEpochs.get(id) ?? 0) !== viewMutationEpoch) {
+      this.markSyncedIfIdle()
+      return
+    }
     if (result.status === 'conflict') {
       this.markConflict(id, this.records.get(id) ?? null)
       this.acceptGeneration(result.generation)
@@ -1295,6 +1697,10 @@ export class EditorWorkspaceSynchronizer {
       this.acceptRecord(updated)
       this.applyRecordMetadata(updated)
     }
+    const latest = useEditorStore.getState().tabs.find((item) => item.id === id)
+    if (latest && sameViewState(latest, payload) && sameViewState(result.viewState, payload)) {
+      clearEditorTabViewRecovery(viewRecoveryExpectation)
+    }
     this.markSyncedIfIdle()
   }
 
@@ -1305,7 +1711,48 @@ export class EditorWorkspaceSynchronizer {
     this.markSyncedIfIdle()
   }
 
+  private queueIntent(failureKey: string): EditorTabQueueIntent {
+    if (failureKey.startsWith('view:')) return 'view'
+    if (failureKey.startsWith('close:')) return 'topology'
+    return 'content'
+  }
+
+  private incrementQueuedMutation(id: string, intent: EditorTabQueueIntent): void {
+    const counts = this.queuedMutationCounts.get(id) ?? { content: 0, view: 0, topology: 0 }
+    counts[intent] += 1
+    this.queuedMutationCounts.set(id, counts)
+  }
+
+  private decrementQueuedMutation(id: string, intent: EditorTabQueueIntent): void {
+    const counts = this.queuedMutationCounts.get(id)
+    if (!counts) return
+    counts[intent] = Math.max(0, counts[intent] - 1)
+    if (counts.content === 0 && counts.view === 0 && counts.topology === 0) {
+      this.queuedMutationCounts.delete(id)
+    }
+  }
+
+  private hasPendingContentMutation(id: string): boolean {
+    const counts = this.queuedMutationCounts.get(id)
+    return (
+      this.contentTimers.has(id) ||
+      (this.contentPersistCounts.get(id) ?? 0) > 0 ||
+      Boolean(counts && (counts.content > 0 || counts.topology > 0))
+    )
+  }
+
+  private hasPendingViewMutation(id: string): boolean {
+    const counts = this.queuedMutationCounts.get(id)
+    return this.viewTimers.has(id) || Boolean(counts && counts.view > 0)
+  }
+
+  private invalidatePendingViewMutation(id: string): void {
+    this.viewMutationEpochs.set(id, (this.viewMutationEpochs.get(id) ?? 0) + 1)
+  }
+
   private enqueue(id: string, failureKey: string, task: () => Promise<void>): Promise<void> {
+    const intent = this.queueIntent(failureKey)
+    this.incrementQueuedMutation(id, intent)
     const previous = this.queues.get(id) ?? Promise.resolve()
     const next = previous
       .catch(() => undefined)
@@ -1313,6 +1760,7 @@ export class EditorWorkspaceSynchronizer {
       .catch((error) => this.markFailure(error, failureKey))
     this.queues.set(id, next)
     void next.finally(() => {
+      this.decrementQueuedMutation(id, intent)
       if (this.queues.get(id) === next) this.queues.delete(id)
       this.markSyncedIfIdle()
     })
@@ -1408,6 +1856,7 @@ export class EditorWorkspaceSynchronizer {
         }
       })
     })
+    this.recoveryConflictSnapshots.delete(id)
     this.conflicts.delete(id)
     this.clearFailuresForTab(id)
     flushPersistTabs()
@@ -1419,6 +1868,7 @@ export class EditorWorkspaceSynchronizer {
       this.contentTimers.size > 0 ||
       this.viewTimers.size > 0 ||
       this.queues.size > 0 ||
+      this.contentPersistCounts.size > 0 ||
       this.workspacePendingCount > 0 ||
       this.reloadPromise !== null
     )
@@ -1456,34 +1906,24 @@ export class EditorWorkspaceSynchronizer {
   }
 
   private applyRecordMetadata(record: EditorTabRecord): void {
+    const applyMetadata = (tab: EditorTab): EditorTab => {
+      if (tab.id !== record.id) return tab
+      const preserveRecoveryProvenance =
+        hasUnresolvedRecoveryConflict(tab) || Boolean(tab.recoverySourceKeys?.length)
+      return {
+        ...tab,
+        revision: record.revision,
+        updatedAt: record.updatedAt,
+        viewUpdatedAt: record.viewUpdatedAt,
+        localOnly: preserveRecoveryProvenance ? tab.localOnly : undefined,
+        recoverySourceKeys: preserveRecoveryProvenance ? tab.recoverySourceKeys : undefined,
+        recoveryOriginalId: preserveRecoveryProvenance ? tab.recoveryOriginalId : undefined,
+      }
+    }
     this.withSuppressedObserver(() => {
       useEditorStore.setState((state) => ({
-        tabs: state.tabs.map((tab) =>
-          tab.id === record.id
-            ? {
-                ...tab,
-                revision: record.revision,
-                updatedAt: record.updatedAt,
-                viewUpdatedAt: record.viewUpdatedAt,
-                localOnly: undefined,
-                recoverySourceKeys: undefined,
-                recoveryOriginalId: undefined,
-              }
-            : tab,
-        ),
-        recentlyClosedTabs: state.recentlyClosedTabs.map((tab) =>
-          tab.id === record.id
-            ? {
-                ...tab,
-                revision: record.revision,
-                updatedAt: record.updatedAt,
-                viewUpdatedAt: record.viewUpdatedAt,
-                localOnly: undefined,
-                recoverySourceKeys: undefined,
-                recoveryOriginalId: undefined,
-              }
-            : tab,
-        ),
+        tabs: state.tabs.map(applyMetadata),
+        recentlyClosedTabs: state.recentlyClosedTabs.map(applyMetadata),
       }))
     })
   }
@@ -1510,18 +1950,8 @@ export class EditorWorkspaceSynchronizer {
     const id = event.kind === 'view-state' ? event.viewState.id : event.tab.id
     if (event.kind !== 'view-state') this.preserveLegacyExerciseContent(event.tab)
     const eventTab = event.kind === 'view-state' ? null : canonicalizePersistedEditorTab(event.tab)
-    if (
-      this.contentTimers.has(id) ||
-      this.viewTimers.has(id) ||
-      this.queues.has(id) ||
-      this.conflicts.has(id) ||
-      this.hasFailureForTab(id)
-    ) {
-      this.markConflict(id, event.kind === 'view-state' ? (this.records.get(id) ?? null) : eventTab)
-      return
-    }
-
     if (event.kind === 'view-state') {
+      if (this.conflicts.has(id) || this.hasFailureForTab(id)) return
       const record = this.records.get(id)
       if (!record) return
       const updated: EditorTabRecord = {
@@ -1531,6 +1961,10 @@ export class EditorWorkspaceSynchronizer {
         viewUpdatedAt: event.viewState.viewUpdatedAt,
       }
       this.acceptRecord(updated)
+      if (this.viewTimers.has(id) || this.queues.has(id)) {
+        this.markSyncedIfIdle()
+        return
+      }
       this.withSuppressedObserver(() => {
         useEditorStore.setState((state) => ({
           tabs: state.tabs.map((tab) =>
@@ -1546,6 +1980,99 @@ export class EditorWorkspaceSynchronizer {
         }))
       })
       flushPersistTabs()
+      this.markSyncedIfIdle()
+      return
+    }
+    const currentState = useEditorStore.getState()
+    const currentOpenTab = currentState.tabs.find((tab) => tab.id === id)
+    const currentPosition = currentState.tabs.findIndex((tab) => tab.id === id)
+    const hasPendingContentMutation = this.hasPendingContentMutation(id)
+    const hasPendingViewMutation = this.hasPendingViewMutation(id)
+    const matchingPendingRemoteSave =
+      hasPendingContentMutation &&
+      !this.conflicts.has(id) &&
+      !this.hasFailureForTab(id) &&
+      (event.kind === 'saved' || event.kind === 'reopened') &&
+      eventTab?.status === 'open' &&
+      currentOpenTab !== undefined &&
+      sameContent(currentOpenTab, eventTab) &&
+      eventTab.position === currentPosition
+    if (matchingPendingRemoteSave) {
+      const pendingContent = this.contentTimers.get(id)
+      if (pendingContent) clearTimeout(pendingContent)
+      this.contentTimers.delete(id)
+      this.clearRecoveryForTab(currentOpenTab)
+      this.clearFailure(`content:${id}`)
+      this.acceptRecord(eventTab)
+      this.applyRecordMetadata(eventTab)
+      flushPersistTabs()
+      this.markSyncedIfIdle()
+      return
+    }
+    const canApplyRemoteAlongsidePendingView =
+      !hasPendingContentMutation &&
+      hasPendingViewMutation &&
+      !this.conflicts.has(id) &&
+      !this.hasFailureForTab(id) &&
+      (event.kind === 'saved' || event.kind === 'reopened') &&
+      eventTab?.status === 'open' &&
+      currentOpenTab !== undefined &&
+      !hasProtectedLocalIntent(currentOpenTab)
+    if (canApplyRemoteAlongsidePendingView) {
+      const recoveryCleared = this.clearRecoveryForTab(currentOpenTab)
+      this.acceptRecord(eventTab)
+      this.withSuppressedObserver(() => {
+        useEditorStore.setState((state) => {
+          const withoutOpen = state.tabs.filter((tab) => tab.id !== id)
+          const withoutClosed = state.recentlyClosedTabs.filter((tab) => tab.id !== id)
+          const tabs = [...withoutOpen]
+          const position = Math.min(Math.max(0, eventTab.position), tabs.length)
+          tabs.splice(position, 0, {
+            ...recordToTab(eventTab),
+            cursorPosition: currentOpenTab.cursorPosition,
+            scrollTop: currentOpenTab.scrollTop,
+            viewUpdatedAt: currentOpenTab.viewUpdatedAt,
+            localOnly: recoveryCleared ? undefined : currentOpenTab.localOnly,
+            recoverySourceKeys: recoveryCleared ? undefined : currentOpenTab.recoverySourceKeys,
+            recoveryOriginalId: recoveryCleared ? undefined : currentOpenTab.recoveryOriginalId,
+          })
+          return {
+            tabs,
+            recentlyClosedTabs: withoutClosed,
+            activeTabId: state.activeTabId ?? eventTab.id,
+            hydrationEpoch:
+              state.activeTabId === id &&
+              !isDraftBackedPracticeTab(eventTab) &&
+              !sameContent(currentOpenTab, eventTab)
+                ? state.hydrationEpoch + 1
+                : state.hydrationEpoch,
+          }
+        })
+      })
+      flushPersistTabs()
+      this.markSyncedIfIdle()
+      return
+    }
+    const canApplyRemoteTopologyAlongsidePendingView =
+      !hasPendingContentMutation &&
+      hasPendingViewMutation &&
+      !this.conflicts.has(id) &&
+      !this.hasFailureForTab(id) &&
+      (event.kind === 'closed' || event.kind === 'deleted') &&
+      eventTab !== null &&
+      currentOpenTab !== undefined &&
+      !hasProtectedLocalIntent(currentOpenTab)
+    if (canApplyRemoteTopologyAlongsidePendingView) {
+      this.invalidatePendingViewMutation(id)
+      this.cancelTabTimers(id)
+    }
+    if (
+      this.hasPendingContentMutation(id) ||
+      (this.hasPendingViewMutation(id) && !canApplyRemoteTopologyAlongsidePendingView) ||
+      this.conflicts.has(id) ||
+      this.hasFailureForTab(id)
+    ) {
+      this.markConflict(id, eventTab)
       return
     }
 
@@ -1556,13 +2083,15 @@ export class EditorWorkspaceSynchronizer {
         const withoutOpen = state.tabs.filter((tab) => tab.id !== id)
         const withoutClosed = state.recentlyClosedTabs.filter((tab) => tab.id !== id)
         if (event.kind === 'saved' || event.kind === 'reopened') {
-          const tabs = [...withoutOpen, recordToTab(eventTab)]
+          const tabs = [...withoutOpen]
+          const position = Math.min(Math.max(0, eventTab.position), tabs.length)
+          tabs.splice(position, 0, recordToTab(eventTab))
           return {
             tabs,
             recentlyClosedTabs: withoutClosed,
             activeTabId: state.activeTabId ?? event.tab.id,
             hydrationEpoch:
-              state.activeTabId === id && eventTab.kind !== 'exercise'
+              state.activeTabId === id && !isDraftBackedPracticeTab(eventTab)
                 ? state.hydrationEpoch + 1
                 : state.hydrationEpoch,
           }
@@ -1575,7 +2104,7 @@ export class EditorWorkspaceSynchronizer {
             recentlyClosedTabs: [recordToTab(eventTab), ...withoutClosed].slice(0, 10),
             activeTabId,
             hydrationEpoch:
-              state.activeTabId === id && eventTab.kind !== 'exercise'
+              state.activeTabId === id && !isDraftBackedPracticeTab(eventTab)
                 ? state.hydrationEpoch + 1
                 : state.hydrationEpoch,
           }
@@ -1585,7 +2114,7 @@ export class EditorWorkspaceSynchronizer {
           recentlyClosedTabs: withoutClosed,
           activeTabId: state.activeTabId === id ? (withoutOpen[0]?.id ?? null) : state.activeTabId,
           hydrationEpoch:
-            state.activeTabId === id && eventTab.kind !== 'exercise'
+            state.activeTabId === id && !isDraftBackedPracticeTab(eventTab)
               ? state.hydrationEpoch + 1
               : state.hydrationEpoch,
         }
@@ -1612,11 +2141,12 @@ export class EditorWorkspaceSynchronizer {
     this.reloadPromise = (async () => {
       do {
         this.reloadRequested = false
+        const baseRecords = new Map(this.records)
         const remote = await this.dependencies.load(DEFAULT_EDITOR_WORKSPACE_ID)
         if (this.stopped) return
         this.reconciling = true
         this.replaceRemote(remote)
-        await this.reconcileInitialWorkspace(remote)
+        await this.reconcileInitialWorkspace(remote, baseRecords)
         this.reconciling = false
         this.drainRemoteEvents()
       } while (this.reloadRequested && !this.stopped)
@@ -1644,6 +2174,11 @@ export class EditorWorkspaceSynchronizer {
   }
 
   private markConflict(id: string, current: EditorTabRecord | null): void {
+    const localState = useEditorStore.getState()
+    const local =
+      localState.tabs.find((tab) => tab.id === id) ??
+      localState.recentlyClosedTabs.find((tab) => tab.id === id)
+    if (local) this.rememberRecoveryConflict(local)
     if (current) {
       this.preserveLegacyExerciseContent(current)
       this.acceptRecord(current)
@@ -1670,10 +2205,26 @@ export class EditorWorkspaceSynchronizer {
     this.withSuppressedObserver(() => {
       useEditorStore.setState((state) => ({
         tabs: state.tabs.map((tab) =>
-          tab.id === id ? { ...tab, syncConflict: undefined, localOnly: undefined } : tab,
+          tab.id === id
+            ? {
+                ...tab,
+                syncConflict: undefined,
+                localOnly: undefined,
+                recoverySourceKeys: undefined,
+                recoveryOriginalId: undefined,
+              }
+            : tab,
         ),
         recentlyClosedTabs: state.recentlyClosedTabs.map((tab) =>
-          tab.id === id ? { ...tab, syncConflict: undefined, localOnly: undefined } : tab,
+          tab.id === id
+            ? {
+                ...tab,
+                syncConflict: undefined,
+                localOnly: undefined,
+                recoverySourceKeys: undefined,
+                recoveryOriginalId: undefined,
+              }
+            : tab,
         ),
       }))
     })
@@ -1703,16 +2254,100 @@ export class EditorWorkspaceSynchronizer {
     }
   }
 
-  private clearRecoveryForTab(tab: EditorTab): void {
+  private markRecoveryCleanupFailure(id: string): void {
+    this.markFailure(
+      new Error('冲突版本已安全保留，但恢复来源清理失败；冲突仍未解决，请重试'),
+      `recovery-cleanup:${id}`,
+    )
+  }
+
+  private clearRecoveryForTab(tab: EditorTab, resolvingConflict = false): boolean {
     const state = useEditorStore.getState()
     const current =
       state.tabs.find((item) => item.id === tab.id) ??
       state.recentlyClosedTabs.find((item) => item.id === tab.id)
-    if (current && !samePersistedContent(current, tab)) return
-    clearEditorTabRecovery(tab.id, tab.recoverySourceKeys)
-    if (tab.recoveryOriginalId && tab.recoveryOriginalId !== tab.id) {
-      clearEditorTabRecovery(tab.recoveryOriginalId, tab.recoverySourceKeys)
+    if (current && !samePersistedContent(current, tab)) return false
+    const recoveryTab = current ?? tab
+    if (!resolvingConflict && hasUnresolvedRecoveryConflict(recoveryTab)) return false
+    const recoveryConflictSnapshot = resolvingConflict
+      ? this.recoveryConflictSnapshots.get(recoveryTab.id)
+      : undefined
+    const expectedTab = resolvingConflict ? { ...recoveryTab, revision: undefined } : recoveryTab
+    let recoveryCleared = true
+    if (resolvingConflict) {
+      recoveryCleared = clearEditorTabRecovery(recoveryTab.id, [], expectedTab) && recoveryCleared
+      const expectedSourceTab = {
+        ...(recoveryConflictSnapshot ?? recoveryTab),
+        revision: undefined,
+      }
+      recoveryCleared =
+        clearEditorTabRecovery(recoveryTab.id, recoveryTab.recoverySourceKeys, expectedSourceTab) &&
+        recoveryCleared
+      if (recoveryTab.recoveryOriginalId && recoveryTab.recoveryOriginalId !== recoveryTab.id) {
+        recoveryCleared =
+          clearEditorTabRecovery(
+            recoveryTab.recoveryOriginalId,
+            recoveryTab.recoverySourceKeys,
+            expectedSourceTab,
+          ) && recoveryCleared
+      }
+      if (recoveryCleared) this.recoveryConflictSnapshots.delete(recoveryTab.id)
+    } else {
+      recoveryCleared = clearEditorTabRecovery(
+        recoveryTab.id,
+        recoveryTab.recoverySourceKeys,
+        expectedTab,
+      )
     }
+    const record = this.records.get(tab.id)
+    if (
+      current &&
+      record &&
+      samePersistedContent(current, record) &&
+      sameViewState(current, record)
+    ) {
+      clearEditorTabViewRecovery(captureEditorTabViewRecovery(tab.id))
+    }
+    if (
+      !resolvingConflict &&
+      recoveryTab.recoveryOriginalId &&
+      recoveryTab.recoveryOriginalId !== recoveryTab.id
+    ) {
+      recoveryCleared =
+        clearEditorTabRecovery(
+          recoveryTab.recoveryOriginalId,
+          recoveryTab.recoverySourceKeys,
+          expectedTab,
+        ) && recoveryCleared
+    }
+    if (!resolvingConflict) {
+      const failureKey = `recovery-cleanup:${recoveryTab.id}`
+      if (recoveryCleared) {
+        this.recoveryConflictSnapshots.delete(recoveryTab.id)
+        this.clearFailure(failureKey)
+        this.withSuppressedObserver(() => {
+          const clearProvenance = (item: EditorTab): EditorTab =>
+            item.id === recoveryTab.id
+              ? {
+                  ...item,
+                  localOnly: undefined,
+                  recoverySourceKeys: undefined,
+                  recoveryOriginalId: undefined,
+                }
+              : item
+          useEditorStore.setState((latest) => ({
+            tabs: latest.tabs.map(clearProvenance),
+            recentlyClosedTabs: latest.recentlyClosedTabs.map(clearProvenance),
+          }))
+        })
+      } else {
+        this.markFailure(
+          new Error('SQLite 内容已保存，但本地恢复来源清理失败；恢复记录已保留并将继续重试'),
+          failureKey,
+        )
+      }
+    }
+    return recoveryCleared
   }
 
   private markSyncing(): void {
@@ -1787,7 +2422,12 @@ export class EditorWorkspaceSynchronizer {
 
   private nextMutationId(kind: string, id: string): string {
     this.mutationSequence += 1
-    return `${this.clientId}:${kind}:${id}:${this.mutationSequence}`
+    const kindLabel = kind.replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 32) || 'mutation'
+    const idHash = stableEditorWorkspaceHash(id)
+    return `${this.clientId.slice(0, 96)}:${kindLabel}:${idHash}:${this.mutationSequence}`.slice(
+      0,
+      200,
+    )
   }
 }
 
@@ -1798,13 +2438,30 @@ export function ensureEditorWorkspaceSync(): Promise<void> {
   return singleton.start()
 }
 
-export async function flushEditorWorkspaceForClose(): Promise<boolean> {
+export async function flushEditorWorkspaceForClose(): Promise<EditorWorkspaceCloseFlushResult> {
   const state = useEditorStore.getState()
-  if (!state.hydrated && !state.dirty && !singleton) return true
+  if (!state.hydrated && !state.dirty && !singleton) {
+    return { durability: 'database', error: null }
+  }
   flushPersistTabs()
-  const localRecoveryReady = useEditorStore.getState().persistenceError === null
+  const afterRecovery = useEditorStore.getState()
+  const localRecoveryReady = afterRecovery.persistenceError === null
   const databaseReady = singleton ? await singleton.flush() : false
-  return localRecoveryReady || databaseReady
+  if (databaseReady) return { durability: 'database', error: null }
+  const afterDatabase = useEditorStore.getState()
+  if (localRecoveryReady) {
+    return {
+      durability: 'recovery',
+      error: afterDatabase.databaseError ?? 'SQLite 同步未完成，最新内容仅保存在本地恢复区',
+    }
+  }
+  return {
+    durability: 'none',
+    error:
+      afterDatabase.persistenceError ??
+      afterDatabase.databaseError ??
+      '编辑器工作区未能写入 SQLite 或本地恢复区',
+  }
 }
 
 export function getEditorWorkspaceConflict(): EditorWorkspaceConflict | null {

@@ -215,25 +215,36 @@ appendChunk: (payload) => {
 
 ### editorStore — 编辑器状态
 
-管理多标签页编辑器的状态，并支持 `localStorage` 持久化。
+管理普通文件、题目和练习三类统一多标签状态。Electron 中的权威副本位于 SQLite；`localStorage` 保存版本化工作区快照和逐标签恢复日志，仅用于启动迁移、崩溃恢复与数据库降级。
 
 ```typescript
 interface EditorTab {
   id: string
+  kind: 'file' | 'problem' | 'exercise'
   filename: string
   language: string
   content: string
+  problemId?: string
   cursorPosition?: { lineNumber: number; column: number }
   scrollTop?: number
+  revision?: number
+  syncConflict?: boolean
+  localOnly?: boolean
+  recoverySourceKeys?: string[]
+  recoveryOriginalId?: string
 }
 
 interface EditorState {
   tabs: EditorTab[]
   activeTabId: string | null
+  recentlyClosedTabs: EditorTab[]
+  databaseStatus: 'idle' | 'syncing' | 'synced' | 'degraded' | 'conflict'
+  restoreStatus: 'idle' | 'empty' | 'restored' | 'recovered' | 'degraded'
 
   addTab: (tab: EditorTab) => void
   closeTab: (id: string) => void
   setActiveTab: (id: string) => void
+  updateTab: (id: string, patch: Partial<EditorTab>) => void
   updateContent: (id: string, content: string) => void
   updateCursorPosition: (id: string, lineNumber: number, column: number) => void
   updateScrollTop: (id: string, scrollTop: number) => void
@@ -243,39 +254,36 @@ interface EditorState {
 
 **持久化策略**：
 
-使用 `localStorage` 保存标签页元数据和内容，在 Store 初始化时自动恢复：
+状态变更先同步写入本地恢复日志，再通过带 revision CAS 和稳定 mutation ID 的 IPC 写入 SQLite。远端 revision 冲突不会覆盖本地内容，而是进入显式冲突状态。工作区快照格式当前为 v4；v1/v2/v3 快照和旧数组格式在原位置读取、规范化并重写为 v4，不要求用户删除数据。
 
-```typescript
-const TABS_STORAGE_KEY = 'codehelper-editor-tabs'
-const ACTIVE_TAB_KEY = 'codehelper-active-tab'
+```text
+updateContent(tabId, content)
+  → 写入 codehelper-editor-workspace-recovery-v2.session.*
+  → editor-tab-save(baseRevision, mutationId)
+  → SQLite editor_workspaces + editor_tabs
+  → 普通分支成功后清理对应恢复日志
+  → 分叉恢复保留 conflict + source keys，直到用户解决成功
 
-function persistTabs(tabs: EditorTab[], activeTabId: string | null) {
-  try {
-    const tabsMeta = tabs.map((t) => ({
-      id: t.id,
-      filename: t.filename,
-      language: t.language,
-      content: t.content,
-      cursorPosition: t.cursorPosition,
-      scrollTop: t.scrollTop,
-    }))
-    localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify(tabsMeta))
-    if (activeTabId) localStorage.setItem(ACTIVE_TAB_KEY, activeTabId)
-  } catch {
-    /* localStorage 可能满了，静默忽略 */
-  }
-}
+updateCursorPosition(tabId, position) / updateScrollTop(tabId, scrollTop)
+  → action 返回前写入 codehelper-editor-workspace-view-recovery-v1.session.*
+  → editor-tab-view-state-save(mutationId)
+  → SQLite editor_tabs.cursor_* / scroll_top
+  → 回执与请求视图一致且 source fingerprint 未变化时清理
 ```
 
-每次状态变更后自动持久化：
+`recoverySourceKeys` 和 `recoveryOriginalId` 是 Renderer/localStorage provenance，不写入 SQLite。分叉恢复生成的 `.recovered` 标签即使内容已写入数据库，也会在普通保存、远端 hydration 和 generation 重载后继续保持 `syncConflict` 与来源 key；只有采用数据库版本、保留本地版本或另存副本的用户操作成功后才清理。
 
-```typescript
-addTab: (tab) => set((s) => {
-  const newTabs = [...s.tabs, tab]
-  persistTabs(newTabs, tab.id)
-  return { tabs: newTabs, activeTabId: tab.id }
-}),
-```
+若来源仍由同一 app boot 的其他 Renderer 持有，或 localStorage 清理后的缺失校验失败，同步器会保留 provenance、冲突和可见降级状态并返回处理未完成；后续启动在 SQLite 内容精确匹配时再次清理，不会用“已同步”掩盖残留来源。
+
+完整快照或恢复区不可写时会保留内存内容并显示持久化错误；损坏或不支持版本的快照会先备份为 `.corrupt.*`，完整备份失败时锁定原 key。只有未发生损坏且恢复候选能明确重建标签时才使用 `restoreStatus: 'recovered'`；任何损坏都会保持 `degraded`，即使 SQLite 找回已有记录也只说明“已加载可用数据”，不会推断损坏记录中不存在未同步拓扑或视图。`kind: 'exercise'` 与 ID 为 `exercise-*` 的练习入口导入题目仅在工作区保存拓扑，权威代码由独立、带 revision 的练习草稿仓储负责。
+
+普通编辑器恢复日志按 app boot + Renderer session 分开。读取时按 tab ID 和完整候选指纹聚合：相同分支去重并保留全部 source keys；同一 tab 的不同分支不会按时间戳删除，较新候选留在原 tab，其他候选变成确定性的普通 `.recovered` 文件。同一 boot 的其他 Renderer key 只读；下一次 boot 确认旧 owner 已退出后才清理匹配条目，从而消除跨窗口 read-modify-write 覆盖。
+
+光标和滚动位置使用独立的轻量视图 recovery；每条记录只有 tab ID、规范化光标、`scrollTop` 和单调时间戳，不包含 `content`，所以普通文件、题目和练习共用同一路径且不会复制练习代码。内容恢复完成后再应用视图候选；只在候选 `updatedAt` 新于 durable `viewUpdatedAt` 时覆盖，并把该时间写回 tab。即使本地 v4 快照缺失或损坏，SQLite hydrate 后仍会重放较新的候选。初始加载和 generation-gap 重载都按 `viewUpdatedAt` 双向协调：数据库较新时采用远端并清理可安全确认的旧 recovery，本地较新时才发送 view-state IPC。清理使用请求前捕获的逐 source 指纹，同一 boot 的其他 Renderer 仍只读，因此迟到回执不会删除并发产生的新视图。
+
+SQLite 工作区 schema v1/v2 在启动事务中原地升级为 v3；旧 practice-backed 行内嵌代码时，迁移先保留确定性的普通恢复文件，再清空重复 content。完整 local topology 仅向未初始化的 v0 工作区导入；v1-v3 升级可重放显式 recovery/localOnly 或与 SQLite 相同 base revision 的本地编辑，revision 分叉则进入冲突，裸无基线快照不覆盖 SQLite。窗口关闭握手区分 `database`、`recovery` 和 `none`：仅写入恢复区会向用户明确提示，不能显示为完整保存。产品 UI 关闭标签必须经过 `requestCloseEditorWorkspaceTab`；Store 的原始 `closeTab` 只用于已确认的远端结果或显式本地降级。重新打开使用 `reopenTab` 的乐观更新，由同步器观察并持久化。
+
+练习草稿 recovery 按 app boot + Renderer session 分开写入并在启动时聚合。相同 snapshot/base revision 去重，分叉候选进入冲突；未采用的窗口候选转换为普通 `localOnly` 恢复文件。成功保存只清理与回执 snapshot 匹配的 source keys；当前 boot 的其他窗口 key 保持只读，旧 boot owner 退出后才允许清理，因此一个窗口的成功写入不会覆盖另一个窗口正在更新的恢复 map。
 
 ### problemStore — 题目状态
 
@@ -441,7 +449,7 @@ async operation: () => {
 2. **使用选择器函数**：避免组件因无关状态变化而重渲染
 3. **异步操作统一错误处理**：使用 `toErrorMessage()` 标准化错误
 4. **类型安全**：使用 `typedInvoke` 替代 `window.api.invoke`
-5. **持久化策略**：数据库存重要配置，localStorage 存 UI 临时状态
+5. **持久化策略**：业务数据以 SQLite 为权威；localStorage 仅保存 UI 偏好和明确标注的崩溃恢复副本
 6. **请求 ID 匹配**：流式响应使用 requestId 防止乱序数据污染
 
 ---

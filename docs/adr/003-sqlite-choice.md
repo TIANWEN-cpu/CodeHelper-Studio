@@ -75,7 +75,7 @@ CodeHelper 需要在本地存储大量结构化数据（题目、提交记录、
 
 - **Native 编译**：better-sqlite3 需要编译原生 C++ 模块，增加了构建复杂性
 - **平台依赖**：不同平台需要各自的编译产物
-- **Electron 版本匹配**：需要确保 better-sqlite3 的 ABI 与 Electron 的 Node.js 版本兼容（通过 `postinstall` 脚本解决）
+- **运行时版本匹配**：Node/Vitest 与 Electron 使用不同 ABI；项目通过 `native:node`、`native:electron` 及命令生命周期钩子自动探测和切换
 
 ## 后果
 

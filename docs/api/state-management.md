@@ -221,16 +221,29 @@ interface EditorTab {
   filename: string // 文件名（用于显示和语言推断）
   language: string // 编程语言（CodeMirror 语法高亮）
   content: string // 编辑器内容
-  cursorPosition?: { lineNumber: number; column: number } // 光标位置（Store 预留字段）
-  scrollTop?: number // 滚动位置（Store 预留字段）
+  cursorPosition?: { lineNumber: number; column: number } // 光标位置（SQLite + 轻量 recovery）
+  scrollTop?: number // 滚动位置（SQLite + 轻量 recovery）
+  revision?: number // SQLite 乐观并发 revision
+  syncConflict?: boolean // 仍需用户处理的数据库或恢复分支冲突
+  localOnly?: boolean // 尚未完全由 SQLite 承载
+  recoverySourceKeys?: string[] // 冲突分支对应的 Renderer recovery 来源
+  recoveryOriginalId?: string // .recovered 副本的原始标签 ID
 }
 ```
 
-**默认标签页：** 应用启动时包含一个 `welcome.py` 标签页，内容为示例代码。SQLite `editor_workspaces` / `editor_tabs` 是 Electron 中的持久化事实来源；localStorage 快照当前为 **v3**（键 `codehelper-editor-workspace`，`EDITOR_STORAGE_VERSION = 3`），保留为同步降级与崩溃恢复路径，并原地兼容 v1/v2 快照和旧的 `codehelper-editor-tabs` 数组格式。完整快照仍以 500ms 防抖写入；每个发生内容或语言变化的**非练习**标签还会同步写入多标签恢复日志（`codehelper-editor-workspace-recovery-v2` 会话前缀 + v3 条目结构），并兼容导入旧的单标签 `codehelper-editor-workspace-recovery-v1`。恢复日志只有在对应内容成功持久化后才清除；迟到的旧 SQLite 回执不会删除请求期间产生的新恢复内容，时间戳较旧的日志也不会覆盖更新快照。页面 `pagehide` / `beforeunload` 时通过 `flushPersistTabs()` 强制同步写入。关闭真实 Electron 窗口时，主进程还会发起有界 flush 握手并等待编辑器及练习草稿处理器；失败或超时会保持窗口打开并明确询问是否仍然关闭。内容超过 5 MB、存储配额不足或 SQLite 通道不可用时会保留内存与本地恢复内容，并在状态栏明确显示失败或仅本地保存。损坏、不支持版本或没有有效标签的原始快照会完整备份到 `.corrupt.*` 键，并通过 `restoreStatus` / `restoreMessage` 显示恢复降级。题目 starter code 只在 SQLite 初始协调完成后初始化真正空白的标签。工作区最多保留 50 个标签；最近关闭列表会随版本化快照及 SQLite 状态持久化，最多保留 10 个，重启后仍可通过编辑器标签栏的恢复按钮重新打开。
+**默认标签页：** 应用启动时包含一个 `welcome.py` 标签页，内容为示例代码。SQLite `editor_workspaces` / `editor_tabs` 是 Electron 中的持久化事实来源；localStorage 工作区快照当前为 **v4**（键 `codehelper-editor-workspace`，`EDITOR_STORAGE_VERSION = 4`），保留为同步降级与崩溃恢复路径，并原地兼容 v1/v2/v3 快照和旧的 `codehelper-editor-tabs` 数组格式。完整快照仍以 500ms 防抖写入；每个发生内容或语言变化的**非练习草稿权威**标签还会同步写入多标签内容恢复日志（`codehelper-editor-workspace-recovery-v2.session.boot-<app-boot>--renderer-<renderer>` + v3 条目结构），并兼容导入旧的无 boot scope session、共享 v2 与单标签 v1 recovery。恢复读取会聚合同一 tab ID 的所有窗口候选：完全相同的内容分支去重并合并 source keys，分叉时保留较新分支在原标签，把其他分支打开为确定性的普通 `.recovered` 文件。光标或滚动变化则在 action 返回前同步写入独立、轻量的视图恢复日志（`codehelper-editor-workspace-view-recovery-v1.session.boot-<app-boot>--renderer-<renderer>`）；条目只包含 tab ID、光标、滚动位置和时间戳，不序列化任何文件或练习代码。启动时先合并内容恢复，再为普通文件、题目和练习标签应用各窗口中最新的视图条目，视图差异不会生成 `.recovered` 文件。内容恢复只有在对应内容成功持久化后才按 source key 清除；视图同步请求会先捕获 source entry 指纹，只有 SQLite 回执与请求的光标和滚动完全一致时才清除未变化的条目，迟到回执不会删除请求期间产生的新视图。同一 app boot 中其他 Renderer 的内容和视图 recovery map 均保持只读，重启后 owner 已退出才清理匹配条目，因此跨窗口清理不会覆盖并发新写入。页面 `pagehide` / `beforeunload` 时通过 `flushPersistTabs()` 强制同步写入。关闭真实 Electron 窗口时，主进程还会发起有界 flush 握手并等待编辑器及练习草稿处理器；SQLite 写入失败但恢复区有效时，关闭对话框明确显示“内容仅保存在恢复区”，不会把它计作完整保存。内容超过 5 MB、存储配额不足或 SQLite 通道不可用时会保留内存与本地恢复内容，并在状态栏明确显示失败或仅本地保存。损坏、不支持版本或没有有效标签的原始快照或恢复日志会备份到 `.corrupt.*` 键，完整备份失败时则锁定原 key 防止覆盖。只要出现损坏，SQLite 仅能证明其中已有记录可用，无法证明损坏快照中不存在尚未同步的标签或视图；因此 UI 保持“工作区恢复降级”并保留具体备份/保护原因，不会宣称完整恢复。题目 starter code 只在 SQLite 初始协调完成后初始化当前可见且真正空白的普通文件标签；即使全局 active tab 仍指向练习标签，也不会错过该可见文件，更不会覆盖已有内容、题目或练习标签。工作区最多保留 50 个标签；最近关闭列表会随版本化快照及 SQLite 状态持久化，最多保留 10 个，重启后仍可通过编辑器标签栏的恢复按钮重新打开。
 
-**练习标签边界：** `kind: 'exercise'` 与文件/题目共用 `tabs` 拓扑与 `reopenTab` / 最近关闭列表，但 `content` 在持久化时被规范为空字符串；权威代码位于练习草稿服务与其 recovery 区。从旧快照读到带代码的练习标签时，会拆出 `recovered-exercise-*` 普通文件副本并清空练习 content。`editorWorkspaceSync` 仅在 SQLite `legacy_storage_version === 0`（未初始化）时导入 localStorage，避免版本号 bump 误覆盖已有远端标签。
+上述“成功后清理”不适用于尚未解决的分叉恢复。`.recovered` 分支即使已经写入 SQLite，Renderer 仍保留 `syncConflict`、`recoverySourceKeys` 和 `recoveryOriginalId`，普通保存、远端 hydration 或 generation 缺口重载都不得清除它们。只有用户明确选择采用数据库版本、保留本地版本或另存副本，并且对应操作成功后，才同时清除冲突标记和来源 recovery key。这些 provenance 字段只属于 Renderer/localStorage 恢复契约，不扩张 SQLite schema。
 
-练习草稿恢复区不会为新草稿静默淘汰旧的未同步草稿。达到 20 条或 1,000,000 字符总量时，写入返回可见错误并保留全部已有数据；损坏 JSON 会备份到 `.corrupt.*` 键并停止覆盖，直到用户恢复或清理。
+来源 key 仍属于同一 app boot 的其他 Renderer，或 localStorage 清理/校验失败时，即使内容已经进入 SQLite，也会继续保留 provenance 并显示同步降级；冲突处理返回未完成，不能先清 UI 标记。owner 退出后的后续启动会在内容精确匹配时重试清理旧来源。
+
+Starter 初始化在每次进入独立工作区时最多尝试一次，只针对当时最初可见的空白普通文件；用户随后点击“新建工作区标签”得到的空白文件不会被异步题目列表回执改造成题目标签。
+
+**Renderer 异常恢复：** 主进程收到非正常 `render-process-gone` 后会保持存活，并以相同位置、尺寸和窗口状态创建替代 BrowserWindow；新 Renderer 仍按上述 SQLite、内容 recovery 与轻量视图 recovery 顺序恢复。顶部“界面进程异常退出”横幅只表示替代窗口已经加载，不表示 SQLite 同步完成；用户仍须以工作区状态栏的“已保存 / 仅本地保存 / 恢复降级”为准。10 秒内连续失败最多自动重试 3 次，超过上限后主进程显示“重新加载 / 关闭窗口”对话框，避免无限崩溃循环。
+
+**练习标签边界：** `kind: 'exercise'` 以及 ID 为 `exercise-*` 的练习入口导入题目（`kind: 'problem'`）与普通文件/独立题目共用 `tabs` 拓扑和最近关闭列表，但持久化的 `content` 必须为空字符串；权威代码位于版本化练习草稿 SQLite 表与其 recovery 区。从 v1/v2/v3 旧快照读到内嵌代码时，会先创建确定性的 `recovered-exercise-*` 普通文件副本，再清空 practice-backed topology 的 content。完整 local topology payload 只导入 `legacy_storage_version === 0` 的未初始化 SQLite 工作区。v1-v3 升级时，显式 recovery/localOnly 内容或与 SQLite 相同 base revision 的本地编辑可以 CAS 重放；远端 revision 已分叉时进入显式冲突，缺少基线的普通快照不会覆盖 SQLite。
+
+练习草稿恢复区的新写入按 app boot + Renderer session 使用 `codehelper-practice-draft-recovery-v2.session.boot-<app-boot>--renderer-<renderer>`，旧的无 boot scope session 及 v1/v2 仍可读取并在匹配内容迁入新 session 后原地清理。启动会聚合所有窗口候选：相同 snapshot/base 去重，分叉进入显式冲突；未选候选生成带窗口 source fingerprint 的普通 `localOnly` 恢复文件。SQLite 成功只清理匹配 snapshot 的 source keys；当前 boot 的其他 Renderer map 不跨窗口改写，旧 boot 的匹配条目在 owner 已退出后清理，不删除任何分叉。恢复区不会为新草稿静默淘汰旧草稿；达到 20 条或 1,000,000 字符总量时，写入返回可见错误并保留全部已有数据；损坏 JSON 会备份到 `.corrupt.*` 键并停止覆盖，直到用户恢复或清理。
 
 ### 操作 (Actions)
 
@@ -241,9 +254,10 @@ interface EditorTab {
 | `reopenTab`            | `id: string`                                     | `boolean` | 按 ID 从最近关闭列表恢复标签；成功返回 true                       |
 | `reopenLastClosed`     | 无                                               | `void`    | 恢复最近关闭列表中的第一个标签页                                  |
 | `setActiveTab`         | `id: string`                                     | `void`    | 只允许切换到当前存在的标签页                                      |
+| `updateTab`            | `id: string, patch: Partial<EditorTab>`          | `void`    | 原子更新文件名、语言、类型、题目标识或其他标签元数据              |
 | `updateContent`        | `id: string, content: string`                    | `void`    | 更新指定标签页内容；**练习标签忽略 content 写入**                 |
-| `updateCursorPosition` | `id: string, lineNumber: number, column: number` | `void`    | 更新 Store 中的光标位置预留字段                                   |
-| `updateScrollTop`      | `id: string, scrollTop: number`                  | `void`    | 更新 Store 中的滚动位置预留字段                                   |
+| `updateCursorPosition` | `id: string, lineNumber: number, column: number` | `void`    | 更新光标并在返回前写入轻量视图恢复日志                            |
+| `updateScrollTop`      | `id: string, scrollTop: number`                  | `void`    | 更新滚动位置并在返回前写入轻量视图恢复日志                        |
 | `restoreTabs`          | 无                                               | `void`    | 校验并从版本化 localStorage + recovery 恢复；设置 `restoreStatus` |
 
 **导出函数：**
@@ -251,6 +265,8 @@ interface EditorTab {
 | 函数                 | 说明                                                                      |
 | -------------------- | ------------------------------------------------------------------------- |
 | `flushPersistTabs()` | 强制将当前标签页状态同步写入 localStorage（通常在 `beforeunload` 时调用） |
+
+产品 UI 不得直接把 `closeTab` 当成持久化关闭完成。关闭必须调用 `requestCloseEditorWorkspaceTab`，等待 SQLite 或显式 recovery durability 结果后再改变界面；`closeTab` 只供同步器完成远端结果落地或明确的“仅本地关闭”降级路径使用。重新打开使用 Store 的 `reopenTab`，同步器会观察该乐观更新并持久化；当前没有 `requestReopenEditorWorkspaceTab` API。
 
 ### 选择器示例
 

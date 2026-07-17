@@ -29,6 +29,9 @@ export type AnimationLevel = 'calm' | 'balanced' | 'expressive'
 export type GlassStyle = 'frosted' | 'layered'
 
 export const DEFAULT_ACCENT_COLOR = '#2FB7A5'
+export const AI_PET_SIZE_MIN = 80
+export const AI_PET_SIZE_MAX = 140
+export const DEFAULT_AI_PET_SIZE = 100
 
 export interface Appearance {
   theme: ThemeMode
@@ -45,6 +48,7 @@ export interface Appearance {
   backgroundStyle: BackgroundStyle // 全局背景层：轻量 CSS，不加载大图
   animationLevel: AnimationLevel // 动效强度：只影响装饰/桌宠，不改变核心交互
   aiPetEnabled: boolean // AI 桌宠开关
+  aiPetSize: number // 百分比，默认 100，范围 80–140
 }
 
 export const DEFAULT_APPEARANCE: Appearance = {
@@ -62,6 +66,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   backgroundStyle: 'soft',
   animationLevel: 'balanced',
   aiPetEnabled: true,
+  aiPetSize: DEFAULT_AI_PET_SIZE,
 }
 
 const APPEARANCE_ALIGNMENT_KEY = 'appearance_light_theme_alignment_v1'
@@ -202,6 +207,16 @@ export function applyAIPetEnabled(on: boolean): void {
   document.documentElement.setAttribute('data-ai-pet', on ? 'on' : 'off')
 }
 
+export function clampAIPetSize(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_AI_PET_SIZE
+  return Math.min(AI_PET_SIZE_MAX, Math.max(AI_PET_SIZE_MIN, Math.round(value)))
+}
+
+export function applyAIPetSize(value: number): void {
+  if (typeof document === 'undefined') return
+  document.documentElement.setAttribute('data-ai-pet-size', String(clampAIPetSize(value)))
+}
+
 /** 一次性应用整组外观设置（启动时与重置时用）。 */
 export function applyAll(a: Appearance): void {
   applyTheme(resolveTheme(a.theme, a.followSystem))
@@ -217,6 +232,7 @@ export function applyAll(a: Appearance): void {
   applyBackgroundStyle(a.backgroundStyle)
   applyAnimationLevel(a.animationLevel)
   applyAIPetEnabled(a.aiPetEnabled)
+  applyAIPetSize(a.aiPetSize)
 }
 
 function parseVisualTheme(value: string | null): VisualTheme {
@@ -247,6 +263,11 @@ function parseGlassBlur(value: string | null): number {
   return Number.isFinite(parsed) ? Math.min(32, Math.max(6, parsed)) : DEFAULT_APPEARANCE.glassBlur
 }
 
+function parseAIPetSize(value: string | null): number {
+  const parsed = value ? Number(value) : NaN
+  return Number.isFinite(parsed) ? clampAIPetSize(parsed) : DEFAULT_APPEARANCE.aiPetSize
+}
+
 function isLegacyLightThemeState(a: Appearance, marker: string | null): boolean {
   return (
     marker !== APPEARANCE_ALIGNMENT_DONE &&
@@ -275,6 +296,7 @@ export async function loadAppearance(): Promise<Appearance> {
       backgroundStyle,
       animationLevel,
       aiPet,
+      aiPetSize,
       alignmentMarker,
     ] = await Promise.all([
       getSetting('theme_mode'),
@@ -291,6 +313,7 @@ export async function loadAppearance(): Promise<Appearance> {
       getSetting('background_style'),
       getSetting('animation_level'),
       getSetting('ai_pet_enabled'),
+      getSetting('ai_pet_size'),
       getSetting(APPEARANCE_ALIGNMENT_KEY),
     ])
     const parsedFont = font ? parseInt(font, 10) : NaN
@@ -309,6 +332,7 @@ export async function loadAppearance(): Promise<Appearance> {
       backgroundStyle: parseBackgroundStyle(backgroundStyle),
       animationLevel: parseAnimationLevel(animationLevel),
       aiPetEnabled: aiPet == null ? DEFAULT_APPEARANCE.aiPetEnabled : aiPet === 'true',
+      aiPetSize: parseAIPetSize(aiPetSize),
     }
     if (isLegacyLightThemeState(appearance, alignmentMarker)) {
       const aligned: Appearance = {

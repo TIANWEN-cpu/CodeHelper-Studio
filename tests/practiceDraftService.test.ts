@@ -42,6 +42,35 @@ describe('practice draft renderer service', () => {
     })
   })
 
+  it('forwards a title or explicit null while omitting undefined titles', async () => {
+    invoke.mockResolvedValue({ status: 'saved', draft: { revision: 3 } })
+
+    await saveDraft('exercise-a', 'print(1)', 'python', 2, 'Current exercise')
+    await saveDraft('exercise-a', 'print(2)', 'python', 3, null)
+    await saveDraft('exercise-a', 'print(3)', 'python', 4, undefined)
+
+    expect(invoke).toHaveBeenNthCalledWith(1, 'exercises-draft-save', {
+      exerciseId: 'exercise-a',
+      code: 'print(1)',
+      language: 'python',
+      baseRevision: 2,
+      title: 'Current exercise',
+    })
+    expect(invoke).toHaveBeenNthCalledWith(2, 'exercises-draft-save', {
+      exerciseId: 'exercise-a',
+      code: 'print(2)',
+      language: 'python',
+      baseRevision: 3,
+      title: null,
+    })
+    expect(invoke).toHaveBeenNthCalledWith(3, 'exercises-draft-save', {
+      exerciseId: 'exercise-a',
+      code: 'print(3)',
+      language: 'python',
+      baseRevision: 4,
+    })
+  })
+
   it('uses a base revision when clearing instead of unconditional deletion', async () => {
     invoke.mockResolvedValueOnce({ status: 'saved', draft: { revision: 4, deleted: true } })
 

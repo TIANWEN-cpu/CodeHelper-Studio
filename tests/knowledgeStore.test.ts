@@ -16,6 +16,7 @@ beforeEach(() => {
     documents: [],
     loadingDocs: false,
     searchResults: [],
+    retrievalStatus: null,
     searching: false,
     semanticResults: [],
     semanticSearching: false,
@@ -120,12 +121,26 @@ describe('knowledgeStore', () => {
   describe('search', () => {
     it('invokes keyword search IPC', async () => {
       const results = [{ filename: 'test.pdf', content: 'match', score: 0.9 }]
-      mockInvoke.mockResolvedValueOnce(results)
+      const retrieval = {
+        available: true,
+        degraded: false,
+        mode: 'hybrid',
+        lexicalBackend: 'fts5-bm25',
+        semanticBackend: 'fts5-trigram-local-ngram',
+        reason: 'ready',
+        documentCount: 1,
+        chunkCount: 1,
+        indexedAt: Date.now(),
+        candidateCount: 1,
+        durationMs: 1,
+      }
+      mockInvoke.mockResolvedValueOnce({ query: 'algorithm', results, retrieval })
 
       await useKnowledgeStore.getState().search('algorithm')
 
       expect(mockInvoke).toHaveBeenCalledWith('knowledge-search', 'algorithm')
       expect(useKnowledgeStore.getState().searchResults).toEqual(results)
+      expect(useKnowledgeStore.getState().retrievalStatus).toEqual(retrieval)
       expect(useKnowledgeStore.getState().searching).toBe(false)
     })
 
@@ -154,7 +169,23 @@ describe('knowledgeStore', () => {
       const p = useKnowledgeStore.getState().search('query')
       expect(useKnowledgeStore.getState().searching).toBe(true)
 
-      resolve!([])
+      resolve!({
+        query: 'query',
+        results: [],
+        retrieval: {
+          available: true,
+          degraded: false,
+          mode: 'hybrid',
+          lexicalBackend: 'fts5-bm25',
+          semanticBackend: 'fts5-trigram-local-ngram',
+          reason: 'ready',
+          documentCount: 0,
+          chunkCount: 0,
+          indexedAt: Date.now(),
+          candidateCount: 0,
+          durationMs: 0,
+        },
+      })
       await p
       expect(useKnowledgeStore.getState().searching).toBe(false)
     })

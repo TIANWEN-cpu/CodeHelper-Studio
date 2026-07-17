@@ -10,6 +10,7 @@ import {
   type Problem,
   type ProblemFilters,
   type Submission,
+  type ExecutionMode,
 } from '@/services/workspaceService'
 import { reportError } from '@/utils/errorHandler'
 
@@ -23,7 +24,11 @@ export interface UseWorkspaceDataReturn {
   // Run results
   runResult: RunResult | null
   isRunning: boolean
-  runCode: (code?: string, language?: string) => Promise<RunResult | null>
+  runCode: (
+    code?: string,
+    language?: string,
+    executionMode?: ExecutionMode,
+  ) => Promise<RunResult | null>
 
   // Submit results
   submitResult: SubmitResult | null
@@ -100,7 +105,11 @@ export function useWorkspaceData(
   }, [])
 
   const runCode = useCallback(
-    async (overrideCode?: string, overrideLanguage?: string): Promise<RunResult | null> => {
+    async (
+      overrideCode?: string,
+      overrideLanguage?: string,
+      executionMode: ExecutionMode = 'local-controlled',
+    ): Promise<RunResult | null> => {
       const requestId = ++runRequestId.current
       const c = overrideCode ?? code
       const lang = overrideLanguage ?? language
@@ -109,7 +118,7 @@ export function useWorkspaceData(
       setError(null)
 
       try {
-        const result = await runCodeService(c, lang)
+        const result = await runCodeService(c, lang, executionMode)
         if (runRequestId.current !== requestId) return null
         setRunResult(result)
         return result

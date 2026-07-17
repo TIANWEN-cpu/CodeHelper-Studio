@@ -5,6 +5,7 @@ node_modules/
 out/
 dist/
 dist-release/
+/resources/bin/
 
 # Build artifacts
 *.tsbuildinfo
@@ -47,6 +48,7 @@ coverage/
 *.tmp
 *temp_commit_log*
 *temp_msg_check*
+CODEX_HANDOFF_*.md
 
 # Local Playwright / agent output
 output/

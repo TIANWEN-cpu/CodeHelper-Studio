@@ -215,6 +215,59 @@ CREATE TABLE IF NOT EXISTS editor_workspaces (
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  component TEXT PRIMARY KEY,
+  version INTEGER NOT NULL CHECK(version >= 0),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS agent_runs (
+  id TEXT PRIMARY KEY,
+  goal TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('needsApproval','dispatching','running','completed','failed','cancelled')),
+  context_summary TEXT NOT NULL DEFAULT '{}',
+  error TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  completed_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS agent_tool_calls (
+  id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
+  tool_id TEXT NOT NULL CHECK(tool_id IN ('knowledge-search','strong-code-run')),
+  status TEXT NOT NULL CHECK(status IN ('queued','needsApproval','running','completed','failed','rejected','cancelled')),
+  approval_required INTEGER NOT NULL DEFAULT 0 CHECK(approval_required IN (0,1)),
+  input_summary TEXT NOT NULL DEFAULT '{}',
+  input_payload TEXT,
+  result_json TEXT,
+  error TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  started_at TEXT,
+  completed_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS agent_approvals (
+  id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
+  tool_call_id TEXT NOT NULL UNIQUE REFERENCES agent_tool_calls(id) ON DELETE CASCADE,
+  tool_id TEXT NOT NULL CHECK(tool_id IN ('knowledge-search','strong-code-run')),
+  status TEXT NOT NULL CHECK(status IN ('pending','approved','rejected','expired')),
+  boundary TEXT NOT NULL,
+  requested_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  decided_at TEXT,
+  note TEXT
+);
+
+CREATE TABLE IF NOT EXISTS agent_audit_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  run_id TEXT NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
+  tool_call_id TEXT REFERENCES agent_tool_calls(id) ON DELETE SET NULL,
+  event_type TEXT NOT NULL,
+  details_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
 CREATE TABLE IF NOT EXISTS editor_tabs (
   workspace_id TEXT NOT NULL REFERENCES editor_workspaces(workspace_id) ON DELETE CASCADE,
   tab_id TEXT NOT NULL,

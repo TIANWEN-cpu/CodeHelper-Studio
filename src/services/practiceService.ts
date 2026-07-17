@@ -97,13 +97,22 @@ export async function saveDraft(
   code: string,
   language: string,
   baseRevision: number,
+  title?: string | null,
 ): Promise<DraftMutationResult> {
-  return invoke<DraftMutationResult>('exercises-draft-save', {
+  const input: {
+    exerciseId: string
+    code: string
+    language: string
+    baseRevision: number
+    title?: string | null
+  } = {
     exerciseId,
     code,
     language,
     baseRevision,
-  })
+  }
+  if (title !== undefined) input.title = title
+  return invoke<DraftMutationResult>('exercises-draft-save', input)
 }
 
 /** Replace the current draft with a revisioned tombstone. */

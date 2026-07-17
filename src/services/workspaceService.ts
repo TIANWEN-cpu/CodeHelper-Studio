@@ -4,11 +4,47 @@
 import { invoke } from './ipc'
 import { track } from './analyticsService'
 
+export type ToolchainStatus = 'ready' | 'missing' | 'degraded'
+export type ExecutionMode = 'local-controlled' | 'strong-isolation'
+export type IsolationMode = ExecutionMode
+export type CSharpToolchainVariant = 'dotnet' | 'csc' | 'mcs'
+
+export interface IsolationInfo {
+  mode: IsolationMode
+  label: string
+  description: string
+  strongIsolationAvailable: boolean
+  strongIsolationReason: string
+}
+
+export interface ToolchainEntry {
+  id: string
+  languageIds: string[]
+  status: ToolchainStatus
+  command?: string
+  version?: string
+  message: string
+  installHint?: string
+  csharpVariant?: CSharpToolchainVariant
+  runtimeCommand?: string
+}
+
+export interface ToolchainReport {
+  detectedAt: number
+  platform: string
+  isolation: IsolationInfo
+  tools: ToolchainEntry[]
+}
+
 export interface RunResult {
   stdout: string
   stderr: string
   exitCode: number
   duration_ms: number
+  stage?: 'compile' | 'run' | 'sql'
+  timedOut?: boolean
+  toolchain?: ToolchainEntry
+  isolation?: IsolationInfo
 }
 
 export interface SubmitResult {
@@ -59,10 +95,31 @@ export interface Submission {
   created_at: string
 }
 
-export async function runCode(code: string, language: string): Promise<RunResult> {
+export async function runCode(
+  code: string,
+  language: string,
+  executionMode: ExecutionMode = 'local-controlled',
+): Promise<RunResult> {
   // 埋点：代码被执行（驱动热力图/连续天数/经验等真实看板）。
   track('code_run', { language })
-  return invoke<RunResult>('run-code', { code, language })
+  return invoke<RunResult>('run-code', { code, language, executionMode })
+}
+
+export async function detectToolchains(force = false): Promise<ToolchainReport> {
+  return invoke<ToolchainReport>('runner-detect-toolchains', { force })
+}
+
+export async function getRunnerIsolationInfo(): Promise<IsolationInfo> {
+  return invoke<IsolationInfo>('runner-isolation-info')
+}
+
+export function toolchainForLanguage(
+  report: ToolchainReport | null | undefined,
+  language: string,
+): ToolchainEntry | undefined {
+  if (!report) return undefined
+  const normalized = language.trim().toLowerCase()
+  return report.tools.find((tool) => tool.languageIds.includes(normalized))
 }
 
 export async function submitToProblem(

@@ -5,7 +5,7 @@ on:
     tags:
       - 'v*'
 
-  # Manual trigger for re-releases / hotfixes
+  # Manual trigger for an existing immutable tag. Published releases are never overwritten.
   workflow_dispatch:
     inputs:
       tag:
@@ -19,7 +19,11 @@ on:
         default: false
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: codehelper-release
+  cancel-in-progress: false
 
 env:
   NODE_VERSION: '20'
@@ -31,27 +35,78 @@ jobs:
   prepare:
     name: Prepare Release
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     outputs:
       version: ${{ steps.meta.outputs.version }}
       tag: ${{ steps.meta.outputs.tag }}
+      sha: ${{ steps.meta.outputs.sha }}
       changelog: ${{ steps.changelog.outputs.changelog }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Verify release repository identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_repository='TIANWEN-cpu/CodeHelper-Studio'
+          if [ "$GITHUB_REPOSITORY" != "$expected_repository" ]; then
+            echo "::error::Release workflow may only run in $expected_repository (actual: $GITHUB_REPOSITORY)"
+            exit 1
+          fi
+
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Extract version metadata
         id: meta
         shell: bash
+        env:
+          REQUESTED_TAG: ${{ inputs.tag }}
         run: |
-          TAG="${{ github.event.inputs.tag }}"
-          if [ -z "$TAG" ]; then
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then
             TAG="${GITHUB_REF#refs/tags/}"
+          else
+            TAG="$REQUESTED_TAG"
+            if [ -z "$TAG" ]; then
+              TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$' | head -1)
+            fi
+          fi
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'; then
+            echo "::error::Invalid release tag: $TAG"
+            exit 1
+          fi
+          SHA=$(git rev-list -n 1 "refs/tags/$TAG")
+          if [ -z "$SHA" ]; then
+            echo "::error::Release tag does not exist: $TAG"
+            exit 1
           fi
           VERSION="${TAG#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG"         >> "$GITHUB_OUTPUT"
-          echo "Release tag: $TAG  version: $VERSION"
+          echo "sha=$SHA"         >> "$GITHUB_OUTPUT"
+          echo "Release tag: $TAG  version: $VERSION  sha: $SHA"
+
+      - name: Verify release commit is reachable from the default branch
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          RELEASE_SHA: ${{ steps.meta.outputs.sha }}
+        run: |
+          set -euo pipefail
+          DEFAULT_REF="refs/remotes/origin/$DEFAULT_BRANCH"
+          if ! git rev-parse --verify "$DEFAULT_REF^{commit}" >/dev/null 2>&1; then
+            echo "::error::Default branch ref is unavailable: $DEFAULT_REF"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$RELEASE_SHA" "$DEFAULT_REF"; then
+            echo "::error::Release commit $RELEASE_SHA is not reachable from the default branch $DEFAULT_BRANCH"
+            exit 1
+          fi
+
+      - name: Check out exact release commit
+        shell: bash
+        run: git checkout --detach "${{ steps.meta.outputs.sha }}"
 
       - name: Validate package.json version matches tag
         shell: bash
@@ -59,15 +114,20 @@ jobs:
           PKG_VERSION=$(node -p "require('./package.json').version")
           TAG_VERSION="${{ steps.meta.outputs.version }}"
           if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
-            echo "::warning::package.json version ($PKG_VERSION) does not match tag ($TAG_VERSION)"
+            echo "::error::package.json version ($PKG_VERSION) does not match tag ($TAG_VERSION)"
+            exit 1
           fi
 
       - name: Generate changelog
         id: changelog
         shell: bash
         run: |
-          # Get previous tag
-          PREV_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -2 | tail -1 || echo "")
+          set -euo pipefail
+          CURRENT_TAG="${{ steps.meta.outputs.tag }}"
+          PREV_TAG=$(git tag --merged HEAD --sort=-v:refname \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$' \
+            | grep -Fxv "$CURRENT_TAG" \
+            | head -1 || true)
 
           if [ -z "$PREV_TAG" ]; then
             RANGE="HEAD"
@@ -104,7 +164,7 @@ jobs:
             echo "CHANGELOG_EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -112,6 +172,10 @@ jobs:
       - name: Install & verify
         run: |
           npm ci --ignore-scripts
+          npm rebuild better-sqlite3
+          npm audit --omit=dev --audit-level=high
+          npm run lint
+          npm run format:check
           npm run typecheck
           npm test
 
@@ -121,23 +185,25 @@ jobs:
   build:
     name: Build (${{ matrix.platform }})
     needs: prepare
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-latest
             platform: win
-            artifact_glob: |
-              dist-release/*.exe
-              dist-release/*.yml
-              dist-release/*.blockmap
 
     runs-on: ${{ matrix.os }}
+    environment:
+      name: release
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -153,8 +219,33 @@ jobs:
         if: matrix.platform == 'win'
         run: npm run test:electron-workspace
 
+      - name: Verify corrupt database isolation in Electron
+        if: matrix.platform == 'win'
+        run: npm run test:electron-database-recovery
+
+      - name: Verify real Electron data-loss and multi-window flows
+        if: matrix.platform == 'win'
+        run: npm run test:e2e
+
+      - name: Upload Electron E2E diagnostics
+        if: failure() && matrix.platform == 'win'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-electron-e2e-diagnostics
+          path: output/playwright/
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Build renderer & main
         run: npm run build
+
+      - name: Verify Windows Job Host lifecycle
+        if: matrix.platform == 'win'
+        run: npm run test:job-host
+
+      - name: Verify supervised code runner
+        if: matrix.platform == 'win'
+        run: npm run test:electron-runner
 
       - name: Verify SQL utility process
         if: runner.os != 'Linux'
@@ -164,24 +255,74 @@ jobs:
         if: runner.os == 'Linux'
         run: xvfb-run -a npm run test:electron-sql
 
-      - name: Build Electron packages
-        run: npx electron-builder --${{ matrix.platform }} --publish never
+      - name: Reconfirm release tag before signing
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: false
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const expected = process.env.RELEASE_SHA.toLowerCase()
+            const head = (await exec.getExecOutput('git', ['rev-parse', 'HEAD'], { silent: true })).stdout.trim().toLowerCase()
+            if (head !== expected) {
+              throw new Error(`Checked out commit ${head} does not match prepared release commit ${expected}`)
+            }
 
-      - name: Verify packaged Windows resources
+            const { owner, repo } = context.repo
+            const tag = process.env.RELEASE_TAG
+            let object = (await github.rest.git.getRef({ owner, repo, ref: `tags/${tag}` })).data.object
+            for (let depth = 0; object.type === 'tag' && depth < 8; depth += 1) {
+              object = (await github.rest.git.getTag({ owner, repo, tag_sha: object.sha })).data.object
+            }
+            if (object.type !== 'commit' || object.sha.toLowerCase() !== expected) {
+              throw new Error(`Remote tag ${tag} resolves to ${object.type}:${object.sha}, expected commit ${expected}`)
+            }
+
+      - name: Require Windows signing certificate
         if: matrix.platform == 'win'
-        run: npm run verify:package
+        shell: pwsh
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CSC_LINK)) {
+            throw 'CSC_LINK is required for an official Windows release.'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:CSC_KEY_PASSWORD)) {
+            throw 'CSC_KEY_PASSWORD is required for an official Windows release.'
+          }
+
+      - name: Build signed Electron packages
+        run: npm run package:win
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
+      - name: Verify signature, resources, install, restart, and hashes
+        if: matrix.platform == 'win'
+        run: npm run verify:package:win
+        env:
+          CODEHELPER_REQUIRE_SIGNATURE: '1'
+          CODEHELPER_RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+          CODEHELPER_WORKFLOW_SHA: ${{ github.sha }}
+          CODEHELPER_EXPECTED_SIGNER_THUMBPRINT: ${{ secrets.CODEHELPER_SIGNER_THUMBPRINT }}
 
       - name: List artifacts
         shell: bash
         run: ls -lh dist-release/ || true
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: release-${{ matrix.platform }}
-          path: ${{ matrix.artifact_glob }}
+          path: |
+            dist-release/CodeHelper-Installer-${{ needs.prepare.outputs.version }}.exe
+            dist-release/CodeHelper-Installer-${{ needs.prepare.outputs.version }}.exe.blockmap
+            dist-release/CodeHelper-${{ needs.prepare.outputs.version }}-Portable.exe
+            dist-release/latest.yml
+            dist-release/release-manifest.json
+            dist-release/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 7
 
@@ -189,17 +330,282 @@ jobs:
   # 3. Publish GitHub Release
   # ---------------------------------------------------------------
   publish:
-    name: Publish Release
+    name: Stage Draft Release
     needs: [prepare, build]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    outputs:
+      release_id: ${{ steps.create_release.outputs.release_id }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
 
       - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           path: artifacts
           merge-multiple: true
+
+      - name: Validate release asset set, checksums, and manifest
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          expected_assets=(
+            "CodeHelper-Installer-${RELEASE_VERSION}.exe"
+            "CodeHelper-Installer-${RELEASE_VERSION}.exe.blockmap"
+            "CodeHelper-${RELEASE_VERSION}-Portable.exe"
+            "SHA256SUMS.txt"
+            "latest.yml"
+            "release-manifest.json"
+          )
+          mapfile -t actual_assets < <(find artifacts -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort)
+          if ! diff -u \
+            <(printf '%s\n' "${expected_assets[@]}" | LC_ALL=C sort) \
+            <(printf '%s\n' "${actual_assets[@]}"); then
+            echo "::error::Downloaded workflow artifacts do not match the required release asset set"
+            exit 1
+          fi
+
+          (
+            cd artifacts
+            sha256sum -c SHA256SUMS.txt
+          )
+
+          python3 - <<'PY'
+          import base64
+          import hashlib
+          import json
+          import os
+          import re
+          import sys
+          from datetime import datetime, timedelta, timezone
+          from pathlib import Path
+
+          root = Path("artifacts")
+          version = os.environ["RELEASE_VERSION"]
+          source_commit = os.environ["RELEASE_SHA"].lower()
+          workflow_commit = os.environ["WORKFLOW_SHA"].lower()
+          installer = f"CodeHelper-Installer-{version}.exe"
+          portable = f"CodeHelper-{version}-Portable.exe"
+          expected_records = [installer, f"{installer}.blockmap", portable, "latest.yml"]
+          errors = []
+
+          def require(condition, message):
+              if not condition:
+                  errors.append(message)
+
+          try:
+              manifest = json.loads((root / "release-manifest.json").read_text(encoding="utf-8"))
+          except Exception as error:
+              print(f"::error::Cannot read release-manifest.json: {error}")
+              sys.exit(1)
+
+          require(manifest.get("schemaVersion") == 1, "release manifest schemaVersion must be 1")
+          require(manifest.get("product") == "CodeHelper", "release manifest product must be CodeHelper")
+          require(manifest.get("version") == version, "release manifest version does not match the tag")
+          require(
+              str(manifest.get("sourceCommit", "")).lower() == source_commit,
+              "release manifest sourceCommit does not match the prepared release commit",
+          )
+          require(manifest.get("signatureRequired") is True, "release manifest must require signatures")
+          require(
+              str(manifest.get("workflowCommit", "")).lower() == workflow_commit,
+              "release manifest workflowCommit does not match this workflow run",
+          )
+
+          try:
+              generated_at = datetime.fromisoformat(
+                  str(manifest.get("generatedAt", "")).replace("Z", "+00:00")
+              )
+              now = datetime.now(timezone.utc)
+              require(generated_at.utcoffset() == timedelta(0), "generatedAt must be a UTC timestamp")
+              require(generated_at <= now + timedelta(minutes=5), "generatedAt is in the future")
+              require(generated_at >= now - timedelta(hours=48), "generatedAt is unexpectedly old")
+          except (TypeError, ValueError):
+              errors.append("generatedAt must be a valid ISO-8601 timestamp")
+
+          records = manifest.get("artifacts")
+          require(isinstance(records, list), "release manifest artifacts must be an array")
+          records = records if isinstance(records, list) else []
+          names = [record.get("name") for record in records if isinstance(record, dict)]
+          require(sorted(names) == sorted(expected_records), "release manifest artifact set is incorrect")
+          require(len(names) == len(set(names)), "release manifest contains duplicate artifact records")
+          records_by_name = {
+              record.get("name"): record for record in records if isinstance(record, dict)
+          }
+
+          checksum_names = []
+          for line in (root / "SHA256SUMS.txt").read_text(encoding="utf-8").splitlines():
+              match = re.fullmatch(r"([0-9a-f]{64})  ([^/\\]+)", line)
+              require(match is not None, f"invalid SHA256SUMS.txt line: {line!r}")
+              if match:
+                  checksum_names.append(match.group(2))
+          require(
+              sorted(checksum_names) == sorted(expected_records),
+              "SHA256SUMS.txt must contain exactly the packaged artifacts",
+          )
+
+          signer_thumbprints = set()
+
+          def validate_signature(label, signature):
+              require(isinstance(signature, dict), f"{label} Authenticode record is missing")
+              if not isinstance(signature, dict):
+                  return
+              require(signature.get("status") == "Valid", f"{label} Authenticode status is not Valid")
+              signer = str(signature.get("signerThumbprint") or "")
+              timestamp = str(signature.get("timestampThumbprint") or "")
+              require(re.fullmatch(r"[0-9a-fA-F]{40}", signer) is not None, f"{label} signer thumbprint is invalid")
+              require(
+                  re.fullmatch(r"[0-9a-fA-F]{40}", timestamp) is not None,
+                  f"{label} timestamp certificate thumbprint is invalid",
+              )
+              if signer:
+                  signer_thumbprints.add(signer.upper())
+
+          for name in expected_records:
+              record = records_by_name.get(name, {})
+              path = root / name
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              require(record.get("bytes") == path.stat().st_size, f"{name} byte count is incorrect")
+              require(str(record.get("sha256", "")).lower() == digest, f"{name} SHA-256 is incorrect")
+              if name in (installer, portable):
+                  validate_signature(name, record.get("authenticode"))
+
+          packaged_executable = manifest.get("packagedExecutable")
+          require(isinstance(packaged_executable, dict), "packagedExecutable record is missing")
+          if isinstance(packaged_executable, dict):
+              require(
+                  packaged_executable.get("name") == "win-unpacked/CodeHelper.exe",
+                  "packagedExecutable name is incorrect",
+              )
+              require(
+                  isinstance(packaged_executable.get("bytes"), int)
+                  and packaged_executable["bytes"] > 0,
+                  "packagedExecutable byte count is invalid",
+              )
+              require(
+                  re.fullmatch(r"[0-9a-fA-F]{64}", str(packaged_executable.get("sha256", "")))
+                  is not None,
+                  "packagedExecutable SHA-256 is invalid",
+              )
+              validate_signature(
+                  "win-unpacked/CodeHelper.exe", packaged_executable.get("authenticode")
+              )
+
+          packaged_resources = manifest.get("packagedResources")
+          require(
+              isinstance(packaged_resources, list) and len(packaged_resources) == 1,
+              "packagedResources must contain exactly the Windows Job Host",
+          )
+          job_host = packaged_resources[0] if isinstance(packaged_resources, list) and packaged_resources else {}
+          require(
+              job_host.get("name")
+              == "win-unpacked/resources/bin/win32-x64/codehelper-job-host.exe",
+              "packaged Job Host name is incorrect",
+          )
+          require(
+              isinstance(job_host.get("bytes"), int) and job_host["bytes"] > 0,
+              "packaged Job Host byte count is invalid",
+          )
+          require(
+              re.fullmatch(r"[0-9a-fA-F]{64}", str(job_host.get("sha256", ""))) is not None,
+              "packaged Job Host SHA-256 is invalid",
+          )
+          validate_signature("packaged codehelper-job-host.exe", job_host.get("authenticode"))
+
+          installer_bytes = (root / installer).read_bytes()
+          updater = manifest.get("updater")
+          require(isinstance(updater, dict), "updater verification record is missing")
+          if isinstance(updater, dict):
+              require(updater.get("path") == installer, "updater path is incorrect")
+              require(updater.get("bytes") == len(installer_bytes), "updater byte count is incorrect")
+              require(
+                  updater.get("sha512")
+                  == base64.b64encode(hashlib.sha512(installer_bytes).digest()).decode("ascii"),
+                  "updater SHA-512 is incorrect",
+              )
+              try:
+                  datetime.fromisoformat(str(updater.get("releaseDate", "")).replace("Z", "+00:00"))
+              except (TypeError, ValueError):
+                  errors.append("updater releaseDate is invalid")
+
+          smoke_tests = manifest.get("smokeTests")
+          require(isinstance(smoke_tests, list), "smokeTests must be an array")
+          smoke_tests = smoke_tests if isinstance(smoke_tests, list) else []
+          smokes_by_label = {
+              smoke.get("label"): smoke for smoke in smoke_tests if isinstance(smoke, dict)
+          }
+          require(sorted(smokes_by_label) == ["installed", "portable"], "packaged smoke set is incorrect")
+          for label in ("installed", "portable"):
+              smoke = smokes_by_label.get(label, {})
+              require(smoke.get("version") == version, f"{label} smoke version is incorrect")
+              require(smoke.get("phases") == ["exercise", "verify"], f"{label} smoke phases are incorrect")
+              require(smoke.get("restartPersistence") is True, f"{label} restart persistence failed")
+              require(
+                  smoke.get("localControlledRunner") is True,
+                  f"{label} packaged local-controlled runner failed",
+              )
+              require(
+                  str(smoke.get("agentKnowledgeSource", "")).startswith(
+                      "package-smoke/release-gate.md#"
+                  ),
+                  f"{label} Agent knowledge source is incorrect",
+              )
+              require(smoke.get("agentCancelled") is True, f"{label} Agent cancellation failed")
+              require(smoke.get("userDataIsolated") is True, f"{label} userData was not isolated")
+              require(smoke.get("runtimeCleanupVerified") is True, f"{label} runtime cleanup failed")
+              if label == "installed":
+                  require(smoke.get("installationRemoved") is True, "installed application was not removed")
+              require(
+                  str(smoke.get("jobHostSha256", "")).lower()
+                  == str(job_host.get("sha256", "")).lower(),
+                  f"{label} Job Host hash is incorrect",
+              )
+
+          required_verification = {
+              "packageResources",
+              "electronFuses",
+              "updaterManifest",
+              "portableRuntime",
+              "portableExtractionCleanup",
+              "silentInstall",
+              "installedRuntime",
+              "restartPersistence",
+              "silentUninstall",
+          }
+          verification = manifest.get("verification")
+          require(isinstance(verification, dict), "verification evidence is missing")
+          if isinstance(verification, dict):
+              require(
+                  set(verification) == required_verification
+                  and all(verification.get(key) is True for key in required_verification),
+                  "release verification evidence is incomplete",
+              )
+
+          pinned_signer = manifest.get("expectedSignerThumbprint")
+          if pinned_signer is not None:
+              require(
+                  re.fullmatch(r"[0-9a-fA-F]{40}", str(pinned_signer)) is not None,
+                  "expected signer thumbprint is invalid",
+              )
+              require(str(pinned_signer).upper() in signer_thumbprints, "expected signer was not used")
+
+          require(len(signer_thumbprints) == 1, "signed executables do not share one signer")
+
+          if errors:
+              for error in errors:
+                  print(f"::error::{error}")
+              sys.exit(1)
+          print("Release manifest, signatures, timestamps, and artifact hashes are valid.")
+          PY
 
       - name: List downloaded artifacts
         run: find artifacts -type f | head -50
@@ -210,98 +616,957 @@ jobs:
           ${{ needs.prepare.outputs.changelog }}
           NOTES_EOF
 
-      - name: Remove existing release for clean re-publish
+      - name: Reconfirm release tag before publishing
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const expected = process.env.RELEASE_SHA.toLowerCase()
+            const head = (await exec.getExecOutput('git', ['rev-parse', 'HEAD'], { silent: true })).stdout.trim().toLowerCase()
+            if (head !== expected) {
+              throw new Error(`Checked out commit ${head} does not match prepared release commit ${expected}`)
+            }
+
+            const { owner, repo } = context.repo
+            const tag = process.env.RELEASE_TAG
+            let object = (await github.rest.git.getRef({ owner, repo, ref: `tags/${tag}` })).data.object
+            for (let depth = 0; object.type === 'tag' && depth < 8; depth += 1) {
+              object = (await github.rest.git.getTag({ owner, repo, tag_sha: object.sha })).data.object
+            }
+            if (object.type !== 'commit' || object.sha.toLowerCase() !== expected) {
+              throw new Error(`Remote tag ${tag} resolves to ${object.type}:${object.sha}, expected commit ${expected}`)
+            }
+
+      - name: Create draft release candidate
+        id: create_release
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+          PRERELEASE: ${{ contains(needs.prepare.outputs.version, '-') }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const fs = require('node:fs')
+            const { owner, repo } = context.repo
+            const tag = process.env.RELEASE_TAG
+            const response = await github.rest.repos.createRelease({
+              owner,
+              repo,
+              tag_name: tag,
+              target_commitish: process.env.RELEASE_SHA,
+              name: `CodeHelper ${tag}`,
+              body: fs.readFileSync('release_notes.md', 'utf8'),
+              draft: true,
+              prerelease: process.env.PRERELEASE === 'true',
+              make_latest: 'false',
+            })
+            if (!response.data.draft || response.data.tag_name !== tag) {
+              throw new Error(`Created release candidate ${response.data.id} is not the expected draft`)
+            }
+            core.setOutput('release_id', String(response.data.id))
+
+      - name: Upload candidate assets
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release delete "${{ needs.prepare.outputs.tag }}" --yes || true
+          GH_REPO: ${{ github.repository }}
+          RELEASE_ID: ${{ steps.create_release.outputs.release_id }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          candidate_id=$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq .id)
+          candidate_tag=$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq .tag_name)
+          candidate_draft=$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq .draft)
+          test "$candidate_id" = "$RELEASE_ID"
+          test "$candidate_tag" = "$RELEASE_TAG"
+          test "$candidate_draft" = "true"
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.prepare.outputs.tag }}
-          name: 'CodeHelper ${{ needs.prepare.outputs.tag }}'
-          body_path: release_notes.md
-          draft: ${{ github.event.inputs.draft || false }}
-          prerelease: ${{ contains(needs.prepare.outputs.version, '-') }}
-          generate_release_notes: ${{ needs.prepare.outputs.changelog == '' }}
-          files: |
-            artifacts/**/*.exe
-            artifacts/**/*.yml
-            artifacts/**/*.blockmap
+          gh release upload "$RELEASE_TAG" \
+            "artifacts/CodeHelper-Installer-${RELEASE_VERSION}.exe" \
+            "artifacts/CodeHelper-Installer-${RELEASE_VERSION}.exe.blockmap" \
+            "artifacts/CodeHelper-${RELEASE_VERSION}-Portable.exe" \
+            "artifacts/latest.yml" \
+            "artifacts/release-manifest.json" \
+            "artifacts/SHA256SUMS.txt"
+
+      - name: Delete failed draft candidate
+        if: ${{ always() && (failure() || cancelled()) && steps.create_release.outputs.release_id != '' }}
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ steps.create_release.outputs.release_id }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          PUBLICATION_AUDIT_MARKER: '<!-- codehelper-was-public:${{ github.run_id }}:${{ github.run_attempt }} -->'
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const { owner, repo } = context.repo
+            const release_id = Number(process.env.RELEASE_ID)
+            const candidate = await github.rest.repos.getRelease({ owner, repo, release_id })
+            if (
+              candidate.data.id === release_id &&
+              candidate.data.tag_name === process.env.RELEASE_TAG &&
+              candidate.data.draft === true &&
+              candidate.data.published_at == null &&
+              !String(candidate.data.body || '').includes(process.env.PUBLICATION_AUDIT_MARKER)
+            ) {
+              await github.rest.repos.deleteRelease({ owner, repo, release_id })
+              core.warning(`Deleted failed draft release candidate ${release_id}`)
+              return
+            }
+            throw new Error(
+              `Refusing to delete release ${release_id}: it is not this run's matching draft candidate`,
+            )
 
   # ---------------------------------------------------------------
-  # 4. Post-release verification
+  # 4. Verify the draft assets before making the immutable release public
   # ---------------------------------------------------------------
   verify:
-    name: Verify Release
+    name: Verify and Finalize Release
     needs: [prepare, publish]
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
     steps:
-      - name: Verify Windows release assets
+      - name: Download staged build artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-win
+          path: staged-assets
+
+      - name: Reconfirm release tag before candidate verification
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const expected = process.env.RELEASE_SHA.toLowerCase()
+            const { owner, repo } = context.repo
+            const tag = process.env.RELEASE_TAG
+            let object = (await github.rest.git.getRef({ owner, repo, ref: `tags/${tag}` })).data.object
+            for (let depth = 0; object.type === 'tag' && depth < 8; depth += 1) {
+              object = (await github.rest.git.getTag({ owner, repo, tag_sha: object.sha })).data.object
+            }
+            if (object.type !== 'commit' || object.sha.toLowerCase() !== expected) {
+              throw new Error(`Remote tag ${tag} resolves to ${object.type}:${object.sha}, expected commit ${expected}`)
+            }
+
+      - name: Validate draft candidate metadata and server digests
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_ID: ${{ needs.publish.outputs.release_id }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 12); do
+            gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" > candidate-release.json
+            if python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          root = Path("staged-assets")
+          version = os.environ["RELEASE_VERSION"]
+          release_id = int(os.environ["RELEASE_ID"])
+          tag = os.environ["RELEASE_TAG"]
+          source_commit = os.environ["RELEASE_SHA"].lower()
+          expected_names = {
+              f"CodeHelper-Installer-{version}.exe",
+              f"CodeHelper-Installer-{version}.exe.blockmap",
+              f"CodeHelper-{version}-Portable.exe",
+              "latest.yml",
+              "release-manifest.json",
+              "SHA256SUMS.txt",
+          }
+          release = json.loads(Path("candidate-release.json").read_text(encoding="utf-8"))
+          assets = release.get("assets")
+          assets = assets if isinstance(assets, list) else []
+          assets_by_name = {
+              asset.get("name"): asset for asset in assets if isinstance(asset, dict)
+          }
+          errors = []
+
+          def require(condition, message):
+              if not condition:
+                  errors.append(message)
+
+          staged_names = {path.name for path in root.iterdir() if path.is_file()}
+          require(release.get("id") == release_id, "candidate release ID is incorrect")
+          require(release.get("tag_name") == tag, "candidate release tag is incorrect")
+          require(
+              str(release.get("target_commitish", "")).lower() == source_commit,
+              "candidate target_commitish does not match the prepared release commit",
+          )
+          require(release.get("draft") is True, "candidate release is not a draft")
+          require(staged_names == expected_names, "staged build artifact set is incorrect")
+          require(set(assets_by_name) == expected_names, "candidate server asset set is incorrect")
+          require(len(assets) == len(assets_by_name), "candidate contains duplicate asset names")
+
+          for name in expected_names:
+              path = root / name
+              asset = assets_by_name.get(name, {})
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              require(asset.get("state") == "uploaded", f"{name} is not fully uploaded")
+              require(asset.get("size") == path.stat().st_size, f"{name} server size is incorrect")
+              require(
+                  str(asset.get("digest", "")).lower() == f"sha256:{digest}",
+                  f"{name} server SHA-256 digest is missing or incorrect",
+              )
+
+          if errors:
+              for error in errors:
+                  print(f"::error::{error}")
+              sys.exit(1)
+          print("Draft candidate metadata and server asset digests are valid.")
+          PY
+            then
+              candidate_ready=true
+              break
+            fi
+            if [ "$attempt" -eq 12 ]; then
+              echo "::error::Draft candidate metadata did not become verifiable"
+              exit 1
+            fi
+            sleep 5
+          done
+          test "${candidate_ready:-false}" = "true"
+
+      - name: Download candidate release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
         run: |
+          set -euo pipefail
+          mkdir candidate-assets
+          gh release download "$RELEASE_TAG" --dir candidate-assets
+
+      - name: Verify candidate asset set, SHA-256, and manifest
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          expected_assets=(
+            "CodeHelper-Installer-${RELEASE_VERSION}.exe"
+            "CodeHelper-Installer-${RELEASE_VERSION}.exe.blockmap"
+            "CodeHelper-${RELEASE_VERSION}-Portable.exe"
+            "SHA256SUMS.txt"
+            "latest.yml"
+            "release-manifest.json"
+          )
+          mapfile -t actual_assets < <(find candidate-assets -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort)
+          if ! diff -u \
+            <(printf '%s\n' "${expected_assets[@]}" | LC_ALL=C sort) \
+            <(printf '%s\n' "${actual_assets[@]}"); then
+            echo "::error::Published GitHub Release assets do not match the required asset set"
+            exit 1
+          fi
+
+          (
+            cd candidate-assets
+            sha256sum -c SHA256SUMS.txt
+          )
+
           python3 - <<'PY'
+          import base64
+          import hashlib
           import json
           import os
           import re
           import sys
-          import urllib.request
+          from datetime import datetime, timedelta, timezone
+          from pathlib import Path
 
-          repo = os.environ["GITHUB_REPOSITORY"]
-          tag = os.environ["RELEASE_TAG"]
-          token = os.environ["GH_TOKEN"]
-          api = os.environ.get("GITHUB_API_URL", "https://api.github.com")
-          url = f"{api}/repos/{repo}/releases/tags/{tag}"
-
-          request = urllib.request.Request(
-              url,
-              headers={
-                  "Authorization": f"Bearer {token}",
-                  "Accept": "application/vnd.github+json",
-                  "X-GitHub-Api-Version": "2022-11-28",
-                  "User-Agent": "codehelper-release-verify",
-              },
-          )
-
-          with urllib.request.urlopen(request) as response:
-              release = json.load(response)
-
-          assets = [asset["name"] for asset in release.get("assets", [])]
-          print("Release assets:")
-          for asset in assets:
-              print(f"- {asset}")
+          root = Path("candidate-assets")
+          version = os.environ["RELEASE_VERSION"]
+          source_commit = os.environ["RELEASE_SHA"].lower()
+          workflow_commit = os.environ["WORKFLOW_SHA"].lower()
+          installer = f"CodeHelper-Installer-{version}.exe"
+          portable = f"CodeHelper-{version}-Portable.exe"
+          expected_records = [installer, f"{installer}.blockmap", portable, "latest.yml"]
+          manifest = json.loads((root / "release-manifest.json").read_text(encoding="utf-8"))
+          records = manifest.get("artifacts")
+          records_are_list = isinstance(records, list)
+          records = records if isinstance(records, list) else []
+          names = [record.get("name") for record in records if isinstance(record, dict)]
+          records_by_name = {
+              record.get("name"): record for record in records if isinstance(record, dict)
+          }
 
           errors = []
-          if not any(asset.lower().endswith(".exe") for asset in assets):
-              errors.append("Windows .exe asset is missing")
-          if "latest.yml" not in assets:
-              errors.append("latest.yml auto-update manifest is missing")
 
-          non_windows = [
-              asset
-              for asset in assets
-              if re.search(r"(\.dmg|\.appimage|\.deb|\.rpm|latest-mac\.yml|latest-linux\.yml)", asset, re.I)
-              or re.search(r"-mac\.zip|arm64-mac\.zip", asset, re.I)
-          ]
-          if non_windows:
-              errors.append("non-Windows release assets found: " + ", ".join(non_windows))
+          def require(condition, message):
+              if not condition:
+                  errors.append(message)
+
+          require(manifest.get("schemaVersion") == 1, "published manifest schemaVersion must be 1")
+          require(manifest.get("product") == "CodeHelper", "published manifest product is incorrect")
+          require(manifest.get("version") == version, "published manifest version is incorrect")
+          require(
+              str(manifest.get("sourceCommit", "")).lower() == source_commit,
+              "published manifest sourceCommit is incorrect",
+          )
+          require(manifest.get("signatureRequired") is True, "published manifest does not require signatures")
+          require(
+              str(manifest.get("workflowCommit", "")).lower() == workflow_commit,
+              "published manifest workflowCommit does not match this workflow run",
+          )
+          require(records_are_list, "published manifest artifacts must be an array")
+          require(sorted(names) == sorted(expected_records), "published manifest artifact set is incorrect")
+          require(len(names) == len(set(names)), "published manifest contains duplicate artifact records")
+
+          checksum_names = []
+          for line in (root / "SHA256SUMS.txt").read_text(encoding="utf-8").splitlines():
+              match = re.fullmatch(r"([0-9a-f]{64})  ([^/\\]+)", line)
+              require(match is not None, f"invalid published SHA256SUMS.txt line: {line!r}")
+              if match:
+                  checksum_names.append(match.group(2))
+          require(
+              sorted(checksum_names) == sorted(expected_records),
+              "published SHA256SUMS.txt must contain exactly the packaged artifacts",
+          )
+
+          try:
+              generated_at = datetime.fromisoformat(
+                  str(manifest.get("generatedAt", "")).replace("Z", "+00:00")
+              )
+              now = datetime.now(timezone.utc)
+              require(generated_at.utcoffset() == timedelta(0), "published generatedAt is not UTC")
+              require(generated_at <= now + timedelta(minutes=5), "published generatedAt is in the future")
+              require(
+                  generated_at >= now - timedelta(hours=48),
+                  "published generatedAt is unexpectedly old",
+              )
+          except (TypeError, ValueError):
+              errors.append("published generatedAt is not a valid ISO-8601 timestamp")
+
+          signer_thumbprints = set()
+
+          def validate_signature(label, signature):
+              require(isinstance(signature, dict), f"{label} Authenticode record is missing")
+              if not isinstance(signature, dict):
+                  return
+              require(signature.get("status") == "Valid", f"{label} Authenticode status is not Valid")
+              signer = str(signature.get("signerThumbprint") or "")
+              timestamp = str(signature.get("timestampThumbprint") or "")
+              require(re.fullmatch(r"[0-9a-fA-F]{40}", signer) is not None, f"{label} signer thumbprint is invalid")
+              require(
+                  re.fullmatch(r"[0-9a-fA-F]{40}", timestamp) is not None,
+                  f"{label} timestamp certificate thumbprint is invalid",
+              )
+              if signer:
+                  signer_thumbprints.add(signer.upper())
+
+          for name in expected_records:
+              record = records_by_name.get(name, {})
+              path = root / name
+              require(record.get("bytes") == path.stat().st_size, f"{name} byte count is incorrect")
+              require(
+                  str(record.get("sha256", "")).lower()
+                  == hashlib.sha256(path.read_bytes()).hexdigest(),
+                  f"{name} manifest SHA-256 is incorrect",
+              )
+              if name in (installer, portable):
+                  validate_signature(name, record.get("authenticode"))
+
+          packaged_executable = manifest.get("packagedExecutable")
+          require(isinstance(packaged_executable, dict), "packagedExecutable record is missing")
+          if isinstance(packaged_executable, dict):
+              require(
+                  packaged_executable.get("name") == "win-unpacked/CodeHelper.exe",
+                  "published packagedExecutable name is incorrect",
+              )
+              require(
+                  isinstance(packaged_executable.get("bytes"), int)
+                  and packaged_executable["bytes"] > 0,
+                  "published packagedExecutable byte count is invalid",
+              )
+              require(
+                  re.fullmatch(
+                      r"[0-9a-fA-F]{64}", str(packaged_executable.get("sha256", ""))
+                  )
+                  is not None,
+                  "published packagedExecutable SHA-256 is invalid",
+              )
+              validate_signature(
+                  "win-unpacked/CodeHelper.exe", packaged_executable.get("authenticode")
+              )
+
+          packaged_resources = manifest.get("packagedResources")
+          require(
+              isinstance(packaged_resources, list) and len(packaged_resources) == 1,
+              "published packagedResources set is incorrect",
+          )
+          job_host = packaged_resources[0] if isinstance(packaged_resources, list) and packaged_resources else {}
+          require(
+              job_host.get("name")
+              == "win-unpacked/resources/bin/win32-x64/codehelper-job-host.exe",
+              "published Job Host name is incorrect",
+          )
+          require(
+              isinstance(job_host.get("bytes"), int) and job_host["bytes"] > 0,
+              "published Job Host byte count is invalid",
+          )
+          require(
+              re.fullmatch(r"[0-9a-fA-F]{64}", str(job_host.get("sha256", ""))) is not None,
+              "published Job Host SHA-256 is invalid",
+          )
+          validate_signature("packaged codehelper-job-host.exe", job_host.get("authenticode"))
+
+          installer_bytes = (root / installer).read_bytes()
+          updater = manifest.get("updater")
+          require(isinstance(updater, dict), "published updater record is missing")
+          if isinstance(updater, dict):
+              require(updater.get("path") == installer, "published updater path is incorrect")
+              require(updater.get("bytes") == len(installer_bytes), "published updater size is incorrect")
+              require(
+                  updater.get("sha512")
+                  == base64.b64encode(hashlib.sha512(installer_bytes).digest()).decode("ascii"),
+                  "published updater SHA-512 is incorrect",
+              )
+              try:
+                  datetime.fromisoformat(str(updater.get("releaseDate", "")).replace("Z", "+00:00"))
+              except (TypeError, ValueError):
+                  errors.append("published updater releaseDate is invalid")
+
+          smoke_tests = manifest.get("smokeTests")
+          require(isinstance(smoke_tests, list), "published smokeTests must be an array")
+          smoke_tests = smoke_tests if isinstance(smoke_tests, list) else []
+          smokes_by_label = {
+              smoke.get("label"): smoke for smoke in smoke_tests if isinstance(smoke, dict)
+          }
+          require(
+              sorted(smokes_by_label) == ["installed", "portable"],
+              "published packaged smoke set is incorrect",
+          )
+          for label in ("installed", "portable"):
+              smoke = smokes_by_label.get(label, {})
+              require(smoke.get("version") == version, f"published {label} smoke version is incorrect")
+              require(
+                  smoke.get("phases") == ["exercise", "verify"],
+                  f"published {label} smoke phases are incorrect",
+              )
+              require(
+                  smoke.get("restartPersistence") is True,
+                  f"published {label} restart persistence failed",
+              )
+              require(
+                  smoke.get("localControlledRunner") is True,
+                  f"published {label} packaged local-controlled runner failed",
+              )
+              require(
+                  str(smoke.get("agentKnowledgeSource", "")).startswith(
+                      "package-smoke/release-gate.md#"
+                  ),
+                  f"published {label} Agent knowledge source is incorrect",
+              )
+              require(
+                  smoke.get("agentCancelled") is True,
+                  f"published {label} Agent cancellation failed",
+              )
+              require(
+                  smoke.get("userDataIsolated") is True,
+                  f"published {label} userData was not isolated",
+              )
+              require(
+                  smoke.get("runtimeCleanupVerified") is True,
+                  f"published {label} runtime cleanup failed",
+              )
+              if label == "installed":
+                  require(
+                      smoke.get("installationRemoved") is True,
+                      "published installed application was not removed",
+                  )
+              require(
+                  str(smoke.get("jobHostSha256", "")).lower()
+                  == str(job_host.get("sha256", "")).lower(),
+                  f"published {label} Job Host hash is incorrect",
+              )
+
+          required_verification = {
+              "packageResources",
+              "electronFuses",
+              "updaterManifest",
+              "portableRuntime",
+              "portableExtractionCleanup",
+              "silentInstall",
+              "installedRuntime",
+              "restartPersistence",
+              "silentUninstall",
+          }
+          verification = manifest.get("verification")
+          require(isinstance(verification, dict), "published verification evidence is missing")
+          if isinstance(verification, dict):
+              require(
+                  set(verification) == required_verification
+                  and all(verification.get(key) is True for key in required_verification),
+                  "published verification evidence is incomplete",
+              )
+
+          pinned_signer = manifest.get("expectedSignerThumbprint")
+          if pinned_signer is not None:
+              require(
+                  re.fullmatch(r"[0-9a-fA-F]{40}", str(pinned_signer)) is not None,
+                  "published expected signer thumbprint is invalid",
+              )
+              require(
+                  str(pinned_signer).upper() in signer_thumbprints,
+                  "published expected signer was not used",
+              )
+          require(len(signer_thumbprints) == 1, "published executable signer thumbprints differ")
 
           if errors:
               for error in errors:
                   print(f"::error::{error}")
               sys.exit(1)
 
-          print(f"OK: {tag} is a Windows-only release with {len(assets)} assets.")
+          print("Published release assets and SHA-256 checksums are valid.")
+          PY
+
+      - name: Determine latest-release policy
+        id: latest_policy
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.draft == false }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh api --paginate --slurp \
+            "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/v" > stable-tag-refs.json
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          pattern = re.compile(r"^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
+          pages = json.loads(Path("stable-tag-refs.json").read_text(encoding="utf-8"))
+          refs = [item for page in pages for item in page]
+          stable = []
+          for item in refs:
+              tag = str(item.get("ref", "")).removeprefix("refs/tags/")
+              match = pattern.fullmatch(tag)
+              if match:
+                  stable.append((tuple(int(part) for part in match.groups()), tag))
+
+          current = os.environ["RELEASE_TAG"]
+          latest_stable = max(stable)[1] if stable else None
+          mark_latest = pattern.fullmatch(current) is not None and current == latest_stable
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+              output.write(f"latest={'true' if mark_latest else 'false'}\n")
+              output.write(f"latest_stable={latest_stable or ''}\n")
+          print(
+              f"Current tag: {current}; highest stable tag: {latest_stable}; "
+              f"mark latest: {mark_latest}"
+          )
+          PY
+
+      - name: Reconfirm release tag immediately before finalization
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.draft == false }}
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const expected = process.env.RELEASE_SHA.toLowerCase()
+            const { owner, repo } = context.repo
+            const tag = process.env.RELEASE_TAG
+            let object = (await github.rest.git.getRef({ owner, repo, ref: `tags/${tag}` })).data.object
+            for (let depth = 0; object.type === 'tag' && depth < 8; depth += 1) {
+              object = (await github.rest.git.getTag({ owner, repo, tag_sha: object.sha })).data.object
+            }
+            if (object.type !== 'commit' || object.sha.toLowerCase() !== expected) {
+              throw new Error(`Remote tag ${tag} resolves to ${object.type}:${object.sha}, expected commit ${expected}`)
+            }
+
+      - name: Publish verified immutable release
+        id: finalize
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.draft == false }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_ID: ${{ needs.publish.outputs.release_id }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+          PRERELEASE: ${{ contains(needs.prepare.outputs.version, '-') }}
+          MARK_LATEST: ${{ steps.latest_policy.outputs.latest }}
+          PUBLISHED_MARKER: ${{ runner.temp }}/codehelper-release-${{ github.run_id }}-${{ github.run_attempt }}.published
+          PUBLICATION_AUDIT_MARKER: '<!-- codehelper-was-public:${{ github.run_id }}:${{ github.run_attempt }} -->'
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" > pre-finalize-release.json
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          release = json.loads(Path("pre-finalize-release.json").read_text(encoding="utf-8"))
+          expected = {
+              "id": int(os.environ["RELEASE_ID"]),
+              "tag_name": os.environ["RELEASE_TAG"],
+              "target_commitish": os.environ["RELEASE_SHA"].lower(),
+          }
+          errors = []
+          if release.get("id") != expected["id"]:
+              errors.append("pre-finalize release ID is incorrect")
+          if release.get("tag_name") != expected["tag_name"]:
+              errors.append("pre-finalize release tag is incorrect")
+          if str(release.get("target_commitish", "")).lower() != expected["target_commitish"]:
+              errors.append("pre-finalize target_commitish is incorrect")
+          if release.get("draft") is not True:
+              errors.append("pre-finalize release is not a draft")
+          if errors:
+              for error in errors:
+                  print(f"::error::{error}")
+              sys.exit(1)
+          PY
+
+          if [ "$PRERELEASE" = "true" ]; then
+            gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
+          elif [ "$MARK_LATEST" = "true" ]; then
+            gh release edit "$RELEASE_TAG" --draft=false --latest
+          else
+            gh release edit "$RELEASE_TAG" --draft=false --latest=false
+          fi
+          touch "$PUBLISHED_MARKER"
+
+          immutable=false
+          for attempt in $(seq 1 10); do
+            gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" > finalized-release.json
+            immutable=$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          release = json.loads(Path("finalized-release.json").read_text(encoding="utf-8"))
+          print("true" if release.get("immutable") is True else "false")
+          PY
+            )
+            if [ "$immutable" = "true" ]; then
+              break
+            fi
+            sleep 3
+          done
+          if [ "$immutable" != "true" ]; then
+            echo "::error::Published release is not immutable; attempting to return it to draft state"
+            python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          release = json.loads(Path("finalized-release.json").read_text(encoding="utf-8"))
+          marker = os.environ["PUBLICATION_AUDIT_MARKER"]
+          body = str(release.get("body") or "")
+          if marker not in body:
+              body = f"{body.rstrip()}\n\n{marker}\n"
+          Path("rollback-release.json").write_text(
+              json.dumps({"draft": True, "body": body}, ensure_ascii=False),
+              encoding="utf-8",
+          )
+          PY
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+              --input rollback-release.json >/dev/null \
+              || echo "::warning::Could not return non-immutable release to draft"
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          release = json.loads(Path("finalized-release.json").read_text(encoding="utf-8"))
+          errors = []
+          if release.get("id") != int(os.environ["RELEASE_ID"]):
+              errors.append("finalized release ID is incorrect")
+          if release.get("tag_name") != os.environ["RELEASE_TAG"]:
+              errors.append("finalized release tag is incorrect")
+          if str(release.get("target_commitish", "")).lower() != os.environ["RELEASE_SHA"].lower():
+              errors.append("finalized target_commitish is incorrect")
+          if release.get("draft") is not False:
+              errors.append("finalized release is still a draft")
+          if release.get("immutable") is not True:
+              errors.append("finalized release is not immutable")
+          if errors:
+              for error in errors:
+                  print(f"::error::{error}")
+              sys.exit(1)
+          print("Release is public and immutable.")
+          PY
+
+      - name: Confirm requested draft remains staged
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.draft }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_ID: ${{ needs.publish.outputs.release_id }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" > requested-draft-release.json
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          release = json.loads(Path("requested-draft-release.json").read_text(encoding="utf-8"))
+          errors = []
+          if release.get("id") != int(os.environ["RELEASE_ID"]):
+              errors.append("requested draft release ID is incorrect")
+          if release.get("tag_name") != os.environ["RELEASE_TAG"]:
+              errors.append("requested draft release tag is incorrect")
+          if str(release.get("target_commitish", "")).lower() != os.environ["RELEASE_SHA"].lower():
+              errors.append("requested draft target_commitish is incorrect")
+          if release.get("draft") is not True:
+              errors.append("requested draft was unexpectedly published")
+          if errors:
+              for error in errors:
+                  print(f"::error::{error}")
+              sys.exit(1)
+          PY
+
+      - name: Reconfirm release tag after publication
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.draft == false }}
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const expected = process.env.RELEASE_SHA.toLowerCase()
+            const { owner, repo } = context.repo
+            const tag = process.env.RELEASE_TAG
+            let object = (await github.rest.git.getRef({ owner, repo, ref: `tags/${tag}` })).data.object
+            for (let depth = 0; object.type === 'tag' && depth < 8; depth += 1) {
+              object = (await github.rest.git.getTag({ owner, repo, tag_sha: object.sha })).data.object
+            }
+            if (object.type !== 'commit' || object.sha.toLowerCase() !== expected) {
+              throw new Error(`Remote tag ${tag} resolves to ${object.type}:${object.sha}, expected commit ${expected}`)
+            }
+
+      - name: Download immutable release assets again
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.draft == false }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_ID: ${{ needs.publish.outputs.release_id }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir final-assets
+          gh release download "$RELEASE_TAG" --dir final-assets
+          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" > final-release.json
+
+      - name: Verify immutable release bytes and server digests
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.draft == false }}
+        shell: bash
+        env:
+          RELEASE_ID: ${{ needs.publish.outputs.release_id }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          expected_assets=(
+            "CodeHelper-Installer-${RELEASE_VERSION}.exe"
+            "CodeHelper-Installer-${RELEASE_VERSION}.exe.blockmap"
+            "CodeHelper-${RELEASE_VERSION}-Portable.exe"
+            "SHA256SUMS.txt"
+            "latest.yml"
+            "release-manifest.json"
+          )
+          mapfile -t staged_names < <(find staged-assets -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort)
+          mapfile -t final_names < <(find final-assets -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort)
+          expected_sorted=$(printf '%s\n' "${expected_assets[@]}" | LC_ALL=C sort)
+          diff -u <(printf '%s\n' "$expected_sorted") <(printf '%s\n' "${staged_names[@]}")
+          diff -u <(printf '%s\n' "$expected_sorted") <(printf '%s\n' "${final_names[@]}")
+          (
+            cd final-assets
+            sha256sum -c SHA256SUMS.txt
+          )
+
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          staged = Path("staged-assets")
+          final = Path("final-assets")
+          version = os.environ["RELEASE_VERSION"]
+          expected_names = {
+              f"CodeHelper-Installer-{version}.exe",
+              f"CodeHelper-Installer-{version}.exe.blockmap",
+              f"CodeHelper-{version}-Portable.exe",
+              "latest.yml",
+              "release-manifest.json",
+              "SHA256SUMS.txt",
+          }
+          release = json.loads(Path("final-release.json").read_text(encoding="utf-8"))
+          assets = release.get("assets")
+          assets = assets if isinstance(assets, list) else []
+          assets_by_name = {
+              asset.get("name"): asset for asset in assets if isinstance(asset, dict)
+          }
+          errors = []
+
+          def require(condition, message):
+              if not condition:
+                  errors.append(message)
+
+          require(release.get("id") == int(os.environ["RELEASE_ID"]), "final release ID is incorrect")
+          require(release.get("tag_name") == os.environ["RELEASE_TAG"], "final release tag is incorrect")
+          require(
+              str(release.get("target_commitish", "")).lower()
+              == os.environ["RELEASE_SHA"].lower(),
+              "final target_commitish is incorrect",
+          )
+          require(release.get("draft") is False, "final release returned to draft state")
+          require(release.get("immutable") is True, "final release is not immutable")
+          require(set(assets_by_name) == expected_names, "final server asset set is incorrect")
+          require(len(assets) == len(assets_by_name), "final server assets contain duplicate names")
+
+          for name in expected_names:
+              staged_path = staged / name
+              final_path = final / name
+              staged_digest = hashlib.sha256(staged_path.read_bytes()).hexdigest()
+              final_digest = hashlib.sha256(final_path.read_bytes()).hexdigest()
+              asset = assets_by_name.get(name, {})
+              require(staged_digest == final_digest, f"{name} changed after publication")
+              require(asset.get("state") == "uploaded", f"{name} is not uploaded")
+              require(asset.get("size") == final_path.stat().st_size, f"{name} server size is incorrect")
+              require(
+                  str(asset.get("digest", "")).lower() == f"sha256:{final_digest}",
+                  f"{name} final server digest is incorrect",
+              )
+
+          if errors:
+              for error in errors:
+                  print(f"::error::{error}")
+              sys.exit(1)
+          print("Immutable release downloads match staged bytes and server digests.")
           PY
 
       - name: Summary
         run: |
           echo "## Release ${{ needs.prepare.outputs.tag }} Complete" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Windows desktop package built and published successfully." >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.draft }}" = "true" ]; then
+            echo "Windows desktop package built, uploaded, and verified as a draft." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Windows desktop package built, verified, and published successfully." >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "The Windows auto-update manifest is included for Electron Updater." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Delete failed pre-publication draft candidate
+        if: ${{ always() && (failure() || cancelled()) && needs.publish.outputs.release_id != '' }}
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          RELEASE_ID: ${{ needs.publish.outputs.release_id }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          PUBLISHED_MARKER: ${{ runner.temp }}/codehelper-release-${{ github.run_id }}-${{ github.run_attempt }}.published
+          PUBLICATION_AUDIT_MARKER: '<!-- codehelper-was-public:${{ github.run_id }}:${{ github.run_attempt }} -->'
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const fs = require('node:fs')
+            if (fs.existsSync(process.env.PUBLISHED_MARKER)) {
+              core.warning('Release was public during this run; it will not be deleted')
+              return
+            }
+
+            const { owner, repo } = context.repo
+            const release_id = Number(process.env.RELEASE_ID)
+            const candidate = await github.rest.repos.getRelease({ owner, repo, release_id })
+            if (
+              candidate.data.id === release_id &&
+              candidate.data.tag_name === process.env.RELEASE_TAG &&
+              candidate.data.draft === true &&
+              candidate.data.published_at == null &&
+              !String(candidate.data.body || '').includes(process.env.PUBLICATION_AUDIT_MARKER)
+            ) {
+              await github.rest.repos.deleteRelease({ owner, repo, release_id })
+              core.warning(`Deleted failed pre-publication draft candidate ${release_id}`)
+              return
+            }
+            core.warning(
+              `Release ${release_id} is no longer this run's matching draft candidate; it was not deleted`,
+            )
+
+  # ---------------------------------------------------------------
+  # 5. Recover a never-published candidate if verify never got a cleanup turn
+  # ---------------------------------------------------------------
+  cleanup:
+    name: Cleanup Unpublished Draft Candidate
+    needs: [prepare, publish, verify]
+    if: ${{ always() && needs.publish.result == 'success' && needs.verify.result != 'success' && needs.publish.outputs.release_id != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Delete this run's unpublished draft candidate
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          RELEASE_ID: ${{ needs.publish.outputs.release_id }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          PUBLICATION_AUDIT_MARKER: '<!-- codehelper-was-public:${{ github.run_id }}:${{ github.run_attempt }} -->'
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const { owner, repo } = context.repo
+            const release_id = Number(process.env.RELEASE_ID)
+            let candidate
+            try {
+              candidate = await github.rest.repos.getRelease({ owner, repo, release_id })
+            } catch (error) {
+              if (error.status === 404) {
+                core.warning(`Release candidate ${release_id} was already removed`)
+                return
+              }
+              throw error
+            }
+
+            if (
+              candidate.data.id === release_id &&
+              candidate.data.tag_name === process.env.RELEASE_TAG &&
+              candidate.data.draft === true &&
+              candidate.data.published_at == null &&
+              !String(candidate.data.body || '').includes(process.env.PUBLICATION_AUDIT_MARKER)
+            ) {
+              await github.rest.repos.deleteRelease({ owner, repo, release_id })
+              core.warning(`Deleted unpublished draft candidate ${release_id}`)
+              return
+            }
+            core.warning(
+              `Release ${release_id} was published or no longer matches this run; it was not deleted`,
+            )

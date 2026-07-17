@@ -131,39 +131,57 @@ await saveMemory({ content: '用户偏好 Python', category: 'preference' })
 
 ## useEditorStore — 编辑器状态
 
-管理多标签页编辑器。使用 localStorage 持久化。
+管理普通文件、题目和练习三类统一多标签编辑器。Electron 中由 SQLite 工作区负责跨重启持久化，`localStorage` 仅保存 v4 工作区快照和逐 app boot / Renderer session 崩溃恢复日志；v1/v2/v3 快照及旧的无 boot scope recovery 会原地迁移，不需要清空用户数据。相同 tab 的同内容恢复候选会去重并合并 source keys；分叉候选全部保留，较旧分支以普通 `.recovered` 文件打开。同一 boot 的其他 Renderer recovery map 不会被跨窗口改写。
 
 ### 状态字段
 
-| 字段          | 类型             | 默认值          | 说明              |
-| ------------- | ---------------- | --------------- | ----------------- |
-| `tabs`        | `EditorTab[]`    | `[DEFAULT_TAB]` | 标签页列表        |
-| `activeTabId` | `string \| null` | `'welcome'`     | 当前活动标签页 ID |
+| 字段                 | 类型                   | 默认值          | 说明                                       |
+| -------------------- | ---------------------- | --------------- | ------------------------------------------ |
+| `tabs`               | `EditorTab[]`          | `[DEFAULT_TAB]` | 打开的统一标签列表                         |
+| `activeTabId`        | `string \| null`       | `'welcome'`     | 当前活动标签页 ID                          |
+| `recentlyClosedTabs` | `EditorTab[]`          | `[]`            | 可恢复的最近关闭标签                       |
+| `databaseStatus`     | `EditorDatabaseStatus` | `'idle'`        | SQLite 同步、降级或冲突状态                |
+| `restoreStatus`      | `EditorRestoreStatus`  | `'idle'`        | 启动恢复、恢复副本或损坏快照降级状态       |
+| `hydrationEpoch`     | `number`               | `0`             | 权威内容替换时触发编辑器文档重新水合的代次 |
 
 **EditorTab 类型**：
 
 ```typescript
 interface EditorTab {
   id: string
+  kind: 'file' | 'problem' | 'exercise'
   filename: string
   language: string
   content: string
+  problemId?: string
   cursorPosition?: { lineNumber: number; column: number }
   scrollTop?: number
+  revision?: number
+  syncConflict?: boolean
+  localOnly?: boolean
+  recoverySourceKeys?: string[]
+  recoveryOriginalId?: string
 }
 ```
 
+`recoverySourceKeys` 记录未解决分叉恢复的 localStorage 来源，`recoveryOriginalId` 记录 `.recovered` 副本来自哪个原始标签。两者与 `syncConflict` 会跨 SQLite 保存、远端 hydration 和 generation 重载保留，仅在用户选择冲突处理动作且操作成功后清理；它们不属于 SQLite 表字段。
+
+来源 key 清理会重新读取并校验目标 entry，写后还要确认目标已经不存在。清理异常、并发改写或同一 app boot 的 foreign owner 仍存活时返回失败，Store 保留 provenance，工作区保持可见降级并等待安全重试。
+
 ### Actions
 
-| Action                 | 参数             | 返回值 | 说明                       |
-| ---------------------- | ---------------- | ------ | -------------------------- |
-| `addTab`               | `tab: EditorTab` | `void` | 添加新标签页               |
-| `closeTab`             | `id: string`     | `void` | 关闭标签页                 |
-| `setActiveTab`         | `id: string`     | `void` | 切换活动标签页             |
-| `updateContent`        | `id, content`    | `void` | 更新标签页内容             |
-| `updateCursorPosition` | `id, line, col`  | `void` | 更新光标位置               |
-| `updateScrollTop`      | `id, scrollTop`  | `void` | 更新滚动位置               |
-| `restoreTabs`          | 无               | `void` | 从 localStorage 恢复标签页 |
+| Action                 | 参数             | 返回值 | 说明                                                       |
+| ---------------------- | ---------------- | ------ | ---------------------------------------------------------- |
+| `addTab`               | `tab: EditorTab` | `void` | 添加新标签页                                               |
+| `closeTab`             | `id: string`     | `void` | 关闭标签页                                                 |
+| `setActiveTab`         | `id: string`     | `void` | 切换活动标签页                                             |
+| `updateTab`            | `id, patch`      | `void` | 更新文件名、语言、类型、题目标识等标签元数据               |
+| `updateContent`        | `id, content`    | `void` | 更新标签页内容                                             |
+| `updateCursorPosition` | `id, line, col`  | `void` | 更新光标，并同步写轻量视图恢复记录                         |
+| `updateScrollTop`      | `id, scrollTop`  | `void` | 更新滚动，并同步写轻量视图恢复记录                         |
+| `restoreTabs`          | 无               | `void` | 读取版本化快照与逐标签恢复日志，随后由同步器和 SQLite 协调 |
+
+`closeTab` 是同步内存操作，不代表 SQLite 已持久化。产品组件关闭标签时必须使用 `requestCloseEditorWorkspaceTab`；只有同步器应用已确认的远端 mutation，或用户明确接受“仅本地关闭”降级时，才直接调用 `closeTab`。重新打开使用 `reopenTab`，同步器会观察乐观更新并持久化；当前没有独立的 durable reopen 请求函数。practice-backed 标签包括 `kind: 'exercise'` 和 ID 为 `exercise-*` 的导入题目，它们的 `content` 始终为空，代码权威位于版本化练习草稿仓储。光标和滚动 action 在返回前写入独立的 per-boot/per-Renderer 视图 recovery；该记录不含代码，启动时按 `viewUpdatedAt` 与 SQLite 双向协调，且只有匹配的 SQLite 回执才能按捕获指纹清理。
 
 ### 使用示例
 

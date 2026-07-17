@@ -16,7 +16,8 @@
 
 ## 总体架构
 
-CodeHelper 采用 Electron 标准的三进程架构，结合 React 前端与 SQLite 本地数据库。
+CodeHelper 采用 Electron 多进程架构，结合 React 前端与 SQLite 本地数据库。除主进程、
+preload 与渲染进程外，SQL 和非 SQL 代码执行分别使用一次性 utility 进程。
 
 ```
 +--------------------------------------------------------------------+
@@ -53,7 +54,7 @@ CodeHelper 采用 Electron 标准的三进程架构，结合 React 前端与 SQL
 | 代码编辑 | CodeMirror 6 (@uiw/react-codemirror) | 轻量可扩展的编辑引擎，支持 Python/C/C++/JS/SQL 高亮 |
 | 样式方案 | TailwindCSS 4                        | 原子化 CSS                                          |
 | 数据库   | better-sqlite3 (SQLite)              | 本地嵌入式数据库                                    |
-| 测试框架 | Vitest 3                             | 单元测试与覆盖率                                    |
+| 测试框架 | Vitest 4                             | 单元测试与覆盖率                                    |
 
 ---
 
@@ -68,7 +69,7 @@ CodeHelper 采用 Electron 标准的三进程架构，结合 React 前端与 SQL
 - **窗口管理**: 创建和管理 `BrowserWindow` 实例，配置安全选项
 - **IPC 路由**: 注册并分发所有 IPC 处理器
 - **数据库操作**: 通过 better-sqlite3 管理 SQLite 数据库
-- **代码执行**: 通过子进程运行用户代码（Python、C/C++、Java、C#、SQL）
+- **代码执行编排**: 校验请求、异步探测工具链，并把 Python、C/C++、C#、JavaScript 与 SQL 分派到一次性 utility 进程
 - **AI 通信**: 与 OpenAI 兼容 API 建立流式 HTTP 连接
 - **文件操作**: 知识库文档的导入、解析与分块
 
@@ -82,10 +83,14 @@ electron/
 │   ├── database.ts      # 设置读写、AI 配置管理（加密存储）
 │   ├── mistakes.ts      # 错题记录的 CRUD
 │   ├── problems.ts      # 题库管理、自动判题引擎
-│   ├── rag.ts           # 知识库文档上传、分块、关键词检索
+│   ├── rag.ts           # 知识库文档上传、分块、混合检索与 RAG 来源
 │   └── runner.ts        # 代码执行入口（参数校验 + 调用 codeRunner）
 ├── utils/               # 纯函数工具模块
 │   ├── codeRunner.ts    # 多语言代码执行引擎（进程管理、超时、资源限制）
+│   ├── codeRunnerSupervisor.ts # utility 与 Windows Job Host 生命周期编排
+│   ├── codeRunnerUtility.ts    # 非 SQL 代码的一次性执行入口
+│   ├── runDirectoryQuota.ts    # 递归临时目录配额监控
+│   ├── toolchainDetect.ts      # 非阻塞工具链探测与能力报告
 │   ├── sqlUtils.ts      # SQL 语句分割与结果格式化
 │   ├── textUtils.ts     # RAG 文本分块与正则转义
 │   ├── problemMeta.ts   # 题目元数据推断（来源、赛道、平台、模式）
@@ -347,11 +352,33 @@ knowledge-upload IPC
         |
         v
 knowledge-search IPC
-   |-- 分词 -> 关键词列表
-   |-- SQL LIKE 查询 knowledge_chunks
-   |-- 按关键词匹配频率评分
-   |-- 返回 Top 5 结果
+   |-- 中英术语扩展 -> 查询词集合
+   |-- FTS5 unicode61 + BM25 关键词召回
+   |-- FTS5 trigram + 本地 n-gram 语义近似
+   |-- bounded LIKE 作为明确降级/补充通道
+   |-- Reciprocal Rank Fusion + 来源去重
+   |-- 返回结果、来源、命中说明和检索能力状态
 ```
+
+### Agent 工具数据流
+
+```text
+AITutorView 选择主进程工具
+        ↓ agent-run-create
+registerAgentIPC 校验白名单与参数
+        ↓
+SQLite: agent_runs / agent_tool_calls / agent_approvals / agent_audit_events
+        ↓
+无需审批：knowledge-search 只读执行
+需要审批：strong-code-run 保持 needsApproval
+        ↓ agent-run-approve
+Docker 强隔离执行（禁止网络、禁止本地回退）
+        ↓
+completed 工具证据注入 AI；失败/拒绝/取消原样保留
+```
+
+Renderer 只负责选择工具和展示状态，不能自行新增工具或把工具调用标记成功。审批与状态迁移
+由 Electron 主进程执行；运行中断会在下次数据库初始化时标记失败。
 
 ---
 
@@ -531,7 +558,8 @@ if (!existing.has('tracks')) {
 
 ### 沙箱隔离
 
-渲染进程运行在 Chromium 沙箱中，关键安全配置：
+渲染进程使用隔离上下文并禁用 Node.js 集成；当前 BrowserWindow 尚未显式启用
+`sandbox: true`，不能把它描述为完整 Chromium 沙箱。关键配置：
 
 ```typescript
 webPreferences: {
@@ -546,8 +574,8 @@ webPreferences: {
 
 1. **通道白名单**: preload 中硬编码允许的通道列表，任何未列入的通道调用会抛出异常
 2. **序列化检查**: 递归检查所有 IPC 参数，拒绝函数、Symbol 等不可序列化类型
-3. **参数校验**: 每个 IPC handler 内部进行深度参数验证
-4. **长度限制**: 所有字符串参数都有最大长度限制，防止内存攻击
+3. **参数校验**: 每个 IPC handler 都必须独立校验；合同矩阵不能替代逐 Handler 审计
+4. **长度限制**: 高影响输入应设置明确上限；仍需持续检查新增通道
 
 ### API 密钥保护
 
@@ -555,12 +583,15 @@ AI 配置中的 API Key 使用 Electron `safeStorage` API 加密存储：
 
 ```typescript
 function encryptApiKey(apiKey: string): string {
-  if (!safeStorage.isEncryptionAvailable()) return apiKey
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new Error('Secure API key storage is unavailable on this system')
+  }
   return 'enc:' + safeStorage.encryptString(apiKey).toString('base64')
 }
 ```
 
-加密后的数据以 `enc:` 前缀标记，读取时自动解密。
+加密后的数据以 `enc:` 前缀标记，读取时自动解密。Linux `basic_text` backend 同样会拒绝新保存；
+旧无前缀值仍作为兼容数据读取，详见 [安全审计](security-audit.md)。
 
 ### 内容安全策略（CSP）
 
@@ -581,15 +612,32 @@ Content-Security-Policy:
 
 ### 代码执行安全
 
-代码运行器（`electron/utils/codeRunner.ts`）的安全措施：
+代码运行器（`electron/utils/codeRunner.ts`）对非 SQL 运行采取以下安全措施：
 
-| 措施            | 值        | 说明                   |
-| --------------- | --------- | ---------------------- |
-| 执行超时        | 10 秒     | 防止无限循环           |
-| 输出大小限制    | 1 MB      | 防止内存耗尽           |
-| 最大并发数      | 5         | 限制同时运行的代码数量 |
-| 禁用 shell 模式 | 是        | 防止命令注入           |
-| 临时文件隔离    | UUID 命名 | 防止文件名冲突         |
+| 措施               | 值                        | 说明                               |
+| ------------------ | ------------------------- | ---------------------------------- |
+| 一次性 utility     | 每轮一个                  | 用户代码不在 Electron 主进程执行   |
+| 执行超时           | 10 秒                     | 超时后终止运行进程树               |
+| 输出大小限制       | 1 MB                      | stdout/stderr 合计超限后终止       |
+| 最大并发数         | 5                         | 槽位在 utility 与 Host 退出后释放  |
+| 临时目录配额       | 50 MB / 20,000 项         | 递归监控，失败时保守终止           |
+| Windows Job Object | 32 进程 / 384 MB / 768 MB | 单进程内存与整个 Job 内存分别限制  |
+| POSIX 限制         | 分语言 `ulimit` + 进程组  | Node/dotnet 无严格 RSS，不等同容器 |
+
+上述机制是本地资源与生命周期控制，不是安全沙箱。本地受控模式下运行代码仍保留当前用户的
+文件系统与网络权限。
+
+当 Docker 与固定 digest 镜像可用时，`strongIsolationAvailable` 可为 `true`：强隔离将
+Python/Node/C/C++/C# 放入 hardening 后的容器（无网络、只读根、cap-drop、非 root、资源限制），
+并用 `--cidfile` + `docker rm -f` 保证超时/中止后清理。SQL 不进入 Docker。Docker 不可用时
+强隔离 fail-closed，绝不静默退回本地执行。
+
+Windows 正常收尾时，Job Host 会在终止 Job 后等待活动进程计数归零再退出。异常路径若必须
+强制结束 Host，则由 `kill-on-close` 继续终止 Job，不能把 Host 退出等同为逐进程等待句柄确认。
+
+SQL 使用独立的 SQLite utility 和内存数据库，不进入 Windows Job，也不使用非 SQL 目录配额；
+其边界为 3 秒、256 KB 输入、100 条语句、1000 行、512 KB 输出与 64 KB/单元格，并在 SQLite
+支持时尝试设置 128 MB `hard_heap_limit`。
 
 ### 外部链接安全
 
@@ -619,13 +667,25 @@ Content-Security-Policy:
 - 长期记忆系统：自动从对话中提取用户偏好，跨会话注入
 - 预设提示词：内置 + 自定义 system prompt
 
+### Agent 工具模块
+
+- 主进程白名单：`knowledge-search`、`strong-code-run`
+- 每次强隔离运行单独审批，十分钟过期
+- SQLite 持久化运行、工具调用、审批与审计事件
+- 取消 AI 请求和 Agent 工具控制器，迟到结果不能覆盖终态
+- 工具完成后清除敏感输入正文，仅保留摘要与真实输出
+
 ### 知识库 RAG 模块
 
-**当前实现**: 关键词匹配检索
+**当前实现**: 离线本地混合检索
 
-- 文档上传后自动分块（每块约 500 字符）
-- 搜索时按关键词匹配频率评分排序
-- 向量嵌入字段已预留（`embedding`），支持未来升级
+- 文档上传后自动分块；资源包使用较大的 1500 字符块
+- FTS5 BM25、trigram、本地 n-gram 和中英术语扩展共同召回
+- 使用 RRF 融合并限制单文档片段数量，结果附带来源路径和命中通道
+- FTS 不可用时降级为 bounded LIKE，UI 显示具体原因
+- RAG 注入片段包含 `filename#片段序号`，便于回答时追溯
+- 固定评测集用 Recall@3 与 MRR 阻止相关性回归
+- `embedding` 字段仍为未来模型向量后端预留，当前不声称使用模型 embedding
 
 ### 错题本模块
 

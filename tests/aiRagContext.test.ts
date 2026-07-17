@@ -42,6 +42,14 @@ describe('injectRagContext', () => {
     expect(result[0].content).not.toContain('123')
   })
 
+  it('保留检索片段中的可审计来源标签', () => {
+    const result = injectRagContext(baseMessages, {
+      knowledgeChunks: ['来源：algorithms/sort.md#片段2\n快速排序使用分治。'],
+    })
+    expect(result[0].content).toContain('来源：algorithms/sort.md#片段2')
+    expect(result[0].content).toContain('证据不足时明确说明')
+  })
+
   it('注入用户画像但不注入空画像字段', () => {
     const rag: RagContext = {
       userProfile: {

@@ -155,7 +155,7 @@ describe('production fix coverage', () => {
     expect(source).not.toContain('document.body.innerHTML =')
   })
 
-  it('runs package resource verification from Windows packaging paths', async () => {
+  it('runs the hardened Windows package verifier from build and release paths', async () => {
     const packageJson = JSON.parse(await readFile(join(process.cwd(), 'package.json'), 'utf8')) as {
       scripts: Record<string, string>
     }
@@ -164,12 +164,16 @@ describe('production fix coverage', () => {
       'utf8',
     )
 
-    expect(packageJson.scripts['build:win']).toContain('npm run verify:package')
+    expect(packageJson.scripts['build:win']).toContain('npm run verify:package:win')
     expect(packageJson.scripts['package:win:dir']).toContain('electron-builder --win --dir')
     expect(packageJson.scripts['package:win:dir']).toContain('npm run verify:package')
-    expect(releaseWorkflow).toContain('Verify packaged Windows resources')
-    expect(releaseWorkflow).toContain("if: matrix.platform == 'win'")
-    expect(releaseWorkflow).toContain('npm run verify:package')
+    for (const releaseScript of ['release:patch', 'release:minor', 'release:major']) {
+      expect(packageJson.scripts[releaseScript]).toContain('npm run build:win')
+    }
+    expect(releaseWorkflow).toContain('Verify signature, resources, install, restart, and hashes')
+    expect(releaseWorkflow).toContain('npm run verify:package:win')
+    expect(releaseWorkflow).toContain("CODEHELPER_REQUIRE_SIGNATURE: '1'")
+    expect(releaseWorkflow).toContain('CODEHELPER_EXPECTED_SIGNER_THUMBPRINT')
   })
 
   it('uses a non-5173 renderer dev port by default while keeping env overrides', async () => {
@@ -234,22 +238,25 @@ describe('production fix coverage', () => {
     expect(source).toContain('data-agent-tool-registry')
     expect(source).toContain('data-agent-tool-mode={tool.availability}')
     expect(source).toContain('data-agent-workflow-history-count={agentRuns.length}')
-    expect(source).toContain('data-agent-clear-runs')
+    expect(source).toContain('data-agent-refresh-runs')
+    expect(source).toContain('data-agent-cancel-run')
     expect(source).toContain('data-agent-approval-panel')
     expect(source).toContain('data-agent-approval-state={latestAgentRun.status}')
     expect(source).toContain('data-agent-approval={approval.toolId}')
     expect(source).toContain('data-agent-approve-tool={approval.toolId}')
     expect(source).toContain('data-agent-reject-tool={approval.toolId}')
-    expect(source).toContain('AGENT_WORKFLOW_STORAGE_KEY')
-    expect(source).toContain('restoreAgentWorkflowRuns')
-    expect(source).toContain('serializeAgentWorkflowRuns(agentRuns)')
-    expect(source).toContain('AGENT_TOOL_REGISTRY.map')
-    expect(source).toContain('buildAgentWorkflowPrompt(run.goal, run.approvals)')
-    expect(source).toContain('approveAgentWorkflowRun')
-    expect(source).toContain('rejectAgentWorkflowRun')
-    expect(source).toContain('markAgentWorkflowDispatched')
-    expect(source).toContain('completeAgentWorkflowRun')
-    expect(source).toContain('failAgentWorkflowRun')
+    expect(source).toContain('data-agent-tool-call-status={call.status}')
+    expect(source).toContain('data-agent-audit-count={agentAudit.length}')
+    expect(source).toContain('getAgentTools()')
+    expect(source).toContain('getAgentRuns()')
+    expect(source).toContain('createAgentRun({')
+    expect(source).toContain('approveAgentTool({ runId, toolCallId')
+    expect(source).toContain('rejectAgentTool({')
+    expect(source).toContain('cancelAgentRun({ runId: activeAgentRun.id')
+    expect(source).toContain('markAgentModelStarted({ runId: run.id })')
+    expect(source).toContain('completeAgentRun({ runId: run.id })')
+    expect(source).toContain('captureMemory: false')
+    expect(source).not.toContain('window.localStorage.setItem(AGENT_WORKFLOW_STORAGE_KEY')
   })
 
   it('keeps the AI desktop pet as a Codex Pet compatible companion with themed settings controls', async () => {
@@ -288,7 +295,7 @@ describe('production fix coverage', () => {
     expect(petSource).toContain('PET_DESKTOP_SAFE_LEFT = 260')
     expect(petSource).toContain('PET_PROFILE_DOCK_MARGIN')
     expect(petSource).toContain('PET_PROFILE_WIDTH = 96')
-    expect(petSource).toContain('clampPosition(next, currentView)')
+    expect(petSource).toContain('clampPosition(next, currentView, aiPetSize)')
     expect(petSource).toContain('data-current-view={currentView}')
     expect(petSource).toContain('PET_MOBILE_BREAKPOINT = 720')
     expect(petSource).toContain('getPetMinX()')

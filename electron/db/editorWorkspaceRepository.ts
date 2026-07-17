@@ -1,7 +1,17 @@
 import type Database from 'better-sqlite3'
 import { createHash } from 'crypto'
+import {
+  EDITOR_WORKSPACE_STORAGE_VERSION,
+  isDraftBackedPracticeTab,
+  legacyExerciseRecoveryFilename,
+  legacyExerciseRecoveryTabId,
+} from '../../src/shared/editorWorkspaceContract'
+
+export { EDITOR_WORKSPACE_STORAGE_VERSION }
 
 export const DEFAULT_EDITOR_WORKSPACE_ID = 'default'
+export const EDITOR_WORKSPACE_SCHEMA_VERSION = 3
+const EDITOR_WORKSPACE_SCHEMA_COMPONENT = 'editor-workspace'
 
 export type EditorTabKind = 'file' | 'problem' | 'exercise'
 export type EditorTabStatus = 'open' | 'closed' | 'deleted'
@@ -285,6 +295,35 @@ function createEditorWorkspaceTables(database: Database.Database): void {
   `)
 }
 
+function createSchemaMigrationsTable(database: Database.Database): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      component TEXT PRIMARY KEY,
+      version INTEGER NOT NULL CHECK(version >= 0),
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    )
+  `)
+}
+
+function readRecordedSchemaVersion(database: Database.Database): number | null {
+  const row = database
+    .prepare('SELECT version FROM schema_migrations WHERE component = ?')
+    .get(EDITOR_WORKSPACE_SCHEMA_COMPONENT) as { version: number } | undefined
+  return row ? Number(row.version) : null
+}
+
+function recordSchemaVersion(database: Database.Database, version: number): void {
+  database
+    .prepare(
+      `INSERT INTO schema_migrations (component, version, updated_at)
+       VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+       ON CONFLICT(component) DO UPDATE SET
+         version = excluded.version,
+         updated_at = excluded.updated_at`,
+    )
+    .run(EDITOR_WORKSPACE_SCHEMA_COMPONENT, version)
+}
+
 function tableExists(database: Database.Database, tableName: string): boolean {
   return Boolean(
     database
@@ -302,6 +341,15 @@ function includesAll(columns: Set<string>, required: Set<string>): boolean {
   return [...required].every((column) => columns.has(column))
 }
 
+function detectEditorWorkspaceSchemaVersion(database: Database.Database): number {
+  if (!tableExists(database, 'editor_tabs')) return 0
+  const columns = tableColumns(database, 'editor_tabs')
+  if (includesAll(columns, REQUIRED_TAB_COLUMNS)) return 3
+  if (includesAll(columns, BASE_VERSIONED_TAB_COLUMNS)) return 2
+  if (includesAll(columns, LEGACY_DRAFT_COLUMNS)) return 1
+  throw new Error('Unsupported editor_tabs schema; automatic migration cannot preserve its data')
+}
+
 function migrateLegacyDraftSchema(database: Database.Database): void {
   const columns = tableColumns(database, 'editor_tabs')
   if (!includesAll(columns, LEGACY_DRAFT_COLUMNS)) {
@@ -309,8 +357,9 @@ function migrateLegacyDraftSchema(database: Database.Database): void {
   }
 
   const hasLegacyWorkspaceState = tableExists(database, 'editor_workspace_state')
+  const ownsTransaction = !database.inTransaction
   try {
-    database.exec('BEGIN IMMEDIATE')
+    if (ownsTransaction) database.exec('BEGIN IMMEDIATE')
     database.exec(`
       DROP INDEX IF EXISTS idx_editor_tabs_open_position;
       DROP INDEX IF EXISTS idx_editor_tabs_closed_at;
@@ -363,12 +412,15 @@ function migrateLegacyDraftSchema(database: Database.Database): void {
       DROP TABLE editor_tabs_legacy_draft;
     `)
     if (hasLegacyWorkspaceState) database.exec('DROP TABLE editor_workspace_state')
-    database.exec('COMMIT')
+    recordSchemaVersion(database, EDITOR_WORKSPACE_SCHEMA_VERSION)
+    if (ownsTransaction) database.exec('COMMIT')
   } catch (error) {
-    try {
-      database.exec('ROLLBACK')
-    } catch {
-      // The failure may have happened before the transaction started.
+    if (ownsTransaction) {
+      try {
+        database.exec('ROLLBACK')
+      } catch {
+        // The failure may have happened before the transaction started.
+      }
     }
     throw error
   }
@@ -376,30 +428,72 @@ function migrateLegacyDraftSchema(database: Database.Database): void {
 
 export function ensureEditorWorkspaceSchema(database: Database.Database): void {
   if (initializedDatabases.has(database)) return
-  if (tableExists(database, 'editor_tabs')) {
+  createSchemaMigrationsTable(database)
+  const detectedVersion = detectEditorWorkspaceSchemaVersion(database)
+  const recordedVersion = readRecordedSchemaVersion(database)
+  if (recordedVersion !== null && recordedVersion > EDITOR_WORKSPACE_SCHEMA_VERSION) {
+    throw new Error(
+      `Editor workspace schema version ${recordedVersion} is newer than supported version ${EDITOR_WORKSPACE_SCHEMA_VERSION}`,
+    )
+  }
+  if (recordedVersion !== null && recordedVersion > detectedVersion) {
+    throw new Error(
+      `Editor workspace schema marker ${recordedVersion} does not match detected version ${detectedVersion}`,
+    )
+  }
+
+  if (detectedVersion === 1) {
+    migrateLegacyDraftSchema(database)
+  } else if (detectedVersion === 2) {
     const columns = tableColumns(database, 'editor_tabs')
-    if (!includesAll(columns, REQUIRED_TAB_COLUMNS)) {
-      if (includesAll(columns, BASE_VERSIONED_TAB_COLUMNS)) {
-        if (!columns.has('tab_kind')) {
-          database.exec(
-            "ALTER TABLE editor_tabs ADD COLUMN tab_kind TEXT NOT NULL DEFAULT 'file' CHECK(tab_kind IN ('file', 'problem', 'exercise'))",
-          )
-        }
+    const ownsTransaction = !database.inTransaction
+    try {
+      if (ownsTransaction) database.exec('BEGIN IMMEDIATE')
+      if (!columns.has('tab_kind')) {
         database.exec(
-          "UPDATE editor_tabs SET tab_kind = 'problem' WHERE problem_id IS NOT NULL AND tab_kind = 'file'",
+          "ALTER TABLE editor_tabs ADD COLUMN tab_kind TEXT NOT NULL DEFAULT 'file' CHECK(tab_kind IN ('file', 'problem', 'exercise'))",
         )
-        if (!columns.has('last_mutation_fingerprint')) {
-          database.exec('ALTER TABLE editor_tabs ADD COLUMN last_mutation_fingerprint TEXT')
-        }
-        if (!columns.has('last_view_mutation_fingerprint')) {
-          database.exec('ALTER TABLE editor_tabs ADD COLUMN last_view_mutation_fingerprint TEXT')
-        }
-      } else {
-        migrateLegacyDraftSchema(database)
       }
+      database.exec(
+        "UPDATE editor_tabs SET tab_kind = 'problem' WHERE problem_id IS NOT NULL AND tab_kind = 'file'",
+      )
+      if (!columns.has('last_mutation_fingerprint')) {
+        database.exec('ALTER TABLE editor_tabs ADD COLUMN last_mutation_fingerprint TEXT')
+      }
+      if (!columns.has('last_view_mutation_fingerprint')) {
+        database.exec('ALTER TABLE editor_tabs ADD COLUMN last_view_mutation_fingerprint TEXT')
+      }
+      createEditorWorkspaceTables(database)
+      recordSchemaVersion(database, EDITOR_WORKSPACE_SCHEMA_VERSION)
+      if (ownsTransaction) database.exec('COMMIT')
+    } catch (error) {
+      if (ownsTransaction) {
+        try {
+          database.exec('ROLLBACK')
+        } catch {
+          // The migration may have failed before the transaction began.
+        }
+      }
+      throw error
+    }
+  } else {
+    const ownsTransaction = !database.inTransaction
+    try {
+      if (ownsTransaction) database.exec('BEGIN IMMEDIATE')
+      createEditorWorkspaceTables(database)
+      recordSchemaVersion(database, EDITOR_WORKSPACE_SCHEMA_VERSION)
+      if (ownsTransaction) database.exec('COMMIT')
+    } catch (error) {
+      if (ownsTransaction) {
+        try {
+          database.exec('ROLLBACK')
+        } catch {
+          // The migration may have failed before the transaction began.
+        }
+      }
+      throw error
     }
   }
-  createEditorWorkspaceTables(database)
   initializedDatabases.add(database)
 }
 
@@ -489,6 +583,18 @@ function saveFingerprint(input: SaveEditorTabInput): string {
   ])
 }
 
+function canonicalizeSaveInput(
+  input: SaveEditorTabInput,
+): SaveEditorTabInput & { kind: EditorTabKind; problemId: string | null } {
+  const kind = normalizeEditorTabKind(input.kind, input.problemId)
+  return {
+    ...input,
+    content: isDraftBackedPracticeTab({ id: input.id, kind }) ? '' : input.content,
+    kind,
+    problemId: input.problemId ?? null,
+  }
+}
+
 function viewStateFingerprint(input: UpdateEditorTabViewStateInput): string {
   return fingerprint([input.id, input.cursorPosition, input.scrollTop])
 }
@@ -531,6 +637,47 @@ function recoveredFilename(filename: string): string {
   const dot = filename.lastIndexOf('.')
   if (dot <= 0) return `${filename}.recovered`.slice(0, 255)
   return `${filename.slice(0, dot)}.recovered${filename.slice(dot)}`.slice(0, 255)
+}
+
+function exerciseRecoveryTab(tab: LegacyEditorTabInput): LegacyEditorTabInput {
+  return {
+    id: legacyExerciseRecoveryTabId({
+      id: tab.id,
+      filename: tab.filename,
+      language: tab.language,
+      content: tab.content,
+      problemId: tab.problemId,
+    }),
+    filename: legacyExerciseRecoveryFilename(tab.filename),
+    language: tab.language,
+    content: tab.content,
+    kind: 'file',
+    problemId: null,
+    cursorPosition: tab.cursorPosition,
+    scrollTop: tab.scrollTop,
+    position: tab.position,
+    status: tab.status,
+  }
+}
+
+function expandLegacyTabs(tabs: LegacyEditorTabInput[]): {
+  tabs: LegacyEditorTabInput[]
+  exerciseRecoveryIds: Set<string>
+} {
+  const expanded: LegacyEditorTabInput[] = []
+  const exerciseRecoveryIds = new Set<string>()
+  for (const tab of tabs) {
+    const kind = normalizeEditorTabKind(tab.kind, tab.problemId)
+    const draftBacked = isDraftBackedPracticeTab({ id: tab.id, kind })
+    if (draftBacked && tab.content) {
+      const recovery = exerciseRecoveryTab(tab)
+      expanded.push({ ...tab, kind, content: '' }, recovery)
+      exerciseRecoveryIds.add(recovery.id)
+    } else {
+      expanded.push({ ...tab, kind, content: draftBacked ? '' : tab.content })
+    }
+  }
+  return { tabs: expanded, exerciseRecoveryIds }
 }
 
 function insertLegacyTab(
@@ -593,6 +740,103 @@ function readTabRow(
       .prepare(`SELECT ${TAB_FIELDS} FROM editor_tabs WHERE workspace_id = ? AND tab_id = ?`)
       .get(workspaceId, id) as EditorTabRow | undefined) ?? null
   )
+}
+
+function legacyExerciseRowToInput(row: EditorTabRow): LegacyEditorTabInput {
+  const lineNumber = Number(row.cursor_line)
+  const column = Number(row.cursor_column)
+  return {
+    id: row.tab_id,
+    filename: row.filename,
+    language: row.language,
+    content: row.content,
+    kind: 'exercise',
+    problemId: row.problem_id,
+    cursorPosition:
+      Number.isSafeInteger(lineNumber) &&
+      lineNumber >= 1 &&
+      Number.isSafeInteger(column) &&
+      column >= 1
+        ? { lineNumber, column }
+        : null,
+    scrollTop: Number.isFinite(row.scroll_top) ? Math.max(0, Number(row.scroll_top)) : 0,
+    position:
+      Number.isSafeInteger(row.tab_position) && Number(row.tab_position) >= 0
+        ? Number(row.tab_position)
+        : 0,
+    status: row.status === 'open' ? 'open' : 'closed',
+  }
+}
+
+function upgradeLegacyExerciseContent(
+  database: Database.Database,
+  input: MigrateLegacyEditorWorkspaceInput,
+  nextOpenPosition: number,
+  onRecovered: (id: string) => void,
+): number {
+  const rows = database
+    .prepare(
+      `SELECT ${TAB_FIELDS} FROM editor_tabs
+       WHERE workspace_id = ? AND content <> ''
+       ORDER BY tab_position ASC, updated_at ASC, tab_id ASC`,
+    )
+    .all(input.workspaceId) as EditorTabRow[]
+
+  for (const row of rows) {
+    if (!isDraftBackedPracticeTab({ id: row.tab_id, kind: row.tab_kind ?? 'file' })) continue
+    const source = legacyExerciseRowToInput(row)
+    const recovery = exerciseRecoveryTab(source)
+    const existingRecovery = readTabRow(database, input.workspaceId, recovery.id)
+    if (!existingRecovery) {
+      const recoveryPosition = recovery.status === 'open' ? nextOpenPosition++ : recovery.position
+      insertLegacyTab(database, input, recovery, recovery.id, recovery.filename, recoveryPosition)
+    } else if (!sameLegacyContent(existingRecovery, recovery)) {
+      throw new Error(`练习代码恢复副本 ID 冲突: ${recovery.id}`)
+    }
+
+    const verifiedRecovery = readTabRow(database, input.workspaceId, recovery.id)
+    if (!verifiedRecovery || !sameLegacyContent(verifiedRecovery, recovery)) {
+      throw new Error(`练习代码恢复副本校验失败: ${recovery.id}`)
+    }
+    onRecovered(recovery.id)
+
+    const requestFingerprint = fingerprint([
+      'exercise-content-v3',
+      input.storageVersion,
+      row.workspace_id,
+      row.tab_id,
+      row.revision,
+      row.content,
+      recovery.id,
+    ])
+    const cleared = database
+      .prepare(
+        `UPDATE editor_tabs SET
+           content = '',
+           revision = revision + 1,
+           last_mutation_id = @mutationId,
+           last_mutation_kind = 'save',
+           last_mutation_fingerprint = @requestFingerprint,
+           client_id = @clientId,
+           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE workspace_id = @workspaceId
+           AND tab_id = @id
+           AND content = @content
+           AND revision = @revision`,
+      )
+      .run({
+        workspaceId: input.workspaceId,
+        id: row.tab_id,
+        content: row.content,
+        revision: row.revision,
+        mutationId: input.mutationId,
+        clientId: input.clientId,
+        requestFingerprint,
+      })
+    if (cleared.changes !== 1) throw new Error(`练习标签内容升级冲突: ${row.tab_id}`)
+  }
+
+  return nextOpenPosition
 }
 
 function readViewStateRow(
@@ -704,6 +948,9 @@ export function migrateLegacyEditorWorkspace(
   database: Database.Database,
   input: MigrateLegacyEditorWorkspaceInput,
 ): MigrateLegacyEditorWorkspaceResult {
+  if (input.storageVersion !== EDITOR_WORKSPACE_STORAGE_VERSION) {
+    throw new Error(`Unsupported editor workspace storage version: ${input.storageVersion}`)
+  }
   ensureEditorWorkspaceSchema(database)
   return database.transaction((): MigrateLegacyEditorWorkspaceResult => {
     ensureWorkspace(database, input.workspaceId)
@@ -720,8 +967,15 @@ export function migrateLegacyEditorWorkspace(
     }
 
     const recoveredTabIds: string[] = []
+    const recoveredTabIdSet = new Set<string>()
     const recoveredTabMappings: Record<string, string> = {}
     const migratedIds = new Map<string, string>()
+    const recordRecovered = (id: string): void => {
+      if (recoveredTabIdSet.has(id)) return
+      recoveredTabIdSet.add(id)
+      recoveredTabIds.push(id)
+    }
+    const expanded = expandLegacyTabs(input.tabs)
     let nextOpenPosition = (
       database
         .prepare(
@@ -730,17 +984,25 @@ export function migrateLegacyEditorWorkspace(
         )
         .get(input.workspaceId) as { position: number }
     ).position
+    nextOpenPosition = upgradeLegacyExerciseContent(
+      database,
+      input,
+      nextOpenPosition,
+      recordRecovered,
+    )
 
-    for (const tab of input.tabs) {
+    for (const tab of expanded.tabs) {
       const current = readTabRow(database, input.workspaceId, tab.id)
       if (!current) {
         const position = tab.status === 'open' ? nextOpenPosition++ : tab.position
         insertLegacyTab(database, input, tab, tab.id, tab.filename, position)
         migratedIds.set(tab.id, tab.id)
+        if (expanded.exerciseRecoveryIds.has(tab.id)) recordRecovered(tab.id)
         continue
       }
       if (sameLegacyContent(current, tab)) {
         migratedIds.set(tab.id, tab.id)
+        if (expanded.exerciseRecoveryIds.has(tab.id)) recordRecovered(tab.id)
         continue
       }
 
@@ -756,7 +1018,7 @@ export function migrateLegacyEditorWorkspace(
       )
       const recovered = readTabRow(database, input.workspaceId, recoveryId)
       if (recovered && recovered.status === tab.status && sameLegacyBody(recovered, tab)) {
-        recoveredTabIds.push(recoveryId)
+        recordRecovered(recoveryId)
         recoveredTabMappings[tab.id] = recoveryId
         migratedIds.set(tab.id, recoveryId)
       }
@@ -803,10 +1065,11 @@ export function saveEditorTab(
 ): EditorTabMutationResult {
   ensureEditorWorkspaceSchema(database)
   return database.transaction((): EditorTabMutationResult => {
-    ensureWorkspace(database, input.workspaceId)
-    const requestFingerprint = saveFingerprint(input)
+    const canonicalInput = canonicalizeSaveInput(input)
+    ensureWorkspace(database, canonicalInput.workspaceId)
+    const requestFingerprint = saveFingerprint(canonicalInput)
     let savedRow: EditorTabRow | undefined
-    if (input.baseRevision === 0) {
+    if (canonicalInput.baseRevision === 0) {
       savedRow = database
         .prepare(
           `INSERT INTO editor_tabs (
@@ -822,9 +1085,7 @@ export function saveEditorTab(
            RETURNING ${TAB_FIELDS}`,
         )
         .get({
-          ...input,
-          kind: normalizeEditorTabKind(input.kind, input.problemId),
-          problemId: input.problemId ?? null,
+          ...canonicalInput,
           requestFingerprint,
         }) as EditorTabRow | undefined
     } else {
@@ -850,20 +1111,18 @@ export function saveEditorTab(
            RETURNING ${TAB_FIELDS}`,
         )
         .get({
-          ...input,
-          kind: normalizeEditorTabKind(input.kind, input.problemId),
-          problemId: input.problemId ?? null,
+          ...canonicalInput,
           requestFingerprint,
         }) as EditorTabRow | undefined
     }
 
     if (!savedRow) {
-      return mutationFailure(database, input, 'save', 'open', requestFingerprint)
+      return mutationFailure(database, canonicalInput, 'save', 'open', requestFingerprint)
     }
     return {
       status: 'saved',
       tab: mapTab(savedRow),
-      generation: incrementGeneration(database, input.workspaceId),
+      generation: incrementGeneration(database, canonicalInput.workspaceId),
       applied: true,
     }
   })()
@@ -1052,7 +1311,6 @@ export function setActiveEditorTab(
       .prepare(
         `UPDATE editor_workspaces SET
            last_active_tab_id = ?,
-           generation = generation + 1,
            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
          WHERE workspace_id = ? AND last_active_tab_id IS NOT ?`,
       )

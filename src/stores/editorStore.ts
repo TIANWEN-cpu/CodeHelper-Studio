@@ -1,5 +1,17 @@
 import { create } from 'zustand'
 import { normalizeEditorCursorPosition, type EditorCursorPosition } from '@/utils/editorViewState'
+import {
+  EDITOR_WORKSPACE_STORAGE_VERSION,
+  isDraftBackedPracticeTab,
+  legacyExerciseRecoveryFilename,
+  legacyExerciseRecoveryTabId,
+  stableEditorWorkspaceHash,
+} from '@/shared/editorWorkspaceContract'
+import {
+  createBootScopedRecoverySessionId,
+  recoveryKeyBootScope,
+  recoverySessionBootScope,
+} from '@/utils/recoverySession'
 
 export type EditorTabKind = 'file' | 'problem' | 'exercise'
 
@@ -28,19 +40,24 @@ export const EDITOR_STORAGE_KEY = 'codehelper-editor-workspace'
 export const LEGACY_EDITOR_STORAGE_KEY = 'codehelper-editor-tabs'
 export const EDITOR_RECOVERY_KEY = 'codehelper-editor-workspace-recovery-v2'
 export const EDITOR_RECOVERY_KEY_PREFIX = `${EDITOR_RECOVERY_KEY}.session.`
+export const EDITOR_VIEW_RECOVERY_KEY = 'codehelper-editor-workspace-view-recovery-v1'
+export const EDITOR_VIEW_RECOVERY_KEY_PREFIX = `${EDITOR_VIEW_RECOVERY_KEY}.session.`
 export const LEGACY_EDITOR_RECOVERY_KEY = 'codehelper-editor-workspace-recovery-v1'
-export const EDITOR_STORAGE_VERSION = 3
+export const EDITOR_STORAGE_VERSION = EDITOR_WORKSPACE_STORAGE_VERSION
 
 const PERSIST_DELAY_MS = 500
 export const MAX_EDITOR_TABS = 50
 const MAX_RECENTLY_CLOSED_TABS = 10
 const MAX_FILENAME_LENGTH = 255
 const MAX_CONTENT_LENGTH = 5_000_000
+const MAX_DATE_TIMESTAMP = 8_640_000_000_000_000
 const EDITOR_RECOVERY_STORAGE_VERSION = 3
+const EDITOR_VIEW_RECOVERY_STORAGE_VERSION = 1
 
-const editorRecoverySessionId =
-  globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+const editorRecoverySessionId = createBootScopedRecoverySessionId()
 const editorRecoverySessionKey = `${EDITOR_RECOVERY_KEY_PREFIX}${editorRecoverySessionId}`
+const editorRecoveryBootScope = recoverySessionBootScope(editorRecoverySessionId)
+const editorViewRecoverySessionKey = `${EDITOR_VIEW_RECOVERY_KEY_PREFIX}${editorRecoverySessionId}`
 
 export type EditorWorkspaceSnapshot = {
   version: number
@@ -70,6 +87,27 @@ type EditorRecoverySnapshot = {
 }
 
 type LegacyEditorRecoverySnapshot = EditorRecoveryEntry & { version: 1 }
+
+type EditorViewRecoveryEntry = {
+  cursorPosition: EditorCursorPosition | null
+  scrollTop: number
+  updatedAt: number
+}
+
+type EditorViewRecoverySnapshot = {
+  version: 1
+  entries: Record<string, EditorViewRecoveryEntry>
+}
+
+type EditorViewRecoveryCandidate = EditorViewRecoveryEntry & {
+  id: string
+  sourceKey: string
+}
+
+export type EditorViewRecoveryClearExpectation = {
+  id: string
+  sources: Array<{ key: string; fingerprint: string }>
+}
 
 export type EditorStore = {
   tabs: EditorTab[]
@@ -122,22 +160,11 @@ export function normalizeEditorTabKind(value: unknown, problemId?: unknown): Edi
   return typeof problemId === 'string' && problemId.trim() ? 'problem' : 'file'
 }
 
-function stableEditorIdHash(value: string): string {
-  let first = 0x811c9dc5
-  let second = 0x9e3779b9
-  for (let index = 0; index < value.length; index += 1) {
-    const code = value.charCodeAt(index)
-    first = Math.imul(first ^ code, 0x01000193)
-    second = Math.imul(second ^ code, 0x85ebca6b)
-  }
-  return `${(first >>> 0).toString(36)}${(second >>> 0).toString(36)}`
-}
-
 export function exerciseTabId(exerciseId: string): string {
   const normalized = exerciseId.trim()
   const readable = normalized.replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '')
   const label = readable.slice(0, 120) || 'unknown'
-  return `exercise-${label}-${stableEditorIdHash(normalized)}`.slice(0, 200)
+  return `exercise-${label}-${stableEditorWorkspaceHash(normalized)}`.slice(0, 200)
 }
 
 function parseTab(value: unknown): EditorTab | null {
@@ -183,7 +210,7 @@ function parseTab(value: unknown): EditorTab | null {
 }
 
 function canonicalizeTab(tab: EditorTab): EditorTab {
-  return tab.kind === 'exercise' && tab.content ? { ...tab, content: '' } : tab
+  return isDraftBackedPracticeTab(tab) && tab.content ? { ...tab, content: '' } : tab
 }
 
 function normalizeTab(value: unknown): EditorTab | null {
@@ -191,28 +218,11 @@ function normalizeTab(value: unknown): EditorTab | null {
   return parsed ? canonicalizeTab(parsed) : null
 }
 
-function recoveredExerciseFilename(filename: string): string {
-  const normalized = filename.trim() || 'exercise.txt'
-  const extensionIndex = normalized.lastIndexOf('.')
-  const extension = extensionIndex > 0 ? normalized.slice(extensionIndex) : ''
-  const stem = extensionIndex > 0 ? normalized.slice(0, extensionIndex) : normalized
-  const suffix = `.recovered${extension}`
-  return `${stem.slice(0, Math.max(1, MAX_FILENAME_LENGTH - suffix.length))}${suffix}`
-}
-
 function recoveredExerciseTab(tab: EditorTab): EditorTab | null {
-  if (tab.kind !== 'exercise' || !tab.content) return null
-  const source = tab.problemId?.trim() || tab.id
-  const label = source
-    .replace(/[^a-zA-Z0-9_-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80)
-  const fingerprint = stableEditorIdHash(
-    [tab.id, tab.problemId ?? '', tab.filename, tab.language, tab.content].join('\u0000'),
-  )
+  if (!isDraftBackedPracticeTab(tab) || !tab.content) return null
   return {
-    id: `recovered-exercise-${label || 'unknown'}-${fingerprint}`.slice(0, 200),
-    filename: recoveredExerciseFilename(tab.filename),
+    id: legacyExerciseRecoveryTabId(tab),
+    filename: legacyExerciseRecoveryFilename(tab.filename),
     language: tab.language,
     content: tab.content,
     kind: 'file',
@@ -274,7 +284,17 @@ function appendRecoveredFiles(
   const result = [...tabs]
   const seen = new Set(result.map((tab) => tab.id))
   for (const recovered of recoveredFiles) {
-    if (seen.has(recovered.id) || result.length >= maxTabs) continue
+    if (seen.has(recovered.id)) continue
+    if (result.length >= maxTabs) {
+      const topologyIndex = result.findIndex(
+        (tab) => isDraftBackedPracticeTab(tab) && tab.id === recovered.recoveryOriginalId,
+      )
+      if (topologyIndex < 0) continue
+      seen.delete(result[topologyIndex].id)
+      result[topologyIndex] = recovered
+      seen.add(recovered.id)
+      continue
+    }
     seen.add(recovered.id)
     result.push(recovered)
   }
@@ -282,17 +302,59 @@ function appendRecoveredFiles(
 }
 
 function normalizeTabs(value: unknown, maxTabs = MAX_EDITOR_TABS): EditorTab[] {
-  if (!Array.isArray(value)) return []
-  const seen = new Set<string>()
-  const tabs: EditorTab[] = []
-  for (const item of value) {
-    const tab = normalizeTab(item)
-    if (!tab || seen.has(tab.id)) continue
-    seen.add(tab.id)
-    tabs.push(tab)
-    if (tabs.length >= maxTabs) break
+  const normalized = normalizePersistedTabs(value, maxTabs)
+  return appendRecoveredFiles(normalized.tabs, normalized.recoveredFiles, maxTabs)
+}
+
+function recoveryCopyFilename(filename: string): string {
+  const dot = filename.lastIndexOf('.')
+  if (dot <= 0) return `${filename}.recovered`.slice(0, MAX_FILENAME_LENGTH)
+  return `${filename.slice(0, dot)}.recovered${filename.slice(dot)}`.slice(0, MAX_FILENAME_LENGTH)
+}
+
+function createRecoveryConflictCopy(
+  recovery: EditorRecoveryEntry,
+  recoverySourceKeys: string[],
+): EditorTab {
+  const source = recovery.tab.id.replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 120) || 'tab'
+  const fingerprint = stableEditorWorkspaceHash(
+    [
+      recovery.tab.id,
+      recovery.tab.filename,
+      recovery.tab.language,
+      recovery.tab.content,
+      String(recovery.tab.revision ?? ''),
+      String(recovery.tab.cursorPosition?.lineNumber ?? ''),
+      String(recovery.tab.cursorPosition?.column ?? ''),
+      String(recovery.tab.scrollTop ?? ''),
+      String(recovery.updatedAt),
+      recoverySourceKeys.join('\u0000'),
+    ].join('\u0000'),
+  )
+  const recoveredUpdatedAt = new Date(recovery.updatedAt)
+  return {
+    ...recovery.tab,
+    id: `recovered-${source}-${fingerprint}`.slice(0, 200),
+    filename: recoveryCopyFilename(recovery.tab.filename),
+    kind: 'file',
+    problemId: undefined,
+    revision: undefined,
+    ...(Number.isFinite(recoveredUpdatedAt.getTime())
+      ? { updatedAt: recoveredUpdatedAt.toISOString() }
+      : {}),
+    syncConflict: true,
+    localOnly: true,
+    recoverySourceKeys,
+    recoveryOriginalId: recovery.tab.id,
   }
-  return tabs
+}
+
+function isValidRecoveryTimestamp(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    Number.isFinite(new Date(value).getTime())
+  )
 }
 
 function backupCorruptStorage(key: string, raw: string): boolean {
@@ -333,7 +395,7 @@ function normalizeRecoveryEntries(value: unknown): EditorRecoveryEntry[] {
   if (!value || typeof value !== 'object') return []
   const raw = value as Partial<EditorRecoveryEntry>
   const parsed = parseTab(raw.tab)
-  if (!parsed || typeof raw.updatedAt !== 'number' || !Number.isFinite(raw.updatedAt)) return []
+  if (!parsed || !isValidRecoveryTimestamp(raw.updatedAt)) return []
   const activeTabId = typeof raw.activeTabId === 'string' ? raw.activeTabId : null
   const entries: EditorRecoveryEntry[] = [
     {
@@ -347,6 +409,91 @@ function normalizeRecoveryEntries(value: unknown): EditorRecoveryEntry[] {
   return entries
 }
 
+function recoveryCandidateFingerprint(entry: EditorRecoveryEntry): string {
+  const tab = entry.tab
+  return JSON.stringify([
+    tab.filename,
+    tab.language,
+    tab.content,
+    tab.kind,
+    tab.problemId ?? null,
+    tab.revision ?? null,
+  ])
+}
+
+function recoveryEntrySourceKeys(entry: EditorRecoveryEntry): string[] {
+  return [
+    ...new Set([
+      ...(entry.tab.recoverySourceKeys ?? []),
+      ...(entry.sourceKey ? [entry.sourceKey] : []),
+    ]),
+  ].sort()
+}
+
+/**
+ * A renderer session owns its recovery key, but several crashed windows can still
+ * contain divergent edits for the same tab id. Keep the newest branch on the
+ * original tab and expose every other branch as a normal recovery file.
+ */
+function preserveDivergentRecoveryCandidates(
+  candidates: EditorRecoveryEntry[],
+): EditorRecoveryEntry[] {
+  const byTabId = new Map<string, EditorRecoveryEntry[]>()
+  for (const candidate of candidates) {
+    const group = byTabId.get(candidate.tab.id) ?? []
+    group.push(candidate)
+    byTabId.set(candidate.tab.id, group)
+  }
+
+  const preserved: EditorRecoveryEntry[] = []
+  for (const candidatesForTab of byTabId.values()) {
+    const identicalBranches = new Map<string, EditorRecoveryEntry[]>()
+    for (const candidate of candidatesForTab) {
+      const fingerprint = recoveryCandidateFingerprint(candidate)
+      const group = identicalBranches.get(fingerprint) ?? []
+      group.push(candidate)
+      identicalBranches.set(fingerprint, group)
+    }
+
+    const branches = [...identicalBranches.values()]
+      .map((duplicates) => {
+        const representative = [...duplicates].sort(
+          (left, right) =>
+            right.updatedAt - left.updatedAt ||
+            (left.sourceKey ?? '').localeCompare(right.sourceKey ?? ''),
+        )[0]
+        const recoverySourceKeys = [
+          ...new Set(duplicates.flatMap((entry) => recoveryEntrySourceKeys(entry))),
+        ].sort()
+        return {
+          ...representative,
+          tab: { ...representative.tab, recoverySourceKeys },
+        }
+      })
+      .sort(
+        (left, right) =>
+          right.updatedAt - left.updatedAt ||
+          recoveryCandidateFingerprint(left).localeCompare(recoveryCandidateFingerprint(right)),
+      )
+
+    const [primary, ...divergent] = branches
+    if (!primary) continue
+    preserved.push(primary)
+    for (const branch of divergent) {
+      const recoverySourceKeys = recoveryEntrySourceKeys(branch)
+      const copy = {
+        ...createRecoveryConflictCopy(branch, recoverySourceKeys),
+        syncConflict: true,
+      }
+      preserved.push({
+        ...branch,
+        tab: copy,
+      })
+    }
+  }
+  return preserved
+}
+
 function recoveryStorageKeys(): string[] {
   if (!canUseStorage()) return []
   const keys = new Set<string>([EDITOR_RECOVERY_KEY, editorRecoverySessionKey])
@@ -354,19 +501,19 @@ function recoveryStorageKeys(): string[] {
   if (typeof storage.length === 'number' && typeof storage.key === 'function') {
     for (let index = 0; index < storage.length; index += 1) {
       const key = storage.key(index)
-      if (key?.startsWith(EDITOR_RECOVERY_KEY_PREFIX)) keys.add(key)
+      if (key?.startsWith(EDITOR_RECOVERY_KEY_PREFIX) && !key.includes('.corrupt.')) keys.add(key)
     }
   }
   return [...keys]
 }
 
-function readRecoveryEntries(
-  warnings: string[],
-  keys: string[] = recoveryStorageKeys(),
-): EditorRecoveryEntry[] {
+function readRecoveryEntries(warnings: string[], keys?: string[]): EditorRecoveryEntry[] {
   if (!canUseStorage()) return []
-  const entries = new Map<string, EditorRecoveryEntry>()
-  for (const key of keys) {
+  const selectedKeys = keys ?? recoveryStorageKeys()
+  const includeLegacy = keys === undefined || selectedKeys.includes(LEGACY_EDITOR_RECOVERY_KEY)
+  const entries: EditorRecoveryEntry[] = []
+  for (const key of selectedKeys) {
+    if (key === LEGACY_EDITOR_RECOVERY_KEY) continue
     const raw = window.localStorage.getItem(key)
     if (!raw) continue
     try {
@@ -374,7 +521,8 @@ function readRecoveryEntries(
       if (
         (parsed?.version !== 2 && parsed?.version !== EDITOR_RECOVERY_STORAGE_VERSION) ||
         !parsed.entries ||
-        typeof parsed.entries !== 'object'
+        typeof parsed.entries !== 'object' ||
+        Array.isArray(parsed.entries)
       ) {
         reportCorruptStorage(warnings, key, raw, '多标签恢复日志格式不受支持')
       } else {
@@ -383,11 +531,7 @@ function readRecoveryEntries(
           const normalized = normalizeRecoveryEntries(value)
           if (normalized.length === 0) invalidEntry = true
           for (const item of normalized) {
-            const entry = { ...item, sourceKey: key }
-            const previous = entries.get(entry.tab.id)
-            if (!previous || entry.updatedAt > previous.updatedAt) {
-              entries.set(entry.tab.id, entry)
-            }
+            entries.push({ ...item, sourceKey: key })
           }
         }
         if (invalidEntry) {
@@ -399,14 +543,14 @@ function readRecoveryEntries(
     }
   }
 
+  if (!includeLegacy) return preserveDivergentRecoveryCandidates(entries)
   const legacyRaw = window.localStorage.getItem(LEGACY_EDITOR_RECOVERY_KEY)
-  if (!legacyRaw) return [...entries.values()]
+  if (!legacyRaw) return preserveDivergentRecoveryCandidates(entries)
   try {
     const parsed = JSON.parse(legacyRaw) as Partial<LegacyEditorRecoverySnapshot> | null
     const normalized = parsed?.version === 1 ? normalizeRecoveryEntries(parsed) : []
     for (const item of normalized) {
-      const entry = { ...item, sourceKey: LEGACY_EDITOR_RECOVERY_KEY }
-      if (!entries.has(entry.tab.id)) entries.set(entry.tab.id, entry)
+      entries.push({ ...item, sourceKey: LEGACY_EDITOR_RECOVERY_KEY })
     }
     if (normalized.length === 0) {
       reportCorruptStorage(
@@ -419,7 +563,168 @@ function readRecoveryEntries(
   } catch {
     reportCorruptStorage(warnings, LEGACY_EDITOR_RECOVERY_KEY, legacyRaw, '旧版恢复日志已损坏')
   }
-  return [...entries.values()]
+  return preserveDivergentRecoveryCandidates(entries)
+}
+
+function viewRecoveryEntryFingerprint(entry: EditorViewRecoveryEntry): string {
+  return JSON.stringify([
+    entry.cursorPosition?.lineNumber ?? null,
+    entry.cursorPosition?.column ?? null,
+    entry.scrollTop,
+    entry.updatedAt,
+  ])
+}
+
+function readEditorViewRecoverySnapshot(
+  key: string,
+  warnings: string[],
+): EditorViewRecoverySnapshot | null {
+  const raw = window.localStorage.getItem(key)
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as Partial<EditorViewRecoverySnapshot> | null
+    if (
+      parsed?.version !== EDITOR_VIEW_RECOVERY_STORAGE_VERSION ||
+      !parsed.entries ||
+      typeof parsed.entries !== 'object' ||
+      Array.isArray(parsed.entries)
+    ) {
+      reportCorruptStorage(warnings, key, raw, '编辑器视图恢复日志格式不受支持')
+      return null
+    }
+    const entries: Record<string, EditorViewRecoveryEntry> = {}
+    let invalidEntry = false
+    for (const [id, value] of Object.entries(parsed.entries)) {
+      if (!id.trim() || id.length > 200 || !value || typeof value !== 'object') {
+        invalidEntry = true
+        continue
+      }
+      const candidate = value as Partial<EditorViewRecoveryEntry>
+      const cursorPosition = normalizeEditorCursorPosition(candidate.cursorPosition)
+      if (
+        (candidate.cursorPosition !== null && !cursorPosition) ||
+        typeof candidate.scrollTop !== 'number' ||
+        !Number.isFinite(candidate.scrollTop) ||
+        candidate.scrollTop < 0 ||
+        typeof candidate.updatedAt !== 'number' ||
+        !Number.isFinite(candidate.updatedAt) ||
+        Math.abs(candidate.updatedAt) > MAX_DATE_TIMESTAMP
+      ) {
+        invalidEntry = true
+        continue
+      }
+      entries[id] = {
+        cursorPosition,
+        scrollTop: candidate.scrollTop,
+        updatedAt: candidate.updatedAt,
+      }
+    }
+    if (invalidEntry) {
+      reportCorruptStorage(warnings, key, raw, '编辑器视图恢复日志包含损坏条目')
+    }
+    return { version: EDITOR_VIEW_RECOVERY_STORAGE_VERSION, entries }
+  } catch {
+    reportCorruptStorage(warnings, key, raw, '编辑器视图恢复日志已损坏')
+    return null
+  }
+}
+
+function editorViewRecoveryStorageKeys(): string[] {
+  if (!canUseStorage()) return []
+  const keys = new Set<string>([editorViewRecoverySessionKey])
+  const storage = window.localStorage
+  if (typeof storage.length === 'number' && typeof storage.key === 'function') {
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index)
+      if (key?.startsWith(EDITOR_VIEW_RECOVERY_KEY_PREFIX) && !key.includes('.corrupt.')) {
+        keys.add(key)
+      }
+    }
+  }
+  return [...keys]
+}
+
+function readEditorViewRecoveryEntries(warnings: string[]): EditorViewRecoveryCandidate[] {
+  if (!canUseStorage()) return []
+  const candidates: EditorViewRecoveryCandidate[] = []
+  for (const key of editorViewRecoveryStorageKeys()) {
+    const snapshot = readEditorViewRecoverySnapshot(key, warnings)
+    if (!snapshot) continue
+    for (const [id, entry] of Object.entries(snapshot.entries)) {
+      candidates.push({ ...entry, id, sourceKey: key })
+    }
+  }
+  return candidates
+}
+
+function mergeEditorViewRecovery(
+  snapshot: LoadedEditorWorkspaceSnapshot | null,
+  candidates: EditorViewRecoveryCandidate[],
+): LoadedEditorWorkspaceSnapshot | null {
+  if (!snapshot || candidates.length === 0) return snapshot
+  const newestByTab = new Map<string, EditorViewRecoveryCandidate>()
+  for (const candidate of candidates) {
+    const current = newestByTab.get(candidate.id)
+    if (
+      !current ||
+      candidate.updatedAt > current.updatedAt ||
+      (candidate.updatedAt === current.updatedAt &&
+        candidate.sourceKey.localeCompare(current.sourceKey) > 0)
+    ) {
+      newestByTab.set(candidate.id, candidate)
+    }
+  }
+  let recovered = snapshot.recovered
+  const apply = (tab: EditorTab): EditorTab => {
+    const candidate = newestByTab.get(tab.id)
+    if (!candidate) return tab
+    const durableViewUpdatedAt = tab.viewUpdatedAt ? Date.parse(tab.viewUpdatedAt) : Number.NaN
+    if (Number.isFinite(durableViewUpdatedAt) && durableViewUpdatedAt >= candidate.updatedAt) {
+      return tab
+    }
+    const sameCursor =
+      tab.cursorPosition?.lineNumber === candidate.cursorPosition?.lineNumber &&
+      tab.cursorPosition?.column === candidate.cursorPosition?.column
+    const sameScroll = (tab.scrollTop ?? 0) === candidate.scrollTop
+    if (!sameCursor || !sameScroll) recovered = true
+    return {
+      ...tab,
+      cursorPosition: candidate.cursorPosition ?? undefined,
+      scrollTop: candidate.scrollTop,
+      viewUpdatedAt: new Date(candidate.updatedAt).toISOString(),
+    }
+  }
+  return {
+    ...snapshot,
+    tabs: snapshot.tabs.map(apply),
+    recentlyClosedTabs: snapshot.recentlyClosedTabs.map(apply),
+    recovered,
+  }
+}
+
+export function applyPendingEditorViewRecovery(
+  tabs: EditorTab[],
+  recentlyClosedTabs: EditorTab[] = [],
+): { tabs: EditorTab[]; recentlyClosedTabs: EditorTab[]; recovered: boolean } {
+  if (!canUseStorage()) return { tabs, recentlyClosedTabs, recovered: false }
+  const merged = mergeEditorViewRecovery(
+    {
+      version: EDITOR_STORAGE_VERSION,
+      tabs,
+      activeTabId: tabs[0]?.id ?? null,
+      recentlyClosedTabs,
+      updatedAt: 0,
+      recovered: false,
+    },
+    readEditorViewRecoveryEntries([]),
+  )
+  return merged
+    ? {
+        tabs: merged.tabs,
+        recentlyClosedTabs: merged.recentlyClosedTabs,
+        recovered: merged.recovered,
+      }
+    : { tabs, recentlyClosedTabs, recovered: false }
 }
 
 function mergeRecovery(
@@ -441,10 +746,11 @@ function mergeRecovery(
           ? recentlyClosedTabs[closedIndex]
           : null
     const durableTabUpdatedAt = durable?.updatedAt ? Date.parse(durable.updatedAt) : 0
-    const durableUpdatedAt = Math.max(
-      snapshot?.updatedAt ?? 0,
-      Number.isFinite(durableTabUpdatedAt) ? durableTabUpdatedAt : 0,
-    )
+    const durableRevision =
+      durable && Number.isSafeInteger(durable.revision) ? Number(durable.revision) : null
+    const recoveryRevision = Number.isSafeInteger(recovery.tab.revision)
+      ? Number(recovery.tab.revision)
+      : null
     const sameDurableContent =
       durable &&
       durable.filename === recovery.tab.filename &&
@@ -452,10 +758,13 @@ function mergeRecovery(
       durable.content === recovery.tab.content &&
       durable.kind === recovery.tab.kind &&
       (durable.problemId ?? null) === (recovery.tab.problemId ?? null)
-    const recoverySourceKeys = recovery.sourceKey ? [recovery.sourceKey] : []
+    const recoverySourceKeys = recoveryEntrySourceKeys(recovery)
     if (sameDurableContent) {
       const merged = {
         ...durable,
+        ...(durable.syncConflict === true || recovery.tab.syncConflict === true
+          ? { syncConflict: true }
+          : {}),
         recoverySourceKeys: [
           ...new Set([...(durable.recoverySourceKeys ?? []), ...recoverySourceKeys]),
         ],
@@ -465,14 +774,32 @@ function mergeRecovery(
       recovered = true
       continue
     }
-    if (durableUpdatedAt >= recovery.updatedAt) {
-      clearEditorTabRecovery(recovery.tab.id, recoverySourceKeys)
+    const durableSupersedesRecovery =
+      durable !== null &&
+      (durableRevision !== null && recoveryRevision !== null
+        ? durableRevision > recoveryRevision
+        : Number.isFinite(durableTabUpdatedAt) && durableTabUpdatedAt >= recovery.updatedAt)
+    if (durableSupersedesRecovery) {
+      const recoveredCopy = createRecoveryConflictCopy(recovery, recoverySourceKeys)
+      const copyIndex = tabs.findIndex((tab) => tab.id === recoveredCopy.id)
+      if (copyIndex >= 0) {
+        tabs[copyIndex] = {
+          ...tabs[copyIndex],
+          recoverySourceKeys: [
+            ...new Set([...(tabs[copyIndex].recoverySourceKeys ?? []), ...recoverySourceKeys]),
+          ],
+        }
+      } else {
+        tabs.push(recoveredCopy)
+      }
+      recentlyClosedTabs = recentlyClosedTabs.filter((tab) => tab.id !== recoveredCopy.id)
+      if (recovery.activeTabId === recovery.tab.id) activeTabId = recoveredCopy.id
+      recovered = true
       continue
     }
     const recoveredTab = { ...recovery.tab, recoverySourceKeys }
     if (existingIndex >= 0) tabs[existingIndex] = recoveredTab
-    else if (tabs.length < MAX_EDITOR_TABS) tabs.push(recoveredTab)
-    else continue
+    else tabs.push(recoveredTab)
     recentlyClosedTabs = recentlyClosedTabs.filter((tab) => tab.id !== recovery.tab.id)
     if (tabs.some((tab) => tab.id === recovery.activeTabId)) activeTabId = recovery.activeTabId
     else activeTabId = recovery.tab.id
@@ -500,7 +827,12 @@ function readSnapshot(): EditorSnapshotReadResult {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<EditorWorkspaceSnapshot>
       const parsedVersion = Number(parsed.version)
-      if (parsedVersion === 1 || parsedVersion === 2 || parsedVersion === EDITOR_STORAGE_VERSION) {
+      if (
+        parsedVersion === 1 ||
+        parsedVersion === 2 ||
+        parsedVersion === 3 ||
+        parsedVersion === EDITOR_STORAGE_VERSION
+      ) {
         const normalizedOpen = normalizePersistedTabs(parsed.tabs)
         const tabs = appendRecoveredFiles(normalizedOpen.tabs, normalizedOpen.recoveredFiles)
         const hasUsableTabs =
@@ -520,7 +852,7 @@ function readSnapshot(): EditorSnapshotReadResult {
           const normalizedClosed = supportsRecentlyClosed
             ? normalizePersistedTabs(parsed.recentlyClosedTabs, 10)
             : { tabs: [], recoveredFiles: [], invalid: false, migrated: false }
-          const recentlyClosedTabs = appendRecoveredFiles(
+          let recentlyClosedTabs = appendRecoveredFiles(
             normalizedClosed.tabs,
             normalizedClosed.recoveredFiles,
             10,
@@ -536,6 +868,44 @@ function readSnapshot(): EditorSnapshotReadResult {
               raw,
               '最近关闭列表包含重复、超限或损坏标签',
             )
+          }
+          const openById = new Map(tabs.map((tab) => [tab.id, tab]))
+          const crossListDuplicates = recentlyClosedTabs.filter((tab) => openById.has(tab.id))
+          if (crossListDuplicates.length > 0) {
+            reportCorruptStorage(
+              warnings,
+              EDITOR_STORAGE_KEY,
+              raw,
+              '打开标签与最近关闭列表包含相同标识，冲突内容已保留为恢复文件',
+            )
+            const snapshotUpdatedAt =
+              typeof parsed.updatedAt === 'number' && Number.isFinite(parsed.updatedAt)
+                ? parsed.updatedAt
+                : 0
+            for (const closedTab of crossListDuplicates) {
+              const openTab = openById.get(closedTab.id)
+              const sameContent =
+                openTab &&
+                openTab.filename === closedTab.filename &&
+                openTab.language === closedTab.language &&
+                openTab.content === closedTab.content &&
+                openTab.kind === closedTab.kind &&
+                (openTab.problemId ?? null) === (closedTab.problemId ?? null)
+              if (sameContent) continue
+              const parsedUpdatedAt = closedTab.updatedAt ? Date.parse(closedTab.updatedAt) : 0
+              const recoveredCopy = createRecoveryConflictCopy(
+                {
+                  tab: closedTab,
+                  activeTabId: null,
+                  updatedAt: Number.isFinite(parsedUpdatedAt)
+                    ? Math.max(parsedUpdatedAt, snapshotUpdatedAt)
+                    : snapshotUpdatedAt,
+                },
+                [],
+              )
+              if (!tabs.some((tab) => tab.id === recoveredCopy.id)) tabs.push(recoveredCopy)
+            }
+            recentlyClosedTabs = recentlyClosedTabs.filter((tab) => !openById.has(tab.id))
           }
           const migratedExerciseContent = normalizedOpen.migrated || normalizedClosed.migrated
           if (migratedExerciseContent) {
@@ -553,6 +923,7 @@ function readSnapshot(): EditorSnapshotReadResult {
             parsedVersion !== EDITOR_STORAGE_VERSION ||
             normalizedOpen.invalid ||
             normalizedClosed.invalid ||
+            crossListDuplicates.length > 0 ||
             migratedExerciseContent ||
             parsed.tabs.some(
               (tab) =>
@@ -617,7 +988,10 @@ function readSnapshot(): EditorSnapshotReadResult {
       }
     }
   }
-  const loaded = mergeRecovery(snapshot, readRecoveryEntries(warnings))
+  const loaded = mergeEditorViewRecovery(
+    mergeRecovery(snapshot, readRecoveryEntries(warnings)),
+    readEditorViewRecoveryEntries(warnings),
+  )
   return {
     snapshot: loaded ? { ...loaded, recovered: loaded.recovered || requiresRewrite } : null,
     warning: warnings.length > 0 ? [...new Set(warnings)].join('；') : null,
@@ -628,8 +1002,8 @@ function writeTabRecovery(id: string): void {
   if (!canUseStorage()) return
   const state = useEditorStore.getState()
   const sourceTab = state.tabs.find((item) => item.id === id)
-  if (sourceTab?.kind === 'exercise') {
-    clearEditorTabRecovery(id, sourceTab.recoverySourceKeys)
+  if (sourceTab && isDraftBackedPracticeTab(sourceTab)) {
+    clearEditorTabRecovery(id, sourceTab.recoverySourceKeys, sourceTab)
     return
   }
   const tab = normalizeTab(sourceTab)
@@ -664,32 +1038,265 @@ function writeTabRecovery(id: string): void {
   }
 }
 
-export function clearEditorTabRecovery(id: string, sourceKeys: string[] = []): void {
-  if (!canUseStorage()) return
-  for (const key of new Set([editorRecoverySessionKey, ...sourceKeys])) {
-    if (protectedStorageKeys.has(key)) continue
-    const entries = Object.fromEntries(
-      readRecoveryEntries([], [key]).map((entry) => [entry.tab.id, entry]),
+function writeTabViewRecovery(id: string): number | null {
+  if (!canUseStorage()) return null
+  const state = useEditorStore.getState()
+  const tab = state.tabs.find((item) => item.id === id)
+  if (!tab) return null
+  const existing = readEditorViewRecoverySnapshot(editorViewRecoverySessionKey, [])
+  if (protectedStorageKeys.has(editorViewRecoverySessionKey)) {
+    useEditorStore.setState({
+      persistenceError: '视图恢复日志完整备份失败，已停止覆盖原始数据',
+    })
+    return null
+  }
+  const entries = { ...(existing?.entries ?? {}) }
+  const previousUpdatedAt = entries[id]?.updatedAt ?? 0
+  const previousTabViewUpdatedAt = tab.viewUpdatedAt ? Date.parse(tab.viewUpdatedAt) : Number.NaN
+  const lastPersistedAt = state.lastPersistedAt ?? 0
+  const updatedAt = Math.min(
+    MAX_DATE_TIMESTAMP,
+    Math.max(
+      Date.now(),
+      previousUpdatedAt + 1,
+      Number.isFinite(lastPersistedAt) && Math.abs(lastPersistedAt) < MAX_DATE_TIMESTAMP
+        ? lastPersistedAt + 1
+        : 0,
+      Number.isFinite(previousTabViewUpdatedAt) ? previousTabViewUpdatedAt + 1 : 0,
+    ),
+  )
+  entries[id] = {
+    cursorPosition: tab.cursorPosition ?? null,
+    scrollTop: tab.scrollTop ?? 0,
+    updatedAt,
+  }
+  try {
+    window.localStorage.setItem(
+      editorViewRecoverySessionKey,
+      JSON.stringify({ version: EDITOR_VIEW_RECOVERY_STORAGE_VERSION, entries }),
     )
-    if (protectedStorageKeys.has(key)) continue
-    if (!entries[id]) continue
-    delete entries[id]
+    return updatedAt
+  } catch (error) {
+    useEditorStore.setState({
+      persistenceError: error instanceof Error ? error.message : '编辑器视图恢复日志写入失败',
+    })
+    return null
+  }
+}
+
+function isCurrentBootForeignViewRecoveryKey(key: string): boolean {
+  return (
+    key !== editorViewRecoverySessionKey &&
+    Boolean(editorRecoveryBootScope) &&
+    recoveryKeyBootScope(key, EDITOR_VIEW_RECOVERY_KEY_PREFIX) === editorRecoveryBootScope
+  )
+}
+
+export function captureEditorTabViewRecovery(id: string): EditorViewRecoveryClearExpectation {
+  if (!canUseStorage()) return { id, sources: [] }
+  const sources: EditorViewRecoveryClearExpectation['sources'] = []
+  for (const key of editorViewRecoveryStorageKeys()) {
+    if (isCurrentBootForeignViewRecoveryKey(key)) continue
+    const entry = readEditorViewRecoverySnapshot(key, [])?.entries[id]
+    if (!entry) continue
+    sources.push({ key, fingerprint: viewRecoveryEntryFingerprint(entry) })
+  }
+  return { id, sources }
+}
+
+export function clearEditorTabViewRecovery(expectation: EditorViewRecoveryClearExpectation): void {
+  if (!canUseStorage()) return
+  for (const source of expectation.sources) {
+    if (protectedStorageKeys.has(source.key) || isCurrentBootForeignViewRecoveryKey(source.key)) {
+      continue
+    }
     try {
-      if (Object.keys(entries).length === 0) {
-        const storage = window.localStorage as Storage & { removeItem?: (key: string) => void }
-        if (typeof storage.removeItem === 'function') storage.removeItem(key)
-        else storage.setItem(key, '')
-      } else {
-        const recovery: EditorRecoverySnapshot = {
-          version: EDITOR_RECOVERY_STORAGE_VERSION,
-          entries,
-        }
-        window.localStorage.setItem(key, JSON.stringify(recovery))
+      const snapshot = readEditorViewRecoverySnapshot(source.key, [])
+      const entry = snapshot?.entries[expectation.id]
+      if (!snapshot || !entry || viewRecoveryEntryFingerprint(entry) !== source.fingerprint) {
+        continue
+      }
+      const entries = { ...snapshot.entries }
+      delete entries[expectation.id]
+      if (Object.keys(entries).length === 0) window.localStorage.removeItem(source.key)
+      else {
+        window.localStorage.setItem(
+          source.key,
+          JSON.stringify({ version: EDITOR_VIEW_RECOVERY_STORAGE_VERSION, entries }),
+        )
       }
     } catch {
-      // Keeping a stale recovery entry is safer than clearing it after an ambiguous write.
+      // A changed or unreadable recovery is safer to retain than to clear speculatively.
     }
   }
+}
+
+interface EditorRecoveryClearDocument {
+  kind: 'multi' | 'legacy'
+  parsed: EditorRecoverySnapshot | LegacyEditorRecoverySnapshot
+  tab: EditorTab
+  fingerprint: string
+}
+
+type EditorRecoveryClearReadResult =
+  | { status: 'absent' }
+  | { status: 'invalid' }
+  | { status: 'found'; document: EditorRecoveryClearDocument }
+
+function readEditorRecoveryClearDocument(key: string, id: string): EditorRecoveryClearReadResult {
+  const raw = window.localStorage.getItem(key)
+  if (!raw) return { status: 'absent' }
+  try {
+    const parsed = JSON.parse(raw) as
+      | Partial<EditorRecoverySnapshot>
+      | Partial<LegacyEditorRecoverySnapshot>
+      | null
+    if (key === LEGACY_EDITOR_RECOVERY_KEY) {
+      if (parsed?.version !== 1) return { status: 'invalid' }
+      const tab = parseTab((parsed as Partial<LegacyEditorRecoverySnapshot>).tab)
+      if (!tab) return { status: 'invalid' }
+      if (tab.id !== id) return { status: 'absent' }
+      return {
+        status: 'found',
+        document: {
+          kind: 'legacy',
+          parsed: parsed as LegacyEditorRecoverySnapshot,
+          tab,
+          fingerprint: JSON.stringify(parsed),
+        },
+      }
+    }
+    if (
+      (parsed?.version !== 2 && parsed?.version !== EDITOR_RECOVERY_STORAGE_VERSION) ||
+      !('entries' in (parsed ?? {})) ||
+      !parsed?.entries ||
+      typeof parsed.entries !== 'object' ||
+      Array.isArray(parsed.entries)
+    ) {
+      return { status: 'invalid' }
+    }
+    const value = parsed.entries[id]
+    if (!value) return { status: 'absent' }
+    const normalized = normalizeRecoveryEntries(value).find((entry) => entry.tab.id === id)
+    const rawTab = parseTab((value as Partial<EditorRecoveryEntry>).tab)
+    const tab = rawTab ?? normalized?.tab
+    if (!tab) return { status: 'invalid' }
+    return {
+      status: 'found',
+      document: {
+        kind: 'multi',
+        parsed: parsed as EditorRecoverySnapshot,
+        tab,
+        fingerprint: JSON.stringify(value),
+      },
+    }
+  } catch {
+    return { status: 'invalid' }
+  }
+}
+
+function editorRecoveryMatchesExpected(tab: EditorTab, expected: EditorTab | undefined): boolean {
+  if (!expected) return true
+  if (tab.content !== expected.content || tab.language !== expected.language) return false
+  if (
+    Number.isSafeInteger(expected.revision) &&
+    Number(expected.revision) >= 1 &&
+    tab.revision !== expected.revision
+  ) {
+    return false
+  }
+  return true
+}
+
+function writeEditorRecoveryClearDocument(
+  key: string,
+  document: EditorRecoveryClearDocument,
+): void {
+  if (document.kind === 'legacy') {
+    window.localStorage.removeItem(key)
+    return
+  }
+  const entries = { ...(document.parsed as EditorRecoverySnapshot).entries }
+  delete entries[document.tab.id]
+  if (Object.keys(entries).length === 0) window.localStorage.removeItem(key)
+  else {
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({
+        ...(document.parsed as EditorRecoverySnapshot),
+        entries,
+      }),
+    )
+  }
+}
+
+export function clearEditorTabRecovery(
+  id: string,
+  sourceKeys: string[] = [],
+  expectedTab?: EditorTab,
+): boolean {
+  if (!canUseStorage()) return sourceKeys.length === 0
+  const expected =
+    expectedTab ??
+    useEditorStore.getState().tabs.find((tab) => tab.id === id) ??
+    useEditorStore.getState().recentlyClosedTabs.find((tab) => tab.id === id)
+  let cleared = true
+  for (const key of new Set([editorRecoverySessionKey, ...sourceKeys])) {
+    if (protectedStorageKeys.has(key)) {
+      cleared = false
+      continue
+    }
+    if (
+      key !== editorRecoverySessionKey &&
+      editorRecoveryBootScope &&
+      recoveryKeyBootScope(key, EDITOR_RECOVERY_KEY_PREFIX) === editorRecoveryBootScope
+    ) {
+      try {
+        if (readEditorRecoveryClearDocument(key, id).status !== 'absent') cleared = false
+      } catch {
+        cleared = false
+      }
+      continue
+    }
+    try {
+      const initialResult = readEditorRecoveryClearDocument(key, id)
+      if (initialResult.status === 'absent') continue
+      if (initialResult.status === 'invalid') {
+        cleared = false
+        continue
+      }
+      const initial = initialResult.document
+      if (!editorRecoveryMatchesExpected(initial.tab, expected)) {
+        cleared = false
+        continue
+      }
+      if (key !== editorRecoverySessionKey && !expected) {
+        cleared = false
+        continue
+      }
+      const latestResult =
+        key === editorRecoverySessionKey ? initialResult : readEditorRecoveryClearDocument(key, id)
+      if (latestResult.status === 'absent') continue
+      if (latestResult.status === 'invalid') {
+        cleared = false
+        continue
+      }
+      const latest = latestResult.document
+      if (
+        latest.fingerprint !== initial.fingerprint ||
+        !editorRecoveryMatchesExpected(latest.tab, expected)
+      ) {
+        cleared = false
+        continue
+      }
+      writeEditorRecoveryClearDocument(key, latest)
+      if (readEditorRecoveryClearDocument(key, id).status !== 'absent') cleared = false
+    } catch {
+      // Keeping a stale recovery entry is safer than clearing it after an ambiguous write.
+      cleared = false
+    }
+  }
+  return cleared
 }
 
 export function flushPersistTabs(): void {
@@ -776,7 +1383,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         dirty: true,
       }
     })
-    if (normalized.kind === 'exercise') clearEditorTabRecovery(normalized.id)
+    if (isDraftBackedPracticeTab(normalized)) clearEditorTabRecovery(normalized.id, [], normalized)
     flushPersistTabs()
   },
   closeTab: (id) => {
@@ -834,24 +1441,28 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   updateTab: (id, patch) => {
     const current = get().tabs.find((tab) => tab.id === id)
     if (!current) return
-    if (current.kind === 'exercise' && typeof patch.content === 'string' && patch.content !== '') {
+    if (
+      isDraftBackedPracticeTab(current) &&
+      typeof patch.content === 'string' &&
+      patch.content !== ''
+    ) {
       return
     }
     let updated = false
-    let nextKind: EditorTabKind | null = null
     set((state) => {
       const target = state.tabs.find((tab) => tab.id === id)
       if (!target) return state
+      const existingRecovery = recoveredExerciseTab(target)
       const parsed = parseTab({
         ...target,
         ...patch,
         id: target.id,
-        content: target.kind === 'exercise' ? '' : (patch.content ?? target.content),
+        content: isDraftBackedPracticeTab(target) ? '' : (patch.content ?? target.content),
         updatedAt: new Date().toISOString(),
       })
       if (!parsed) return state
       const normalized = canonicalizeTab(parsed)
-      const recovered = recoveredExerciseTab(parsed)
+      const recovered = existingRecovery ?? recoveredExerciseTab(parsed)
       const remaining = state.tabs.filter(
         (tab) => tab.id !== id && (!recovered || tab.id !== recovered.id),
       )
@@ -862,16 +1473,17 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       remaining.splice(Math.min(index, remaining.length), 0, normalized)
       if (recovered) remaining.push(recovered)
       updated = true
-      nextKind = normalized.kind
       return { tabs: remaining, dirty: true }
     })
     if (!updated) return
-    if (nextKind === 'exercise') clearEditorTabRecovery(id)
+    const nextTab = get().tabs.find((tab) => tab.id === id)
+    if (nextTab && isDraftBackedPracticeTab(nextTab)) clearEditorTabRecovery(id, [], nextTab)
     else writeTabRecovery(id)
     schedulePersistTabs()
   },
   updateContent: (id, content) => {
-    if (get().tabs.find((tab) => tab.id === id)?.kind === 'exercise') return
+    const target = get().tabs.find((tab) => tab.id === id)
+    if (target && isDraftBackedPracticeTab(target)) return
     set((state) => ({
       tabs: state.tabs.map((tab) =>
         tab.id === id ? { ...tab, content, updatedAt: new Date().toISOString() } : tab,
@@ -886,9 +1498,10 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   updateCursorPosition: (id, lineNumber, column) => {
     const cursorPosition = normalizeEditorCursorPosition({ lineNumber, column })
     if (!cursorPosition) return
-    const current = get().tabs.find((tab) => tab.id === id)?.cursorPosition
+    const currentTab = get().tabs.find((tab) => tab.id === id)
+    const current = currentTab?.cursorPosition
     if (
-      !get().tabs.some((tab) => tab.id === id) ||
+      !currentTab ||
       (current?.lineNumber === cursorPosition.lineNumber &&
         current.column === cursorPosition.column)
     ) {
@@ -897,6 +1510,20 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     set((state) => ({
       tabs: state.tabs.map((tab) => (tab.id === id ? { ...tab, cursorPosition } : tab)),
       dirty: true,
+    }))
+    const recoveredAt = writeTabViewRecovery(id)
+    const previousViewUpdatedAt = currentTab.viewUpdatedAt
+    const previousTimestamp = previousViewUpdatedAt ? Date.parse(previousViewUpdatedAt) : Number.NaN
+    const viewUpdatedAt =
+      recoveredAt ??
+      Math.min(
+        MAX_DATE_TIMESTAMP,
+        Math.max(Date.now(), Number.isFinite(previousTimestamp) ? previousTimestamp + 1 : 0),
+      )
+    set((state) => ({
+      tabs: state.tabs.map((tab) =>
+        tab.id === id ? { ...tab, viewUpdatedAt: new Date(viewUpdatedAt).toISOString() } : tab,
+      ),
     }))
     schedulePersistTabs()
   },
@@ -910,6 +1537,19 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         tab.id === id ? { ...tab, scrollTop: normalizedScrollTop } : tab,
       ),
       dirty: true,
+    }))
+    const recoveredAt = writeTabViewRecovery(id)
+    const previousTimestamp = current.viewUpdatedAt ? Date.parse(current.viewUpdatedAt) : Number.NaN
+    const viewUpdatedAt =
+      recoveredAt ??
+      Math.min(
+        MAX_DATE_TIMESTAMP,
+        Math.max(Date.now(), Number.isFinite(previousTimestamp) ? previousTimestamp + 1 : 0),
+      )
+    set((state) => ({
+      tabs: state.tabs.map((tab) =>
+        tab.id === id ? { ...tab, viewUpdatedAt: new Date(viewUpdatedAt).toISOString() } : tab,
+      ),
     }))
     schedulePersistTabs()
   },

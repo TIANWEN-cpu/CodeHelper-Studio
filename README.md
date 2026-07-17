@@ -70,7 +70,7 @@
 
 - 正在系统学习编程、算法、C/C++、Python、数据库或软件工程的学生。
 - 希望把刷题、复盘、笔记、AI 提问放在同一个桌面环境里的学习者。
-- 想要一个本地优先、可配置 AI Provider、数据可迁移的编程练习工作台。
+- 想要一个本地优先、可配置 AI Provider、支持部分数据 JSON 迁移和完整本机备份的编程练习工作台。
 - 需要 Electron + React + SQLite 项目样板和 IPC 实践参考的开发者。
 
 ## 核心能力
@@ -110,6 +110,13 @@
 - 账户资料可自定义昵称、图片头像、URL 头像或文本头像。
 - 学习记录可一键清空，同时保留题库、知识库、AI 配置、账户资料和课堂笔记。
 
+### 数据保护与能力状态
+
+- 设置页可创建覆盖全部已提交 SQLite 数据的验证型快照，并列出手动、导入前和迁移前备份。
+- 每个数据库快照记录应用/schema 版本、大小、SHA-256 和 `quick_check` 结果。
+- 能力页统一展示数据库、工具链、Windows Job Host、Docker、知识检索、Agent、AI 配置和
+  `safeStorage` 状态，不会把“已配置”误报为 Provider 已连通。
+
 ## v2.3.0 更新重点
 
 - 长期记忆系统升级：支持分类发送控制、记忆预览与 LLM 自动抽取，并补齐管理 UI。
@@ -129,7 +136,7 @@
 
 ### 环境要求
 
-- Node.js 20 或更高版本
+- Node.js 20.19+ 或 22.13+ LTS
 - npm 10 或更高版本
 - Windows 10/11（官方安装包）
 - macOS / Linux 可从源码运行，暂不作为当前正式安装包目标
@@ -159,10 +166,15 @@ npm run package:win:dir
 | `npm run typecheck`       | 运行 TypeScript 项目检查           |
 | `npm run test`            | 运行 Vitest 测试                   |
 | `npm run test:coverage`   | 运行覆盖率测试                     |
+| `npm run native:node`     | 为 Node/Vitest 准备 native 模块    |
+| `npm run native:electron` | 为 Electron 准备 native 模块       |
 | `npm run package:win:dir` | 构建 Windows unpacked 包并校验资源 |
 | `npm run build:win`       | 构建 Windows 安装包                |
 | `npm run build:mac`       | 本地尝试构建 macOS 包              |
 | `npm run build:linux`     | 本地尝试构建 Linux 包              |
+
+测试、开发、Electron E2E 和打包命令会自动探测并切换 `better-sqlite3` 的 Node/Electron ABI；
+通常不需要手工删除 `node_modules`。
 
 ## 项目结构
 
@@ -188,7 +200,11 @@ npm run package:win:dir
 
 - 默认数据存放在本机 Electron 用户数据目录。
 - SQLite 保存题库进度、提交记录、错题、知识库、设置、账户资料和 AI 配置。
-- AI Provider 由用户自行配置，API Key 存在本地配置中。
+- AI Provider 由用户自行配置；新保存的 API Key 必须通过 Electron `safeStorage` 加密。
+- 设置页 JSON 导入导出只覆盖 10 类逻辑数据，不包含工作区、练习草稿、Agent 审计或 AI 配置。
+- 设置页完整数据库备份覆盖全部已提交 SQLite 数据，导入和 schema 迁移前会自动创建已验证快照。
+- 快照不含 localStorage 且仍位于同一 `userData`；灾难恢复应另存完整 `userData`，当前没有应用内
+  一键恢复。
 - 学习记录清空只删除学习活动相关数据，不删除题库、知识库、AI 配置、账户资料和课堂笔记。
 
 ## AI Provider 配置
@@ -207,17 +223,30 @@ npm run package:win:dir
 Release 工作流由 `.github/workflows/release.yml` 驱动：
 
 - 标签 `v*` 推送后触发发布流程。
-- 当前正式 Release 只发布 Windows 安装包和自动更新清单。
+- 当前正式 Release 只发布 Windows NSIS 安装包、Portable 包、更新 metadata 与审计清单。
 - macOS / Linux 暂不上传官方安装包，避免把未充分验证的平台产物交给用户。
 - GitHub Release 由 workflow 的发布阶段统一创建，Electron Builder 打包阶段不会提前发布。
+- 正式发布锁定精确 tag/SHA，强制 Authenticode，并验证资源、Electron Fuses、更新清单、
+  NSIS 安装/重启/卸载、Portable 运行、Immutable Releases 和发布后 server digest；已发布资产不覆盖。
 
-本地发版前建议至少运行：
+`latest.yml` 和 blockmap 只是 Electron Updater 兼容 metadata。当前应用没有 `electron-updater` 或
+应用内自动检查、下载、安装更新功能。正式发布还要求在活跃的
+`TIANWEN-cpu/CodeHelper-Studio` 仓库配置受保护 `release` Environment、签名 secrets 和 GitHub
+Immutable Releases。
 
-```bash
-npm run typecheck
-npx vitest run tests/productionFixes.test.ts tests/learningRecordsIpc.test.ts
-npm run build
+本地 Windows 打包验证：
+
+```powershell
+$env:CSC_IDENTITY_AUTO_DISCOVERY = 'false'
+npm run package:win
+npm run verify:package:win
 ```
+
+无签名本地包只用于 smoke，不能作为正式 Release。完整流程见
+[构建与发布](docs/guides/deployment.md) 和
+[发布与回滚清单](docs/guides/release-checklist.md)。数据保护和事故处置见
+[备份与恢复手册](docs/guides/backup-restore-runbook.md) 与
+[发布回滚手册](docs/guides/rollback-runbook.md)。
 
 ## 文档入口
 
@@ -225,7 +254,10 @@ npm run build
 - [docs/api.md](docs/api.md) - IPC 与数据接口
 - [docs/concepts/data-flow.md](docs/concepts/data-flow.md) - 前后端数据流
 - [docs/concepts/ipc-patterns.md](docs/concepts/ipc-patterns.md) - IPC 开发规范
-- [docs/data-portability.md](docs/data-portability.md) - 数据导入导出
+- [docs/data-portability.md](docs/data-portability.md) - SQLite、JSON 与恢复层的数据边界
+- [docs/guides/backup-restore-runbook.md](docs/guides/backup-restore-runbook.md) - 数据库快照、完整目录副本与人工恢复
+- [docs/guides/rollback-runbook.md](docs/guides/rollback-runbook.md) - 已公开版本事故回滚
+- [docs/security-audit.md](docs/security-audit.md) - 当前安全边界和残余风险
 - [docs/accessibility.md](docs/accessibility.md) - 可访问性检查
 
 ## 贡献

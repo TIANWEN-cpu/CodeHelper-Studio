@@ -519,6 +519,50 @@ describe('chatStore', () => {
       expect((aiChatCall![1] as { ragContext: unknown }).ragContext).toBeUndefined()
     })
 
+    it('does not write long-term memory for audited Agent model synthesis', async () => {
+      seedSession()
+      mockInvoke.mockResolvedValueOnce(42) // chat-message-save
+      mockInvoke.mockResolvedValueOnce({ success: true, requestId: 'r1', content: '' }) // ai-chat
+
+      await useChatStore.getState().sendMessage('agent goal', {
+        captureMemory: false,
+        includeKnowledge: false,
+        includeMemories: false,
+      })
+
+      expect(mockInvoke).not.toHaveBeenCalledWith('chat-memory-capture', expect.anything())
+      expect(mockInvoke).not.toHaveBeenCalledWith('chat-memory-extract', expect.anything())
+      expect(mockInvoke).not.toHaveBeenCalledWith('knowledge-rag-context', expect.anything())
+      expect(mockInvoke).toHaveBeenCalledWith('ai-chat', expect.anything())
+    })
+
+    it('cancels an Agent request before provider dispatch if message persistence is still pending', async () => {
+      seedSession()
+      let resolveSave!: (value: number) => void
+      const savePending = new Promise<number>((resolve) => {
+        resolveSave = resolve
+      })
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'chat-message-save') return savePending
+        if (channel === 'ai-chat-cancel') return Promise.resolve({ cancelled: false })
+        return Promise.resolve(undefined)
+      })
+
+      const sendPending = useChatStore.getState().sendMessage('agent goal', {
+        captureMemory: false,
+        includeKnowledge: false,
+        includeMemories: false,
+      })
+      expect(useChatStore.getState().currentRequestId).toBeTruthy()
+      await useChatStore.getState().cancelCurrentRequest()
+      resolveSave(42)
+      await sendPending
+
+      expect(mockInvoke).not.toHaveBeenCalledWith('ai-chat', expect.anything())
+      expect(useChatStore.getState().error).toBe('AI 请求已取消')
+      expect(useChatStore.getState().streaming).toBe(false)
+    })
+
     it('does not abort the turn when memory capture throws', async () => {
       seedSession()
       mockInvoke.mockResolvedValueOnce(42) // chat-message-save

@@ -2,12 +2,15 @@ import { create } from 'zustand'
 import { ViewType } from './types'
 import {
   applyAIPetEnabled,
+  applyAIPetSize,
   applyAnimationLevel,
   applyBackgroundStyle,
   applyGlassBlur,
   applyGlassStyle,
   applyTheme,
   applyVisualTheme,
+  clampAIPetSize,
+  DEFAULT_AI_PET_SIZE,
   persistAppearance,
   type AnimationLevel,
   type Appearance,
@@ -87,6 +90,7 @@ interface AppState {
   glassStyle: GlassStyle
   glassBlur: number
   aiPetEnabled: boolean
+  aiPetSize: number
   setCurrentView: (view: ViewType) => void
   toggleAITutor: () => void
   setShowAITutor: (show: boolean) => void
@@ -119,6 +123,7 @@ interface AppState {
   setGlassStyle: (style: GlassStyle) => void
   setGlassBlur: (value: number) => void
   setAIPetEnabled: (enabled: boolean) => void
+  setAIPetSize: (value: number) => void
   /** 启动时把已解析的主题同步进 store，不重复持久化。 */
   hydrateTheme: (theme: ThemeMode) => void
   hydrateAppearanceControls: (
@@ -130,6 +135,7 @@ interface AppState {
       | 'glassStyle'
       | 'glassBlur'
       | 'aiPetEnabled'
+      | 'aiPetSize'
     >,
   ) => void
   /** 启动时从数据库读回 UI 偏好（AI 面板/侧边栏/底部面板/标签换行/区域/周起始）。 */
@@ -155,6 +161,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   glassStyle: 'layered',
   glassBlur: 18,
   aiPetEnabled: true,
+  aiPetSize: DEFAULT_AI_PET_SIZE,
   setCurrentView: (view) => set({ currentView: view }),
   toggleAITutor: () => set((state) => ({ showAITutor: !state.showAITutor })),
   setShowAITutor: (show) => set({ showAITutor: show }),
@@ -233,6 +240,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     applyAIPetEnabled(enabled)
     persistAppearance('ai_pet_enabled', String(enabled))
     set({ aiPetEnabled: enabled })
+  },
+  setAIPetSize: (value) => {
+    const size = clampAIPetSize(value)
+    applyAIPetSize(size)
+    persistAppearance('ai_pet_size', String(size))
+    set({ aiPetSize: size })
   },
   hydrateTheme: (theme) => set({ theme }),
   hydrateAppearanceControls: (appearance) => set(appearance),

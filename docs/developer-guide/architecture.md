@@ -16,7 +16,7 @@
 | 数据库     | better-sqlite3 (SQLite)              | 12     |
 | 图标库     | Lucide React                         | 1.7    |
 | 文档渲染   | react-markdown + remark-gfm          | 10 / 4 |
-| 测试框架   | Vitest                               | 3      |
+| 测试框架   | Vitest                               | 4      |
 | 代码规范   | ESLint (flat config) + Prettier      | 9 / 3  |
 | 打包工具   | electron-builder                     | 26     |
 

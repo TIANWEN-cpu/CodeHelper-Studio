@@ -1,4 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { legacyExerciseRecoveryTabId } from '../src/shared/editorWorkspaceContract'
+import {
+  createBootScopedRecoverySessionId,
+  getRecoveryBootScope,
+} from '../src/utils/recoverySession'
 
 // editorStore has no external deps beyond constants, no mock needed
 const {
@@ -6,8 +11,14 @@ const {
   EDITOR_RECOVERY_KEY_PREFIX,
   EDITOR_STORAGE_KEY,
   EDITOR_STORAGE_VERSION,
+  EDITOR_VIEW_RECOVERY_KEY_PREFIX,
   LEGACY_EDITOR_RECOVERY_KEY,
   LEGACY_EDITOR_STORAGE_KEY,
+  MAX_EDITOR_TABS,
+  WELCOME_TAB_CONTENT,
+  captureEditorTabViewRecovery,
+  clearEditorTabRecovery,
+  clearEditorTabViewRecovery,
   flushPersistTabs,
   useEditorStore,
 } = await import('../src/stores/editorStore')
@@ -207,6 +218,24 @@ describe('editorStore', () => {
       return { values, setItem, removeItem }
     }
 
+    function viewRecoveryDocument(values: Map<string, string>) {
+      const entry = [...values.entries()].find(([key]) =>
+        key.startsWith(EDITOR_VIEW_RECOVERY_KEY_PREFIX),
+      )
+      expect(entry).toBeDefined()
+      return JSON.parse(entry?.[1] ?? '{}') as {
+        version: number
+        entries: Record<
+          string,
+          {
+            cursorPosition: { lineNumber: number; column: number } | null
+            scrollTop: number
+            updatedAt: number
+          }
+        >
+      }
+    }
+
     it('persists the latest tab content and active tab after the debounce', async () => {
       vi.useFakeTimers()
       const { values } = installStorage()
@@ -246,6 +275,254 @@ describe('editorStore', () => {
       })
       expect(useEditorStore.getState().tabs[1].scrollTop).toBe(320)
       expect(useEditorStore.getState().hydrated).toBe(true)
+    })
+
+    it('records and restores each viewport change before the debounced snapshot runs', () => {
+      vi.useFakeTimers()
+      const { values } = installStorage()
+      flushPersistTabs()
+      const durableBeforeViewChange = values.get(EDITOR_STORAGE_KEY)
+
+      useEditorStore.getState().updateCursorPosition('welcome', 8, 4)
+      let viewRecovery = viewRecoveryDocument(values)
+      expect(viewRecovery.entries.welcome).toMatchObject({
+        cursorPosition: { lineNumber: 8, column: 4 },
+        scrollTop: 0,
+      })
+
+      useEditorStore.getState().updateScrollTop('welcome', 320)
+      viewRecovery = viewRecoveryDocument(values)
+      expect(viewRecovery.entries.welcome).toMatchObject({
+        cursorPosition: { lineNumber: 8, column: 4 },
+        scrollTop: 320,
+      })
+      expect(values.get(EDITOR_STORAGE_KEY)).toBe(durableBeforeViewChange)
+
+      resetStore()
+      useEditorStore.getState().restoreTabs()
+
+      expect(useEditorStore.getState().tabs[0]).toMatchObject({
+        content: WELCOME_TAB_CONTENT,
+        cursorPosition: { lineNumber: 8, column: 4 },
+        scrollTop: 320,
+      })
+      expect(useEditorStore.getState().restoreStatus).toBe('recovered')
+    })
+
+    it('uses content-free view recovery for file, problem, and exercise tabs', () => {
+      const { values } = installStorage()
+      const cases = [
+        {
+          id: 'ordinary-file',
+          filename: 'ordinary.py',
+          kind: 'file' as const,
+          content: 'file-secret-code',
+        },
+        {
+          id: 'standalone-problem',
+          filename: 'problem.py',
+          kind: 'problem' as const,
+          content: 'problem-secret-code',
+        },
+        {
+          id: 'exercise-practice',
+          filename: 'practice.py',
+          kind: 'exercise' as const,
+          content: 'practice-secret-code',
+        },
+      ]
+      for (const [index, item] of cases.entries()) {
+        useEditorStore.getState().addTab({ ...item, language: 'python' })
+        useEditorStore.getState().updateCursorPosition(item.id, index + 2, index + 3)
+        useEditorStore.getState().updateScrollTop(item.id, (index + 1) * 100)
+      }
+
+      const raw = [...values.entries()].find(([key]) =>
+        key.startsWith(EDITOR_VIEW_RECOVERY_KEY_PREFIX),
+      )?.[1]
+      expect(raw).toBeDefined()
+      expect(raw).not.toContain('file-secret-code')
+      expect(raw).not.toContain('problem-secret-code')
+      expect(raw).not.toContain('practice-secret-code')
+      const viewRecovery = viewRecoveryDocument(values)
+      for (const [index, item] of cases.entries()) {
+        expect(viewRecovery.entries[item.id]).toEqual({
+          cursorPosition: { lineNumber: index + 2, column: index + 3 },
+          scrollTop: (index + 1) * 100,
+          updatedAt: expect.any(Number),
+        })
+      }
+      expect(
+        useEditorStore.getState().tabs.find((tab) => tab.id === 'exercise-practice'),
+      ).toMatchObject({
+        kind: 'exercise',
+        content: '',
+      })
+    })
+
+    it('merges the newest window view without creating a content recovery branch', () => {
+      installStorage({
+        [EDITOR_STORAGE_KEY]: JSON.stringify({
+          version: EDITOR_STORAGE_VERSION,
+          activeTabId: 'shared',
+          tabs: [
+            {
+              id: 'shared',
+              filename: 'shared.py',
+              language: 'python',
+              content: 'durable content',
+              kind: 'file',
+              cursorPosition: { lineNumber: 1, column: 1 },
+              scrollTop: 0,
+            },
+          ],
+          recentlyClosedTabs: [],
+          updatedAt: 1,
+        }),
+        [`${EDITOR_VIEW_RECOVERY_KEY_PREFIX}old-window-a`]: JSON.stringify({
+          version: 1,
+          entries: {
+            shared: {
+              cursorPosition: { lineNumber: 3, column: 2 },
+              scrollTop: 120,
+              updatedAt: 10,
+            },
+          },
+        }),
+        [`${EDITOR_VIEW_RECOVERY_KEY_PREFIX}old-window-b`]: JSON.stringify({
+          version: 1,
+          entries: {
+            shared: {
+              cursorPosition: { lineNumber: 9, column: 5 },
+              scrollTop: 640,
+              updatedAt: 20,
+            },
+          },
+        }),
+      })
+
+      useEditorStore.getState().restoreTabs()
+
+      expect(useEditorStore.getState().tabs).toHaveLength(1)
+      expect(useEditorStore.getState().tabs[0]).toMatchObject({
+        id: 'shared',
+        filename: 'shared.py',
+        content: 'durable content',
+        cursorPosition: { lineNumber: 9, column: 5 },
+        scrollTop: 640,
+      })
+      expect(useEditorStore.getState().tabs[0].localOnly).toBeUndefined()
+      expect(useEditorStore.getState().restoreStatus).toBe('recovered')
+    })
+
+    it('does not clear an interleaved newer view entry captured from an old renderer', () => {
+      const oldRendererKey = `${EDITOR_VIEW_RECOVERY_KEY_PREFIX}old-renderer`
+      const { values } = installStorage({
+        [oldRendererKey]: JSON.stringify({
+          version: 1,
+          entries: {
+            shared: {
+              cursorPosition: { lineNumber: 2, column: 3 },
+              scrollTop: 100,
+              updatedAt: 10,
+            },
+            unrelated: {
+              cursorPosition: null,
+              scrollTop: 40,
+              updatedAt: 11,
+            },
+          },
+        }),
+      })
+      const expectation = captureEditorTabViewRecovery('shared')
+      values.set(
+        oldRendererKey,
+        JSON.stringify({
+          version: 1,
+          entries: {
+            shared: {
+              cursorPosition: { lineNumber: 12, column: 7 },
+              scrollTop: 900,
+              updatedAt: 20,
+            },
+            unrelated: {
+              cursorPosition: null,
+              scrollTop: 40,
+              updatedAt: 11,
+            },
+          },
+        }),
+      )
+
+      clearEditorTabViewRecovery(expectation)
+
+      expect(JSON.parse(values.get(oldRendererKey) ?? '{}')).toMatchObject({
+        entries: {
+          shared: {
+            cursorPosition: { lineNumber: 12, column: 7 },
+            scrollTop: 900,
+          },
+          unrelated: { scrollTop: 40 },
+        },
+      })
+    })
+
+    it('keeps another renderer view recovery read-only during the same app boot', () => {
+      const liveRendererKey = `${EDITOR_VIEW_RECOVERY_KEY_PREFIX}${createBootScopedRecoverySessionId(
+        'other-view-window',
+        getRecoveryBootScope(),
+      )}`
+      const raw = JSON.stringify({
+        version: 1,
+        entries: {
+          shared: {
+            cursorPosition: { lineNumber: 4, column: 5 },
+            scrollTop: 220,
+            updatedAt: 10,
+          },
+        },
+      })
+      const { values } = installStorage({ [liveRendererKey]: raw })
+
+      clearEditorTabViewRecovery(captureEditorTabViewRecovery('shared'))
+
+      expect(values.get(liveRendererKey)).toBe(raw)
+    })
+
+    it('backs up a corrupt view recovery without replacing durable content', () => {
+      const corruptKey = `${EDITOR_VIEW_RECOVERY_KEY_PREFIX}corrupt-window`
+      const raw = '{broken-view-recovery'
+      const { values } = installStorage({
+        [EDITOR_STORAGE_KEY]: JSON.stringify({
+          version: EDITOR_STORAGE_VERSION,
+          activeTabId: 'durable',
+          tabs: [
+            {
+              id: 'durable',
+              filename: 'durable.py',
+              language: 'python',
+              content: 'durable code',
+              kind: 'file',
+            },
+          ],
+          recentlyClosedTabs: [],
+          updatedAt: 10,
+        }),
+        [corruptKey]: raw,
+      })
+
+      useEditorStore.getState().restoreTabs()
+
+      expect(useEditorStore.getState().tabs).toEqual([
+        expect.objectContaining({ id: 'durable', content: 'durable code' }),
+      ])
+      expect(useEditorStore.getState().restoreStatus).toBe('degraded')
+      expect(useEditorStore.getState().restoreMessage).toContain('视图恢复日志已损坏')
+      expect(
+        [...values.entries()].some(
+          ([key, value]) => key.startsWith(`${corruptKey}.corrupt.`) && value === raw,
+        ),
+      ).toBe(true)
     })
 
     it('recovers the latest code without waiting for the debounced workspace snapshot', () => {
@@ -291,6 +568,112 @@ describe('editorStore', () => {
         version: EDITOR_STORAGE_VERSION,
         tabs: [{ id: 'legacy-v1', content: 'preserved v1 code' }],
         recentlyClosedTabs: [],
+      })
+    })
+
+    it('migrates a v3 snapshot to v4 without discarding practice-backed problem code', () => {
+      const practiceProblem = {
+        id: 'exercise-imported-problem',
+        filename: 'imported.py',
+        language: 'python',
+        content: 'print("preserve imported draft")',
+        kind: 'problem' as const,
+        problemId: 'imported-problem',
+        cursorPosition: { lineNumber: 1, column: 8 },
+        scrollTop: 144,
+      }
+      const raw = JSON.stringify({
+        version: 3,
+        activeTabId: practiceProblem.id,
+        tabs: [
+          {
+            id: 'standalone-problem',
+            filename: 'standalone.py',
+            language: 'python',
+            content: 'print("standalone stays in the tab")',
+            kind: 'problem',
+            problemId: 'standalone-problem',
+          },
+          practiceProblem,
+        ],
+        recentlyClosedTabs: [],
+        updatedAt: 30,
+      })
+      const { values } = installStorage({ [EDITOR_STORAGE_KEY]: raw })
+
+      useEditorStore.getState().restoreTabs()
+
+      const recoveryId = legacyExerciseRecoveryTabId(practiceProblem)
+      expect(useEditorStore.getState()).toMatchObject({
+        activeTabId: practiceProblem.id,
+        tabs: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'standalone-problem',
+            content: 'print("standalone stays in the tab")',
+          }),
+          expect.objectContaining({
+            id: practiceProblem.id,
+            kind: 'problem',
+            content: '',
+            cursorPosition: { lineNumber: 1, column: 8 },
+            scrollTop: 144,
+          }),
+          expect.objectContaining({
+            id: recoveryId,
+            kind: 'file',
+            content: 'print("preserve imported draft")',
+            recoveryOriginalId: practiceProblem.id,
+          }),
+        ]),
+      })
+
+      flushPersistTabs()
+      expect(JSON.parse(values.get(EDITOR_STORAGE_KEY) ?? '{}')).toMatchObject({
+        version: EDITOR_STORAGE_VERSION,
+        activeTabId: practiceProblem.id,
+      })
+      expect([...values.entries()]).toEqual(
+        expect.arrayContaining([
+          expect.arrayContaining([
+            expect.stringContaining(`${EDITOR_STORAGE_KEY}.migration-backup.`),
+            raw,
+          ]),
+        ]),
+      )
+    })
+
+    it('keeps exercise code from the legacy tabs key in a deterministic recovery file', () => {
+      const legacyExercise = {
+        id: 'legacy-exercise',
+        filename: 'legacy.py',
+        language: 'python',
+        content: 'print("must survive")',
+        kind: 'exercise' as const,
+        problemId: 'exercise-legacy',
+      }
+      const { values } = installStorage({
+        [LEGACY_EDITOR_STORAGE_KEY]: JSON.stringify([legacyExercise]),
+      })
+
+      useEditorStore.getState().restoreTabs()
+
+      const recoveryId = legacyExerciseRecoveryTabId(legacyExercise)
+      expect(useEditorStore.getState().tabs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: 'legacy-exercise', kind: 'exercise', content: '' }),
+          expect.objectContaining({
+            id: recoveryId,
+            kind: 'file',
+            content: 'print("must survive")',
+          }),
+        ]),
+      )
+      flushPersistTabs()
+      expect(JSON.parse(values.get(EDITOR_STORAGE_KEY) ?? '{}')).toMatchObject({
+        version: EDITOR_STORAGE_VERSION,
+        tabs: expect.arrayContaining([
+          expect.objectContaining({ id: recoveryId, content: 'print("must survive")' }),
+        ]),
       })
     })
 
@@ -365,6 +748,80 @@ describe('editorStore', () => {
       )
     })
 
+    it('prioritizes legacy exercise code over topology when recovery lists are at capacity', () => {
+      const openExercise = {
+        id: 'open-exercise-at-cap',
+        filename: 'open-cap.py',
+        language: 'python',
+        content: 'open code must remain visible',
+        kind: 'exercise' as const,
+        problemId: 'open-cap',
+      }
+      const closedExercise = {
+        id: 'closed-exercise-at-cap',
+        filename: 'closed-cap.js',
+        language: 'javascript',
+        content: 'closed code must remain visible',
+        kind: 'exercise' as const,
+        problemId: 'closed-cap',
+      }
+      installStorage({
+        [EDITOR_STORAGE_KEY]: JSON.stringify({
+          version: 2,
+          activeTabId: openExercise.id,
+          tabs: [
+            ...Array.from({ length: MAX_EDITOR_TABS - 1 }, (_, index) => ({
+              id: `open-file-${index}`,
+              filename: `open-${index}.py`,
+              language: 'python',
+              content: `open ${index}`,
+              kind: 'file',
+            })),
+            openExercise,
+          ],
+          recentlyClosedTabs: [
+            ...Array.from({ length: 9 }, (_, index) => ({
+              id: `closed-file-${index}`,
+              filename: `closed-${index}.py`,
+              language: 'python',
+              content: `closed ${index}`,
+              kind: 'file',
+            })),
+            closedExercise,
+          ],
+          updatedAt: 10,
+        }),
+      })
+
+      useEditorStore.getState().restoreTabs()
+
+      const openRecoveryId = legacyExerciseRecoveryTabId(openExercise)
+      const closedRecoveryId = legacyExerciseRecoveryTabId(closedExercise)
+      const restored = useEditorStore.getState()
+      expect(restored.tabs).toHaveLength(MAX_EDITOR_TABS)
+      expect(restored.tabs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: openRecoveryId,
+            kind: 'file',
+            content: openExercise.content,
+          }),
+        ]),
+      )
+      expect(restored.tabs.some((tab) => tab.id === openExercise.id)).toBe(false)
+      expect(restored.recentlyClosedTabs).toHaveLength(10)
+      expect(restored.recentlyClosedTabs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: closedRecoveryId,
+            kind: 'file',
+            content: closedExercise.content,
+          }),
+        ]),
+      )
+      expect(restored.recentlyClosedTabs.some((tab) => tab.id === closedExercise.id)).toBe(false)
+    })
+
     it('persists recently closed tabs across restart and can reopen them', () => {
       installStorage()
       useEditorStore.getState().addTab({
@@ -389,7 +846,7 @@ describe('editorStore', () => {
       })
     })
 
-    it('ignores and removes a recovery entry older than the durable v2 snapshot', () => {
+    it('preserves an older divergent recovery as a separate file', () => {
       const { values } = installStorage({
         [EDITOR_STORAGE_KEY]: JSON.stringify({
           version: EDITOR_STORAGE_VERSION,
@@ -401,6 +858,8 @@ describe('editorStore', () => {
               language: 'python',
               content: 'new durable content',
               kind: 'file',
+              revision: 5,
+              updatedAt: '1970-01-01T00:00:00.020Z',
             },
           ],
           recentlyClosedTabs: [],
@@ -416,6 +875,7 @@ describe('editorStore', () => {
                 filename: 'main.py',
                 language: 'python',
                 content: 'stale recovery content',
+                revision: 4,
               },
               updatedAt: 10,
             },
@@ -425,9 +885,606 @@ describe('editorStore', () => {
 
       useEditorStore.getState().restoreTabs()
 
-      expect(useEditorStore.getState().tabs[0].content).toBe('new durable content')
-      expect(useEditorStore.getState().restoreStatus).toBe('restored')
-      expect(values.has(EDITOR_RECOVERY_KEY)).toBe(false)
+      expect(useEditorStore.getState().tabs.find((tab) => tab.id === 'durable')?.content).toBe(
+        'new durable content',
+      )
+      expect(useEditorStore.getState().tabs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            filename: 'main.recovered.py',
+            content: 'stale recovery content',
+            kind: 'file',
+            syncConflict: true,
+            localOnly: true,
+            recoverySourceKeys: [EDITOR_RECOVERY_KEY],
+            recoveryOriginalId: 'durable',
+          }),
+        ]),
+      )
+      expect(useEditorStore.getState().restoreStatus).toBe('recovered')
+      expect(values.has(EDITOR_RECOVERY_KEY)).toBe(true)
+    })
+
+    it('keeps a tab recovery when another window only advanced the workspace snapshot', () => {
+      const { values } = installStorage({
+        [EDITOR_STORAGE_KEY]: JSON.stringify({
+          version: EDITOR_STORAGE_VERSION,
+          activeTabId: 'other-tab',
+          tabs: [
+            {
+              id: 'other-tab',
+              filename: 'other.py',
+              language: 'python',
+              content: 'saved in window B',
+              kind: 'file',
+              revision: 9,
+              updatedAt: '2026-07-15T12:00:00.000Z',
+            },
+          ],
+          recentlyClosedTabs: [],
+          updatedAt: Date.parse('2026-07-15T12:00:00.000Z'),
+        }),
+        [`${EDITOR_RECOVERY_KEY_PREFIX}window-a`]: JSON.stringify({
+          version: 3,
+          entries: {
+            'unsaved-a': {
+              activeTabId: 'unsaved-a',
+              tab: {
+                id: 'unsaved-a',
+                filename: 'unsaved.py',
+                language: 'python',
+                content: 'must survive window B snapshot',
+                kind: 'file',
+                revision: 1,
+              },
+              updatedAt: Date.parse('2026-07-15T11:59:00.000Z'),
+            },
+          },
+        }),
+      })
+
+      useEditorStore.getState().restoreTabs()
+
+      expect(useEditorStore.getState().tabs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'unsaved-a',
+            content: 'must survive window B snapshot',
+          }),
+        ]),
+      )
+      expect(values.has(`${EDITOR_RECOVERY_KEY_PREFIX}window-a`)).toBe(true)
+      expect(useEditorStore.getState().restoreStatus).toBe('recovered')
+    })
+
+    it('preserves divergent same-tab recoveries from two crashed renderer sessions', () => {
+      const windowAKey = `${EDITOR_RECOVERY_KEY_PREFIX}window-a`
+      const windowBKey = `${EDITOR_RECOVERY_KEY_PREFIX}window-b`
+      const recovery = (content: string, updatedAt: number) =>
+        JSON.stringify({
+          version: 3,
+          entries: {
+            shared: {
+              activeTabId: 'shared',
+              tab: {
+                id: 'shared',
+                filename: 'shared.py',
+                language: 'python',
+                content,
+                kind: 'file',
+                revision: 4,
+              },
+              updatedAt,
+            },
+          },
+        })
+      const { values } = installStorage({
+        [EDITOR_STORAGE_KEY]: JSON.stringify({
+          version: EDITOR_STORAGE_VERSION,
+          activeTabId: 'shared',
+          tabs: [
+            {
+              id: 'shared',
+              filename: 'shared.py',
+              language: 'python',
+              content: 'base revision four',
+              kind: 'file',
+              revision: 4,
+              updatedAt: '1970-01-01T00:00:00.001Z',
+            },
+          ],
+          recentlyClosedTabs: [],
+          updatedAt: 1,
+        }),
+        [windowAKey]: recovery('window A unsaved branch', 10),
+        [windowBKey]: recovery('window B unsaved branch', 20),
+      })
+
+      useEditorStore.getState().restoreTabs()
+
+      const restored = useEditorStore.getState()
+      expect(restored.tabs.find((tab) => tab.id === 'shared')).toMatchObject({
+        content: 'window B unsaved branch',
+        recoverySourceKeys: [windowBKey],
+      })
+      expect(restored.tabs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            filename: 'shared.recovered.py',
+            content: 'window A unsaved branch',
+            kind: 'file',
+            syncConflict: true,
+            localOnly: true,
+            recoveryOriginalId: 'shared',
+            recoverySourceKeys: [windowAKey],
+          }),
+        ]),
+      )
+      expect(values.has(windowAKey)).toBe(true)
+      expect(values.has(windowBKey)).toBe(true)
+      expect(restored.activeTabId).toBe('shared')
+      expect(restored.restoreStatus).toBe('recovered')
+
+      flushPersistTabs()
+      resetStore()
+      useEditorStore.getState().restoreTabs()
+
+      expect(useEditorStore.getState().tabs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            filename: 'shared.recovered.py',
+            content: 'window A unsaved branch',
+            syncConflict: true,
+            recoverySourceKeys: [windowAKey],
+          }),
+        ]),
+      )
+      expect(values.has(windowAKey)).toBe(true)
+      expect(values.has(windowBKey)).toBe(true)
+    })
+
+    it('deduplicates identical same-tab recoveries while retaining every source key', () => {
+      const windowAKey = `${EDITOR_RECOVERY_KEY_PREFIX}same-a`
+      const windowBKey = `${EDITOR_RECOVERY_KEY_PREFIX}same-b`
+      const recovery = (
+        updatedAt: number,
+        cursorPosition: { lineNumber: number; column: number },
+        scrollTop: number,
+      ) =>
+        JSON.stringify({
+          version: 3,
+          entries: {
+            shared: {
+              activeTabId: 'shared',
+              tab: {
+                id: 'shared',
+                filename: 'shared.py',
+                language: 'python',
+                content: 'same unsaved branch',
+                kind: 'file',
+                revision: 4,
+                cursorPosition,
+                scrollTop,
+              },
+              updatedAt,
+            },
+          },
+        })
+      const { values } = installStorage({
+        [windowAKey]: recovery(10, { lineNumber: 2, column: 3 }, 100),
+        [windowBKey]: recovery(20, { lineNumber: 7, column: 8 }, 900),
+      })
+
+      useEditorStore.getState().restoreTabs()
+
+      const candidates = useEditorStore
+        .getState()
+        .tabs.filter((tab) => tab.content === 'same unsaved branch')
+      expect(candidates).toHaveLength(1)
+      expect(candidates[0].recoverySourceKeys).toEqual([windowAKey, windowBKey])
+      expect(candidates[0].recoveryOriginalId).toBeUndefined()
+      expect(candidates[0].cursorPosition).toEqual({ lineNumber: 7, column: 8 })
+      expect(candidates[0].scrollTop).toBe(900)
+
+      clearEditorTabRecovery('shared', candidates[0].recoverySourceKeys)
+      expect(values.has(windowAKey)).toBe(false)
+      expect(values.has(windowBKey)).toBe(false)
+    })
+
+    it('backs up an out-of-range recovery timestamp without re-reading corrupt backups', () => {
+      const recoveryKey = `${EDITOR_RECOVERY_KEY_PREFIX}invalid-timestamp`
+      const existingBackupKey = `${recoveryKey}.corrupt.1`
+      const rawRecovery = JSON.stringify({
+        version: 3,
+        entries: {
+          durable: {
+            activeTabId: 'durable',
+            tab: {
+              id: 'durable',
+              filename: 'main.py',
+              language: 'python',
+              content: 'invalid recovery content',
+              kind: 'file',
+              revision: 4,
+            },
+            updatedAt: 1e300,
+          },
+        },
+      })
+      const { values } = installStorage({
+        [EDITOR_STORAGE_KEY]: JSON.stringify({
+          version: EDITOR_STORAGE_VERSION,
+          activeTabId: 'durable',
+          tabs: [
+            {
+              id: 'durable',
+              filename: 'main.py',
+              language: 'python',
+              content: 'durable content',
+              kind: 'file',
+              revision: 5,
+              updatedAt: '2026-07-16T00:00:00.000Z',
+            },
+          ],
+          recentlyClosedTabs: [],
+          updatedAt: Date.parse('2026-07-16T00:00:00.000Z'),
+        }),
+        [recoveryKey]: rawRecovery,
+        [existingBackupKey]: rawRecovery,
+      })
+      const initialKeys = new Set(values.keys())
+
+      expect(() => useEditorStore.getState().restoreTabs()).not.toThrow()
+
+      expect(useEditorStore.getState().tabs).toEqual([
+        expect.objectContaining({ id: 'durable', content: 'durable content' }),
+      ])
+      expect(useEditorStore.getState().restoreStatus).toBe('degraded')
+      expect(useEditorStore.getState().restoreMessage).toContain('多标签恢复日志包含损坏条目')
+      const newBackupKeys = [...values.keys()].filter(
+        (key) => key.startsWith(`${recoveryKey}.corrupt.`) && !initialKeys.has(key),
+      )
+      expect(newBackupKeys).toHaveLength(1)
+      expect(values.get(newBackupKeys[0])).toBe(rawRecovery)
+      expect(values.get(recoveryKey)).toBe(rawRecovery)
+      expect(
+        [...values.keys()].some((key) => key.startsWith(`${existingBackupKey}.corrupt.`)),
+      ).toBe(false)
+    })
+
+    it('backs up and degrades an array-shaped content recovery map', () => {
+      const recoveryKey = `${EDITOR_RECOVERY_KEY_PREFIX}array-entries`
+      const rawRecovery = JSON.stringify({ version: 3, entries: [] })
+      const { values } = installStorage({
+        [EDITOR_STORAGE_KEY]: JSON.stringify({
+          version: EDITOR_STORAGE_VERSION,
+          activeTabId: 'durable',
+          tabs: [
+            {
+              id: 'durable',
+              filename: 'main.py',
+              language: 'python',
+              content: 'durable content',
+              kind: 'file',
+              revision: 5,
+              updatedAt: '2026-07-16T00:00:00.000Z',
+            },
+          ],
+          recentlyClosedTabs: [],
+          updatedAt: Date.parse('2026-07-16T00:00:00.000Z'),
+        }),
+        [recoveryKey]: rawRecovery,
+      })
+      const initialKeys = new Set(values.keys())
+
+      useEditorStore.getState().restoreTabs()
+
+      expect(useEditorStore.getState().tabs).toEqual([
+        expect.objectContaining({ id: 'durable', content: 'durable content' }),
+      ])
+      expect(useEditorStore.getState().restoreStatus).toBe('degraded')
+      expect(useEditorStore.getState().restoreMessage).toContain('多标签恢复日志格式不受支持')
+      const newBackupKeys = [...values.keys()].filter(
+        (key) => key.startsWith(`${recoveryKey}.corrupt.`) && !initialKeys.has(key),
+      )
+      expect(newBackupKeys).toHaveLength(1)
+      expect(values.get(newBackupKeys[0])).toBe(rawRecovery)
+    })
+
+    it('re-reads a foreign recovery map before clearing an interleaved newer branch', () => {
+      const windowBKey = `${EDITOR_RECOVERY_KEY_PREFIX}interleaved-window-b`
+      const oldRecovery = JSON.stringify({
+        version: 3,
+        entries: {
+          shared: {
+            activeTabId: 'shared',
+            tab: {
+              id: 'shared',
+              filename: 'shared.py',
+              language: 'python',
+              content: 'saved branch',
+              kind: 'file',
+              revision: 4,
+            },
+            updatedAt: 10,
+          },
+        },
+      })
+      const { values } = installStorage({ [windowBKey]: oldRecovery })
+      useEditorStore.getState().restoreTabs()
+      const restored = useEditorStore.getState().tabs.find((tab) => tab.id === 'shared')
+      expect(restored).toMatchObject({ content: 'saved branch', recoverySourceKeys: [windowBKey] })
+
+      const getItem = vi.mocked(window.localStorage.getItem)
+      let injected = false
+      getItem.mockImplementation((key: string) => {
+        const before = values.get(key) ?? null
+        if (key === windowBKey && !injected) {
+          injected = true
+          values.set(
+            windowBKey,
+            JSON.stringify({
+              version: 3,
+              entries: {
+                shared: {
+                  activeTabId: 'shared',
+                  tab: {
+                    id: 'shared',
+                    filename: 'shared.py',
+                    language: 'python',
+                    content: 'newer B branch',
+                    kind: 'file',
+                    revision: 5,
+                  },
+                  updatedAt: 20,
+                },
+                other: {
+                  activeTabId: 'shared',
+                  tab: {
+                    id: 'other',
+                    filename: 'other.py',
+                    language: 'python',
+                    content: 'unrelated B recovery',
+                    kind: 'file',
+                    revision: 2,
+                  },
+                  updatedAt: 21,
+                },
+              },
+            }),
+          )
+        }
+        return before
+      })
+
+      clearEditorTabRecovery('shared', [windowBKey], restored)
+
+      expect(JSON.parse(values.get(windowBKey) ?? '{}')).toMatchObject({
+        entries: {
+          shared: { tab: { content: 'newer B branch', revision: 5 } },
+          other: { tab: { content: 'unrelated B recovery' } },
+        },
+      })
+    })
+
+    it('does not clear an interleaved recovery entry whose code is unchanged', () => {
+      const windowBKey = `${EDITOR_RECOVERY_KEY_PREFIX}interleaved-same-code-window-b`
+      const oldRecovery = JSON.stringify({
+        version: 3,
+        entries: {
+          shared: {
+            activeTabId: 'shared',
+            tab: {
+              id: 'shared',
+              filename: 'shared.py',
+              language: 'python',
+              content: 'same saved branch',
+              kind: 'file',
+              revision: 4,
+              cursorPosition: { lineNumber: 2, column: 1 },
+              scrollTop: 100,
+            },
+            updatedAt: 10,
+          },
+        },
+      })
+      const { values } = installStorage({ [windowBKey]: oldRecovery })
+      useEditorStore.getState().restoreTabs()
+      const restored = useEditorStore.getState().tabs.find((tab) => tab.id === 'shared')
+      const getItem = vi.mocked(window.localStorage.getItem)
+      let injected = false
+      getItem.mockImplementation((key: string) => {
+        const before = values.get(key) ?? null
+        if (key === windowBKey && !injected) {
+          injected = true
+          values.set(
+            windowBKey,
+            JSON.stringify({
+              version: 3,
+              entries: {
+                shared: {
+                  activeTabId: 'shared',
+                  tab: {
+                    id: 'shared',
+                    filename: 'shared.py',
+                    language: 'python',
+                    content: 'same saved branch',
+                    kind: 'file',
+                    revision: 4,
+                    cursorPosition: { lineNumber: 9, column: 4 },
+                    scrollTop: 800,
+                  },
+                  updatedAt: 20,
+                },
+              },
+            }),
+          )
+        }
+        return before
+      })
+
+      expect(clearEditorTabRecovery('shared', [windowBKey], restored)).toBe(false)
+
+      expect(JSON.parse(values.get(windowBKey) ?? '{}')).toMatchObject({
+        entries: {
+          shared: {
+            tab: {
+              content: 'same saved branch',
+              cursorPosition: { lineNumber: 9, column: 4 },
+              scrollTop: 800,
+            },
+            updatedAt: 20,
+          },
+        },
+      })
+    })
+
+    it('clears only the matching foreign tab while preserving an interleaved recovery entry', () => {
+      const windowBKey = `${EDITOR_RECOVERY_KEY_PREFIX}interleaved-other-window-b`
+      const oldRecovery = JSON.stringify({
+        version: 3,
+        entries: {
+          shared: {
+            activeTabId: 'shared',
+            tab: {
+              id: 'shared',
+              filename: 'shared.py',
+              language: 'python',
+              content: 'saved branch',
+              kind: 'file',
+              revision: 4,
+            },
+            updatedAt: 10,
+          },
+        },
+      })
+      const { values } = installStorage({ [windowBKey]: oldRecovery })
+      useEditorStore.getState().restoreTabs()
+      const restored = useEditorStore.getState().tabs.find((tab) => tab.id === 'shared')
+
+      const getItem = vi.mocked(window.localStorage.getItem)
+      let injected = false
+      getItem.mockImplementation((key: string) => {
+        const before = values.get(key) ?? null
+        if (key === windowBKey && !injected) {
+          injected = true
+          const latest = JSON.parse(before ?? '{}') as {
+            version: number
+            entries: Record<string, unknown>
+          }
+          latest.entries.other = {
+            activeTabId: 'shared',
+            tab: {
+              id: 'other',
+              filename: 'other.py',
+              language: 'python',
+              content: 'interleaved unrelated recovery',
+              kind: 'file',
+              revision: 2,
+            },
+            updatedAt: 20,
+          }
+          values.set(windowBKey, JSON.stringify(latest))
+        }
+        return before
+      })
+
+      clearEditorTabRecovery('shared', [windowBKey], restored)
+
+      expect(JSON.parse(values.get(windowBKey) ?? '{}')).toMatchObject({
+        entries: {
+          other: { tab: { content: 'interleaved unrelated recovery' } },
+        },
+      })
+      expect(JSON.parse(values.get(windowBKey) ?? '{}').entries.shared).toBeUndefined()
+    })
+
+    it('does not clear another renderer recovery map from the current app boot', () => {
+      const windowBKey = `${EDITOR_RECOVERY_KEY_PREFIX}${createBootScopedRecoverySessionId(
+        'other-window',
+        getRecoveryBootScope(),
+      )}`
+      const recovery = JSON.stringify({
+        version: 3,
+        entries: {
+          shared: {
+            activeTabId: 'shared',
+            tab: {
+              id: 'shared',
+              filename: 'shared.py',
+              language: 'python',
+              content: 'live window recovery',
+              kind: 'file',
+              revision: 4,
+            },
+            updatedAt: 10,
+          },
+        },
+      })
+      const { values } = installStorage({ [windowBKey]: recovery })
+      useEditorStore.getState().restoreTabs()
+      const restored = useEditorStore.getState().tabs.find((tab) => tab.id === 'shared')
+
+      clearEditorTabRecovery('shared', [windowBKey], restored)
+
+      expect(values.get(windowBKey)).toBe(recovery)
+    })
+
+    it('keeps unsaved content over a newer snapshot carrying the same tab revision', () => {
+      installStorage({
+        [EDITOR_STORAGE_KEY]: JSON.stringify({
+          version: EDITOR_STORAGE_VERSION,
+          activeTabId: 'other-tab',
+          tabs: [
+            {
+              id: 'unsaved-a',
+              filename: 'unsaved.py',
+              language: 'python',
+              content: 'stale content copied by window B',
+              kind: 'file',
+              revision: 3,
+              updatedAt: '2026-07-15T12:00:00.000Z',
+            },
+            {
+              id: 'other-tab',
+              filename: 'other.py',
+              language: 'python',
+              content: 'window B edit',
+              kind: 'file',
+              revision: 8,
+              updatedAt: '2026-07-15T12:00:00.000Z',
+            },
+          ],
+          recentlyClosedTabs: [],
+          updatedAt: Date.parse('2026-07-15T12:00:00.000Z'),
+        }),
+        [`${EDITOR_RECOVERY_KEY_PREFIX}window-a-stale-copy`]: JSON.stringify({
+          version: 3,
+          entries: {
+            'unsaved-a': {
+              activeTabId: 'unsaved-a',
+              tab: {
+                id: 'unsaved-a',
+                filename: 'unsaved.py',
+                language: 'python',
+                content: 'new unsaved content from window A',
+                kind: 'file',
+                revision: 3,
+              },
+              updatedAt: Date.parse('2026-07-15T11:59:00.000Z'),
+            },
+          },
+        }),
+      })
+
+      useEditorStore.getState().restoreTabs()
+
+      expect(useEditorStore.getState().tabs.find((tab) => tab.id === 'unsaved-a')?.content).toBe(
+        'new unsaved content from window A',
+      )
+      expect(useEditorStore.getState().tabs.find((tab) => tab.id === 'other-tab')?.content).toBe(
+        'window B edit',
+      )
     })
 
     it('recovers edits from more than one tab after an abnormal exit', () => {
@@ -452,6 +1509,51 @@ describe('editorStore', () => {
       )
     })
 
+    it('does not drop a recovery entry when the normal tab limit is already full', () => {
+      const tabs = Array.from({ length: MAX_EDITOR_TABS }, (_, index) => ({
+        id: `tab-${index}`,
+        filename: `tab-${index}.py`,
+        language: 'python',
+        content: `saved ${index}`,
+        kind: 'file',
+      }))
+      installStorage({
+        [EDITOR_STORAGE_KEY]: JSON.stringify({
+          version: EDITOR_STORAGE_VERSION,
+          activeTabId: 'tab-0',
+          tabs,
+          recentlyClosedTabs: [],
+          updatedAt: 1,
+        }),
+        [`${EDITOR_RECOVERY_KEY_PREFIX}overflow`]: JSON.stringify({
+          version: 3,
+          entries: {
+            overflow: {
+              activeTabId: 'overflow',
+              tab: {
+                id: 'overflow',
+                filename: 'overflow.py',
+                language: 'python',
+                content: 'must survive even above the normal limit',
+                kind: 'file',
+              },
+              updatedAt: 2,
+            },
+          },
+        }),
+      })
+
+      useEditorStore.getState().restoreTabs()
+
+      expect(useEditorStore.getState().tabs).toHaveLength(MAX_EDITOR_TABS + 1)
+      expect(useEditorStore.getState().tabs.at(-1)).toMatchObject({
+        id: 'overflow',
+        content: 'must survive even above the normal limit',
+      })
+      flushPersistTabs()
+      expect(useEditorStore.getState().persistenceError).toContain('本地保存上限')
+    })
+
     it('migrates the legacy single-tab recovery log', () => {
       installStorage({
         [LEGACY_EDITOR_RECOVERY_KEY]: JSON.stringify({
@@ -472,6 +1574,43 @@ describe('editorStore', () => {
       expect(
         useEditorStore.getState().tabs.find((tab) => tab.id === 'legacy-recovery'),
       ).toMatchObject({ content: 'legacy crash recovery' })
+    })
+
+    it('clears identical legacy and session recoveries from every recorded source', () => {
+      const sessionKey = `${EDITOR_RECOVERY_KEY_PREFIX}legacy-duplicate`
+      const sharedTab = {
+        id: 'legacy-recovery',
+        filename: 'legacy.py',
+        language: 'python',
+        content: 'same crash recovery',
+        kind: 'file',
+      }
+      const { values } = installStorage({
+        [LEGACY_EDITOR_RECOVERY_KEY]: JSON.stringify({
+          version: 1,
+          activeTabId: sharedTab.id,
+          tab: sharedTab,
+          updatedAt: 50,
+        }),
+        [sessionKey]: JSON.stringify({
+          version: 3,
+          entries: {
+            [sharedTab.id]: {
+              activeTabId: sharedTab.id,
+              tab: sharedTab,
+              updatedAt: 60,
+            },
+          },
+        }),
+      })
+
+      useEditorStore.getState().restoreTabs()
+
+      const restored = useEditorStore.getState().tabs.find((tab) => tab.id === sharedTab.id)
+      expect(restored?.recoverySourceKeys).toEqual([LEGACY_EDITOR_RECOVERY_KEY, sessionKey])
+      clearEditorTabRecovery(sharedTab.id, restored?.recoverySourceKeys)
+      expect(values.has(LEGACY_EDITOR_RECOVERY_KEY)).toBe(false)
+      expect(values.has(sessionKey)).toBe(false)
     })
 
     it('normalizes invalid viewport state and ignores updates for missing tabs', () => {
@@ -508,6 +1647,58 @@ describe('editorStore', () => {
       expect(useEditorStore.getState().restoreStatus).toBe('degraded')
       expect(useEditorStore.getState().restoreMessage).toContain('重复、超限或损坏标签')
       expect([...values.values()].some((value) => value === raw)).toBe(true)
+    })
+
+    it('preserves divergent open and closed entries with the same id', () => {
+      const raw = JSON.stringify({
+        version: EDITOR_STORAGE_VERSION,
+        activeTabId: 'shared-id',
+        tabs: [
+          {
+            id: 'shared-id',
+            filename: 'shared.py',
+            language: 'python',
+            content: 'open branch',
+            kind: 'file',
+            revision: 2,
+          },
+        ],
+        recentlyClosedTabs: [
+          {
+            id: 'shared-id',
+            filename: 'shared.py',
+            language: 'python',
+            content: 'closed branch that must survive',
+            kind: 'file',
+            revision: 1,
+          },
+        ],
+        updatedAt: 20,
+      })
+      const { values } = installStorage({ [EDITOR_STORAGE_KEY]: raw })
+
+      useEditorStore.getState().restoreTabs()
+
+      expect(useEditorStore.getState().tabs.find((tab) => tab.id === 'shared-id')?.content).toBe(
+        'open branch',
+      )
+      expect(useEditorStore.getState().tabs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            filename: 'shared.recovered.py',
+            content: 'closed branch that must survive',
+            recoveryOriginalId: 'shared-id',
+            localOnly: true,
+          }),
+        ]),
+      )
+      expect(useEditorStore.getState().recentlyClosedTabs).toEqual([])
+      expect(useEditorStore.getState().restoreStatus).toBe('degraded')
+      expect(
+        [...values.entries()].some(
+          ([key, value]) => key.startsWith(`${EDITOR_STORAGE_KEY}.corrupt.`) && value === raw,
+        ),
+      ).toBe(true)
     })
 
     it('backs up an unreadable snapshot and keeps a clean in-memory tab', () => {

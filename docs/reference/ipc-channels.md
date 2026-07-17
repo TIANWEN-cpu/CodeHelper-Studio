@@ -350,7 +350,15 @@ interface MemorySavePayload {
 
 **参数**：`query: string`
 
-**返回值**：`SearchResult[]`
+**返回值**：`KnowledgeSearchResponse { query, results, retrieval }`
+
+#### `knowledge-retrieval-status`
+
+返回 FTS5/BM25、trigram、本地 n-gram 后端状态以及文档/片段索引数量。
+
+**参数**：无
+
+**返回值**：`KnowledgeRetrievalStatus`
 
 ---
 

@@ -82,4 +82,33 @@ describe('AI streaming IPC', () => {
 
     expect(result).toEqual({ success: true, requestId: 'request-tail', content: 'tail chunk' })
   })
+
+  it('cancels only the matching in-flight request', async () => {
+    fetchProvider.mockImplementation(
+      (_target: unknown, options: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          options.signal.addEventListener('abort', () => reject(new Error('aborted')), {
+            once: true,
+          })
+        }),
+    )
+    registerAIIPC()
+    const pending = handlers['ai-chat'](
+      { sender: {} },
+      {
+        requestId: 'request-cancel',
+        messages: [{ role: 'user', content: 'hello' }],
+        includeMemories: false,
+      },
+    ) as Promise<unknown>
+    await Promise.resolve()
+
+    expect(handlers['ai-chat-cancel'](null, 'unknown')).toEqual({
+      cancelled: false,
+    })
+    expect(handlers['ai-chat-cancel'](null, 'request-cancel')).toEqual({
+      cancelled: true,
+    })
+    await expect(pending).rejects.toThrow('已取消或超时')
+  })
 })

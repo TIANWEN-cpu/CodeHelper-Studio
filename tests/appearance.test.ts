@@ -3,6 +3,9 @@ import {
   resolveTheme,
   DEFAULT_APPEARANCE,
   DEFAULT_ACCENT_COLOR,
+  AI_PET_SIZE_MAX,
+  AI_PET_SIZE_MIN,
+  clampAIPetSize,
   shade,
   clamp255,
   type ThemeMode,
@@ -35,6 +38,7 @@ describe('DEFAULT_APPEARANCE', () => {
     expect(DEFAULT_APPEARANCE).toHaveProperty('visualTheme')
     expect(DEFAULT_APPEARANCE).toHaveProperty('backgroundStyle')
     expect(DEFAULT_APPEARANCE).toHaveProperty('animationLevel')
+    expect(DEFAULT_APPEARANCE.aiPetSize).toBe(100)
   })
 
   it('keeps the persisted default accent aligned with the CSS default', () => {
@@ -47,6 +51,15 @@ describe('DEFAULT_APPEARANCE', () => {
     const linear = channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
     const contrast = 1.05 / (linear + 0.05)
     expect(contrast).toBeGreaterThanOrEqual(4.5)
+  })
+})
+
+describe('clampAIPetSize', () => {
+  it('keeps persisted pet sizes within the supported range', () => {
+    expect(clampAIPetSize(AI_PET_SIZE_MIN - 20)).toBe(AI_PET_SIZE_MIN)
+    expect(clampAIPetSize(115.4)).toBe(115)
+    expect(clampAIPetSize(AI_PET_SIZE_MAX + 20)).toBe(AI_PET_SIZE_MAX)
+    expect(clampAIPetSize(Number.NaN)).toBe(DEFAULT_APPEARANCE.aiPetSize)
   })
 })
 

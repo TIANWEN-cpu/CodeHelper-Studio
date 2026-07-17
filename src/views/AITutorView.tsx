@@ -11,6 +11,7 @@ import {
   MessageSquare,
   Plus,
   RotateCcw,
+  ScrollText,
   Send,
   Settings,
   ShieldCheck,
@@ -27,24 +28,30 @@ import { useAppStore, type AIContextSnapshot } from '@/store'
 import { renderMarkdown } from '@/utils/markdown'
 import {
   AGENT_WORKFLOW_STEPS,
-  AGENT_WORKFLOW_STORAGE_KEY,
-  AGENT_TOOL_REGISTRY,
-  MAX_AGENT_WORKFLOW_RUNS,
-  approveAgentWorkflowRun,
   buildAgentWorkflowPrompt,
-  completeAgentWorkflowRun,
-  createAgentWorkflowRun,
-  failAgentWorkflowRun,
-  hasPendingAgentApprovals,
-  markAgentWorkflowDispatched,
-  rejectAgentWorkflowRun,
-  restoreAgentWorkflowRuns,
-  serializeAgentWorkflowRuns,
+  hydrateAgentWorkflowRun,
+  hydrateAgentWorkflowRuns,
   type AgentWorkflowRun,
   type AgentWorkflowStepStatus,
-  type AgentToolApprovalStatus,
-  type AgentToolAvailability,
 } from '@/utils/agentWorkflow'
+import {
+  approveAgentTool,
+  cancelAgentRun,
+  completeAgentRun,
+  createAgentRun,
+  failAgentRun,
+  getAgentAudit,
+  getAgentRuns,
+  getAgentTools,
+  markAgentModelStarted,
+  rejectAgentTool,
+} from '@/services/agentService'
+import type {
+  AgentApprovalStatus,
+  AgentAuditEvent,
+  AgentToolDefinition,
+  AgentToolRequest,
+} from '@/shared/agentContract'
 import type { ViewType } from '@/types'
 
 type AssistantView = 'chat' | 'tutor' | 'agent' | 'history' | 'settings'
@@ -271,26 +278,27 @@ function getAgentStepStatusLabel(status: AgentWorkflowStepStatus) {
   return '等待'
 }
 
-function getAgentApprovalStatusLabel(status: AgentToolApprovalStatus) {
+function getAgentApprovalStatusLabel(status: AgentApprovalStatus) {
   if (status === 'approved') return '已批准'
   if (status === 'rejected') return '已拒绝'
+  if (status === 'expired') return '已过期'
   return '待确认'
 }
 
-function getAgentApprovalStatusClass(status: AgentToolApprovalStatus) {
+function getAgentApprovalStatusClass(status: AgentApprovalStatus) {
   if (status === 'approved')
     return 'border-[var(--color-accent-success)]/40 text-[var(--color-accent-success)]'
   if (status === 'rejected') return 'border-[#EF4444]/50 text-[#EF4444]'
   return 'border-[#F59E0B]/50 text-[#F59E0B]'
 }
 
-function getAgentToolAvailabilityLabel(availability: AgentToolAvailability) {
+function getAgentToolAvailabilityLabel(availability: AgentToolDefinition['availability']) {
   if (availability === 'available') return '可用'
   if (availability === 'requiresApproval') return '需确认'
-  return '规划中'
+  return '不可用'
 }
 
-function getAgentToolAvailabilityClass(availability: AgentToolAvailability) {
+function getAgentToolAvailabilityClass(availability: AgentToolDefinition['availability']) {
   if (availability === 'available')
     return 'border-[var(--color-accent-success)]/40 text-[var(--color-accent-success)]'
   if (availability === 'requiresApproval') return 'border-[#F59E0B]/40 text-[#F59E0B]'
@@ -308,6 +316,7 @@ export function AITutorView() {
   const switchSession = useChatStore((s) => s.switchSession)
   const deleteSession = useChatStore((s) => s.deleteSession)
   const sendMessage = useChatStore((s) => s.sendMessage)
+  const cancelCurrentRequest = useChatStore((s) => s.cancelCurrentRequest)
   const loadSessions = useChatStore((s) => s.loadSessions)
 
   const currentSession = useMemo(
@@ -331,13 +340,13 @@ export function AITutorView() {
   const [tutorMode, setTutorMode] = useState<TutorMode>('explain')
   const [inputValue, setInputValue] = useState('')
   const [agentGoal, setAgentGoal] = useState('')
-  const [agentRuns, setAgentRuns] = useState<AgentWorkflowRun[]>(() => {
-    try {
-      return restoreAgentWorkflowRuns(window.localStorage.getItem(AGENT_WORKFLOW_STORAGE_KEY))
-    } catch {
-      return []
-    }
-  })
+  const [agentRuns, setAgentRuns] = useState<AgentWorkflowRun[]>([])
+  const [agentTools, setAgentTools] = useState<AgentToolDefinition[]>([])
+  const [selectedAgentTools, setSelectedAgentTools] = useState<string[]>([])
+  const [agentAudit, setAgentAudit] = useState<AgentAuditEvent[]>([])
+  const [agentActionPending, setAgentActionPending] = useState(false)
+  const [agentCancelling, setAgentCancelling] = useState(false)
+  const [agentError, setAgentError] = useState<string | null>(null)
   const [includeContext, setIncludeContext] = useState(true)
   const [includeCode, setIncludeCode] = useState(true)
   const [includeMemory, setIncludeMemory] = useState(true)
@@ -347,13 +356,37 @@ export function AITutorView() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingContent, assistantView])
 
-  useEffect(() => {
+  const replaceAgentRun = useCallback((run: AgentWorkflowRun) => {
+    setAgentRuns((runs) => {
+      const next = [run, ...runs.filter((item) => item.id !== run.id)]
+      return next.slice(0, 20)
+    })
+  }, [])
+
+  const refreshAgentState = useCallback(async () => {
     try {
-      window.localStorage.setItem(AGENT_WORKFLOW_STORAGE_KEY, serializeAgentWorkflowRuns(agentRuns))
+      const [tools, runs] = await Promise.all([getAgentTools(), getAgentRuns()])
+      setAgentTools(tools)
+      setAgentRuns(hydrateAgentWorkflowRuns(runs))
+      setSelectedAgentTools((current) => {
+        const available = new Set(
+          tools.filter((tool) => tool.availability !== 'unavailable').map((tool) => tool.id),
+        )
+        const retained = current.filter((toolId) =>
+          available.has(toolId as AgentToolDefinition['id']),
+        )
+        if (retained.length > 0) return retained
+        return available.has('knowledge-search') ? ['knowledge-search'] : []
+      })
+      setAgentError(null)
     } catch (err) {
-      console.warn('[AITutorView] Failed to persist Agent workflow runs:', err)
+      setAgentError(err instanceof Error ? err.message : 'Agent 状态加载失败')
     }
-  }, [agentRuns])
+  }, [])
+
+  useEffect(() => {
+    void refreshAgentState()
+  }, [refreshAgentState])
 
   const activeAgentRun = useMemo(
     () =>
@@ -368,19 +401,22 @@ export function AITutorView() {
   const latestAgentRun = agentRuns[0] ?? null
 
   useEffect(() => {
-    if (!activeAgentRun || activeAgentRun.status !== 'running') return
-    if (error) {
-      setAgentRuns((runs) =>
-        runs.map((run) => (run.id === activeAgentRun.id ? failAgentWorkflowRun(run, error) : run)),
-      )
+    if (!latestAgentRun) {
+      setAgentAudit([])
       return
     }
-    if (!streaming) {
-      setAgentRuns((runs) =>
-        runs.map((run) => (run.id === activeAgentRun.id ? completeAgentWorkflowRun(run) : run)),
-      )
+    let cancelled = false
+    void getAgentAudit(latestAgentRun.id)
+      .then((events) => {
+        if (!cancelled) setAgentAudit(events)
+      })
+      .catch((err) => {
+        if (!cancelled) setAgentError(err instanceof Error ? err.message : 'Agent 审计日志加载失败')
+      })
+    return () => {
+      cancelled = true
     }
-  }, [activeAgentRun, error, streaming])
+  }, [latestAgentRun])
 
   const withContext = useCallback(
     (text: string) =>
@@ -422,57 +458,176 @@ export function AITutorView() {
 
   const dispatchAgentRun = useCallback(
     async (run: AgentWorkflowRun) => {
+      setAgentActionPending(true)
+      setAgentError(null)
       try {
-        const flags = await resolveMemoryFlags()
-        await sendMessage(run.goal, {
-          sendOverride: withContext(buildAgentWorkflowPrompt(run.goal, run.approvals)),
-          includeMemories: includeMemory,
-          ...flags,
-        })
-        setAgentRuns((runs) =>
-          runs.map((item) => (item.id === run.id ? markAgentWorkflowDispatched(item) : item)),
+        if (!useChatStore.getState().activeSessionId) {
+          await createSession(undefined, 'Agent 任务')
+        }
+        const running = hydrateAgentWorkflowRun(await markAgentModelStarted({ runId: run.id }))
+        replaceAgentRun(running)
+        const agentContext = buildContextPrefix(
+          aiContext,
+          currentView,
+          tutorMode,
+          includeContext,
+          includeCode,
+          false,
         )
+        await sendMessage(run.goal, {
+          sendOverride: `${agentContext}${buildAgentWorkflowPrompt(running, agentTools)}`,
+          includeMemories: false,
+          includeKnowledge: false,
+          captureMemory: false,
+        })
+        const chatError = useChatStore.getState().error
+        const completed = chatError
+          ? await failAgentRun({ runId: run.id, note: chatError })
+          : await completeAgentRun({ runId: run.id })
+        replaceAgentRun(hydrateAgentWorkflowRun(completed))
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Agent 任务启动失败'
-        setAgentRuns((runs) =>
-          runs.map((item) => (item.id === run.id ? failAgentWorkflowRun(item, message) : item)),
-        )
+        setAgentError(message)
+        try {
+          replaceAgentRun(
+            hydrateAgentWorkflowRun(await failAgentRun({ runId: run.id, note: message })),
+          )
+        } catch {
+          await refreshAgentState()
+        }
+      } finally {
+        setAgentActionPending(false)
       }
     },
-    [includeMemory, resolveMemoryFlags, sendMessage, withContext],
+    [
+      agentTools,
+      aiContext,
+      createSession,
+      currentView,
+      includeCode,
+      includeContext,
+      refreshAgentState,
+      replaceAgentRun,
+      sendMessage,
+      tutorMode,
+    ],
   )
 
   const handleAgentRun = useCallback(async () => {
     const goal = agentGoal.trim()
-    if (!goal || streaming || Boolean(activeAgentRun)) return
-    const run = createAgentWorkflowRun(goal)
-    setAgentRuns((runs) => [run, ...runs].slice(0, MAX_AGENT_WORKFLOW_RUNS))
-    setAgentGoal('')
-    if (hasPendingAgentApprovals(run)) return
-    await dispatchAgentRun(run)
-  }, [activeAgentRun, agentGoal, dispatchAgentRun, streaming])
+    if (!goal || streaming || Boolean(activeAgentRun) || agentActionPending) return
+    const requests: AgentToolRequest[] = []
+    if (selectedAgentTools.includes('knowledge-search')) {
+      requests.push({ toolId: 'knowledge-search', input: { query: goal, limit: 5 } })
+    }
+    if (selectedAgentTools.includes('strong-code-run')) {
+      if (!aiContext?.code?.trim()) {
+        setAgentError('当前上下文没有可供强隔离运行的代码。')
+        return
+      }
+      requests.push({
+        toolId: 'strong-code-run',
+        input: {
+          code: aiContext.code,
+          language: aiContext.language || 'python',
+        },
+      })
+    }
+    setAgentActionPending(true)
+    setAgentError(null)
+    try {
+      const created = await createAgentRun({
+        goal,
+        context: {
+          view: currentView,
+          kind: aiContext?.kind,
+          title: aiContext?.title,
+          detail: aiContext?.detail,
+          language: aiContext?.language,
+          code: aiContext?.code,
+        },
+        tools: requests,
+      })
+      const run = hydrateAgentWorkflowRun(created)
+      replaceAgentRun(run)
+      setAgentGoal('')
+      if (run.status === 'dispatching') await dispatchAgentRun(run)
+    } catch (err) {
+      setAgentError(err instanceof Error ? err.message : 'Agent 任务创建失败')
+    } finally {
+      setAgentActionPending(false)
+    }
+  }, [
+    activeAgentRun,
+    agentActionPending,
+    agentGoal,
+    aiContext,
+    currentView,
+    dispatchAgentRun,
+    replaceAgentRun,
+    selectedAgentTools,
+    streaming,
+  ])
 
   const handleApproveAgentRun = useCallback(
-    async (runId: string) => {
-      if (streaming) return
-      const run = agentRuns.find((item) => item.id === runId)
-      if (!run || run.status !== 'needsApproval') return
-      const approved = approveAgentWorkflowRun(run)
-      setAgentRuns((runs) => runs.map((item) => (item.id === runId ? approved : item)))
-      await dispatchAgentRun(approved)
+    async (runId: string, toolCallId: string) => {
+      if (streaming || agentActionPending) return
+      setAgentActionPending(true)
+      setAgentError(null)
+      try {
+        const approved = hydrateAgentWorkflowRun(
+          await approveAgentTool({ runId, toolCallId, note: 'User approved in Agent UI.' }),
+        )
+        replaceAgentRun(approved)
+        if (approved.status === 'dispatching') await dispatchAgentRun(approved)
+      } catch (err) {
+        setAgentError(err instanceof Error ? err.message : 'Agent 工具审批失败')
+      } finally {
+        setAgentActionPending(false)
+      }
     },
-    [agentRuns, dispatchAgentRun, streaming],
+    [agentActionPending, dispatchAgentRun, replaceAgentRun, streaming],
   )
 
-  const handleRejectAgentRun = useCallback((runId: string) => {
-    setAgentRuns((runs) =>
-      runs.map((run) =>
-        run.id === runId
-          ? rejectAgentWorkflowRun(run, 'User rejected the gated Agent tool request.')
-          : run,
-      ),
-    )
-  }, [])
+  const handleRejectAgentRun = useCallback(
+    async (runId: string, toolCallId: string) => {
+      if (agentActionPending) return
+      setAgentActionPending(true)
+      try {
+        replaceAgentRun(
+          hydrateAgentWorkflowRun(
+            await rejectAgentTool({
+              runId,
+              toolCallId,
+              note: 'User rejected the gated Agent tool request.',
+            }),
+          ),
+        )
+      } catch (err) {
+        setAgentError(err instanceof Error ? err.message : 'Agent 工具拒绝失败')
+      } finally {
+        setAgentActionPending(false)
+      }
+    },
+    [agentActionPending, replaceAgentRun],
+  )
+
+  const handleCancelAgentRun = useCallback(async () => {
+    if (!activeAgentRun || agentCancelling) return
+    setAgentCancelling(true)
+    try {
+      await cancelCurrentRequest()
+      replaceAgentRun(
+        hydrateAgentWorkflowRun(
+          await cancelAgentRun({ runId: activeAgentRun.id, note: 'User cancelled in Agent UI.' }),
+        ),
+      )
+    } catch (err) {
+      setAgentError(err instanceof Error ? err.message : 'Agent 取消失败')
+    } finally {
+      setAgentCancelling(false)
+    }
+  }, [activeAgentRun, agentCancelling, cancelCurrentRequest, replaceAgentRun])
 
   const contextLabel = useMemo(() => VIEW_LABELS[currentView] ?? 'CodeHelper', [currentView])
 
@@ -802,40 +957,78 @@ export function AITutorView() {
                     <div>
                       <p className="text-sm font-medium text-white">Agent 工具与边界</p>
                       <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                        当前只把真实可用能力注入执行协议；外部动作必须等待确认或后续 IPC。
+                        工具白名单来自 Electron 主进程；强隔离运行必须逐次审批并写入审计日志。
                       </p>
                     </div>
                     <ShieldCheck size={18} className="text-[var(--color-accent-purple)]" />
                   </div>
                   <div className="mt-3 grid gap-2 md:grid-cols-2">
-                    {AGENT_TOOL_REGISTRY.map((tool) => (
-                      <div
-                        key={tool.id}
-                        data-agent-tool={tool.id}
-                        data-agent-tool-mode={tool.availability}
-                        className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] p-3"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-medium text-white">{tool.label}</p>
-                          <span
-                            className={cn(
-                              'shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium',
-                              getAgentToolAvailabilityClass(tool.availability),
-                            )}
-                          >
-                            {getAgentToolAvailabilityLabel(tool.availability)}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-xs leading-relaxed text-[var(--color-text-secondary)]">
-                          {tool.description}
-                        </p>
-                        <p className="mt-2 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
-                          {tool.boundary}
-                        </p>
+                    {agentTools.map((tool) => {
+                      const codeUnavailable =
+                        tool.id === 'strong-code-run' && !aiContext?.code?.trim()
+                      const disabled = tool.availability === 'unavailable' || codeUnavailable
+                      const checked = selectedAgentTools.includes(tool.id)
+                      return (
+                        <label
+                          key={tool.id}
+                          data-agent-tool={tool.id}
+                          data-agent-tool-mode={tool.availability}
+                          className={cn(
+                            'rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] p-3',
+                            disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                disabled={disabled || Boolean(activeAgentRun)}
+                                onChange={() =>
+                                  setSelectedAgentTools((current) =>
+                                    current.includes(tool.id)
+                                      ? current.filter((toolId) => toolId !== tool.id)
+                                      : [...current, tool.id],
+                                  )
+                                }
+                                className="h-4 w-4 accent-[var(--color-accent-purple)]"
+                              />
+                              <p className="text-sm font-medium text-white">{tool.label}</p>
+                            </div>
+                            <span
+                              className={cn(
+                                'shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium',
+                                getAgentToolAvailabilityClass(tool.availability),
+                              )}
+                            >
+                              {getAgentToolAvailabilityLabel(tool.availability)}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-xs leading-relaxed text-[var(--color-text-secondary)]">
+                            {tool.description}
+                          </p>
+                          <p className="mt-2 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
+                            {tool.boundary}
+                          </p>
+                          <p className="mt-2 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
+                            {codeUnavailable ? '当前页面没有代码上下文。' : tool.reason}
+                          </p>
+                        </label>
+                      )
+                    })}
+                    {agentTools.length === 0 && (
+                      <div className="text-xs text-[var(--color-text-muted)]">
+                        正在读取主进程工具能力...
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
+
+                {agentError && (
+                  <div className="mt-4 rounded-lg border border-[#EF4444]/30 bg-[#EF4444]/10 px-3 py-2 text-xs text-[#EF4444]">
+                    {agentError}
+                  </div>
+                )}
 
                 {latestAgentRun && (
                   <div
@@ -862,14 +1055,26 @@ export function AITutorView() {
                       </button>
                       <button
                         type="button"
-                        data-agent-clear-runs
-                        onClick={() => setAgentRuns([])}
-                        disabled={Boolean(activeAgentRun)}
+                        data-agent-refresh-runs
+                        onClick={() => void refreshAgentState()}
+                        disabled={agentActionPending}
                         className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        <Trash2 size={14} />
-                        清空记录
+                        <RotateCcw size={14} />
+                        刷新审计
                       </button>
+                      {activeAgentRun?.id === latestAgentRun.id && (
+                        <button
+                          type="button"
+                          data-agent-cancel-run
+                          onClick={() => void handleCancelAgentRun()}
+                          disabled={agentCancelling}
+                          className="inline-flex items-center gap-2 rounded-lg border border-[#EF4444]/40 px-3 py-2 text-xs text-[#EF4444] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <ShieldCheck size={14} />
+                          {agentCancelling ? '取消中' : '取消任务'}
+                        </button>
+                      )}
                     </div>
 
                     {latestAgentRun.error && (
@@ -905,7 +1110,8 @@ export function AITutorView() {
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2">
                                     <p className="text-sm font-medium text-white">
-                                      {approval.label}
+                                      {agentTools.find((tool) => tool.id === approval.toolId)
+                                        ?.label ?? approval.toolId}
                                     </p>
                                     <span
                                       className={cn(
@@ -926,8 +1132,13 @@ export function AITutorView() {
                                       <button
                                         type="button"
                                         data-agent-approve-tool={approval.toolId}
-                                        onClick={() => handleApproveAgentRun(latestAgentRun.id)}
-                                        disabled={streaming}
+                                        onClick={() =>
+                                          void handleApproveAgentRun(
+                                            latestAgentRun.id,
+                                            approval.toolCallId,
+                                          )
+                                        }
+                                        disabled={streaming || agentActionPending}
                                         className="rounded-lg bg-[var(--color-accent-solid)] px-3 py-1.5 text-xs font-medium text-[var(--color-on-accent)] disabled:cursor-not-allowed disabled:opacity-50"
                                       >
                                         批准并继续
@@ -935,7 +1146,13 @@ export function AITutorView() {
                                       <button
                                         type="button"
                                         data-agent-reject-tool={approval.toolId}
-                                        onClick={() => handleRejectAgentRun(latestAgentRun.id)}
+                                        onClick={() =>
+                                          void handleRejectAgentRun(
+                                            latestAgentRun.id,
+                                            approval.toolCallId,
+                                          )
+                                        }
+                                        disabled={agentActionPending}
                                         className="rounded-lg border border-[var(--color-border-subtle)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] hover:text-white"
                                       >
                                         拒绝
@@ -948,6 +1165,66 @@ export function AITutorView() {
                         </div>
                       </div>
                     )}
+
+                    {latestAgentRun.toolCalls.length > 0 && (
+                      <div className="mt-3 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] p-3">
+                        <p className="text-xs font-medium text-[var(--color-text-secondary)]">
+                          真实工具调用
+                        </p>
+                        <div className="mt-2 space-y-2">
+                          {latestAgentRun.toolCalls.map((call) => (
+                            <div
+                              key={call.id}
+                              data-agent-tool-call={call.id}
+                              data-agent-tool-call-status={call.status}
+                              className="rounded-md border border-[var(--color-border-subtle)] px-3 py-2"
+                            >
+                              <div className="flex items-center justify-between gap-2 text-xs">
+                                <span className="font-medium text-white">
+                                  {agentTools.find((tool) => tool.id === call.toolId)?.label ??
+                                    call.toolId}
+                                </span>
+                                <span className="font-mono text-[var(--color-text-muted)]">
+                                  {call.status}
+                                </span>
+                              </div>
+                              {call.error && (
+                                <p className="mt-1 text-[11px] text-[#EF4444]">{call.error}</p>
+                              )}
+                              {call.result && (
+                                <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-relaxed text-[var(--color-text-secondary)]">
+                                  {JSON.stringify(call.result, null, 2)}
+                                </pre>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div
+                      className="mt-3 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] p-3"
+                      data-agent-audit-count={agentAudit.length}
+                    >
+                      <div className="flex items-center gap-2 text-xs font-medium text-[var(--color-text-secondary)]">
+                        <ScrollText size={14} />
+                        SQLite 审计日志
+                      </div>
+                      <div className="mt-2 space-y-1">
+                        {agentAudit.slice(0, 8).map((event) => (
+                          <div
+                            key={event.id}
+                            className="flex items-center justify-between gap-3 text-[11px] text-[var(--color-text-muted)]"
+                          >
+                            <span>{event.eventType}</span>
+                            <span className="shrink-0 font-mono">{event.createdAt}</span>
+                          </div>
+                        ))}
+                        {agentAudit.length === 0 && (
+                          <p className="text-[11px] text-[var(--color-text-muted)]">暂无审计事件</p>
+                        )}
+                      </div>
+                    </div>
 
                     {activeAgentRun?.id === latestAgentRun.id && streaming && (
                       <div className="mt-3 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] p-3">
@@ -979,21 +1256,30 @@ export function AITutorView() {
                   <button
                     type="button"
                     onClick={handleAgentRun}
-                    disabled={!agentGoal.trim() || streaming || Boolean(activeAgentRun)}
+                    disabled={
+                      !agentGoal.trim() ||
+                      streaming ||
+                      Boolean(activeAgentRun) ||
+                      agentActionPending
+                    }
                     className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-solid)] px-4 py-2 text-sm font-medium text-[var(--color-on-accent)] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-hover)] disabled:text-[var(--color-text-muted)]"
                   >
-                    {activeAgentRun?.status === 'needsApproval' ? (
+                    {agentActionPending ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : activeAgentRun?.status === 'needsApproval' ? (
                       <ShieldCheck size={16} />
                     ) : activeAgentRun ? (
                       <Loader2 size={16} className="animate-spin" />
                     ) : (
                       <Bot size={16} />
                     )}
-                    {activeAgentRun?.status === 'needsApproval'
-                      ? '等待确认'
-                      : activeAgentRun
-                        ? '任务运行中'
-                        : '创建并执行任务'}
+                    {agentActionPending
+                      ? '处理中'
+                      : activeAgentRun?.status === 'needsApproval'
+                        ? '等待确认'
+                        : activeAgentRun
+                          ? '任务运行中'
+                          : '创建并执行任务'}
                   </button>
                 </div>
 

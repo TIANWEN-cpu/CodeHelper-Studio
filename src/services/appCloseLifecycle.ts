@@ -1,6 +1,7 @@
 export interface AppCloseFlushResult {
   ok: boolean
   error?: string
+  recoveryAvailable?: boolean
 }
 
 type AppCloseFlushHandler = () => Promise<AppCloseFlushResult | boolean | void>
@@ -24,20 +25,27 @@ export function registerAppCloseFlushHandler(
 
 export async function flushBeforeAppClose(): Promise<AppCloseFlushResult> {
   const errors: string[] = []
+  let everyFailureHasRecovery = true
   await Promise.all(
     [...flushHandlers.entries()].map(async ([id, handler]) => {
       try {
         const result = await handler()
-        if (result === false) errors.push(`${id} 未完成持久化`)
-        else if (result && typeof result === 'object' && !result.ok) {
+        if (result === false) {
+          errors.push(`${id} 未完成持久化`)
+          everyFailureHasRecovery = false
+        } else if (result && typeof result === 'object' && !result.ok) {
           errors.push(result.error?.trim() || `${id} 未完成持久化`)
+          if (result.recoveryAvailable !== true) everyFailureHasRecovery = false
         }
       } catch (error) {
         errors.push(error instanceof Error ? error.message : `${id} 持久化失败`)
+        everyFailureHasRecovery = false
       }
     }),
   )
-  return errors.length > 0 ? { ok: false, error: errors.join('；') } : { ok: true }
+  return errors.length > 0
+    ? { ok: false, error: errors.join('；'), recoveryAvailable: everyFailureHasRecovery }
+    : { ok: true }
 }
 
 export function bindAppCloseLifecycle(api: CloseLifecycleApi = window.api): () => void {

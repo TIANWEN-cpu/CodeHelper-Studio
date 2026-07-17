@@ -96,7 +96,7 @@ TypeScript 类型接口，将每个 IPC 通道名称映射到其参数类型和�
 ## K
 
 **知识库 (Knowledge Base)**
-CodeHelper 的 RAG 检索系统，支持导入 PDF/Markdown/TXT 文档，进行文本分块和关键词检索。参见 [知识库指南](user-guide/knowledge-guide.md)。
+CodeHelper 的 RAG 检索系统，支持导入 PDF/Markdown/TXT 文档，进行文本分块、FTS5/BM25 + trigram 混合检索并展示来源。参见 [知识库指南](user-guide/knowledge-guide.md)。
 
 ---
 
@@ -149,7 +149,7 @@ SQLite 的配置指令，CodeHelper 使用 WAL 模式和 PRAGMA 优化数据库�
 ## R
 
 **RAG (Retrieval-Augmented Generation)**
-检索增强生成。CodeHelper 的知识库系统先检索相关文档片段，再将检索结果作为上下文注入 AI 对话。当前实现使用关键词匹配检索，向量嵌入字段已预留。参见 [知识库指南](user-guide/knowledge-guide.md)。
+检索增强生成。CodeHelper 的知识库系统先通过 FTS5/BM25、trigram 和本地 n-gram 混合检索相关文档片段，再把带文件名与片段序号的结果注入 AI 对话。模型向量字段仍为后续后端预留。参见 [知识库指南](user-guide/knowledge-guide.md)。
 
 **Renderer Process (渲染进程)**
 Electron 应用的 Chromium 进程，运行 React SPA，负责 UI 渲染和用户交互。无 Node.js 访问权限。参见 [架构详解](developer-guide/architecture.md)。

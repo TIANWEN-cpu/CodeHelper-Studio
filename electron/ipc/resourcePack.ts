@@ -115,43 +115,45 @@ function importKnowledgeDocs(
     'INSERT INTO knowledge_chunks (doc_id, content, chunk_index) VALUES (?,?,?)',
   )
 
-  const insertMany = db.transaction(() => {
-    for (const filePath of files) {
-      const filename = normalizeRelativePath(relative(knowledgeDir, filePath)) || basename(filePath)
-
-      try {
-        if (existing.has(filename)) {
-          result.skipped++
-          continue
-        }
-
-        const stat = statSync(filePath)
-        if (stat.size > MAX_KNOWLEDGE_FILE_SIZE) {
-          result.skipped++
-          errors.push(`知识文档超过 10MB，已跳过: ${filename}`)
-          continue
-        }
-
-        const content = readFileSync(filePath, 'utf-8')
-        const chunks = splitIntoChunks(content, 1500)
-        const docResult = insertDoc.run(filename, 'md', content, chunks.length)
-        for (let index = 0; index < chunks.length; index++) {
-          insertChunk.run(docResult.lastInsertRowid, chunks[index], index)
-        }
-
-        existing.add(filename)
-        result.imported++
-        result.chunks += chunks.length
-      } catch (error) {
-        result.skipped++
-        errors.push(
-          `知识文档导入失败 ${filename}: ${error instanceof Error ? error.message : String(error)}`,
-        )
+  const insertKnowledgeDocument = db.transaction(
+    (filename: string, content: string, chunks: string[]) => {
+      const docResult = insertDoc.run(filename, 'md', content, chunks.length)
+      for (let index = 0; index < chunks.length; index++) {
+        insertChunk.run(docResult.lastInsertRowid, chunks[index], index)
       }
-    }
-  })
+    },
+  )
 
-  insertMany()
+  for (const filePath of files) {
+    const filename = normalizeRelativePath(relative(knowledgeDir, filePath)) || basename(filePath)
+
+    try {
+      if (existing.has(filename)) {
+        result.skipped++
+        continue
+      }
+
+      const stat = statSync(filePath)
+      if (stat.size > MAX_KNOWLEDGE_FILE_SIZE) {
+        result.skipped++
+        errors.push(`知识文档超过 10MB，已跳过: ${filename}`)
+        continue
+      }
+
+      const content = readFileSync(filePath, 'utf-8')
+      const chunks = splitIntoChunks(content, 1500)
+      insertKnowledgeDocument(filename, content, chunks)
+
+      existing.add(filename)
+      result.imported++
+      result.chunks += chunks.length
+    } catch (error) {
+      result.skipped++
+      errors.push(
+        `知识文档导入失败 ${filename}: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+  }
   return result
 }
 

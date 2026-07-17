@@ -83,8 +83,8 @@ npm run build
 ls out/
 
 # 2. 检查 out/ 目录结构
-ls out/main/     # 应有 index.mjs
-ls out/preload/  # 应有 index.mjs
+ls out/main/     # 应有 index.js
+ls out/preload/  # 应有 index.js
 ls out/renderer/ # 应有 index.html
 
 # 3. 检查 electron-builder 配置
@@ -122,17 +122,20 @@ const candidates = [
 
 ### Q: 打包后 native 模块加载失败
 
-**原因**：better-sqlite3 的编译产物与目标 Electron 版本不匹配。
+**原因**：`better-sqlite3` 的编译产物与当前 Node 或 Electron ABI 不匹配。
 
 **解决方案**：
 
 ```bash
-# 重新编译 native 模块
-npm run postinstall
+# Node/Vitest
+npm run native:node
 
-# 确认 electron-builder 配置中的 native 重编译
-# electron-builder 会自动处理 native 模块的重编译
+# Electron 开发、E2E 或打包
+npm run native:electron
 ```
+
+`npm test`、`npm run dev`、Electron 专项测试和打包脚本已经带有对应的自动准备钩子。只有直接调用
+底层 `node`、`electron` 或 `vitest` 命令时，才通常需要手动执行上述命令。
 
 ### Q: NSIS 安装程序生成失败
 

@@ -12,8 +12,30 @@ vi.mock('electron', () => ({
 }))
 
 const mockRunCodeSnippet = vi.fn()
+const mockDetectToolchainsAsync = vi.hoisted(() =>
+  vi.fn(async (_force?: boolean) => ({
+    detectedAt: Date.now(),
+    platform: 'linux',
+    isolation: {
+      mode: 'local-controlled',
+      label: '本地受控运行（非强隔离）',
+      description: 'test',
+      strongIsolationAvailable: false,
+      strongIsolationReason: 'test unavailable',
+    },
+    tools: [],
+  })),
+)
 vi.mock('../electron/utils/codeRunner', () => ({
   runCodeSnippet: (...args: unknown[]) => mockRunCodeSnippet(...args),
+  detectToolchainsAsync: (force?: boolean) => mockDetectToolchainsAsync(force),
+  getIsolationInfo: vi.fn(() => ({
+    mode: 'local-controlled',
+    label: '本地受控运行（非强隔离）',
+    description: 'test',
+    strongIsolationAvailable: false,
+    strongIsolationReason: 'test unavailable',
+  })),
 }))
 
 const { registerRunnerIPC } = await import('../electron/ipc/runner')
@@ -25,6 +47,7 @@ describe('runner IPC handler', () => {
 
   beforeEach(() => {
     mockRunCodeSnippet.mockReset()
+    mockDetectToolchainsAsync.mockClear()
   })
 
   // -------------------------------------------------------------------
@@ -77,6 +100,12 @@ describe('runner IPC handler', () => {
       await expect(handle({}, { code: 'x', language: 'python', stdin: true })).rejects.toThrow(
         '参数无效: stdin',
       )
+    })
+
+    it('rejects an unknown execution mode', async () => {
+      await expect(
+        handle({}, { code: 'x', language: 'python', executionMode: 'unsafe-mode' }),
+      ).rejects.toThrow('executionMode')
     })
   })
 
@@ -134,6 +163,12 @@ describe('runner IPC handler', () => {
       expect(mockRunCodeSnippet).toHaveBeenCalledWith('x', 'python', 'hello input')
     })
 
+    it('passes an explicit strong isolation request to the runner unchanged', async () => {
+      mockRunCodeSnippet.mockResolvedValue({ stdout: '', stderr: '', exitCode: 1 })
+      await handle({}, { code: 'x', language: 'python', executionMode: 'strong-isolation' })
+      expect(mockRunCodeSnippet).toHaveBeenCalledWith('x', 'python', undefined, 'strong-isolation')
+    })
+
     it('preserves short code unchanged', async () => {
       mockRunCodeSnippet.mockResolvedValue({ stdout: '', stderr: '', exitCode: 0 })
       const args = { code: 'print("hi")', language: 'python' }
@@ -151,7 +186,20 @@ describe('runner IPC handler', () => {
       mockRunCodeSnippet.mockResolvedValue(result)
 
       const output = await handle({}, { code: 'print("hello")', language: 'python' })
-      expect(output).toEqual(result)
+      expect(output).toMatchObject(result)
+      expect(typeof (output as { duration_ms: number }).duration_ms).toBe('number')
+    })
+
+    it('registers toolchain and isolation handlers', () => {
+      expect(typeof handlers['runner-detect-toolchains']).toBe('function')
+      expect(typeof handlers['runner-isolation-info']).toBe('function')
+    })
+
+    it('delegates forced toolchain refreshes to the asynchronous detector', async () => {
+      const output = await handlers['runner-detect-toolchains']({}, { force: true })
+
+      expect(mockDetectToolchainsAsync).toHaveBeenCalledWith(true)
+      expect(output).toMatchObject({ platform: 'linux', tools: [] })
     })
 
     it('propagates errors from codeRunner', async () => {

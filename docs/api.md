@@ -553,18 +553,41 @@ interface Document {
 
 **参数**: `query: string`（最大 1,000 字符）
 
-**返回值**: `SearchResult[]`（最多 5 条，按匹配度排序）
+**返回值**: `KnowledgeSearchResponse`（最多 12 条，按融合相关度排序）
 
 ```typescript
+interface KnowledgeSearchResponse {
+  query: string
+  results: SearchResult[]
+  retrieval: KnowledgeRetrievalStatus & {
+    candidateCount: number
+    durationMs: number
+  }
+}
+
 interface SearchResult {
   id: number
   doc_id: number
   content: string
   chunk_index: number
   filename: string
-  score: number // 关键词匹配分数
+  score: number
+  keywordScore: number
+  semanticScore: number
+  channels: Array<'keyword' | 'semantic' | 'fallback'>
+  explanation: string
 }
 ```
+
+检索优先使用 FTS5 BM25 + trigram + 本地 n-gram 与 RRF 融合；FTS 不可用时返回明确的降级状态。
+
+#### `knowledge-retrieval-status`
+
+返回当前检索后端、索引规模和降级原因。
+
+**参数**: 无
+
+**返回值**: `KnowledgeRetrievalStatus`
 
 **实现位置**: `electron/ipc/rag.ts`
 

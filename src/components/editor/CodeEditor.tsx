@@ -53,8 +53,6 @@ interface CodeEditorProps {
   onChange: (value: string) => void
   language: string
   themeId: string
-  /** Ctrl/Cmd + Enter 运行回调。 */
-  onRun?: () => void
   readOnly?: boolean
   initialCursorPosition?: EditorCursorPosition
   initialScrollTop?: number
@@ -72,7 +70,6 @@ export function CodeEditor({
   onChange,
   language,
   themeId,
-  onRun,
   readOnly = false,
   initialCursorPosition,
   initialScrollTop = 0,
@@ -81,29 +78,41 @@ export function CodeEditor({
 }: CodeEditorProps) {
   const extensions = useMemo(() => [languageExtension(language), tabKeymap], [language])
   const theme = useMemo(() => themeExtension(themeId), [themeId])
-  const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null)
+  const [editorView, setEditorView] = useState<EditorView | null>(null)
   const [restoredScrollTop] = useState(() => Math.max(0, initialScrollTop))
   const [initialSelection] = useState(() => ({
     anchor: cursorOffsetFromPosition(value, initialCursorPosition),
   }))
 
   const handleCreateEditor = useCallback((view: EditorView) => {
-    setScrollElement(view.scrollDOM)
+    setEditorView(view)
   }, [])
 
   useEffect(() => {
-    if (!scrollElement) return
-    const reporter = new AnimationFrameReporter<number>((scrollTop) =>
-      onScrollTopChange?.(scrollTop),
-    )
+    if (!editorView) return
+    let active = true
+    editorView.requestMeasure({
+      read: () => restoredScrollTop,
+      write: (scrollTop, view) => {
+        if (active && view === editorView) view.scrollDOM.scrollTop = scrollTop
+      },
+    })
+    return () => {
+      active = false
+    }
+  }, [editorView, restoredScrollTop])
+
+  useEffect(() => {
+    if (!editorView || !onScrollTopChange) return
+    const scrollElement = editorView.scrollDOM
+    const reporter = new AnimationFrameReporter<number>((scrollTop) => onScrollTopChange(scrollTop))
     const handleScroll = () => reporter.update(scrollElement.scrollTop)
     scrollElement.addEventListener('scroll', handleScroll, { passive: true })
-    scrollElement.scrollTop = restoredScrollTop
     return () => {
       scrollElement.removeEventListener('scroll', handleScroll)
       reporter.dispose()
     }
-  }, [onScrollTopChange, restoredScrollTop, scrollElement])
+  }, [editorView, onScrollTopChange])
 
   const handleUpdate = useCallback(
     (update: ViewUpdate) => {
@@ -120,12 +129,6 @@ export function CodeEditor({
       data-testid="code-editor"
       data-language={language}
       className="h-full w-full overflow-hidden"
-      onKeyDownCapture={(e) => {
-        if (onRun && (e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-          e.preventDefault()
-          onRun()
-        }
-      }}
     >
       <CodeMirror
         value={value}

@@ -222,6 +222,15 @@ export function registerAIIPC(): void {
       }
     },
   )
+
+  ipcMain.handle('ai-chat-cancel', (_event, requestId: string) => {
+    if (typeof requestId !== 'string' || !requestId.trim()) throw new Error('参数无效: requestId')
+    const normalized = requestId.trim().slice(0, 200)
+    const controller = activeRequests.get(normalized)
+    if (!controller) return { cancelled: false }
+    controller.abort()
+    return { cancelled: true }
+  })
 }
 
 /** 历史消息上限：拼接最近 N 条，避免上下文无限增长。 */
@@ -346,7 +355,7 @@ export function injectRagContext(
         .join('\n')
         .slice(0, MAX_RAG_CHARS)
       parts.push(
-        `以下是与用户问题相关的知识库内容，请优先据此作答，并在使用时自然引用：\n${joined}`,
+        `以下是与用户问题相关的知识库内容，请优先据此作答。使用片段时保留其中的“来源：文件名#片段序号”标识；证据不足时明确说明知识库未提供足够依据：\n${joined}`,
       )
     }
 

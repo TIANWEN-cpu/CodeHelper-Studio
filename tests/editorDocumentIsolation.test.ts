@@ -53,9 +53,13 @@ describe('editor document isolation', () => {
     )
     expect(codeEditorSource).toContain('const [initialSelection] = useState')
     expect(codeEditorSource).toContain('const [restoredScrollTop] = useState')
-    expect(codeEditorSource).toContain('scrollElement.scrollTop = restoredScrollTop')
+    expect(codeEditorSource).toContain('editorView.requestMeasure({')
+    expect(codeEditorSource).toContain(
+      'if (active && view === editorView) view.scrollDOM.scrollTop = scrollTop',
+    )
     expect(codeEditorSource).toContain('onChange={onChange}')
-    expect(codeEditorSource).not.toContain('view.scrollDOM.scrollTop = Math.max')
+    expect(codeEditorSource).not.toContain('scrollElement.scrollTop = restoredScrollTop')
+    expect(codeEditorSource).not.toContain('setTimeout(')
     expect(isolated.undo()).toBe(false)
     expect(isolated.document()).toBe('tab B')
   })

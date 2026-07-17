@@ -1,393 +1,320 @@
 # 安全审计报告
 
-> 审计日期：2026-06-02
-> 审计范围：D:\codehelper 全面安全审计
-> 审计内容：CSP、依赖 CVE、IPC 安全、Electron 安全配置
+> 审计日期：2026-07-17
+>
+> 审计范围：`D:\codehelper` 当前 P2-P7 工作树
+>
+> Git 基线：分支 `SuLi/phase4-knowledge-retrieval`，HEAD `16b228030c212e1df8ca7385611bdd877eb368a7`
+>
+> 发布目标：Windows x64 Electron 应用
 
----
+本报告取代 2026-06-02 的历史快照。旧报告中的 Vitest 3、DOMPurify、31 个 IPC 通道及“导航
+防御完整”等结论不再适用于当前代码。
 
-## 审计摘要
+## 审计结论
 
-| 类别          | 发现数 | 严重  | 高危  | 中危  | 低危  | 信息  |
-| ------------- | ------ | ----- | ----- | ----- | ----- | ----- |
-| CSP 配置      | 2      | 0     | 0     | 0     | 1     | 1     |
-| 依赖 CVE      | 4      | 2     | 0     | 2     | 0     | 0     |
-| IPC 安全      | 4      | 0     | 0     | 1     | 2     | 1     |
-| Electron 安全 | 2      | 0     | 0     | 0     | 1     | 1     |
-| 代码执行沙箱  | 1      | 0     | 0     | 0     | 1     | 0     |
-| **合计**      | **13** | **2** | **0** | **3** | **5** | **3** |
+CodeHelper 已具备较强的本地数据恢复、受控执行、Docker 强隔离、Agent 审批和 Windows 发布
+供应链门禁，但仍不是“无残余风险”的生产系统。
 
----
+| 边界                   | 当前结论                                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------------------- |
+| Electron Renderer 隔离 | 通过；sandbox、context isolation、Node 禁用、严格 CSP、顶级导航拦截和 Fuses 已验证          |
+| Preload / IPC          | allowlist 与合同矩阵可审计；便携导入导出路径只由主进程原生文件对话框授权                    |
+| 本地数据               | 已有验证型 SQLite 快照、导入/迁移前备份；恢复和异地保留仍需人工 runbook，JSON 仅为子集      |
+| API Key                | 新保存要求 `safeStorage` 可用并 fail-closed；旧的无 `enc:` 数据仍可兼容读取                 |
+| 本地代码执行           | Windows Job Object 和资源限制可降低失控风险，但 local-controlled 仍保留同用户文件/网络权限  |
+| Docker 强隔离          | 支持语言使用固定 digest、无网络、只读根、非 root 和资源限制；缺失 daemon/镜像时 fail-closed |
+| SQL                    | 独立内存 SQLite utility，有输入、结果和超时限制；不属于 Docker 强隔离                       |
+| 知识检索               | 本地混合检索可降级并展示来源；导入内容仍是不可信文本，可能进入 AI 上下文                    |
+| Agent                  | 主进程白名单、逐次审批、取消和 SQLite 审计已实现；不开放普通终端、文件写入或浏览器工具      |
+| 依赖                   | 生产与完整依赖树 audit 均为 0；Vite/esbuild 与 form-data advisory 已关闭                    |
+| Windows 发布           | 本地门禁完整；正式可信发布仍依赖活跃仓库、受保护 Environment、真实证书和 Immutable Releases |
+| 自动更新               | 只生成和验证 updater metadata；应用内检查、下载和安装未实现                                 |
 
-## 1. CSP (Content Security Policy) 审计
+当前没有开放的 High 或 Low 安全发现。SEC-004 仍作为 1 个 Medium 兼容性风险接受项保留，SEC-003
+为已缓解信息项；其余 SEC-001/002/005/006/007/008 均已通过实现和自动化验证关闭。
 
-### 1.1 CSP 配置审查
+## 威胁模型
 
-**文件**：`electron/main.ts` 第 125-134 行
+### 需要保护的资产
 
-**当前策略**：
+- SQLite 中的工作区、练习草稿、聊天、知识、学习记录和 Agent 审计；
+- localStorage 中尚未同步的恢复内容；
+- AI Provider API Key；
+- 用户运行的代码和输出；
+- 导入的知识文件及发送到第三方 Provider 的上下文；
+- 签名证书、release tag/SHA、安装包和更新 metadata；
+- 用户对 Agent 工具调用的审批记录。
 
+### 不可信输入
+
+- Renderer 中可被注入或错误处理的内容；
+- 用户选择的代码、stdin、SQL、JSON、Markdown、PDF 和资源包；
+- 知识检索结果和外部 AI Provider 返回内容；
+- 本机工具链、Docker daemon 和镜像状态；
+- 下载的 Release 资产和 GitHub API 状态；
+- 旧版本数据库和损坏恢复文件。
+
+### 不在本应用边界内
+
+已控制操作系统账户、内核、管理员权限、Docker daemon 或签名私钥的攻击者不在应用沙箱可防御
+范围内。local-controlled 执行也不承诺阻止当前用户权限下的文件或网络访问。
+
+## 已处置与残余发现
+
+### SEC-001 [HIGH]：主窗口导航已 fail-closed
+
+**证据**：`electron/utils/navigationGuard.ts` 只允许当前本地 Renderer 文档。`will-navigate`、
+`will-redirect` 和新窗口入口统一 fail-closed；HTTP/HTTPS 外链交给 `shell.openExternal`，非法协议、
+错误 URL、过长 URL 和非预期 `file:` 文档均被拒绝。
+
+`tests/navigationGuard.test.ts` 覆盖开发与打包 Renderer、同窗口外链、重定向、非法协议、子 frame
+和非本地 Renderer 配置；完整 Electron E2E 24/24 与 Windows packaged smoke 均通过。
+
+**状态**：Fixed，2026-07-17。
+
+### SEC-002 [MEDIUM]：显式路径导入导出已移出 Renderer IPC
+
+**证据**：`electron/preload.ts` allowlist 只保留 `export-data` 和 `import-data`；
+`electron/ipc/export.ts` 不再注册 `export-data-to-path` 或 `import-data-from-path`。读写路径只能来自
+主进程 `showSaveDialog` / `showOpenDialog` 的返回值，并继续校验 `.json` 后缀和父目录。
+
+回归测试同时断言原始路径 handler 未注册，且即使 Renderer 向保留通道追加路径形态参数，实际
+读写仍只使用原生对话框返回的授权路径。
+
+**残余边界**：用户仍可在原生对话框中主动选择当前账户有权访问的任意 JSON 路径；这是一次性、
+可见的用户授权，不再是 Renderer 可静默指定的文件系统能力。
+
+**状态**：Fixed，2026-07-17。
+
+### SEC-003 [INFORMATIONAL]：JSON 子集与完整数据库备份已明确分层
+
+**证据**：JSON 只覆盖 10 类表，不包括编辑器工作区、练习草稿、Agent 审计、课程数据、AI 配置
+和 localStorage 恢复层。导出在单一 SQLite transaction 中读取；导入只接受版本 1、最大 32 MB
+且总记录数不超过 100,000 的文件，写入前创建 `pre-import` 已验证快照，并在任一行错误时回滚
+整个 transaction。
+
+设置页另提供基于 `VACUUM INTO` 的完整 SQLite 快照；手动创建前要求所有窗口 flush，数据库
+迁移前也会创建 `pre-migration` 快照。每个快照有应用/schema 版本、大小、SHA-256、quick check
+和完整性 manifest。
+
+**残余边界**：快照仍位于同一 `userData`，不包含 localStorage 临时恢复层，且没有应用内恢复或
+删除功能。JSON 仍不能作为完整恢复点，导入设置也可能携带旧机器内部状态或本机路径。
+
+**状态**：Mitigated。异地复制、保留策略和人工恢复步骤见
+[备份与恢复手册](guides/backup-restore-runbook.md)。
+
+### SEC-004 [MEDIUM]：旧无前缀 API Key 仍按明文兼容读取
+
+**证据**：新保存路径在 `safeStorage` 不可用或 Linux backend 为 `basic_text` 时抛错；但解密函数
+仍会直接返回不以 `enc:` 开头的旧值，以兼容历史数据库。
+
+**影响**：升级前曾以明文保存的 API Key 不会自动重加密。完整数据库备份或本机磁盘读取仍可能
+暴露这类遗留值。
+
+**要求**：能力状态或设置页应明确 secure storage 可用性；发现旧无前缀值时要求用户重新保存或
+轮换凭据。禁止把数据库、JSON 或日志上传到公开问题单。
+
+**状态**：Accepted compatibility risk，需迁移/轮换策略。
+
+### SEC-005 [MEDIUM]：构建依赖 High advisory 已关闭
+
+`electron-builder -> electron-publish` 当前解析到 `form-data@4.0.6`，不再命中
+`GHSA-hmw2-7cc7-3qxx`。升级后完整 `npm audit`、构建、Electron E2E 和 Windows package smoke
+均通过。
+
+**状态**：Fixed，2026-07-17。
+
+### SEC-006 [LOW]：生产 CSP 已固定 `base-uri` 和 `form-action`
+
+开发与生产 CSP 均显式包含 `base-uri 'self'` 与 `form-action 'self'`，并由
+`tests/electronStartupConfig.test.ts` 回归覆盖。
+
+**状态**：Fixed，2026-07-17。
+
+### SEC-007 [LOW]：BrowserWindow 安全默认值已显式固定
+
+主窗口显式设置 `contextIsolation: true`、`nodeIntegration: false`、`sandbox: true`、
+`webSecurity: true`、`navigateOnDragDrop: false`、`webviewTag: false`、
+`allowRunningInsecureContent: false` 和 `experimentalFeatures: false`。
+
+**状态**：Fixed，2026-07-17。preload、Electron E2E 和 packaged smoke 均已通过。
+
+### SEC-008 [LOW]：开发依赖 esbuild advisory 已关闭
+
+Vite 已升级到 `7.3.6`，其构建实例解析到 `esbuild@0.28.1`，不再命中
+`GHSA-g7r4-m6w7-qqqr`。`electron-vite` 自身的 `esbuild@0.25.12` 不在受影响范围。
+
+**状态**：Fixed，2026-07-17。
+
+## 已验证控制
+
+### Electron 与 CSP
+
+- `sandbox` 与 `contextIsolation` 已启用，Renderer 无直接 Node.js 集成。
+- `webSecurity` 启用，拖放导航、webview、不安全内容和实验特性均显式禁用。
+- 生产 CSP 的 `script-src` 不包含 `unsafe-inline` 或 `unsafe-eval`；开发模式只对本地 Vite/HMR
+  放宽。
+- 新窗口与顶级导航统一 fail-closed，HTTP/HTTPS 外链通过系统浏览器打开。
+- Electron Fuses 禁用 RunAsNode、NODE_OPTIONS 和 CLI inspect，启用 cookie 加密、ASAR 完整性
+  与 OnlyLoadAppFromAsar。
+
+新窗口防御和顶级导航防御作为两条独立边界均有自动化覆盖。
+
+### Preload 与 IPC
+
+- preload 使用显式 allowlist，目前为 113 个 invoke 和 4 个 event 通道。
+- 序列化检查拒绝 function、symbol、bigint、自定义构造函数和超过 10 层的对象。
+- `tests/ipcContractMatrix.test.ts` 对 preload allowlist、主进程注册、Renderer 使用和文档矩阵做精确
+  对齐。
+- 合同矩阵区分 `available`、`requires-environment`、`degraded` 和 `placeholder`，避免把后端占位
+  当作真实能力。
+
+仍有大量 Handler 直接使用 `ipcMain.handle()`，没有统一中间件；安全性依赖各 Handler 自己的
+校验。新增通道必须同步更新 allowlist、合同矩阵、Handler 校验和测试。
+
+### 数据与数据库
+
+- SQL 查询普遍使用 prepared statements 和参数绑定。
+- 启动时对已有数据库执行 `PRAGMA quick_check`；损坏 DB/WAL/SHM 会原地隔离为
+  `.corrupt.<timestamp>`，新数据库不会覆盖隔离副本。
+- 编辑器工作区、练习草稿和恢复来源使用 revision、乐观并发及显式冲突路径。
+- 设置页在所有窗口 flush 后使用 `VACUUM INTO` 创建完整 SQLite 快照，并以应用/schema 版本、
+  文件大小、SHA-256 和 `quick_check` manifest 验证；flush 或验证失败时 fail-closed。
+- JSON 导入和数据库迁移分别要求先创建 `pre-import`、`pre-migration` 已验证快照；备份失败时
+  不继续写入或迁移，导入行错误会回滚整个 transaction。
+- SQLite 是权威存储，localStorage 只承担临时恢复；灾难恢复仍需另外复制完整 `userData`。
+- 快照目录仍在同一 `userData`，当前没有应用内恢复/删除，也不会自动把 `.corrupt.*` 合并回
+  新数据库。
+
+### API Key
+
+- 新保存的 API Key 必须通过 Electron `safeStorage` 加密，以 `enc:` 密文存入 SQLite。
+- `safeStorage` 不可用或 Linux backend 为 `basic_text` 时保存 fail-closed，不再静默写入新明文。
+- Renderer 获取配置时只得到掩码和 `has_api_key` 状态。
+- Provider 请求前才在主进程解密，失败则拒绝调用。
+
+SEC-004 所述旧无前缀记录仍需单独治理。跨设备完整备份不能保证凭据可解密。
+
+### 代码执行
+
+local-controlled 模式的非 SQL 代码在一次性 Electron utility 进程中运行：
+
+- Windows 使用 fail-closed Job Object、kill-on-close、32 进程、单进程 384 MB 和 Job 768 MB
+  限制；
+- 所有平台有 10 秒超时、1 MB 合并输出、5 并发和 50 MB 临时目录配额；
+- POSIX 使用 process group 与 best-effort ulimit，资源边界弱于 Windows；
+- 临时目录扫描不跟随符号链接或 junction，扫描失败保守终止；
+- 缺失工具链返回明确安装提示。
+
+local-controlled 不是沙箱。代码保留当前用户的文件系统和网络权限，UI 必须继续要求明确确认。
+
+Docker strong-isolation 支持 Python、Node、C、C++ 和 C#：
+
+- 镜像使用固定 tag + digest，不自动拉取；
+- `--network none`、只读 source mount、只读根、`cap-drop ALL`、no-new-privileges、非 root；
+- CPU、内存、PID 和 tmpfs 限制；
+- `--cidfile` 记录容器，超时、输出超限和异常退出时执行 `docker rm -f`；
+- daemon 或镜像缺失时 fail-closed，不退回本地执行。
+
+SQL 继续使用独立内存 SQLite utility，不支持 strong-isolation。
+
+### 知识检索与 Agent
+
+- 知识导入通过系统文件对话框选择，支持的单文件最大 10 MB。
+- 检索优先使用 SQLite FTS5/BM25、trigram、本地 n-gram 与 RRF，并在不可用时显示降级原因。
+- 结果展示文件名、分块锚点、通道和分数，避免伪造来源。
+- 导入文档是不可信内容；进入 AI 上下文前不能把其中的指令视为系统权限。
+
+Agent 工具由主进程白名单定义：
+
+- 知识搜索为只读工具；
+- 强隔离代码执行只有 Docker ready 时出现，并要求逐次审批；
+- 每次运行、工具调用、审批、取消、失败和完成都写入 SQLite；
+- 待执行代码只在必要生命周期内保存，终态清理正文并保留长度、语言和 SHA-256；
+- 不开放普通终端、任意文件写入或浏览器控制。
+
+### 发布供应链
+
+正式 Windows workflow：
+
+- 只允许活跃的 `TIANWEN-cpu/CodeHelper-Studio` 仓库；
+- 从已存在的语义化 tag 解析完整 SHA，并验证默认分支可达；
+- 使用受保护 `release` Environment 中的签名 secrets；
+- 安装程序、Portable、unpacked/installed 应用、卸载程序和 Job Host 必须通过 Authenticode；
+- 验证 Electron Fuses、资源、`latest.yml`、Job Host hash、NSIS 和 Portable 两阶段 smoke；
+- packaged smoke 使用隔离临时 `userData`，覆盖工作区、SQL、Node Job Host、知识来源、Agent 来源和
+  Agent 取消终态；
+- 只允许六项资产，先创建 draft，再下载校验后公开；
+- 公开后要求 GitHub API `immutable === true`，再次下载并比较 staged bytes、SHA-256 和 server
+  digest。
+
+正式签名和不可变发布仍依赖外部配置：活跃仓库、受保护 Environment、真实证书、时间戳服务和
+GitHub Immutable Releases。缺少任一项时不能把本地无签名 smoke 称为正式 Release。
+
+`latest.yml` 和 blockmap 只是更新 metadata。当前没有 `electron-updater` 依赖或 `autoUpdater`
+主进程流程，不存在应用内自动检查、下载或安装更新。
+
+## 依赖审计
+
+2026-07-17 收口后的结果：
+
+```text
+npm audit --omit=dev --json  -> 0 vulnerabilities
+npm audit --json             -> 0 vulnerabilities
 ```
-default-src 'self';
-script-src 'self';
-style-src 'self' 'unsafe-inline';
-img-src 'self' data https:;
-connect-src 'self' https:;
-font-src 'self' data:;
+
+完整路径和处置见 [依赖审计报告](dependency-audit.md)。旧的 Vitest critical 和 DOMPurify
+moderate 记录已经关闭，不能继续出现在风险接受表中。
+
+## 风险接受与发布阻断
+
+| ID      | 状态     | 发布判断               | 重新检查条件                                     |
+| ------- | -------- | ---------------------- | ------------------------------------------------ |
+| SEC-001 | Fixed    | 不阻断                 | 保持导航守卫及 Electron 回归覆盖                 |
+| SEC-002 | Fixed    | 不阻断                 | 保持原始路径通道未注册，并保留对话框授权回归测试 |
+| SEC-003 | 已缓解   | 信息项                 | SQLite 快照、事务导入和数据边界继续保持回归覆盖  |
+| SEC-004 | Accepted | 不阻断，需凭据迁移提示 | 旧明文行迁移/轮换完成                            |
+| SEC-005 | Fixed    | 不阻断                 | 保持完整 audit 与 Windows package smoke          |
+| SEC-006 | Fixed    | 不阻断                 | 保持 CSP 指令回归覆盖                            |
+| SEC-007 | Fixed    | 不阻断                 | 保持 BrowserWindow 配置与 packaged smoke         |
+| SEC-008 | Fixed    | 不阻断                 | 依赖升级后持续运行完整 audit                     |
+
+风险接受必须记录负责人、理由、到期时间和可达性证据。不能继续使用“当前无需立即修复”作为笼统
+结论。
+
+## 验证命令
+
+安全相关变更至少执行：
+
+```bash
+npm audit --omit=dev --audit-level=high
+npm audit --json
+npm test
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test:e2e
+npm run test:docker-isolation
+npm run test:knowledge-retrieval
+npm run test:agent-tools
+npm run test:electron-drafts
+npm run test:electron-workspace
+npm run test:electron-database-recovery
+npm run test:electron-sql
+npm run test:electron-runner
+npm run test:job-host
 ```
 
-**评估**：
-
-| 指令                         | 状态          | 说明                                                         |
-| ---------------------------- | ------------- | ------------------------------------------------------------ |
-| `default-src 'self'`         | PASS          | 严格的默认策略，阻止未声明类型的跨源加载                     |
-| `script-src 'self'`          | PASS          | 阻止所有内联 `<script>` 执行，核心 XSS 防御                  |
-| `style-src 'unsafe-inline'`  | PASS (可接受) | Tailwind CSS 运行时需要内联样式，Electron 桌面应用下风险极低 |
-| `img-src 'self' data https:` | PASS          | 允许 data URI 和 HTTPS 图片，范围合理                        |
-| `connect-src 'self' https:`  | PASS          | AI 对话功能需要访问外部 API                                  |
-| `font-src 'self' data:`      | PASS          | 仅允许本地和 data URI 字体                                   |
-
-**注入方式**：通过 `onHeadersReceived` 拦截器为所有 HTTP 响应注入，覆盖面完整。
-
-### FINDING-CSP-1 [LOW]：缺少 `base-uri` 和 `form-action` 指令
-
-**说明**：未显式设置 `base-uri` 和 `form-action`，默认继承 `default-src 'self'`。在当前 Electron 桌面应用场景下影响极低，但显式声明可增强防御深度。
-
-**建议**：在 CSP 字符串中追加 `base-uri 'self'; form-action 'self';`。
-
-### FINDING-CSP-2 [INFO]：不需要 nonce-based 脚本加载
-
-**说明**：在 Electron 应用中，所有内容通过 `file://` 协议加载，`script-src 'self'` 已足够限制脚本来源。不存在服务端动态生成 HTML 的场景，引入 nonce 机制只会增加复杂度而无实际安全收益。
-
-**结论**：当前 CSP 配置符合最佳实践，无需修改。
-
----
-
-## 2. 依赖 CVE 扫描
-
-**扫描工具**：`npm audit --json`
-
-### 漏洞总览
-
-| 严重程度 | 数量  | 详情                                     |
-| -------- | ----- | ---------------------------------------- |
-| Critical | 2     | vitest、@vitest/coverage-v8              |
-| Moderate | 2     | dompurify（通过 monaco-editor 间接依赖） |
-| **合计** | **4** |                                          |
-
-### FINDING-CVE-1 [CRITICAL]：vitest UI Server 任意文件读取
-
-- **CVE**：GHSA-5xrq-8626-4rwp
-- **CVSS**：9.8
-- **影响包**：`vitest@3.2.6`、`@vitest/coverage-v8@3.2.6`
-- **漏洞描述**：当 Vitest UI server 处于监听状态时，可读取并执行服务器上的任意文件
-- **影响评估**：此漏洞仅在运行 `vitest --ui`（开发服务器）时可被利用。CI 环境仅使用 `vitest run`（无 UI server），生产环境不受影响
-- **修复方案**：升级到 `vitest@>=4.1.0` + `@vitest/coverage-v8@>=4.1.0`（major 版本升级，需验证配置兼容性）
-- **风险接受理由**：dev-only 漏洞，不影响生产构建产物。升级到 v4.x 需验证测试配置兼容性
-- **行动项**：下次依赖升级周期中优先处理
-
-### FINDING-CVE-2 [MODERATE]：dompurify 多个 XSS/原型污染漏洞
-
-- **CVE 列表**：
-  - GHSA-v2wj-7wpq-c8vv — XSS 漏洞 (CVSS 6.1)
-  - GHSA-cjmm-f4jc-qw8r — ADD_ATTR 谓词跳过 URI 验证
-  - GHSA-cj63-jhhr-wcxv — USE_PROFILES 原型污染
-  - GHSA-39q2-94rc-95cp — ADD_TAGS 绕过 FORBID_TAGS
-  - GHSA-h7mw-gpvr-xq4m — FORBID_TAGS 函数谓词绕过
-  - GHSA-crv5-9vww-q3g8 — SAFE_FOR_TEMPLATES 绕过 (CVSS 6.8)
-  - GHSA-v9jr-rg53-9pgp — CUSTOM_ELEMENT_HANDLING 原型污染 (CVSS 6.9)
-  - GHSA-h8r8-wccr-v5f2 — Re-Contextualization mutation-XSS
-- **影响路径**：`monaco-editor@0.55.1` -> `dompurify@<=3.3.3`
-- **影响评估**：dompurify 仅在 Monaco Editor 内部用于 HTML 净化。CodeHelper 作为 Electron 桌面应用，无外部 HTML 输入场景，攻击面极其有限
-- **修复方案**：等待 monaco-editor 升级 dompurify 依赖。`npm audit fix --force` 会降级 monaco-editor 到 0.53.0，属于破坏性降级，**不建议执行**
-- **风险接受理由**：间接依赖，攻击面有限（桌面应用，无外部 HTML 输入），无可用安全补丁
-- **行动项**：监控 monaco-editor 新版本发布
-
----
-
-## 3. IPC 安全审计
-
-### 3.1 预加载脚本 (preload.ts) 白名单
-
-**状态**：PASS
-
-- 通道白名单：31 个 invoke 通道 + 2 个 event 通道，全部明确枚举
-- 序列化检查：`isSerializable()` 函数检查深度（最大 10 层），拒绝 function/symbol/bigint/自定义构造函数
-- 暴露 API 最小化：仅 `invoke` 和 `on` 两个方法
-
-### 3.2 IPC Handler 输入校验
-
-逐个审查所有 IPC handler 的参数校验：
-
-| Handler                    | 类型校验                 | 长度截断      | 数值范围             | 枚举校验        | 状态 |
-| -------------------------- | ------------------------ | ------------- | -------------------- | --------------- | ---- |
-| `db-get-setting`           | key: string              | 256           | -                    | -               | PASS |
-| `db-set-setting`           | key+value: string        | 256+10000     | -                    | -               | PASS |
-| `db-save-ai-config`        | 6 字段校验               | 200-2000      | -                    | -               | PASS |
-| `db-delete-ai-config`      | id: number               | -             | isFinite, >=1        | -               | PASS |
-| `ai-fetch-models`          | api_key+base_url: string | 2000          | -                    | -               | PASS |
-| `ai-chat`                  | 4 字段校验               | 100000/200    | messages.length<=200 | role enum       | PASS |
-| `run-code`                 | code+language: string    | 100000/50     | -                    | language 白名单 | PASS |
-| `problems-list`            | filters: 7 个可选字段    | 100           | -                    | -               | PASS |
-| `problems-get`             | id: number               | -             | isFinite, >=1        | -               | PASS |
-| `problems-submit`          | 3 字段校验               | 100000/50     | problemId >=1        | -               | PASS |
-| `problems-submissions`     | problemId: number        | -             | isFinite, >=1        | -               | PASS |
-| `chat-session-create`      | id+title+system_prompt   | 200/500/10000 | -                    | -               | PASS |
-| `chat-session-update`      | id+updates               | 200/500/10000 | -                    | -               | PASS |
-| `chat-session-delete`      | id: string               | 200           | -                    | -               | PASS |
-| `chat-messages-load`       | sessionId: string        | 200           | -                    | -               | PASS |
-| `chat-message-save`        | 4 字段校验               | 200/100000    | -                    | role enum       | PASS |
-| `chat-presets-list`        | 无参数                   | -             | -                    | -               | PASS |
-| `chat-preset-save`         | 3 字段校验               | 200/10000     | id: isFinite, >=1    | -               | PASS |
-| `chat-preset-delete`       | id: number               | -             | isFinite, >=1        | -               | PASS |
-| `chat-memories-list`       | search: string (可选)    | 500           | -                    | -               | PASS |
-| `chat-memory-save`         | 7 字段校验               | 100-1000      | id: isFinite, >=1    | -               | PASS |
-| `chat-memory-delete`       | id: number               | -             | isFinite, >=1        | -               | PASS |
-| `chat-memory-capture`      | content+session_id       | 10000/200     | -                    | -               | PASS |
-| `knowledge-upload`         | dialog 系统对话框        | 10MB 文件限制 | -                    | 扩展名白名单    | PASS |
-| `knowledge-list`           | 无参数                   | -             | -                    | -               | PASS |
-| `knowledge-delete`         | id: number               | -             | isFinite, >=1        | -               | PASS |
-| `knowledge-search`         | query: string            | 1000          | -                    | -               | PASS |
-| `mistakes-list`            | 无参数                   | -             | -                    | -               | PASS |
-| `mistakes-get`             | id: number               | -             | isFinite, >=1        | -               | PASS |
-| `mistakes-update-analysis` | id+analysis              | 50000         | isFinite, >=1        | -               | PASS |
-| `mistakes-delete`          | id: number               | -             | isFinite, >=1        | -               | PASS |
-| `open-external`            | url: string              | 2000          | -                    | http/https only | PASS |
-| `perf-get-ipc-stats`       | 无参数                   | -             | -                    | -               | PASS |
-
-### 3.3 路径穿越检查
-
-**状态**：PASS
-
-- **knowledge-upload**：使用 Electron `dialog.showOpenDialog()` 系统文件选择器，用户无法注入路径。文件类型限制为 `.txt`、`.md`、`.pdf`
-- **problems-sync**：读取路径为 `process.resourcesPath/problems` 和 `__dirname/../../resources/problems`，均为硬编码路径，无用户输入参与
-- **codeRunner**：使用 UUID 命名临时文件，写入 `app.getPath('temp')/codehelper-run/` 目录，无路径穿越风险
-
-### 3.4 SQL 注入检查
-
-**状态**：PASS
-
-- 所有 SQL 查询均使用 `better-sqlite3` 的 prepared statements + `?` 参数绑定
-- `problems-list` 的 LIKE 查询使用 `params.push('%${filters.tag}%')`，参数化传递
-- `knowledge-search` 的动态 WHERE 子句构建为 `keywords.map(() => 'LOWER(kc.content) LIKE ?')`，参数通过 `.all(...params)` 安全传递
-- `chat-memories-list` 的 `markMemoriesUsed()` 使用 `ids.map(() => '?').join(',')` 构建 IN 子句，参数化绑定
-- SQL 执行沙箱 (`codeRunner.runSql`) 使用 `:memory:` 独立数据库，与应用数据库完全隔离
-
-### FINDING-IPC-1 [MEDIUM]：部分 IPC handlers 未应用中间件栈
-
-**文件**：`electron/ipc/*.ts` 各处理器
-
-**说明**：`open-external` 和 `perf-get-ipc-stats` 通过 `registerIpcHandler()` 注册，自动应用 `loggingMiddleware` + `errorMiddleware`。但其余 31 个 IPC handler 使用原生 `ipcMain.handle()` 注册，未经过中间件栈。
-
-**影响**：
-
-- 缺少统一的错误包装（错误消息直接暴露到渲染进程）
-- 缺少统一的日志记录（无法追踪异常调用模式）
-- 缺少速率限制（高频调用可能影响性能）
-
-**建议**：将所有 `ipcMain.handle()` 调用迁移至 `registerIpcHandler()`，为高写入频率的 handler（如 `chat-message-save`、`ai-chat`）添加速率限制中间件。
-
-### FINDING-IPC-2 [LOW]：`ai-fetch-models` 未验证 base_url 目标地址
-
-**文件**：`electron/ipc/database.ts` 第 140-171 行
-
-**说明**：`base_url` 仅验证了 `http:`/`https:` 协议，未阻止内网地址（如 `http://127.0.0.1`、`http://10.x.x.x`、`http://192.168.x.x`）。理论上可被利用进行 SSRF 探测内网服务。
-
-**风险评估**：低。此功能本身设计为连接用户自有的 AI API 服务，且 Electron 桌面应用的攻击面（无外部网络输入）使得远程利用极不可能。
-
-**建议**：如果需要加强防御，可在解析 URL 后检查 hostname 是否为保留 IP 地址段。
-
-### FINDING-IPC-3 [LOW]：知识库上传错误消息暴露文件路径
-
-**文件**：`electron/ipc/rag.ts` 第 31-33 行
-
-**说明**：错误消息 `无法读取文件 "${filename}"` 和文件大小检查中的 `文件 "${filename}"` 使用了用户选择的文件名。在 Electron 桌面应用场景下风险极低，但暴露的路径信息可能泄露用户目录结构。
-
-**建议**：在错误消息中仅显示文件名而非完整路径（当前实现已使用 `basename(filePath)`，实际上是安全的）。维持现状即可。
-
-### FINDING-IPC-4 [INFO]：IPC 中间件未应用于高危 handler
-
-**说明**：`db-save-ai-config`、`ai-chat`、`run-code`、`problems-submit` 等高影响力 handler 未通过 `registerIpcHandler()` 注册，因此缺少中间件栈的保护（日志、错误包装、速率限制）。
-
----
-
-## 4. Electron 安全审计
-
-### 4.1 webPreferences 加固
-
-**文件**：`electron/main.ts` 第 108-122 行
-
-| 选项                          | 设置值     | 评估                                           |
-| ----------------------------- | ---------- | ---------------------------------------------- |
-| `contextIsolation`            | `true`     | PASS - 渲染进程无法直接访问 Node.js API        |
-| `nodeIntegration`             | `false`    | PASS - 禁用 Node.js 集成                       |
-| `webSecurity`                 | `true`     | PASS - 启用同源策略                            |
-| `navigateOnDragDrop`          | `false`    | PASS - 禁止拖拽导航                            |
-| `sandbox`                     | 未显式设置 | INFO - Electron 20+ 默认为 false，建议显式设置 |
-| `webviewTag`                  | 未显式设置 | INFO - 默认 false，建议显式设置为 false        |
-| `allowRunningInsecureContent` | 未显式设置 | INFO - 默认 false，符合预期                    |
-| `experimentalFeatures`        | 未显式设置 | INFO - 默认 false，符合预期                    |
-
-### FINDING-ELEC-1 [LOW]：建议显式设置额外安全选项
-
-**文件**：`electron/main.ts` 第 115-121 行
-
-**说明**：以下选项虽有安全的默认值，但显式声明可防止 Electron 版本升级时默认值变更带来的安全回退：
-
-```typescript
-webPreferences: {
-  // ...existing...
-  sandbox: true,              // 显式启用沙箱
-  webviewTag: false,          // 显式禁用 webview 标签
-  allowRunningInsecureContent: false,
-  experimentalFeatures: false,
-}
-```
-
-**注意**：启用 `sandbox: true` 可能影响 preload 脚本中的 `require` 使用。当前 preload.ts 仅使用 `contextBridge` 和 `ipcRenderer`，应该兼容。需进行回归测试。
-
-### 4.2 导航攻击防御
-
-**状态**：PASS
-
-| 防御措施                                         | 实现位置        | 状态                                    |
-| ------------------------------------------------ | --------------- | --------------------------------------- |
-| `setWindowOpenHandler` 返回 `{ action: 'deny' }` | main.ts:165-179 | PASS - 阻止所有新窗口创建               |
-| URL 协议白名单 (http/https only)                 | main.ts:168     | PASS - 阻止 file/javascript/data 等协议 |
-| `navigateOnDragDrop: false`                      | main.ts:120     | PASS - 禁止拖拽导航                     |
-| `shell.openExternal` 协议限制                    | main.ts:195-199 | PASS - 仅允许 http/https                |
-| `shell.openExternal` 速率限制                    | main.ts:200-201 | PASS - 20 次/10 秒                      |
-
-### 4.3 shell.openExternal 安全
-
-**状态**：PASS
-
-- `open-external` IPC handler 验证 URL 为字符串、非空、长度 <= 2000
-- 使用 `new URL()` 解析，验证协议为 `http:` 或 `https:`
-- 速率限制：20 次/10 秒窗口
-- 菜单栏 "关于" 中的 `shell.openExternal(REPO_URL)` 使用硬编码的 GitHub URL，安全
-
-### 4.4 原型污染防御
-
-**状态**：PASS
-
-**preload.ts** 中的 `isSerializable()` 函数：
-
-- 检查 `obj.constructor`，拒绝非 `Object`/`Array` 构造函数的实例
-- 深度限制为 10 层，防止深层嵌套栈溢出
-- 拒绝 `function`、`symbol`、`bigint` 类型
-
-**渲染进程 stores**：使用 Zustand 的 `set()` 函数进行不可变更新，不存在直接对象合并（`Object.assign`、展开运算符）到用户输入的风险。
-
-### FINDING-ELEC-2 [INFO]：Electron Fuses 配置完整
-
-**文件**：`scripts/after-pack.js`
-
-已配置的 Fuses：
-
-| Fuse                                    | 值    | 作用                             |
-| --------------------------------------- | ----- | -------------------------------- |
-| `RunAsNode`                             | false | 防止 `ELECTRON_RUN_AS_NODE` 攻击 |
-| `EnableCookieEncryption`                | true  | 磁盘上加密 session cookies       |
-| `EnableNodeOptionsEnvironmentVariable`  | false | 阻止 `NODE_OPTIONS` 注入         |
-| `EnableNodeCliInspectArguments`         | false | 阻止生产环境 `--inspect` 调试    |
-| `EnableEmbeddedAsarIntegrityValidation` | true  | 验证 asar 包完整性               |
-| `OnlyLoadAppFromAsar`                   | true  | 强制仅从 asar 加载应用           |
-
-**评估**：Fuses 配置符合 Electron 安全最佳实践，覆盖面完整。
-
----
-
-## 5. 代码执行沙箱审计
-
-### 5.1 codeRunner.ts 安全措施
-
-**文件**：`electron/utils/codeRunner.ts`
-
-| 安全措施       | 实现                                     | 状态 |
-| -------------- | ---------------------------------------- | ---- |
-| 语言白名单     | switch-case：python, c, cpp, csharp, sql | PASS |
-| 并发控制       | MAX_CONCURRENT = 5                       | PASS |
-| 执行超时       | 10000ms（compile: 10000ms）              | PASS |
-| 输出大小限制   | MAX_OUTPUT_SIZE = 1MB                    | PASS |
-| 临时文件命名   | `randomUUID()` 前缀                      | PASS |
-| SQL 隔离       | `:memory:` 内存数据库                    | PASS |
-| SQL 数据库关闭 | `finally { db.close() }`                 | PASS |
-| 命令解析       | `resolveCommand()` + `where` 命令验证    | PASS |
-
-### FINDING-SANDBOX-1 [LOW]：无 OS 级资源限制
-
-**说明**：代码执行通过 `spawn()` 启动子进程，仅通过 Node.js 层面控制超时和并发。未使用操作系统级资源限制（如 Windows Job Objects 或 Linux cgroups）。
-
-**影响**：在超时前的 10 秒窗口内，恶意代码可消耗大量 CPU/内存资源。
-
-**风险评估**：低。这是桌面单用户应用，用户执行自己的代码，且 10 秒超时 + 5 并发限制提供了基本保护。
-
-**建议**：如需加强，可考虑：
-
-- Windows：使用 Job Objects 限制进程内存
-- 设置 `spawn` 的 `maxBuffer` 选项
-- 当前实现通过监听 stdout/stderr 长度检查已部分覆盖此风险
-
----
-
-## 6. 修复建议汇总
-
-### 立即行动（无代码变更）
-
-| 编号 | 建议                           | 优先级 |
-| ---- | ------------------------------ | ------ |
-| -    | 当前实现无需立即修复的安全问题 | -      |
-
-### 短期改进（下次迭代）
-
-| 编号           | 建议                                                      | 优先级          |
-| -------------- | --------------------------------------------------------- | --------------- |
-| FINDING-IPC-1  | 将所有 IPC handler 迁移至 `registerIpcHandler()` 中间件栈 | MEDIUM          |
-| FINDING-CVE-1  | 升级 vitest + @vitest/coverage-v8 到 v4.x                 | HIGH (dev-only) |
-| FINDING-ELEC-1 | 显式设置 `sandbox: true` 等 webPreferences 选项           | LOW             |
-
-### 长期跟踪
-
-| 编号              | 建议                                         | 优先级 |
-| ----------------- | -------------------------------------------- | ------ |
-| FINDING-CVE-2     | 监控 monaco-editor 新版本获取 dompurify 修复 | LOW    |
-| FINDING-IPC-2     | 评估是否需要阻止内网地址 SSRF                | LOW    |
-| FINDING-SANDBOX-1 | 评估 OS 级资源限制的可行性                   | LOW    |
-
----
-
-## 7. 风险接受记录
-
-以下发现经评估后接受风险，不进行修复：
-
-| 编号              | 发现                              | 风险接受理由                                                                           |
-| ----------------- | --------------------------------- | -------------------------------------------------------------------------------------- |
-| FINDING-CVE-1     | vitest critical CVE (dev-only)    | 仅影响 `vitest --ui` 开发服务器，CI 和生产不受影响。升级为 breaking change，需单独排期 |
-| FINDING-CVE-2     | dompurify moderate CVE (间接依赖) | 仅在 Monaco Editor 内部使用，桌面应用攻击面有限，无可用安全补丁                        |
-| FINDING-IPC-2     | base_url SSRF                     | 设计功能为连接用户自有 AI API，Electron 桌面应用无远程攻击面                           |
-| FINDING-SANDBOX-1 | 无 OS 级资源限制                  | 桌面单用户场景，10 秒超时 + 5 并发限制已提供基本保护                                   |
-
----
-
-## 8. 安全优势总结
-
-CodeHelper 在安全架构方面表现良好：
-
-1. **多层防御**：contextIsolation + preload 白名单 + 参数校验 + CSP + Fuses
-2. **输入校验全面**：所有 31 个 IPC handler 均有类型检查、长度截断和数值范围校验
-3. **SQL 注入零风险**：全面使用 prepared statements，无字符串拼接 SQL
-4. **路径穿越零风险**：无用户可控的文件路径参数
-5. **导航攻击防御完整**：新窗口阻止 + 协议白名单 + 速率限制
-6. **Electron Fuses 全面启用**：6 项安全 Fuse 全部正确配置
-7. **API Key 加密**：使用 `safeStorage` 系统级加密，兼容无加密环境降级
-8. **代码执行隔离**：语言白名单 + 并发控制 + 超时 + 输出限制 + 内存数据库
-
----
+正式 Windows 环境还要执行 `npm run build:win`，并保存签名、manifest、不可变 Release 和发布后
+重新下载证据。跳过的 Docker 或环境测试必须单独列出，不能被“全量通过”一句话隐藏。
 
 ## See Also
 
-- [安全模型](concepts/security-model.md) -- 安全架构详细说明
-- [依赖审计报告](dependency-audit.md) -- 依赖版本和 CVE 详情
-- [IPC 协议](developer-guide/ipc-protocol.md) -- IPC 通道定义和类型
-- [架构文档](architecture.md) -- 整体架构与进程模型
+- [依赖审计报告](dependency-audit.md)
+- [安全模型](concepts/security-model.md)
+- [数据可移植性](data-portability.md)
+- [备份与恢复手册](guides/backup-restore-runbook.md)
+- [发布回滚手册](guides/rollback-runbook.md)
+- [构建与发布](guides/deployment.md)
+- [发布与回滚清单](guides/release-checklist.md)

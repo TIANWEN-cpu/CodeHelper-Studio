@@ -4,6 +4,7 @@ import {
   KnowledgeDocDetail,
   ResourcePackImportResult,
   SearchResult,
+  getRetrievalStatus,
   getDocument,
   getDocuments,
   importResourcePack,
@@ -11,18 +12,22 @@ import {
   uploadDocument,
   deleteDocument,
 } from '../services/knowledgeService'
+import type { KnowledgeRetrievalStatus } from '../shared/knowledgeRetrievalContract'
 
 export interface UseKnowledgeDataReturn {
   documents: KnowledgeDoc[]
   selectedDocument: KnowledgeDocDetail | null
   loadingDocument: boolean
   searchResults: SearchResult[]
+  retrievalStatus: KnowledgeRetrievalStatus | null
+  loadingRetrievalStatus: boolean
   loading: boolean
   uploading: boolean
   importingResourcePack: boolean
   error: string | null
   lastResourcePackImport: ResourcePackImportResult | null
   loadDocuments: () => Promise<void>
+  loadRetrievalStatus: () => Promise<void>
   loadDocument: (id: number) => Promise<KnowledgeDocDetail | null>
   search: (query: string) => Promise<void>
   upload: () => Promise<void>
@@ -35,6 +40,8 @@ export function useKnowledgeData(): UseKnowledgeDataReturn {
   const [selectedDocument, setSelectedDocument] = useState<KnowledgeDocDetail | null>(null)
   const [loadingDocument, setLoadingDocument] = useState(false)
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const [retrievalStatus, setRetrievalStatus] = useState<KnowledgeRetrievalStatus | null>(null)
+  const [loadingRetrievalStatus, setLoadingRetrievalStatus] = useState(false)
   const [loadingDocuments, setLoadingDocuments] = useState(false)
   const [searching, setSearching] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -70,13 +77,27 @@ export function useKnowledgeData(): UseKnowledgeDataReturn {
     setSearching(true)
     setError(null)
     try {
-      const results = await searchDocuments(query)
-      if (searchRequestId.current === requestId) setSearchResults(results)
+      const response = await searchDocuments(query)
+      if (searchRequestId.current === requestId) {
+        setSearchResults(response.results)
+        setRetrievalStatus(response.retrieval)
+      }
     } catch (err) {
       if (searchRequestId.current !== requestId) return
       setError(err instanceof Error ? err.message : '搜索失败')
     } finally {
       if (searchRequestId.current === requestId) setSearching(false)
+    }
+  }, [])
+
+  const loadRetrievalStatus = useCallback(async () => {
+    setLoadingRetrievalStatus(true)
+    try {
+      setRetrievalStatus(await getRetrievalStatus())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载检索能力状态失败')
+    } finally {
+      setLoadingRetrievalStatus(false)
     }
   }, [])
 
@@ -149,20 +170,24 @@ export function useKnowledgeData(): UseKnowledgeDataReturn {
   )
 
   useEffect(() => {
-    loadDocuments()
-  }, [loadDocuments])
+    void loadDocuments()
+    void loadRetrievalStatus()
+  }, [loadDocuments, loadRetrievalStatus])
 
   return {
     documents,
     selectedDocument,
     loadingDocument,
     searchResults,
+    retrievalStatus,
+    loadingRetrievalStatus,
     loading,
     uploading,
     importingResourcePack,
     error,
     lastResourcePackImport,
     loadDocuments,
+    loadRetrievalStatus,
     loadDocument,
     search,
     upload,

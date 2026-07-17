@@ -137,11 +137,12 @@ interface Window {
 
 ### Q: 如何重置数据库？
 
-删除数据库文件后重启应用，会自动重新创建。
+重置是不可逆操作，不应作为数据库错误的普通排查手段。先完全退出应用并备份同目录中的 `codehelper.db`、`codehelper.db-wal`、`codehelper.db-shm`，然后把它们移动到应用数据目录之外，再启动应用创建新库。
 
 ```bash
 # Windows
-del "%APPDATA%\codehelper\codehelper.db"
+mkdir "%USERPROFILE%\Desktop\codehelper-db-backup"
+move "%APPDATA%\codehelper\codehelper.db*" "%USERPROFILE%\Desktop\codehelper-db-backup\"
 
 # 重启应用
 npm run dev

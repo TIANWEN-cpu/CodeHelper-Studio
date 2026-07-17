@@ -19,7 +19,11 @@ import { motion, AnimatePresence } from 'motion/react'
 import { usePracticeData } from '@/hooks/usePracticeData'
 import { consumePendingDeepLink, subscribeDeepLink } from '@/lib/deepLink'
 import { recordRecent } from '@/lib/recentItems'
-import { readPracticeSession, writePracticeSession } from '@/utils/practiceSession'
+import {
+  clearPracticeSession,
+  readPracticeSession,
+  writePracticeSession,
+} from '@/utils/practiceSession'
 import { toast } from '@/stores/toastStore'
 import { exerciseTabId, useEditorStore } from '@/stores/editorStore'
 import { getEditorTabCloseWarning } from '@/utils/editorTabClose'
@@ -27,7 +31,11 @@ import {
   closeEditorWorkspaceTabLocally,
   getEditorTabPersistenceState,
   requestCloseEditorWorkspaceTab,
+  resolveEditorWorkspaceConflict,
 } from '@/services/editorWorkspaceSync'
+import { onEditorWorkspaceChanged } from '@/services/editorWorkspaceService'
+import { isPracticeTab, practiceTabKind } from '@/utils/practiceTabs'
+import { getPracticeDraftCloseWarning } from '@/services/practiceDraftSession'
 
 // ---- Difficulty helpers ----
 
@@ -44,6 +52,11 @@ const difficultyColor: Record<string, string> = {
 }
 
 const PAGE_SIZE = 80
+
+interface PracticeTabNotice {
+  tone: 'info' | 'error'
+  message: string
+}
 
 const EXERCISE_EXTENSION: Record<string, string> = {
   python: 'py',
@@ -114,7 +127,14 @@ export function PracticeView() {
   const [sourceFilter, setSourceFilter] = useState<'all' | 'exercise' | 'problem'>('all')
   const [detailTab, setDetailTab] = useState<'desc' | 'hints'>('desc')
   const [page, setPage] = useState(1)
+  const [tabCloseNotice, setTabCloseNotice] = useState<PracticeTabNotice | null>(null)
+  const [remotePracticeCloseEpoch, setRemotePracticeCloseEpoch] = useState(0)
   const initialTargetHandledRef = React.useRef(false)
+  const selectingExerciseIdsRef = React.useRef(new Set<string>())
+  const locallyClosingTabIdsRef = React.useRef(new Set<string>())
+  const knownOpenPracticeTabIdsRef = React.useRef(new Set<string>())
+  const remotePracticeCloseHandlingRef = React.useRef(new Set<string>())
+  const remotelyClosedPracticeTabIdsRef = React.useRef(new Set<string>())
 
   const editorHydrated = useEditorStore((state) => state.hydrated)
   const editorTabs = useEditorStore((state) => state.tabs)
@@ -137,8 +157,11 @@ export function PracticeView() {
     draftSaving,
     draftDirty,
     draftError,
+    draftDegradedMessage,
+    draftRestoreMessage,
     draftConflict,
     flushDraft,
+    getRecoveryOnlyDraftCloseState,
     deactivateExercise,
     keepLocalDraft,
     reloadPersistedDraft,
@@ -146,122 +169,319 @@ export function PracticeView() {
 
   const handleSelectExercise = React.useCallback(
     async (id: string) => {
-      const selected = await selectExercise(id)
-      if (!selected) return false
+      selectingExerciseIdsRef.current.add(id)
+      try {
+        const resumesInMemoryDraft = currentExercise?.id === id
+        const selected = await selectExercise(id)
+        if (!selected && !resumesInMemoryDraft) return false
 
-      const exercise = exercises.find((item) => item.id === id)
-      const preferredLanguage = exercise?.languages?.[0] || 'python'
-      const tabId = exerciseTabId(id)
-      const state = useEditorStore.getState()
-      const openTab = state.tabs.find((tab) => tab.id === tabId)
-      const closedTab = state.recentlyClosedTabs.find((tab) => tab.id === tabId)
-      if (openTab) {
-        state.setActiveTab(tabId)
-      } else if (closedTab) {
-        state.reopenTab(tabId)
-      } else {
-        state.addTab({
-          id: tabId,
-          kind: 'exercise',
-          problemId: id,
-          filename: exerciseFilename(exercise?.title, id, preferredLanguage),
-          language: preferredLanguage,
-          content: '',
-        })
+        const exercise = exercises.find((item) => item.id === id)
+        const preferredLanguage = exercise?.languages?.[0] || 'python'
+        const tabKind = practiceTabKind(exercise?.source_type)
+        const tabId = exerciseTabId(id)
+        const state = useEditorStore.getState()
+        const openTab = state.tabs.find((tab) => tab.id === tabId)
+        const closedTab = state.recentlyClosedTabs.find((tab) => tab.id === tabId)
+        if (openTab) {
+          state.setActiveTab(tabId)
+        } else if (closedTab) {
+          state.reopenTab(tabId)
+        } else {
+          state.addTab({
+            id: tabId,
+            kind: tabKind,
+            problemId: id,
+            filename: exerciseFilename(exercise?.title, id, preferredLanguage),
+            language: preferredLanguage,
+            content: '',
+          })
+        }
+
+        if (useEditorStore.getState().tabs.some((tab) => tab.id === tabId)) {
+          knownOpenPracticeTabIdsRef.current.add(tabId)
+        }
+        recordRecent({ kind: 'exercise', id })
+        const sessionResult = writePracticeSession(id)
+        if (sessionResult.persisted) {
+          setTabCloseNotice(null)
+        } else {
+          const message = `练习已打开，但${sessionResult.error ?? '本地练习恢复状态写入失败'}；重启恢复将以标签工作区为准`
+          setTabCloseNotice({ tone: 'error', message })
+          setPanelCollapsed(false)
+          toast.error(message, 0)
+        }
+        setDetailTab('desc')
+        setViewMode('detail')
+        return true
+      } finally {
+        selectingExerciseIdsRef.current.delete(id)
       }
-
-      recordRecent({ kind: 'exercise', id })
-      writePracticeSession(id)
-      setDetailTab('desc')
-      setViewMode('detail')
-      return true
     },
-    [exercises, selectExercise],
+    [currentExercise?.id, exercises, selectExercise],
+  )
+
+  const preservePracticeTabLocally = React.useCallback(
+    (snapshot: {
+      id: string
+      title: string
+      sourceType: 'exercise' | 'problem' | undefined
+      language: string
+    }) => {
+      const tabId = exerciseTabId(snapshot.id)
+      useEditorStore.setState((state) => {
+        const existing =
+          state.tabs.find((tab) => tab.id === tabId) ??
+          state.recentlyClosedTabs.find((tab) => tab.id === tabId)
+        const localTab = {
+          ...(existing ?? {}),
+          id: tabId,
+          kind: practiceTabKind(snapshot.sourceType),
+          problemId: snapshot.id,
+          filename: exerciseFilename(snapshot.title, snapshot.id, snapshot.language),
+          language: snapshot.language,
+          content: '',
+          localOnly: true as const,
+          updatedAt: new Date().toISOString(),
+        }
+        return {
+          tabs: [...state.tabs.filter((tab) => tab.id !== tabId), localTab],
+          activeTabId: tabId,
+          recentlyClosedTabs: state.recentlyClosedTabs.filter((tab) => tab.id !== tabId),
+          dirty: true,
+        }
+      })
+      useEditorStore.getState().setActiveTab(tabId)
+      knownOpenPracticeTabIdsRef.current.add(tabId)
+    },
+    [],
+  )
+
+  React.useEffect(
+    () =>
+      onEditorWorkspaceChanged((event) => {
+        if (
+          event.kind !== 'closed' ||
+          !isPracticeTab(event.tab) ||
+          locallyClosingTabIdsRef.current.has(event.tab.id)
+        ) {
+          return
+        }
+        remotelyClosedPracticeTabIdsRef.current.add(event.tab.id)
+        setRemotePracticeCloseEpoch((epoch) => epoch + 1)
+      }),
+    [],
   )
 
   const handleCloseExerciseTab = React.useCallback(
     async (tabId: string) => {
       const beforeClose = useEditorStore.getState()
       const tab = beforeClose.tabs.find((item) => item.id === tabId)
-      if (!tab || tab.kind !== 'exercise') return
-      const exerciseTabs = beforeClose.tabs.filter((item) => item.kind === 'exercise')
+      if (!tab || !isPracticeTab(tab)) return
+      const exerciseTabs = beforeClose.tabs.filter((item) => isPracticeTab(item))
       const closedIndex = exerciseTabs.findIndex((item) => item.id === tabId)
       const wasActive = beforeClose.activeTabId === tabId
 
-      if (wasActive) {
-        const result = await flushDraft()
-        if (result.durability === 'none') {
-          toast.error(result.error ?? '草稿未能写入数据库或恢复区，标签保持打开')
+      locallyClosingTabIdsRef.current.add(tabId)
+      try {
+        let draftCloseWarning: string | null = null
+        let draftCloseConflict = false
+        if (wasActive) {
+          const result = await flushDraft()
+          if (result.durability === 'none') {
+            toast.error(result.error ?? '草稿未能写入数据库或恢复区，标签保持打开')
+            return
+          }
+          draftCloseConflict = draftConflict || Boolean(result.conflict)
+          draftCloseWarning = getPracticeDraftCloseWarning({
+            durability: result.durability,
+            conflict: draftCloseConflict,
+            error: result.error,
+          })
+          if (draftCloseWarning && !window.confirm(draftCloseWarning)) return
+          if (draftCloseConflict) {
+            toast.info('草稿版本冲突仍未处理，最新本地内容仅保存在恢复区')
+          } else if (result.durability === 'recovery') {
+            toast.info('SQLite 草稿保存不可用，最新内容仅保存在本地恢复区')
+          }
+        } else if (tab.problemId) {
+          const recoveryOnlyState = getRecoveryOnlyDraftCloseState(tab.problemId)
+          draftCloseWarning = recoveryOnlyState
+            ? getPracticeDraftCloseWarning(recoveryOnlyState)
+            : null
+          if (draftCloseWarning && !window.confirm(draftCloseWarning)) return
+        }
+
+        const persistence = getEditorTabPersistenceState(tabId)
+        const editorState = useEditorStore.getState()
+        const warning = getEditorTabCloseWarning({
+          pending: persistence.pending,
+          conflict: persistence.conflict,
+          degraded: persistence.degraded || editorState.databaseStatus === 'degraded',
+          persistenceError: editorState.persistenceError,
+          error: persistence.error ?? editorState.databaseError,
+        })
+        if (warning && !window.confirm(warning)) return
+
+        if (exerciseTabs.length === 1) {
+          const sessionResult = clearPracticeSession()
+          if (!sessionResult.persisted) {
+            const message = `${sessionResult.error ?? '本地练习恢复状态写入失败'}，标签保持打开`
+            setTabCloseNotice({ tone: 'error', message })
+            setPanelCollapsed(false)
+            toast.error(message, 0)
+            return
+          }
+        }
+
+        let closed = await requestCloseEditorWorkspaceTab(tabId)
+        if (!closed) {
+          const closeLocally = window.confirm(
+            'SQLite 标签同步仍未成功。确定后将仅在本地关闭标签，练习代码仍由草稿恢复区保护。',
+          )
+          if (!closeLocally) return
+          await closeEditorWorkspaceTabLocally(tabId)
+          closed = true
+          toast.info('练习标签已仅在本地关闭，可从最近关闭中恢复')
+        }
+        if (!closed) return
+
+        const remaining = useEditorStore.getState().tabs.filter((item) => isPracticeTab(item))
+        if (!wasActive && remaining.length > 0) return
+        const next =
+          remaining[Math.min(Math.max(closedIndex, 0), Math.max(remaining.length - 1, 0))]
+        if (next?.problemId) {
+          const switched = await handleSelectExercise(next.problemId)
+          if (!switched) {
+            useEditorStore.getState().reopenTab(tabId)
+            toast.error('无法安全切换到下一个练习，已重新打开原标签')
+          }
           return
         }
-        if (result.durability === 'recovery') {
-          toast.info('数据库暂不可用，最新草稿已保存在本地恢复区')
-        }
-      }
 
-      const persistence = getEditorTabPersistenceState(tabId)
-      const editorState = useEditorStore.getState()
-      const warning = getEditorTabCloseWarning({
-        pending: persistence.pending,
-        conflict: persistence.conflict,
-        degraded: persistence.degraded || editorState.databaseStatus === 'degraded',
-        persistenceError: editorState.persistenceError,
-        error: persistence.error ?? editorState.databaseError,
-      })
-      if (warning && !window.confirm(warning)) return
-
-      let closed = await requestCloseEditorWorkspaceTab(tabId)
-      if (!closed) {
-        const closeLocally = window.confirm(
-          'SQLite 标签同步仍未成功。确定后将仅在本地关闭标签，练习代码仍由草稿恢复区保护。',
-        )
-        if (!closeLocally) return
-        await closeEditorWorkspaceTabLocally(tabId)
-        closed = true
-        toast.info('练习标签已仅在本地关闭，可从最近关闭中恢复')
-      }
-      if (!closed || !wasActive) return
-
-      const remaining = useEditorStore.getState().tabs.filter((item) => item.kind === 'exercise')
-      const next = remaining[Math.min(Math.max(closedIndex, 0), Math.max(remaining.length - 1, 0))]
-      if (next?.problemId) {
-        const switched = await handleSelectExercise(next.problemId)
-        if (!switched) {
+        const deactivated = await deactivateExercise(tab.problemId)
+        if (deactivated.outcome === 'exercise-changed') return
+        if (deactivated.durability === 'none') {
           useEditorStore.getState().reopenTab(tabId)
-          toast.error('无法安全切换到下一个练习，已重新打开原标签')
+          const message = deactivated.error ?? '无法安全关闭最后一个练习标签'
+          setTabCloseNotice({ tone: 'error', message })
+          setPanelCollapsed(false)
+          toast.error(message, 0)
+          return
         }
+        knownOpenPracticeTabIdsRef.current.delete(tabId)
+        setViewMode('list')
+      } finally {
+        locallyClosingTabIdsRef.current.delete(tabId)
+      }
+    },
+    [
+      deactivateExercise,
+      draftConflict,
+      flushDraft,
+      getRecoveryOnlyDraftCloseState,
+      handleSelectExercise,
+    ],
+  )
+
+  React.useEffect(() => {
+    if (!editorHydrated || !currentExercise) return
+    const tabId = exerciseTabId(currentExercise.id)
+    const open = editorTabs.some((tab) => tab.id === tabId && isPracticeTab(tab))
+    const remoteCloseSignaled = remotelyClosedPracticeTabIdsRef.current.has(tabId)
+    if (open && !remoteCloseSignaled) {
+      knownOpenPracticeTabIdsRef.current.add(tabId)
+      return
+    }
+    if (
+      (!remoteCloseSignaled && !knownOpenPracticeTabIdsRef.current.has(tabId)) ||
+      selectingExerciseIdsRef.current.has(currentExercise.id) ||
+      locallyClosingTabIdsRef.current.has(tabId) ||
+      remotePracticeCloseHandlingRef.current.has(tabId)
+    ) {
+      return
+    }
+
+    const snapshot = {
+      id: currentExercise.id,
+      title: currentExercise.title,
+      sourceType: currentExercise.source_type,
+      language,
+    }
+    remotePracticeCloseHandlingRef.current.add(tabId)
+    void (async () => {
+      const remainingPracticeTab = editorTabs.find(
+        (tab) => tab.id !== tabId && isPracticeTab(tab) && tab.problemId,
+      )
+      const sessionResult = remainingPracticeTab?.problemId
+        ? writePracticeSession(remainingPracticeTab.problemId)
+        : clearPracticeSession()
+      if (!sessionResult.persisted) {
+        preservePracticeTabLocally(snapshot)
+        const message = `另一个窗口关闭了“${snapshot.title}”标签，但${sessionResult.error ?? '本地练习恢复状态写入失败'}。已在本窗口保留本地标签和内存内容，请勿关闭窗口。`
+        setTabCloseNotice({ tone: 'error', message })
+        setPanelCollapsed(false)
+        toast.error(message, 0)
         return
       }
 
-      const deactivated = await deactivateExercise()
-      if (deactivated.durability === 'none') {
-        useEditorStore.getState().reopenTab(tabId)
-        toast.error(deactivated.error ?? '无法安全关闭最后一个练习标签')
+      const result = await deactivateExercise(snapshot.id)
+      if (result.outcome === 'exercise-changed') return
+      if (result.outcome === 'persistence-failed') {
+        preservePracticeTabLocally(snapshot)
+        const message = `另一个窗口关闭了“${snapshot.title}”标签，但草稿无法写入数据库或恢复区。已在本窗口保留本地标签和内存内容，请勿关闭窗口。${result.error ? ` ${result.error}` : ''}`
+        setTabCloseNotice({ tone: 'error', message })
+        setPanelCollapsed(false)
+        toast.error(message, 0)
         return
       }
+
+      await resolveEditorWorkspaceConflict('use-database', tabId)
+      knownOpenPracticeTabIdsRef.current.delete(tabId)
+      const message =
+        result.durability === 'recovery'
+          ? `另一个窗口已关闭“${snapshot.title}”标签；最新草稿仅保存在本地恢复区，已返回题库。`
+          : `另一个窗口已关闭“${snapshot.title}”标签；草稿已保存，已返回题库。`
+      setTabCloseNotice({ tone: 'info', message })
       setViewMode('list')
-    },
-    [deactivateExercise, flushDraft, handleSelectExercise],
-  )
+      setPanelCollapsed(false)
+      toast.info(message)
+    })().finally(() => {
+      remotelyClosedPracticeTabIdsRef.current.delete(tabId)
+      remotePracticeCloseHandlingRef.current.delete(tabId)
+    })
+  }, [
+    currentExercise,
+    deactivateExercise,
+    editorHydrated,
+    editorTabs,
+    language,
+    preservePracticeTabLocally,
+    remotePracticeCloseEpoch,
+  ])
 
   React.useEffect(() => {
     if (!currentExercise) return
     const tabId = exerciseTabId(currentExercise.id)
     const tab = useEditorStore.getState().tabs.find((item) => item.id === tabId)
     if (!tab) return
+    const tabKind = practiceTabKind(currentExercise.source_type)
     const filename = exerciseFilename(currentExercise.title, currentExercise.id, language)
     if (
       tab.filename === filename &&
       tab.language === language &&
-      tab.problemId === currentExercise.id
+      tab.problemId === currentExercise.id &&
+      tab.kind === tabKind &&
+      tab.content === ''
     )
       return
     useEditorStore.getState().updateTab(tabId, {
       filename,
       language,
       problemId: currentExercise.id,
+      kind: tabKind,
+      content: '',
     })
-  }, [currentExercise, language])
+  }, [code, currentExercise, language])
 
   // Restored active exercise topology is authoritative. The old session key is only a fallback.
   React.useEffect(() => {
@@ -269,7 +489,7 @@ export function PracticeView() {
     initialTargetHandledRef.current = true
     const pending = consumePendingDeepLink('exercise')
     const activeExercise = editorTabs.find(
-      (tab) => tab.id === activeEditorTabId && tab.kind === 'exercise' && tab.problemId,
+      (tab) => tab.id === activeEditorTabId && isPracticeTab(tab) && tab.problemId,
     )
     const target = pending ?? activeExercise?.problemId ?? readPracticeSession()?.exerciseId
     if (target) void handleSelectExercise(target)
@@ -328,6 +548,19 @@ export function PracticeView() {
             className="shrink-0 overflow-hidden z-10 bg-[var(--color-bg-base)] border-r border-[var(--color-border-subtle)]"
           >
             <div className="flex flex-col h-full w-[500px] overflow-y-auto custom-scrollbar">
+              {tabCloseNotice && (
+                <div
+                  role={tabCloseNotice.tone === 'error' ? 'alert' : 'status'}
+                  className={cn(
+                    'shrink-0 border-b px-4 py-2 text-xs leading-relaxed',
+                    tabCloseNotice.tone === 'error'
+                      ? 'border-red-400/40 bg-red-950/70 text-red-100'
+                      : 'border-sky-400/35 bg-sky-950/70 text-sky-100',
+                  )}
+                >
+                  {tabCloseNotice.message}
+                </div>
+              )}
               {viewMode === 'list' ? (
                 /* ---------- Exercise List View ---------- */
                 <div className="flex flex-col h-full">
@@ -717,6 +950,8 @@ export function PracticeView() {
                   draftSaving,
                   draftDirty,
                   draftError,
+                  draftDegradedMessage,
+                  draftRestoreMessage,
                   draftConflict,
                   keepLocalDraft,
                   reloadPersistedDraft,

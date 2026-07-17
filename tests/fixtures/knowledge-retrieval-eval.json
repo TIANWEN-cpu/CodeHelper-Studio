@@ -1,0 +1,71 @@
+{
+  "chunks": [
+    {
+      "id": 1,
+      "doc_id": 1,
+      "filename": "algorithms/binary-search.md",
+      "chunk_index": 0,
+      "content": "Binary search locates a target in a sorted array by repeatedly halving the search interval. 二分查找要求数据有序。"
+    },
+    {
+      "id": 2,
+      "doc_id": 2,
+      "filename": "algorithms/dynamic-programming.md",
+      "chunk_index": 0,
+      "content": "Dynamic programming solves overlapping subproblems and stores reusable states. 动态规划通常包含状态定义和转移方程。"
+    },
+    {
+      "id": 3,
+      "doc_id": 3,
+      "filename": "c/memory-management.md",
+      "chunk_index": 0,
+      "content": "A memory leak happens when malloc allocated memory is no longer reachable but was never released with free."
+    },
+    {
+      "id": 4,
+      "doc_id": 4,
+      "filename": "algorithms/graph-traversal.md",
+      "chunk_index": 0,
+      "content": "Breadth first search uses a queue to visit graph nodes level by level. 广度优先遍历适合求无权图最短层数。"
+    },
+    {
+      "id": 5,
+      "doc_id": 5,
+      "filename": "csharp/async-await.md",
+      "chunk_index": 0,
+      "content": "C# async and await should avoid blocking on Task.Result because synchronization contexts can cause a deadlock."
+    },
+    {
+      "id": 6,
+      "doc_id": 6,
+      "filename": "data-structures/hash-table.md",
+      "chunk_index": 0,
+      "content": "Hash tables resolve collisions with chaining or open addressing. 哈希表需要处理散列冲突和负载因子。"
+    },
+    {
+      "id": 7,
+      "doc_id": 7,
+      "filename": "sql/joins-and-grouping.md",
+      "chunk_index": 0,
+      "content": "SQL JOIN combines rows across tables, while GROUP BY aggregates rows before HAVING filters groups."
+    },
+    {
+      "id": 8,
+      "doc_id": 8,
+      "filename": "algorithms/shortest-path.md",
+      "chunk_index": 0,
+      "content": "Dijkstra computes shortest paths with a priority queue when edge weights are non-negative."
+    }
+  ],
+  "cases": [
+    { "query": "binary search sorted array", "expected": "algorithms/binary-search.md" },
+    { "query": "二分搜索 有序数组", "expected": "algorithms/binary-search.md" },
+    { "query": "动态规划 重叠子问题", "expected": "algorithms/dynamic-programming.md" },
+    { "query": "内存泄漏 malloc free", "expected": "c/memory-management.md" },
+    { "query": "BFS queue level traversal", "expected": "algorithms/graph-traversal.md" },
+    { "query": "C# async await deadlock", "expected": "csharp/async-await.md" },
+    { "query": "哈希表冲突 chaining", "expected": "data-structures/hash-table.md" },
+    { "query": "SQL join group by", "expected": "sql/joins-and-grouping.md" },
+    { "query": "最短路径 priority queue", "expected": "algorithms/shortest-path.md" }
+  ]
+}

@@ -36,6 +36,7 @@ describe('resolvePracticeDraft', () => {
       dirty: true,
       autosave: true,
       conflict: false,
+      recovered: true,
     })
   })
 
@@ -47,7 +48,12 @@ describe('resolvePracticeDraft', () => {
         'starter',
         'python',
       ),
-    ).toMatchObject({ dirty: false, discardRecovery: true, conflict: false })
+    ).toMatchObject({
+      dirty: false,
+      discardRecovery: true,
+      conflict: false,
+      recovered: false,
+    })
   })
 
   it('preserves a conflicting local snapshot without auto-overwriting the durable version', () => {
@@ -64,6 +70,7 @@ describe('resolvePracticeDraft', () => {
       dirty: true,
       autosave: false,
       conflict: true,
+      recovered: true,
     })
   })
 
@@ -74,10 +81,21 @@ describe('resolvePracticeDraft', () => {
       baseRevision: 0,
       autosave: true,
       conflict: false,
+      recovered: true,
     })
     expect(resolvePracticeDraft(draft(), legacy, 'starter', 'python')).toMatchObject({
       autosave: false,
       conflict: true,
+      recovered: true,
+    })
+  })
+
+  it('does not report a normal durable draft as recovered', () => {
+    expect(resolvePracticeDraft(draft(), null, 'starter', 'python')).toMatchObject({
+      snapshot: { code: 'saved', language: 'python' },
+      dirty: false,
+      conflict: false,
+      recovered: false,
     })
   })
 

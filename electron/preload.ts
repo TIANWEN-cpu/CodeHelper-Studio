@@ -5,6 +5,8 @@ console.log('[STARTUP] Preload script executing...')
 export const allowedInvokeChannels = new Set([
   'app-close-flush-complete',
   'run-code',
+  'runner-detect-toolchains',
+  'runner-isolation-info',
   'db-get-setting',
   'db-set-setting',
   'db-get-ai-configs',
@@ -13,6 +15,17 @@ export const allowedInvokeChannels = new Set([
   'db-get-default-ai-config',
   'ai-fetch-models',
   'ai-chat',
+  'ai-chat-cancel',
+  'agent-tools-list',
+  'agent-runs-list',
+  'agent-audit-list',
+  'agent-run-create',
+  'agent-run-approve',
+  'agent-run-reject',
+  'agent-run-cancel',
+  'agent-run-model-started',
+  'agent-run-complete',
+  'agent-run-fail',
   'problems-list',
   'problems-get',
   'problems-submit',
@@ -26,6 +39,7 @@ export const allowedInvokeChannels = new Set([
   'knowledge-get',
   'knowledge-delete',
   'knowledge-search',
+  'knowledge-retrieval-status',
   // Advanced knowledge features
   'knowledge-semantic-search',
   'knowledge-summarize',
@@ -64,10 +78,14 @@ export const allowedInvokeChannels = new Set([
   'demo-load-data',
   // Export/Import
   'export-data',
-  'export-data-to-path',
   'import-data',
-  'import-data-from-path',
   'export-get-counts',
+  // Data protection and diagnostics
+  'database-backups-list',
+  'database-backup-create',
+  'database-backups-open-directory',
+  'recovery-layer-export',
+  'system-capabilities-get',
   // Performance
   'perf-get-ipc-stats',
   // Lessons
@@ -137,6 +155,7 @@ export function isSerializable(value: unknown, depth = 0): boolean {
 }
 
 const api = {
+  recoveryBootId: process.env.CODEHELPER_RECOVERY_BOOT_ID ?? '',
   invoke: (channel: string, ...args: unknown[]) => {
     if (typeof channel !== 'string') {
       const err = 'IPC channel 必须是字符串'
