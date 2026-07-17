@@ -19,6 +19,7 @@ vi.mock('electron', () => ({
 const knowledgeDocs: Array<{ id: number; filename: string; chunk_count: number }> = []
 const knowledgeChunks: Array<{ doc_id: number; content: string; chunk_index: number }> = []
 const problems: Array<{ id: number; title: string; source: string; description: string }> = []
+let failKnowledgeChunkAt: number | null = null
 
 const mockDB = {
   prepare: vi.fn((sql: string) => {
@@ -37,6 +38,7 @@ const mockDB = {
     if (sql.includes('INSERT INTO knowledge_chunks')) {
       return {
         run: vi.fn((docId: number, content: string, chunkIndex: number) => {
+          if (chunkIndex === failKnowledgeChunkAt) throw new Error('chunk insert failed')
           knowledgeChunks.push({ doc_id: docId, content, chunk_index: chunkIndex })
           return { lastInsertRowid: knowledgeChunks.length }
         }),
@@ -45,18 +47,32 @@ const mockDB = {
     if (sql.includes('SELECT id FROM problems WHERE title = ? AND source = ?')) {
       return {
         get: vi.fn((title: string, source: string) => {
-          const found = problems.find((problem) => problem.title === title && problem.source === source)
+          const found = problems.find(
+            (problem) => problem.title === title && problem.source === source,
+          )
           return found ? { id: found.id } : undefined
         }),
       }
     }
     if (sql.includes('INSERT INTO problems')) {
       return {
-        run: vi.fn((title: string, description: string, _difficulty: string, _tags: string, _languages: string, _examples: string, _testCases: string, _starterCode: string, source: string) => {
-          const id = problems.length + 1
-          problems.push({ id, title, description, source })
-          return { lastInsertRowid: id }
-        }),
+        run: vi.fn(
+          (
+            title: string,
+            description: string,
+            _difficulty: string,
+            _tags: string,
+            _languages: string,
+            _examples: string,
+            _testCases: string,
+            _starterCode: string,
+            source: string,
+          ) => {
+            const id = problems.length + 1
+            problems.push({ id, title, description, source })
+            return { lastInsertRowid: id }
+          },
+        ),
       }
     }
     if (sql.includes('UPDATE problems')) {
@@ -71,7 +87,19 @@ const mockDB = {
     }
     return { get: vi.fn(), all: vi.fn(() => []), run: vi.fn() }
   }),
-  transaction: vi.fn((fn: () => void) => () => fn()),
+  transaction: vi.fn((fn: (...args: unknown[]) => unknown) => (...args: unknown[]) => {
+    const docsSnapshot = knowledgeDocs.map((doc) => ({ ...doc }))
+    const chunksSnapshot = knowledgeChunks.map((chunk) => ({ ...chunk }))
+    const problemsSnapshot = problems.map((problem) => ({ ...problem }))
+    try {
+      return fn(...args)
+    } catch (error) {
+      knowledgeDocs.splice(0, knowledgeDocs.length, ...docsSnapshot)
+      knowledgeChunks.splice(0, knowledgeChunks.length, ...chunksSnapshot)
+      problems.splice(0, problems.length, ...problemsSnapshot)
+      throw error
+    }
+  }),
 }
 
 vi.mock('../electron/db/index', () => ({
@@ -84,7 +112,10 @@ function createPackRoot() {
   tempRoot = mkdtempSync(join(tmpdir(), 'codehelper-pack-'))
   mkdirSync(join(tempRoot, 'knowledge-docs', 'core'), { recursive: true })
   mkdirSync(join(tempRoot, 'problems'), { recursive: true })
-  writeFileSync(join(tempRoot, 'manifest.json'), JSON.stringify({ generated_at: '2026-06-06T00:00:00Z' }))
+  writeFileSync(
+    join(tempRoot, 'manifest.json'),
+    JSON.stringify({ generated_at: '2026-06-06T00:00:00Z' }),
+  )
   writeFileSync(
     join(tempRoot, 'knowledge-docs', 'core', 'tcp.md'),
     '# TCP\n\n三次握手和可靠传输。\n\n'.repeat(80),
@@ -115,6 +146,7 @@ describe('resource pack import', () => {
     knowledgeDocs.length = 0
     knowledgeChunks.length = 0
     problems.length = 0
+    failKnowledgeChunkAt = null
     mockDB.prepare.mockClear()
     mockDB.transaction.mockClear()
   })
@@ -164,6 +196,19 @@ describe('resource pack import', () => {
     expect(result.problems.updated).toBe(1)
     expect(knowledgeDocs).toHaveLength(1)
     expect(problems).toHaveLength(1)
+  })
+
+  it('rolls back a knowledge document when one of its chunks fails to insert', async () => {
+    const rootPath = createPackRoot()
+    failKnowledgeChunkAt = 1
+    const { importResourcePackFromDirectory } = await import('../electron/ipc/resourcePack')
+
+    const result = importResourcePackFromDirectory(rootPath)
+
+    expect(result.knowledge).toMatchObject({ imported: 0, skipped: 1, chunks: 0 })
+    expect(result.errors).toContain('知识文档导入失败 core/tcp.md: chunk insert failed')
+    expect(knowledgeDocs).toEqual([])
+    expect(knowledgeChunks).toEqual([])
   })
 
   it('rejects directories without knowledge-docs or problems', async () => {

@@ -126,6 +126,22 @@ describe('IPC 通道白名单', () => {
     expect(allowedEventChannels.has('editor-workspace-changed')).toBe(true)
   })
 
+  it('只暴露受约束的数据保护与能力通道，不暴露任意文件路径导入导出', () => {
+    const maintenanceChannels = [
+      'database-backups-list',
+      'database-backup-create',
+      'database-backups-open-directory',
+      'recovery-layer-export',
+      'system-capabilities-get',
+    ]
+    for (const channel of maintenanceChannels) {
+      expect(allowedInvokeChannels.has(channel)).toBe(true)
+    }
+
+    expect(allowedInvokeChannels.has('export-data-to-path')).toBe(false)
+    expect(allowedInvokeChannels.has('import-data-from-path')).toBe(false)
+  })
+
   it('白名单非空', () => {
     expect(allowedInvokeChannels.size).toBeGreaterThan(10)
     expect(allowedEventChannels.size).toBeGreaterThanOrEqual(2)

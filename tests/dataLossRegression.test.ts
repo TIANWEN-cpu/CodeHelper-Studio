@@ -118,7 +118,8 @@ describe('data-loss regressions', () => {
   it('does not claim an unprobed local toolchain is ready', () => {
     const source = readFileSync('src/views/WorkspaceView.tsx', 'utf8')
 
-    expect(source).toContain('依赖本地工具链')
+    expect(source).toContain("? '工具链探测中'")
+    expect(source).toContain("languageToolchain?.status === 'ready'")
     expect(source).not.toContain('languageMeta(language).label} ready')
   })
 })

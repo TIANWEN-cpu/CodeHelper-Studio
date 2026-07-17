@@ -30,7 +30,9 @@
 - **macOS**: `xcode-select --install`
 - **Linux**: `sudo apt install build-essential python3`
 
-安装后执行 `rm -rf node_modules && npm install` 重新编译。
+安装后先执行 `npm install`。项目会为 Electron 自动准备 native 模块；运行测试时也会自动切换到
+Node ABI。需要手动诊断时可分别执行 `npm run native:electron` 或 `npm run native:node`，无需先删除
+整个 `node_modules`。
 
 ### Q: electron 下载超时怎么办？
 
@@ -68,7 +70,7 @@ npm config set registry https://registry.npmmirror.com
 
 ### Q: Node.js 版本要求是什么？
 
-要求 Node.js >= 18，推荐使用 LTS 版本。可通过 `node --version` 查看当前版本。
+要求 Node.js 20.19+ 或 22.13+ LTS。可通过 `node --version` 查看当前版本。
 
 ---
 
@@ -80,7 +82,9 @@ CodeHelper 使用 CodeMirror 6（通过 `@uiw/react-codemirror` 集成），支�
 
 ### Q: 编辑器标签页关闭后能恢复吗？
 
-标签页状态通过 localStorage 持久化，包括代码内容、光标位置和滚动位置。重启应用后自动恢复。清除浏览器数据会导致标签页丢失。
+可以。Electron 版本以 SQLite 中的版本化工作区为权威来源，保存普通文件、题目和练习标签的顺序、开关状态、语言、光标与滚动位置；普通文件和题目内容也随工作区持久化。练习代码使用独立的练习草稿 SQLite / recovery 流程，避免与标签拓扑双写。
+
+`localStorage` 只作为崩溃恢复和数据库暂不可用时的降级副本。损坏快照会原样备份为 `.corrupt.*`，界面会明确显示“工作区恢复降级”，不会把降级状态误报为已保存。
 
 ### Q: 编辑器加载缓慢？
 
@@ -269,16 +273,18 @@ API Key 使用 Electron 的 `safeStorage` API 进行操作系统级加密后存�
 
 ### Q: 检索结果不准确怎么办？
 
-当前使用关键词匹配检索，建议：
+当前使用 BM25、trigram 和本地 n-gram 融合检索，建议：
 
 - 使用多个相关关键词（空格分隔）
 - 使用更具体的关键词
 - 避免使用过于常见的词汇
-- 每个关键词至少 2 个字符
+- 尝试中英文技术术语；常见计算机术语会自动扩展
+- 查看结果上的 BM25 / 语义近似 / 降级召回标记
+- 如果状态栏显示降级，先查看悬浮说明中的 FTS5 失败原因
 
 ### Q: 知识库的分块策略是什么？
 
-文档自动按约 500 字符分块，检索时返回最相关的 5 个分块，按关键词匹配频率评分排序。
+单文件上传按约 500 字符分块，资源包按约 1500 字符分块。主搜索最多返回 12 个融合结果，并限制同一文档最多两个片段。
 
 ---
 
@@ -294,19 +300,20 @@ SQLite 数据库文件位置：
 
 ### Q: 如何备份数据？
 
-复制上述数据库文件即可完成完整备份，包括所有题目提交记录、聊天历史、知识库、错题本和设置。
+先完全退出 CodeHelper 并确认无残留进程，再复制整个 Electron `userData` 目录。Windows 默认是
+`%APPDATA%/codehelper`。整个目录同时保护 DB/WAL/SHM、Chromium localStorage 恢复层和应用配置；
+只复制 `codehelper.db` 既可能漏掉 WAL 提交，也会漏掉仅存在于恢复区的内容。详细步骤见
+[备份与恢复手册](guides/backup-restore-runbook.md)。
 
 ### Q: 如何重置应用？
 
-删除数据库文件后重启应用即可完全重置。注意：这会清除所有数据，无法恢复。
+重置会清除所有数据和恢复记录。请先按备份手册保存整个 `userData`，再将当前目录移动到应用数据
+目录之外；不要直接删除，也不要把“清空数据库”当作普通故障排查步骤。
 
 ### Q: 有哪些主题可选？
 
-内置三套暗色主题：
-
-- **Catppuccin Mocha**（默认）- 经典暗色主题，紫色强调色
-- **Fjord** - 北欧峡湾风格暗色主题
-- **Ember** - 暖色调暗色主题
+设置页提供明暗模式、多套视觉主题、背景样式、强调色和 CodeMirror 代码主题。实际选项以
+“设置 -> 外观”为准；旧版 Catppuccin/Fjord/Ember 三主题列表已经不适用。
 
 ### Q: 如何切换主题？
 

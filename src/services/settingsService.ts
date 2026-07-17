@@ -1,4 +1,5 @@
 import { invoke } from './ipc'
+import type { PortableImportResult } from '../shared/maintenanceContract'
 
 export interface AIConfig {
   id?: number
@@ -6,6 +7,7 @@ export interface AIConfig {
   base_url: string
   model: string
   api_key?: string
+  has_api_key?: boolean
   is_default?: boolean
 }
 
@@ -58,15 +60,10 @@ export const DEFAULT_EXPORT_CATEGORIES: ExportCategory[] = [
   'prompt_presets',
 ]
 
-interface ExportResult {
+export interface ExportResult {
   success: boolean
   filePath?: string
   error?: string
-}
-
-interface ImportResult {
-  success: boolean
-  errors?: string[]
 }
 
 export async function getSetting(key: string): Promise<string | null> {
@@ -135,16 +132,21 @@ export async function getPlatformInfo(): Promise<PlatformInfo> {
 
 export async function exportData(
   categories: ExportCategory[] = DEFAULT_EXPORT_CATEGORIES,
-): Promise<void> {
+): Promise<ExportResult> {
   const result = await invoke<ExportResult>('export-data', categories)
   if (result && result.success === false) {
     throw new Error(result.error || '导出数据失败')
   }
+  return result
 }
 
-export async function importData(): Promise<void> {
-  const result = await invoke<ImportResult>('import-data')
-  if (result && result.success === false) {
+export async function importData(): Promise<PortableImportResult> {
+  const result = await invoke<PortableImportResult>('import-data', {
+    conflictResolution: 'merge',
+    selectedData: DEFAULT_EXPORT_CATEGORIES,
+  })
+  if (result && (result.success === false || result.errors.length > 0)) {
     throw new Error(result.errors?.join('；') || '导入数据失败')
   }
+  return result
 }

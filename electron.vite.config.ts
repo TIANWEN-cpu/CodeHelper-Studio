@@ -76,6 +76,7 @@ export default defineConfig(async () => {
         rollupOptions: {
           input: {
             index: resolve(__dirname, 'electron/main.ts'),
+            codeRunnerUtility: resolve(__dirname, 'electron/utils/codeRunnerUtility.ts'),
             sqlRunnerUtility: resolve(__dirname, 'electron/utils/sqlRunnerUtility.ts'),
           },
           output: {

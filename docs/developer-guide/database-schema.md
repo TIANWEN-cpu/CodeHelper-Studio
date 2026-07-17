@@ -307,11 +307,16 @@ settings (standalone, key-value)
 
 ## 数据迁移策略
 
-当前版本没有自动迁移机制。Schema 变更通过以下方式处理：
+数据库初始化先执行幂等 `CREATE TABLE IF NOT EXISTS`，再运行组件级迁移。编辑器工作区使用 `schema_migrations` 记录 schema 版本，当前为 v3：
 
-- 使用 `CREATE TABLE IF NOT EXISTS` 确保表存在
-- 新增字段时在应用层处理缺失值
-- `problems` 表通过 JSON 文件同步机制实现数据更新
+- v1 draft 表在 `BEGIN IMMEDIATE` 事务内重建为版本化工作区表，保留打开/关闭标签、内容、revision、顺序、光标和滚动位置
+- v2 表原地补齐 `tab_kind` 与 mutation 指纹列，再记录 v3；不要求删除数据库
+- Renderer 的 localStorage 工作区格式当前为 v4，v1/v2/v3 快照在原位置校验、备份并升级；只有 `legacy_storage_version = 0` 的 SQLite 工作区会接收首次导入
+- practice-backed 标签的旧内嵌代码先转换为确定性的普通恢复文件，再清空重复 content；事务失败时整体回滚
+- 旧 `exercise_drafts` 在启动阶段原地补齐 `language`、`revision` 和 `deleted`，保留已有代码与时间戳，并把旧行初始化为 revision 1 的有效草稿；仓储访问仍会幂等复核
+- `problems` 表仍通过 JSON 文件同步机制实现题目数据更新，该流程与编辑器 schema 迁移分开
+
+迁移测试必须使用临时 `userData` / 数据库，不得连接用户真实数据。发布门禁应在重建 `better-sqlite3` 原生模块后运行仓储迁移测试，并至少保留一个从旧磁盘数据库完整启动、干净关闭后再检查 `schema_migrations` 和内容的 Electron E2E。
 
 ---
 

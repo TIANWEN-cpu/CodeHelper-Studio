@@ -8,6 +8,11 @@ import socraticReviewMarkdown from '../content/ai_tutor/socratic_review.md?raw'
 import studyPlanMarkdown from '../content/ai_tutor/study_plan.md?raw'
 import toolSafetyChecklistMarkdown from '../content/ai_tutor/tool_safety_checklist.md?raw'
 import workflowRetrospectiveMarkdown from '../content/ai_tutor/workflow_retrospective.md?raw'
+import {
+  EDITOR_WORKSPACE_STORAGE_VERSION,
+  legacyExerciseRecoveryFilename,
+  legacyExerciseRecoveryTabId,
+} from './shared/editorWorkspaceContract'
 
 type Listener = (...args: unknown[]) => void
 
@@ -255,7 +260,7 @@ function overview() {
   }
 }
 
-async function invoke(channel: string, ...args: unknown[]) {
+export async function invokeDevBrowserApiMock(channel: string, ...args: unknown[]) {
   switch (channel) {
     case 'db-get-setting':
       return settingsStore[String(args[0] ?? '')] ?? null
@@ -276,7 +281,172 @@ async function invoke(channel: string, ...args: unknown[]) {
     case 'db-get-default-ai-config':
       return null
     case 'platform-info':
-      return { platform: 'browser', arch: 'x64', version: 'dev' }
+      return {
+        platform: 'browser',
+        arch: 'x64',
+        osVersion: 'browser-preview',
+        electronVersion: '',
+        chromeVersion: typeof navigator === 'undefined' ? 'browser-preview' : navigator.userAgent,
+        nodeVersion: '',
+        appVersion: 'dev',
+      }
+    case 'database-backups-list':
+      return { directoryPath: '', backups: [], warnings: ['浏览器预览不提供 SQLite 备份目录'] }
+    case 'database-backup-create':
+      return { success: false, error: '浏览器预览不提供 SQLite 数据库备份' }
+    case 'database-backups-open-directory':
+      return { success: false, directoryPath: '', error: '浏览器预览没有本地备份目录' }
+    case 'recovery-layer-export':
+      return { success: false, error: '浏览器预览不提供桌面文件导出' }
+    case 'system-capabilities-get':
+      return {
+        generatedAt: Date.now(),
+        runtime: {
+          state: 'ready',
+          mode: 'development',
+          isPackaged: false,
+          appVersion: 'dev',
+          platform: 'browser',
+          arch: 'unknown',
+          osVersion: 'browser-preview',
+          electronVersion: '',
+          chromeVersion: typeof navigator === 'undefined' ? 'browser-preview' : navigator.userAgent,
+          nodeVersion: '',
+          inAppUpdaterAvailable: false,
+          updateMetadataAvailable: true,
+          updateReason: '浏览器预览不提供应用内自动更新；桌面发布仅生成更新元数据。',
+        },
+        database: {
+          state: 'unavailable',
+          quickCheck: 'unavailable',
+          quickCheckMessage: '浏览器预览没有 Electron SQLite 数据库',
+          applicationSchemaVersion: null,
+          schemaVersions: [],
+          backups: {
+            state: 'unavailable',
+            directoryAvailable: false,
+            backupCount: 0,
+            reason: '浏览器预览没有本地备份目录',
+          },
+          reason: '请在 Electron 桌面端查看真实数据库状态',
+        },
+        execution: {
+          state: 'unavailable',
+          detectedAt: Date.now(),
+          localControlledAvailable: false,
+          utilityEntryAvailable: false,
+          windowsJobHostRequired: false,
+          windowsJobHostAvailable: false,
+          localControlledBoundary: '浏览器预览不执行本机代码',
+          strongIsolationAvailable: false,
+          strongIsolationReason: '浏览器预览没有 Docker 强隔离后端',
+          toolchains: [],
+          reason: '请在 Electron 桌面端探测本地工具链',
+        },
+        knowledge: {
+          state: 'unavailable',
+          available: false,
+          degraded: true,
+          mode: 'unavailable',
+          lexicalBackend: 'none',
+          semanticBackend: 'none',
+          reason: '浏览器预览不代表 Electron SQLite 检索能力',
+          documentCount: 0,
+          chunkCount: 0,
+          indexedAt: 0,
+        },
+        agent: {
+          state: 'unavailable',
+          tools: [],
+          enabledToolCount: 0,
+          approvalRequiredToolCount: 0,
+          orchestratorState: 'unavailable',
+          reason: '浏览器预览不提供主进程 Agent 工具链',
+        },
+        ai: {
+          state: 'unavailable',
+          configured: false,
+          configurationCount: 0,
+          connectivity: 'not-checked',
+          credentialStorage: 'unavailable',
+          credentialStorageReason: '浏览器预览不能访问操作系统安全存储',
+          reason: '浏览器预览未配置桌面端 AI Provider',
+        },
+      }
+    case 'runner-detect-toolchains':
+      return {
+        detectedAt: Date.now(),
+        platform: 'browser',
+        isolation: {
+          mode: 'local-controlled',
+          label: '浏览器预览（不可本地执行）',
+          description: '浏览器预览模式不执行本机代码；请使用 Electron 桌面端运行。',
+          strongIsolationAvailable: false,
+          strongIsolationReason: '浏览器预览没有本地强隔离执行后端',
+        },
+        tools: [
+          {
+            id: 'python',
+            languageIds: ['python'],
+            status: 'missing',
+            message: '浏览器预览无法调用本机 Python',
+            installHint: '请使用 CodeHelper 桌面端运行代码',
+          },
+          {
+            id: 'node',
+            languageIds: ['javascript', 'node'],
+            status: 'missing',
+            message: '浏览器预览无法调用本机 Node.js',
+          },
+          {
+            id: 'gcc',
+            languageIds: ['c'],
+            status: 'missing',
+            message: '浏览器预览无法调用本机 gcc',
+          },
+          {
+            id: 'g++',
+            languageIds: ['cpp'],
+            status: 'missing',
+            message: '浏览器预览无法调用本机 g++',
+          },
+          {
+            id: 'csharp',
+            languageIds: ['csharp'],
+            status: 'missing',
+            message: '浏览器预览无法调用本机 C# 工具链',
+          },
+          {
+            id: 'sql',
+            languageIds: ['sql'],
+            status: 'missing',
+            message: '浏览器预览无法启动 SQLite 辅助进程',
+          },
+        ],
+      }
+    case 'runner-isolation-info':
+      return {
+        mode: 'local-controlled',
+        label: '浏览器预览（不可本地执行）',
+        description: '浏览器预览模式不执行本机代码；请使用 Electron 桌面端运行。',
+        strongIsolationAvailable: false,
+        strongIsolationReason: '浏览器预览没有本地强隔离执行后端',
+      }
+    case 'run-code':
+      return {
+        stdout: '',
+        stderr: '浏览器预览模式不支持本地代码执行，请使用 Electron 桌面端。',
+        exitCode: 1,
+        duration_ms: 0,
+        stage: 'run',
+        isolation: {
+          mode: 'local-controlled',
+          label: '浏览器预览（不可本地执行）',
+          description: '浏览器预览模式不执行本机代码。',
+          strongIsolationAvailable: false,
+          strongIsolationReason: '浏览器预览没有本地强隔离执行后端',
+        },
+      }
     case 'home-get-overview':
       return overview()
     case 'analytics-get-summary':
@@ -314,15 +484,48 @@ async function invoke(channel: string, ...args: unknown[]) {
     case 'knowledge-list':
       return mockKnowledgeDocs
     case 'knowledge-search':
-      return [
-        {
-          doc_id: 1,
-          filename: mockKnowledgeDocs[0].filename,
-          content: 'Database Systems 课程资料示例片段。',
-          score: 1,
-          chunk_index: 0,
+      return {
+        query: String(args[0] ?? ''),
+        results: [
+          {
+            id: 1,
+            doc_id: 1,
+            filename: mockKnowledgeDocs[0].filename,
+            content: 'Database Systems 课程资料示例片段。',
+            score: 1,
+            keywordScore: 1,
+            semanticScore: 0.72,
+            channels: ['keyword', 'semantic'],
+            explanation: '浏览器预览使用确定性的混合检索示例。',
+            chunk_index: 0,
+          },
+        ],
+        retrieval: {
+          available: true,
+          degraded: true,
+          mode: 'keyword-fallback',
+          lexicalBackend: 'bounded-like',
+          semanticBackend: 'local-ngram-rerank',
+          reason: '浏览器预览不创建本地 SQLite FTS5 索引。',
+          documentCount: mockKnowledgeDocs.length,
+          chunkCount: mockKnowledgeDocs.reduce((sum, doc) => sum + doc.chunk_count, 0),
+          indexedAt: Date.now(),
+          candidateCount: 1,
+          durationMs: 0,
         },
-      ]
+      }
+    case 'knowledge-retrieval-status':
+      return {
+        available: true,
+        degraded: true,
+        mode: 'keyword-fallback',
+        lexicalBackend: 'bounded-like',
+        semanticBackend: 'local-ngram-rerank',
+        reason: '浏览器预览不创建本地 SQLite FTS5 索引。',
+        documentCount: mockKnowledgeDocs.length,
+        chunkCount: mockKnowledgeDocs.reduce((sum, doc) => sum + doc.chunk_count, 0),
+        indexedAt: Date.now(),
+      }
     case 'knowledge-semantic-search':
     case 'mistakes-list':
     case 'problems-list':
@@ -391,8 +594,17 @@ async function invoke(channel: string, ...args: unknown[]) {
         code: string
         language: string
         baseRevision: number
+        title?: string | null
       }
       const current = practiceDrafts.get(input.exerciseId) ?? null
+      const titleMatches = input.title === undefined || current?.title === input.title
+      const idempotentRetry =
+        current?.revision === input.baseRevision + 1 &&
+        titleMatches &&
+        current.code === input.code &&
+        current.language === input.language &&
+        !current.deleted
+      if (idempotentRetry) return { status: 'saved', draft: current }
       if (
         (!current && input.baseRevision !== 0) ||
         (current && current.revision !== input.baseRevision)
@@ -401,7 +613,7 @@ async function invoke(channel: string, ...args: unknown[]) {
       }
       const draft: BrowserPracticeDraft = {
         exerciseId: input.exerciseId,
-        title: null,
+        title: input.title === undefined ? (current?.title ?? null) : input.title,
         code: input.code,
         language: input.language,
         revision: (current?.revision ?? 0) + 1,
@@ -422,7 +634,7 @@ async function invoke(channel: string, ...args: unknown[]) {
       }
       const draft: BrowserPracticeDraft = {
         exerciseId: input.exerciseId,
-        title: null,
+        title: current?.title ?? null,
         code: '',
         language: null,
         revision: (current?.revision ?? 0) + 1,
@@ -460,6 +672,9 @@ async function invoke(channel: string, ...args: unknown[]) {
           status: 'open' | 'closed'
         }>
       }
+      if (input.storageVersion !== EDITOR_WORKSPACE_STORAGE_VERSION) {
+        throw new Error(`Unsupported editor workspace storage version: ${input.storageVersion}`)
+      }
       if (browserEditorLegacyStorageVersion >= input.storageVersion) {
         return {
           status: 'already-migrated',
@@ -470,8 +685,60 @@ async function invoke(channel: string, ...args: unknown[]) {
       }
       const recoveredTabIds: string[] = []
       const recoveredTabMappings: Record<string, string> = {}
-      for (const item of input.tabs) {
-        const current = browserEditorTabs.get(item.id)
+      const stagedTabs = new Map(
+        [...browserEditorTabs.entries()].map(([id, tab]) => [id, { ...tab }] as const),
+      )
+      const migrationTime = new Date().toISOString()
+      for (const current of [...stagedTabs.values()]) {
+        if (current.kind !== 'exercise' || current.content === '') continue
+        const recoveryId = legacyExerciseRecoveryTabId(current)
+        const existingRecovery = stagedTabs.get(recoveryId)
+        if (
+          existingRecovery &&
+          (existingRecovery.kind !== 'file' ||
+            existingRecovery.content !== current.content ||
+            existingRecovery.language !== current.language)
+        ) {
+          throw new Error(`练习代码恢复副本 ID 冲突: ${recoveryId}`)
+        }
+        if (!existingRecovery) {
+          stagedTabs.set(recoveryId, {
+            ...current,
+            id: recoveryId,
+            filename: legacyExerciseRecoveryFilename(current.filename),
+            kind: 'file',
+            problemId: null,
+            revision: 1,
+            updatedAt: migrationTime,
+            viewUpdatedAt: migrationTime,
+          })
+        }
+        stagedTabs.set(current.id, {
+          ...current,
+          content: '',
+          revision: current.revision + 1,
+          updatedAt: migrationTime,
+        })
+        recoveredTabIds.push(recoveryId)
+      }
+      const expandedTabs = input.tabs.flatMap((item) => {
+        const kind = item.kind ?? 'file'
+        if (kind !== 'exercise' || item.content === '') {
+          return [{ ...item, kind, content: kind === 'exercise' ? '' : item.content }]
+        }
+        return [
+          { ...item, kind, content: '' },
+          {
+            ...item,
+            id: legacyExerciseRecoveryTabId(item),
+            filename: legacyExerciseRecoveryFilename(item.filename),
+            kind: 'file' as const,
+            problemId: null,
+          },
+        ]
+      })
+      for (const item of expandedTabs) {
+        const current = stagedTabs.get(item.id)
         let id = item.id
         let filename = item.filename
         if (
@@ -489,7 +756,7 @@ async function invoke(channel: string, ...args: unknown[]) {
           continue
         }
         const now = new Date().toISOString()
-        browserEditorTabs.set(id, {
+        stagedTabs.set(id, {
           workspaceId: 'default',
           id,
           filename,
@@ -508,6 +775,8 @@ async function invoke(channel: string, ...args: unknown[]) {
           deletedAt: null,
         })
       }
+      browserEditorTabs.clear()
+      for (const [id, tab] of stagedTabs) browserEditorTabs.set(id, tab)
       browserEditorLegacyStorageVersion = input.storageVersion
       if (input.activeTabId && browserEditorTabs.get(input.activeTabId)?.status === 'open') {
         browserEditorActiveTabId = input.activeTabId
@@ -544,7 +813,7 @@ async function invoke(channel: string, ...args: unknown[]) {
         id: input.id,
         filename: input.filename,
         language: input.language,
-        content: input.content,
+        content: input.kind === 'exercise' ? '' : input.content,
         kind: input.kind ?? 'file',
         problemId: input.problemId ?? null,
         cursorPosition: current?.cursorPosition ?? null,
@@ -638,7 +907,6 @@ async function invoke(channel: string, ...args: unknown[]) {
         input.activeTabId && browserEditorTabs.get(input.activeTabId)?.status === 'open'
           ? input.activeTabId
           : null
-      browserEditorGeneration += 1
       return { activeTabId: browserEditorActiveTabId, generation: browserEditorGeneration }
     }
     case 'chat-sessions-list':
@@ -692,8 +960,14 @@ async function invoke(channel: string, ...args: unknown[]) {
       return undefined
     }
     case 'export-data':
+      return { success: false, error: '浏览器预览不提供桌面文件导出' }
     case 'import-data':
-      return undefined
+      return {
+        success: false,
+        imported: {},
+        skipped: {},
+        errors: ['浏览器预览不提供 SQLite 便携数据导入'],
+      }
     default:
       return undefined
   }
@@ -709,7 +983,7 @@ export function installDevBrowserApiMock() {
     return
   }
   window.api = {
-    invoke,
+    invoke: invokeDevBrowserApiMock,
     on(channel: string, callback: Listener) {
       const set = listeners.get(channel) ?? new Set<Listener>()
       set.add(callback)

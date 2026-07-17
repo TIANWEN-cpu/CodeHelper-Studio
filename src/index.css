@@ -2064,7 +2064,8 @@ body {
   flex-direction: column;
   gap: 6px;
   opacity: 0;
-  transform: translateX(6px);
+  transform: translateX(6px) scale(var(--ai-pet-inverse-scale, 1));
+  transform-origin: right top;
   transition:
     opacity 0.16s ease,
     transform 0.16s ease;
@@ -2073,7 +2074,12 @@ body {
 .ai-pet:hover .ai-pet-toolbar,
 .ai-pet.is-expanded .ai-pet-toolbar {
   opacity: 1;
-  transform: translateX(0);
+  transform: translateX(0) scale(var(--ai-pet-inverse-scale, 1));
+}
+
+.ai-pet-bubble {
+  transform: translate(-50%, -100%) scale(var(--ai-pet-inverse-scale, 1));
+  transform-origin: center bottom;
 }
 
 .ai-pet-tool-button,
@@ -2123,6 +2129,8 @@ body {
   padding: 12px;
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  transform: scale(var(--ai-pet-inverse-scale, 1));
+  transform-origin: right bottom;
 }
 
 .ai-pet-card::after {

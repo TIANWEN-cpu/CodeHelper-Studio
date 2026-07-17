@@ -113,7 +113,7 @@ export function saveExerciseDraft(
        WHERE @baseRevision = 0
           OR EXISTS (SELECT 1 FROM exercise_drafts WHERE exercise_id = @exerciseId)
        ON CONFLICT(exercise_id) DO UPDATE SET
-         title = excluded.title,
+         title = CASE WHEN @hasTitle = 1 THEN excluded.title ELSE exercise_drafts.title END,
          code = excluded.code,
          language = excluded.language,
          revision = exercise_drafts.revision + 1,
@@ -125,6 +125,7 @@ export function saveExerciseDraft(
     .get({
       exerciseId: input.exerciseId,
       title: input.title ?? null,
+      hasTitle: input.title === undefined ? 0 : 1,
       code: input.code,
       language: input.language,
       baseRevision: input.baseRevision,
@@ -135,7 +136,7 @@ export function saveExerciseDraft(
   const current = readDraft(database, input.exerciseId)
   const idempotentRetry =
     current?.revision === input.baseRevision + 1 &&
-    current.title === (input.title ?? null) &&
+    (input.title === undefined || current.title === input.title) &&
     current.code === input.code &&
     current.language === input.language &&
     !current.deleted

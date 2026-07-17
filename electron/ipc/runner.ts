@@ -1,15 +1,31 @@
 import { ipcMain } from 'electron'
-import { runCodeSnippet } from '../utils/codeRunner'
+import {
+  detectToolchainsAsync,
+  getIsolationInfo,
+  runCodeSnippet,
+  type CodeRunResult,
+} from '../utils/codeRunner'
+import type { ExecutionMode } from '../utils/toolchainDetect'
+
+function getToolchains(force = false) {
+  return detectToolchainsAsync(force)
+}
 
 export function registerRunnerIPC(): void {
-  let firstCall = true
+  ipcMain.handle('runner-detect-toolchains', async (_event, args?: { force?: boolean }) => {
+    const force = Boolean(args && typeof args === 'object' && args.force === true)
+    const report = await getToolchains(force)
+    return report
+  })
+
+  ipcMain.handle('runner-isolation-info', async () => getIsolationInfo())
+
   ipcMain.handle(
     'run-code',
-    async (_event, args: { code: string; language: string; stdin?: string }) => {
-      if (firstCall) {
-        firstCall = false
-        console.log('[IPC] First call to "run-code"')
-      }
+    async (
+      _event,
+      args: { code: string; language: string; stdin?: string; executionMode?: ExecutionMode },
+    ) => {
       if (!args || typeof args !== 'object') throw new Error('参数无效')
       if (typeof args.code !== 'string') throw new Error('参数无效: code')
       if (typeof args.language !== 'string' || !args.language.trim())
@@ -20,7 +36,22 @@ export function registerRunnerIPC(): void {
         if (typeof args.stdin !== 'string') throw new Error('参数无效: stdin')
         args.stdin = args.stdin.slice(0, 100000)
       }
-      return runCodeSnippet(args.code, args.language, args.stdin)
+      if (
+        args.executionMode !== undefined &&
+        args.executionMode !== 'local-controlled' &&
+        args.executionMode !== 'strong-isolation'
+      ) {
+        throw new Error('参数无效: executionMode')
+      }
+      const started = Date.now()
+      const result: CodeRunResult =
+        args.executionMode === undefined
+          ? await runCodeSnippet(args.code, args.language, args.stdin)
+          : await runCodeSnippet(args.code, args.language, args.stdin, args.executionMode)
+      return {
+        ...result,
+        duration_ms: Date.now() - started,
+      }
     },
   )
 }

@@ -21,4 +21,24 @@ describe('electron-builder production resources', () => {
     expect(hasExtraResource('resources/problems', 'problems')).toBe(true)
     expect(hasExtraResource('electron/db/schema.sql', 'db/schema.sql')).toBe(true)
   })
+
+  it('uses the bounded NSIS UserProgramFiles copy from the pinned build tool', async () => {
+    const packageJson = JSON.parse(await readFile(join(process.cwd(), 'package.json'), 'utf8')) as {
+      devDependencies?: Record<string, string>
+    }
+    const appBuilderPackage = JSON.parse(
+      await readFile(join(process.cwd(), 'node_modules/app-builder-lib/package.json'), 'utf8'),
+    ) as { version?: string }
+    const multiUserTemplate = await readFile(
+      join(process.cwd(), 'node_modules/app-builder-lib/templates/nsis/multiUser.nsh'),
+      'utf8',
+    )
+
+    expect(packageJson.devDependencies?.['electron-builder']).toBe('26.15.3')
+    expect(appBuilderPackage.version).toBe('26.15.3')
+    expect(multiUserTemplate).toContain(
+      "System::Call 'KERNEL32::lstrcpynW(w .r0, p r2, i ${NSIS_MAX_STRLEN})p'",
+    )
+    expect(multiUserTemplate).not.toContain("System::Call '*$2(&w${NSIS_MAX_STRLEN} .s)'")
+  })
 })

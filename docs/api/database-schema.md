@@ -195,16 +195,55 @@ CodeHelper 使用 better-sqlite3 作为嵌入式数据库，存储所有本地�
 
 ### knowledge_chunks — 知识分块表
 
-文档分块存储，用于关键词搜索。
+文档分块存储，用于混合检索。
 
-| 列名          | 类型     | 约束                                            | 默认值              | 说明                             |
-| ------------- | -------- | ----------------------------------------------- | ------------------- | -------------------------------- |
-| `id`          | INTEGER  | PRIMARY KEY AUTOINCREMENT                       | —                   | 分块 ID                          |
-| `doc_id`      | INTEGER  | REFERENCES knowledge_docs(id) ON DELETE CASCADE | —                   | 关联文档                         |
-| `content`     | TEXT     | NOT NULL                                        | —                   | 分块内容                         |
-| `embedding`   | TEXT     | —                                               | `NULL`              | 向量嵌入（预留字段，当前未使用） |
-| `chunk_index` | INTEGER  | —                                               | —                   | 分块序号（从 0 开始）            |
-| `created_at`  | DATETIME | —                                               | `CURRENT_TIMESTAMP` | 创建时间                         |
+| 列名          | 类型     | 约束                                            | 默认值              | 说明                                           |
+| ------------- | -------- | ----------------------------------------------- | ------------------- | ---------------------------------------------- |
+| `id`          | INTEGER  | PRIMARY KEY AUTOINCREMENT                       | —                   | 分块 ID                                        |
+| `doc_id`      | INTEGER  | REFERENCES knowledge_docs(id) ON DELETE CASCADE | —                   | 关联文档                                       |
+| `content`     | TEXT     | NOT NULL                                        | —                   | 分块内容                                       |
+| `embedding`   | TEXT     | —                                               | `NULL`              | 模型向量嵌入预留字段；当前本地语义近似不依赖它 |
+| `chunk_index` | INTEGER  | —                                               | —                   | 分块序号（从 0 开始）                          |
+| `created_at`  | DATETIME | —                                               | `CURRENT_TIMESTAMP` | 创建时间                                       |
+
+运行时迁移 `knowledge-retrieval` v2 还会创建两个 FTS5 外部内容索引：
+
+- `knowledge_chunks_fts`：`unicode61` tokenizer，提供 BM25 关键词召回
+- `knowledge_chunks_trigram`：`trigram` tokenizer，提供中文、子串和拼写近似召回
+
+两张虚拟表由 `knowledge_chunks` 的 insert/update/delete trigger 同步。首次升级会执行 FTS `rebuild` 原地索引已有分块；若运行环境不支持 FTS5，应用保留原表并明确降级到 bounded LIKE，不阻断数据库启动。
+
+---
+
+### agent_runs — Agent 运行表
+
+| 字段              | 类型 | 约束/说明                                                      |
+| ----------------- | ---- | -------------------------------------------------------------- |
+| `id`              | TEXT | 主键                                                           |
+| `goal`            | TEXT | 用户任务目标                                                   |
+| `status`          | TEXT | `needsApproval/dispatching/running/completed/failed/cancelled` |
+| `context_summary` | TEXT | JSON；保存页面、标题、语言、代码长度和 SHA-256，不保存代码正文 |
+| `error`           | TEXT | 失败或取消原因                                                 |
+| `created_at`      | TEXT | 创建时间                                                       |
+| `updated_at`      | TEXT | 最近状态更新时间                                               |
+| `completed_at`    | TEXT | 终态时间                                                       |
+
+### agent_tool_calls — Agent 工具调用表
+
+记录白名单工具、审批要求、输入摘要、真实输出和生命周期。`input_payload` 只用于待执行恢复；
+调用或所属运行进入终态时会清空。运行失败或取消会同时终结尚未完成的工具调用。当前
+`tool_id` 仅允许 `knowledge-search` 和
+`strong-code-run`。
+
+### agent_approvals — Agent 审批表
+
+每个需审批工具调用最多一条审批记录，状态为 `pending/approved/rejected/expired`。审批绑定
+`run_id + tool_call_id`，不能跨运行复用。
+
+### agent_audit_events — Agent 审计事件表
+
+追加记录运行创建、工具开始/完成/失败、审批决定、模型调度、取消和终态。可通过
+`agent-audit-list` 按运行查询。
 
 ---
 
@@ -289,9 +328,11 @@ AI 对话的跨会话长期记忆存储。
 | `created_at` / `updated_at` / `view_updated_at` | TEXT | NOT NULL                        | 内容与视图时间戳       |
 | `closed_at` / `deleted_at`                      | TEXT | 可空                            | 关闭/删除时间          |
 
-旧版缺少 `tab_kind` 的表会在启动时原地 `ALTER TABLE`，已有行按 `file` 迁移；更早的 draft schema 会在事务内重建并保留内容。`legacy_storage_version = 0` 表示尚未从 localStorage 导入；Renderer 仅在该状态下调用 `migrateLegacyEditorWorkspace` 灌入本地快照，**不会**因应用侧存储格式升到 v3 就用空/过期本地数据覆盖已有 SQLite 标签。迁移前 localStorage 快照会另存备份；ID 的内容或 `open` / `closed` 状态不一致时创建确定性的 `recovered-*` 副本，不覆盖任一版本或吞掉关闭状态。
+编辑器数据库 schema 当前为 v3，并记录在 `schema_migrations(component = 'editor-workspace')`。schema v1 的 draft 表会在事务内重建，schema v2 缺少的 `tab_kind` 和 mutation 指纹列会原地补齐；两条路径都保留内容、open/closed 状态、revision、顺序、光标和滚动位置。`legacy_storage_version = 0` 表示尚未从 localStorage 导入；Renderer 仅在该状态下调用 `migrateLegacyEditorWorkspace` 灌入本地快照，**不会**因应用侧存储格式从 v1/v2/v3 升到 v4 就用空或过期本地数据覆盖已有 SQLite 标签。迁移前 localStorage 快照会另存备份；ID 的内容或状态不一致时创建确定性的 `recovered-*` 副本，不覆盖任一版本或吞掉关闭状态。
 
-**练习标签：** `tab_kind = 'exercise'` 行应持久化空 `content`（拓扑与视图状态）；用户代码权威在练习草稿表/恢复区。若旧数据在 exercise 行内仍存代码，导入路径会拆出恢复副本并清空 content。
+**练习标签：** `tab_kind = 'exercise'` 以及 ID 为 `exercise-*` 的练习入口导入题目行应持久化空 `content`（仅保存拓扑与视图状态）；用户代码权威在带 revision 的 `exercise_drafts` / 恢复区。若旧数据仍在 practice-backed 行内嵌代码，迁移会在同一事务中创建确定性的普通恢复文件，再清空重复 content；恢复文件插入失败会回滚，原始代码仍留在旧行。
+
+**练习草稿旧表：** 数据库启动阶段会主动检查 `exercise_drafts`，不等待用户首次打开练习。只有 `exercise_id / title / code / updated_at` 的旧表会原地补充 `language`、`revision` 和 `deleted`；现有代码与时间戳保持不变，旧记录初始化为 `revision = 1`、`deleted = 0`。迁移幂等，仓储层仍会在每次访问前复核，避免部分升级后继续运行。
 
 ---
 

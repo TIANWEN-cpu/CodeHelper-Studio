@@ -12,6 +12,7 @@ CodeHelper 采用 Electron IPC（进程间通信）机制在渲染进程和主�
 - [代码运行 (runner)](#代码运行-runner)
 - [数据库/设置 (database)](#数据库设置-database)
 - [AI 对话 (ai)](#ai-对话-ai)
+- [Agent 工具链 (agent)](#agent-工具链-agent)
 - [聊天会话管理 (chat)](#聊天会话管理-chat)
 - [题目管理 (problems)](#题目管理-problems)
 - [错题本 (mistakes)](#错题本-mistakes)
@@ -53,45 +54,53 @@ CodeHelper 采用 Electron IPC（进程间通信）机制在渲染进程和主�
 
 ## 频道一览
 
-| 频道名                     | 类型   | 方向     | 说明                 |
-| -------------------------- | ------ | -------- | -------------------- |
-| `run-code`                 | invoke | 渲染->主 | 运行代码片段         |
-| `db-get-setting`           | invoke | 渲染->主 | 读取设置项           |
-| `db-set-setting`           | invoke | 渲染->主 | 写入设置项           |
-| `db-get-ai-configs`        | invoke | 渲染->主 | 获取所有 AI 配置     |
-| `db-save-ai-config`        | invoke | 渲染->主 | 保存 AI 配置         |
-| `db-delete-ai-config`      | invoke | 渲染->主 | 删除 AI 配置         |
-| `db-get-default-ai-config` | invoke | 渲染->主 | 获取默认 AI 配置     |
-| `ai-fetch-models`          | invoke | 渲染->主 | 获取可用模型列表     |
-| `ai-chat`                  | invoke | 渲染->主 | 发送 AI 聊天请求     |
-| `problems-list`            | invoke | 渲染->主 | 获取题目列表         |
-| `problems-get`             | invoke | 渲染->主 | 获取单个题目         |
-| `problems-submit`          | invoke | 渲染->主 | 提交代码             |
-| `problems-submissions`     | invoke | 渲染->主 | 获取提交记录         |
-| `mistakes-list`            | invoke | 渲染->主 | 获取错题列表         |
-| `mistakes-get`             | invoke | 渲染->主 | 获取单个错题         |
-| `mistakes-update-analysis` | invoke | 渲染->主 | 更新错题 AI 分析     |
-| `mistakes-delete`          | invoke | 渲染->主 | 删除错题             |
-| `knowledge-upload`         | invoke | 渲染->主 | 上传知识文档         |
-| `knowledge-list`           | invoke | 渲染->主 | 获取知识文档列表     |
-| `knowledge-delete`         | invoke | 渲染->主 | 删除知识文档         |
-| `knowledge-search`         | invoke | 渲染->主 | 搜索知识库           |
-| `open-external`            | invoke | 渲染->主 | 打开外部链接         |
-| `chat-sessions-list`       | invoke | 渲染->主 | 获取聊天会话列表     |
-| `chat-session-create`      | invoke | 渲染->主 | 创建聊天会话         |
-| `chat-session-update`      | invoke | 渲染->主 | 更新聊天会话         |
-| `chat-session-delete`      | invoke | 渲染->主 | 删除聊天会话         |
-| `chat-messages-load`       | invoke | 渲染->主 | 加载聊天消息         |
-| `chat-message-save`        | invoke | 渲染->主 | 保存聊天消息         |
-| `chat-presets-list`        | invoke | 渲染->主 | 获取提示词预设列表   |
-| `chat-preset-save`         | invoke | 渲染->主 | 保存提示词预设       |
-| `chat-preset-delete`       | invoke | 渲染->主 | 删除提示词预设       |
-| `chat-memories-list`       | invoke | 渲染->主 | 获取长期记忆列表     |
-| `chat-memory-save`         | invoke | 渲染->主 | 保存长期记忆         |
-| `chat-memory-delete`       | invoke | 渲染->主 | 删除长期记忆         |
-| `chat-memory-capture`      | invoke | 渲染->主 | 从消息中自动提取记忆 |
-| `ai-chat-chunk`            | event  | 主->渲染 | AI 流式响应分片      |
-| `ai-chat-done`             | event  | 主->渲染 | AI 流式响应完成      |
+| 频道名                     | 类型   | 方向     | 说明                  |
+| -------------------------- | ------ | -------- | --------------------- |
+| `run-code`                 | invoke | 渲染->主 | 运行代码片段          |
+| `db-get-setting`           | invoke | 渲染->主 | 读取设置项            |
+| `db-set-setting`           | invoke | 渲染->主 | 写入设置项            |
+| `db-get-ai-configs`        | invoke | 渲染->主 | 获取所有 AI 配置      |
+| `db-save-ai-config`        | invoke | 渲染->主 | 保存 AI 配置          |
+| `db-delete-ai-config`      | invoke | 渲染->主 | 删除 AI 配置          |
+| `db-get-default-ai-config` | invoke | 渲染->主 | 获取默认 AI 配置      |
+| `ai-fetch-models`          | invoke | 渲染->主 | 获取可用模型列表      |
+| `ai-chat`                  | invoke | 渲染->主 | 发送 AI 聊天请求      |
+| `ai-chat-cancel`           | invoke | 渲染->主 | 取消指定 AI 请求      |
+| `agent-tools-list`         | invoke | 渲染->主 | 获取 Agent 工具白名单 |
+| `agent-runs-list`          | invoke | 渲染->主 | 查询 Agent 运行历史   |
+| `agent-audit-list`         | invoke | 渲染->主 | 查询 Agent 审计事件   |
+| `agent-run-create`         | invoke | 渲染->主 | 创建并准备 Agent 运行 |
+| `agent-run-approve`        | invoke | 渲染->主 | 批准单个工具调用      |
+| `agent-run-reject`         | invoke | 渲染->主 | 拒绝单个工具调用      |
+| `agent-run-cancel`         | invoke | 渲染->主 | 取消 Agent 运行       |
+| `problems-list`            | invoke | 渲染->主 | 获取题目列表          |
+| `problems-get`             | invoke | 渲染->主 | 获取单个题目          |
+| `problems-submit`          | invoke | 渲染->主 | 提交代码              |
+| `problems-submissions`     | invoke | 渲染->主 | 获取提交记录          |
+| `mistakes-list`            | invoke | 渲染->主 | 获取错题列表          |
+| `mistakes-get`             | invoke | 渲染->主 | 获取单个错题          |
+| `mistakes-update-analysis` | invoke | 渲染->主 | 更新错题 AI 分析      |
+| `mistakes-delete`          | invoke | 渲染->主 | 删除错题              |
+| `knowledge-upload`         | invoke | 渲染->主 | 上传知识文档          |
+| `knowledge-list`           | invoke | 渲染->主 | 获取知识文档列表      |
+| `knowledge-delete`         | invoke | 渲染->主 | 删除知识文档          |
+| `knowledge-search`         | invoke | 渲染->主 | 搜索知识库            |
+| `open-external`            | invoke | 渲染->主 | 打开外部链接          |
+| `chat-sessions-list`       | invoke | 渲染->主 | 获取聊天会话列表      |
+| `chat-session-create`      | invoke | 渲染->主 | 创建聊天会话          |
+| `chat-session-update`      | invoke | 渲染->主 | 更新聊天会话          |
+| `chat-session-delete`      | invoke | 渲染->主 | 删除聊天会话          |
+| `chat-messages-load`       | invoke | 渲染->主 | 加载聊天消息          |
+| `chat-message-save`        | invoke | 渲染->主 | 保存聊天消息          |
+| `chat-presets-list`        | invoke | 渲染->主 | 获取提示词预设列表    |
+| `chat-preset-save`         | invoke | 渲染->主 | 保存提示词预设        |
+| `chat-preset-delete`       | invoke | 渲染->主 | 删除提示词预设        |
+| `chat-memories-list`       | invoke | 渲染->主 | 获取长期记忆列表      |
+| `chat-memory-save`         | invoke | 渲染->主 | 保存长期记忆          |
+| `chat-memory-delete`       | invoke | 渲染->主 | 删除长期记忆          |
+| `chat-memory-capture`      | invoke | 渲染->主 | 从消息中自动提取记忆  |
+| `ai-chat-chunk`            | event  | 主->渲染 | AI 流式响应分片       |
+| `ai-chat-done`             | event  | 主->渲染 | AI 流式响应完成       |
 
 ---
 
@@ -256,6 +265,38 @@ interface ChatMessage {
 - 响应为空：抛出 `'AI 响应为空'`
 
 **文件位置：** `electron/ipc/ai.ts`
+
+---
+
+### `ai-chat-cancel`
+
+按 `requestId` 取消仍在进行的 AI 请求。未知或已经结束的请求返回
+`{ cancelled: false }`。
+
+---
+
+## Agent 工具链 (agent)
+
+Agent 工具权威位于 Electron 主进程。Renderer 只能请求白名单工具，不能提交任意命令或
+路径。
+
+| Channel                   | 请求                           | 返回                    |
+| ------------------------- | ------------------------------ | ----------------------- |
+| `agent-tools-list`        | 无                             | `AgentToolDefinition[]` |
+| `agent-runs-list`         | `limit?`                       | `AgentRunRecord[]`      |
+| `agent-audit-list`        | `runId, limit?`                | `AgentAuditEvent[]`     |
+| `agent-run-create`        | `{ goal, context?, tools[] }`  | `AgentRunRecord`        |
+| `agent-run-approve`       | `{ runId, toolCallId, note? }` | `AgentRunRecord`        |
+| `agent-run-reject`        | `{ runId, toolCallId, note? }` | `AgentRunRecord`        |
+| `agent-run-cancel`        | `{ runId, note? }`             | `AgentRunRecord`        |
+| `agent-run-model-started` | `{ runId, requestId? }`        | `AgentRunRecord`        |
+| `agent-run-complete`      | `{ runId }`                    | `AgentRunRecord`        |
+| `agent-run-fail`          | `{ runId, note? }`             | `AgentRunRecord`        |
+
+`strong-code-run` 必须逐次审批且只允许 `executionMode=strong-isolation`。审批十分钟后过期；
+工具未完成时，`agent-run-model-started` 和 `agent-run-complete` 会拒绝状态跃迁。
+
+**文件位置：** `electron/ipc/agent.ts`
 
 ---
 
@@ -696,7 +737,7 @@ interface KnowledgeDoc {
 
 ### `knowledge-search`
 
-基于关键词搜索知识库，返回最相关的 5 个分块。搜索关键词按空格分割，长度需大于 1 字符。结果按匹配频率评分排序。
+使用 FTS5/BM25、trigram、本地 n-gram 与中英术语扩展进行混合检索，最多返回 12 个融合结果。同一文档最多保留两个片段。
 
 **请求参数：**
 
@@ -707,17 +748,38 @@ interface KnowledgeDoc {
 **返回类型：**
 
 ```typescript
+interface KnowledgeSearchResponse {
+  query: string
+  results: KnowledgeSearchResult[]
+  retrieval: KnowledgeRetrievalStatus & {
+    candidateCount: number
+    durationMs: number
+  }
+}
+
 interface KnowledgeSearchResult {
   id: number
   doc_id: number
   content: string
   chunk_index: number
   filename: string // 来自 knowledge_docs 表
-  score: number // 关键词匹配得分
+  score: number // 融合相关度
+  keywordScore: number
+  semanticScore: number
+  channels: Array<'keyword' | 'semantic' | 'fallback'>
+  explanation: string
 }
 ```
 
 **文件位置：** `electron/ipc/rag.ts`
+
+### `knowledge-retrieval-status`
+
+返回当前 FTS5/BM25、trigram、本地 n-gram 后端状态、索引规模和降级原因。
+
+**请求参数：** 无
+
+**返回类型：** `KnowledgeRetrievalStatus`
 
 ---
 

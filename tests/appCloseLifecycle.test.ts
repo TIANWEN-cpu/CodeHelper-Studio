@@ -34,6 +34,23 @@ describe('app close lifecycle', () => {
     await expect(flushBeforeAppClose()).resolves.toEqual({
       ok: false,
       error: '练习草稿仍未保存',
+      recoveryAvailable: false,
+    })
+  })
+
+  it('reports when every failed durable write still has a recovery copy', async () => {
+    cleanups.push(
+      registerAppCloseFlushHandler('workspace', async () => ({
+        ok: false,
+        error: 'SQLite unavailable; recovery copy saved',
+        recoveryAvailable: true,
+      })),
+    )
+
+    await expect(flushBeforeAppClose()).resolves.toEqual({
+      ok: false,
+      error: 'SQLite unavailable; recovery copy saved',
+      recoveryAvailable: true,
     })
   })
 

@@ -284,7 +284,8 @@ describe('registerRunnerIPC', () => {
     registerRunnerIPC()
 
     const result = await handlers['run-code'](null, { code: 'print("hello")', language: 'python' })
-    expect(result).toEqual({ stdout: 'hello', stderr: '', exitCode: 0 })
+    expect(result).toMatchObject({ stdout: 'hello', stderr: '', exitCode: 0 })
+    expect(result.duration_ms).toEqual(expect.any(Number))
     expect(runCodeSnippet).toHaveBeenCalledWith('print("hello")', 'python', undefined)
   })
 })
@@ -1034,7 +1035,8 @@ describe('registerRunnerIPC - stdin handling', () => {
       language: 'python',
       stdin: 'hello stdin',
     })
-    expect(result).toEqual({ stdout: 'hello stdin', stderr: '', exitCode: 0 })
+    expect(result).toMatchObject({ stdout: 'hello stdin', stderr: '', exitCode: 0 })
+    expect(result.duration_ms).toEqual(expect.any(Number))
     expect(runCodeSnippet).toHaveBeenCalledWith(
       'import sys; print(sys.stdin.read())',
       'python',

@@ -1,11 +1,16 @@
 import { create } from 'zustand'
 import { typedInvoke } from '@/api/ipc'
 import type { KnowledgeSummary } from '@/services/knowledgeService'
+import type {
+  KnowledgeRetrievalStatus,
+  KnowledgeSearchResponse,
+} from '@/shared/knowledgeRetrievalContract'
 
 type KnowledgeStore = {
   documents: unknown[]
   loadingDocs: boolean
   searchResults: unknown[]
+  retrievalStatus: KnowledgeRetrievalStatus | null
   searching: boolean
   semanticResults: unknown[]
   semanticSearching: boolean
@@ -51,6 +56,7 @@ export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
   documents: [],
   loadingDocs: false,
   searchResults: [],
+  retrievalStatus: null,
   searching: false,
   semanticResults: [],
   semanticSearching: false,
@@ -85,7 +91,8 @@ export const useKnowledgeStore = create<KnowledgeStore>((set, get) => ({
     if (!query.trim()) return
     set({ searching: true, error: null })
     try {
-      set({ searchResults: await typedInvoke<unknown[]>('knowledge-search', query) })
+      const response = await typedInvoke<KnowledgeSearchResponse>('knowledge-search', query)
+      set({ searchResults: response.results, retrievalStatus: response.retrieval })
     } catch (error) {
       set({ error: message(error) })
     } finally {

@@ -1,6 +1,7 @@
 export interface WindowCloseFlushResult {
   ok: boolean
   error?: string
+  recoveryAvailable?: boolean
 }
 
 interface PendingCloseRequest {
@@ -42,7 +43,12 @@ export class WindowCloseFlushBroker {
 
   resolve(senderId: number, payload: unknown): boolean {
     if (!payload || typeof payload !== 'object') return false
-    const response = payload as { requestId?: unknown; ok?: unknown; error?: unknown }
+    const response = payload as {
+      requestId?: unknown
+      ok?: unknown
+      error?: unknown
+      recoveryAvailable?: unknown
+    }
     if (typeof response.requestId !== 'string' || typeof response.ok !== 'boolean') return false
     const request = this.pending.get(response.requestId)
     if (!request || request.senderId !== senderId) return false
@@ -52,6 +58,9 @@ export class WindowCloseFlushBroker {
       ok: response.ok,
       ...(typeof response.error === 'string' && response.error.trim()
         ? { error: response.error.trim().slice(0, 1_000) }
+        : {}),
+      ...(typeof response.recoveryAvailable === 'boolean'
+        ? { recoveryAvailable: response.recoveryAvailable }
         : {}),
     })
     return true

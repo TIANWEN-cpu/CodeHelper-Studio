@@ -35,4 +35,22 @@ describe('AI pet responsive footprint', () => {
       margin: 8,
     })
   })
+
+  it('scales every responsive footprint while preserving its safe margin', () => {
+    expect(getPetFootprintForViewport(1921, 821, undefined, 140)).toEqual({
+      width: 246,
+      height: 333,
+      margin: 16,
+    })
+    expect(getPetFootprintForViewport(1280, 900, undefined, 80)).toEqual({
+      width: 51,
+      height: 70,
+      margin: 8,
+    })
+    expect(getPetFootprintForViewport(390, 844, 'profile', 120)).toEqual({
+      width: 115,
+      height: 156,
+      margin: 8,
+    })
+  })
 })

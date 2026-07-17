@@ -27,4 +27,26 @@ describe('window close flush broker', () => {
 
     await expect(pending).resolves.toEqual({ ok: false, error: '等待渲染进程保存超时' })
   })
+
+  it('preserves the renderer recovery-availability signal for the close dialog', async () => {
+    const broker = new WindowCloseFlushBroker()
+    let requestId = ''
+    const pending = broker.request(11, (payload) => {
+      requestId = payload.requestId
+    })
+
+    expect(
+      broker.resolve(11, {
+        requestId,
+        ok: false,
+        error: 'SQLite unavailable',
+        recoveryAvailable: true,
+      }),
+    ).toBe(true)
+    await expect(pending).resolves.toEqual({
+      ok: false,
+      error: 'SQLite unavailable',
+      recoveryAvailable: true,
+    })
+  })
 })

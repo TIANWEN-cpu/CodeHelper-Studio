@@ -218,6 +218,43 @@ describe('registerExercisesIPC imported problems', () => {
     })
   })
 
+  it('normalizes explicit draft titles and preserves explicit null', async () => {
+    mockSaveExerciseDraft.mockReturnValue({
+      status: 'saved',
+      draft: { revision: 5 },
+    })
+
+    await handlers['exercises-draft-save'](null, {
+      exerciseId: 'problem:1',
+      title: '  Current problem title  ',
+      code: 'print(1)',
+      language: 'python',
+      baseRevision: 4,
+    })
+    await handlers['exercises-draft-save'](null, {
+      exerciseId: 'problem:1',
+      title: null,
+      code: 'print(2)',
+      language: 'python',
+      baseRevision: 5,
+    })
+
+    expect(mockSaveExerciseDraft).toHaveBeenNthCalledWith(1, mockDB, {
+      exerciseId: 'problem:1',
+      title: 'Current problem title',
+      code: 'print(1)',
+      language: 'python',
+      baseRevision: 4,
+    })
+    expect(mockSaveExerciseDraft).toHaveBeenNthCalledWith(2, mockDB, {
+      exerciseId: 'problem:1',
+      title: null,
+      code: 'print(2)',
+      language: 'python',
+      baseRevision: 5,
+    })
+  })
+
   it('rejects oversized drafts instead of silently truncating them', async () => {
     await expect(
       handlers['exercises-draft-save'](null, {

@@ -1,44 +1,45 @@
-# CodeHelper v2.3.0 Release Notes
+# CodeHelper v2.4.0 Release Notes
 
-发布日期：2026-07-03
+发布日期：2026-07-17
 
 ## 概览
 
-v2.3.0 在 v2.2.1 基础上整合了 34 个提交，围绕「学习工作台」做了四件事：升级记忆与知识检索、引入全局通知与成就提醒、强化复习与桌宠陪伴，并全面修正了时间计算与时区一致性。
+v2.4.0 是 CodeHelper 的 Beta Candidate 收口版本。它把此前分散的数据恢复、代码运行、知识库和 AI 工作流整合为可验证的桌面产品闭环，并补齐安全、备份、审计和 Windows 发布门禁。
 
 ## 亮点
 
-- **记忆系统升级**：长期记忆支持更丰富的捕获、排序与去重；新增按分类的发送控制与记忆预览，以及由 LLM 自动抽取出记忆的后端和配套管理 UI。
-- **命令面板升级为全局搜索**：支持最近访问记录、知识库检索与分组表头，在可视范围内打开即记录最近访问。
-- **全局通知与成就提醒**：新增全局 toast 系统，成就解锁主动提醒；代码运行、提交与 AI 失败统一以 toast 呈现。
-- **间隔复习键盘自评**：复习卡片支持 `1/2/3` 键盘快捷键评分，加快复习节奏。
-- **个人页周学习报告**：个人主页接入每周学习报告。
-- **AI 桌宠增强**：达成学习里程碑时桌宠庆祝并弹出气泡，闲置时偶尔播放微动画。
-- **知识 RAG 接入 AI 对话**：知识库检索结果可直接作为对话上下文注入。
+- **数据丢失防护**：工作区、练习草稿、标签顺序、光标和滚动位置以 SQLite 为权威存储；异常退出、Renderer crash、多窗口分叉和旧 schema 均有真实 Electron 恢复路径。
+- **受控代码执行**：代码在一次性 utility 进程中运行；Windows Job Host 提供进程树和资源限制，Docker strong-isolation 默认无网络、只读根、非 root、cap drop 和资源配额。
+- **可审计知识检索**：FTS/BM25、trigram 和本地语义近似共同召回，UI 展示来源锚点、检索通道和降级原因。
+- **审批型 Agent**：主进程工具白名单、逐次审批、取消/失败终态和 SQLite 审计证据完整落地。
+- **数据库保护**：支持验证型 SQLite 快照，导入和迁移前自动备份；每个快照记录版本、大小、SHA-256 与 `quick_check`。
+- **统一能力状态**：设置页展示数据库、工具链、Windows Job Host、Docker、知识检索、Agent、AI Provider 与 `safeStorage` 的真实状态。
 
-## 修复
+## 安全与依赖
 
-- **时间与时区**：连续学习天数（streak）、周报窗口、首页看板、SM-2 复习日期与 `formatDate` 全部按 UTC 解析后端时间戳，消除 UTC+8 跨天偏移。
-- **判题与运行器**：输出超限 / 超时改为杀掉整棵进程树；错题删除级联清理 `review_schedule`。
-- **AI 对话**：修复新请求覆盖前序 abort controller；题库标签 / 赛道筛选正确转义 LIKE 通配符。
-- **导航**：深链 pending 在实时投递后清除避免重复回放；桌宠空闲计时器在路由切换后保留。
+- 主窗口导航与重定向 fail-closed；外部 HTTP/HTTPS 链接只交给系统浏览器。
+- JSON 导入导出路径只能由原生文件对话框授权，Renderer 原始路径 IPC 已移除。
+- BrowserWindow 启用 sandbox，并固定 context isolation、webSecurity、webview 和不安全内容选项。
+- CSP 增加 `base-uri 'self'` 和 `form-action 'self'`。
+- 完整 `npm audit` 为 0。
 
-## 性能
+## 开发与发布
 
-- RAG 关键词检索：限制候选数量并复用已编译正则。
-- 活动事件查询：`getEvents` 封顶返回行数，避免一次性流式读取整张表。
-
-## 重构
-
-- AI 对话统一收敛到 `useChatStore`，移除冗余的 `useAIChat`。
-- 移除不可达的后端成就 IPC，并加固 AI Provider 的 SSRF 校验。
+- Node/Vitest 与 Electron 所需的 `better-sqlite3` ABI 会由 npm 命令自动探测切换。
+- Windows 构建固定使用含 NSIS `UserProgramFiles` 有界复制修复的 electron-builder 26.15.3。
+- Windows 发布链验证 NSIS、Portable、资源、Electron Fuses、安装、启动、重启持久化、卸载、哈希和 updater metadata。
+- 正式 GitHub Release 资产限定为 Installer、blockmap、Portable、`latest.yml`、`SHA256SUMS.txt` 和 `release-manifest.json`。
 
 ## 验证
 
-- `npm run typecheck`
-- `npm run test`
-- `npm run build`
+- 单元测试与覆盖率：2516 通过，2 条平台/专用 Electron harness 跳过。
+- Electron E2E：24/24。
+- Docker isolation：28/28。
+- 知识检索：33/33。
+- Agent：23/23。
+- Electron drafts、workspace、database recovery、SQL utility、runner utility 和 Windows Job Host smoke 全部通过。
+- TypeScript、ESLint、Prettier、生产构建、完整依赖审计与 Windows package smoke 全部通过。
 
 ## 升级说明
 
-本版本为常规功能与修复升级，数据库结构向前兼容，无需特殊迁移步骤。
+数据库迁移会在写入前创建验证型快照。仍建议在升级前退出旧版本，并把整个 Electron `userData` 目录复制到外部位置。便携 JSON 只覆盖部分逻辑数据，不能替代完整数据库或 `userData` 备份。

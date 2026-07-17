@@ -22,6 +22,8 @@ export function buildContentSecurityPolicy(options: ContentSecurityPolicyOptions
   if (devRenderer) {
     return [
       "default-src 'self'",
+      "base-uri 'self'",
+      "form-action 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: https:",
@@ -32,6 +34,8 @@ export function buildContentSecurityPolicy(options: ContentSecurityPolicyOptions
 
   return [
     "default-src 'self'",
+    "base-uri 'self'",
+    "form-action 'self'",
     "script-src 'self'",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: https:",

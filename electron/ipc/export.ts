@@ -9,9 +9,12 @@
  */
 
 import { ipcMain, dialog, BrowserWindow } from 'electron'
-import { writeFileSync, readFileSync, existsSync } from 'fs'
+import { writeFileSync, readFileSync, existsSync, statSync } from 'fs'
 import { resolve, dirname } from 'path'
-import { getDB } from '../db/index'
+import { getDB, getDatabasePath } from '../db/index'
+import { createVerifiedDatabaseBackup } from '../db/databaseBackup'
+import type { PortableImportResult as ImportResult } from '../../src/shared/maintenanceContract'
+import type { WindowCloseFlushResult } from '../utils/windowCloseHandshake'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -37,6 +40,11 @@ interface ImportOptions {
   selectedData: ExportCategory[]
 }
 
+export interface ExportIpcDependencies {
+  requestRendererFlush: () => Promise<WindowCloseFlushResult>
+  scheduleRendererReload: () => void
+}
+
 type ExportCategory =
   | 'problems'
   | 'submissions'
@@ -48,13 +56,6 @@ type ExportCategory =
   | 'settings'
   | 'memories'
   | 'prompt_presets'
-
-interface ImportResult {
-  success: boolean
-  imported: Record<string, number>
-  skipped: Record<string, number>
-  errors: string[]
-}
 
 interface TableColumnInfo {
   name: string
@@ -81,6 +82,9 @@ const TABLE_META: Record<
 }
 
 const ALL_CATEGORIES: ExportCategory[] = Object.keys(TABLE_META) as ExportCategory[]
+const EXPORT_FORMAT_VERSION = 1
+const MAX_IMPORT_FILE_BYTES = 32 * 1024 * 1024
+const MAX_IMPORT_ROWS = 100_000
 
 // ---------------------------------------------------------------------------
 // Path safety
@@ -106,7 +110,7 @@ export function validateFilePath(filePath: string): string | null {
 export function validateExportData(data: unknown): data is ExportData {
   if (!data || typeof data !== 'object') return false
   const obj = data as Record<string, unknown>
-  if (typeof obj.version !== 'number' || obj.version < 1) return false
+  if (obj.version !== EXPORT_FORMAT_VERSION) return false
   if (typeof obj.exportedAt !== 'string') return false
 
   // Validate each present array field
@@ -119,6 +123,11 @@ export function validateExportData(data: unknown): data is ExportData {
       }
     }
   }
+  const rowCount = ALL_CATEGORIES.reduce((count, category) => {
+    const rows = obj[category]
+    return count + (Array.isArray(rows) ? rows.length : 0)
+  }, 0)
+  if (rowCount > MAX_IMPORT_ROWS) return false
   return true
 }
 
@@ -126,21 +135,25 @@ export function validateExportData(data: unknown): data is ExportData {
 // Export helpers
 // ---------------------------------------------------------------------------
 
-function queryTable(category: ExportCategory): Record<string, unknown>[] {
+function queryTable(
+  database: ReturnType<typeof getDB>,
+  category: ExportCategory,
+): Record<string, unknown>[] {
   const meta = TABLE_META[category]
-  const rows = getDB().prepare(`SELECT * FROM ${meta.table}`).all()
+  const rows = database.prepare(`SELECT * FROM ${meta.table}`).all()
   return rows as Record<string, unknown>[]
 }
 
 function exportData(categories: ExportCategory[]): ExportData {
-  const data: ExportData = {
-    version: 1,
-    exportedAt: new Date().toISOString(),
-  }
-  for (const cat of categories) {
-    data[cat] = queryTable(cat)
-  }
-  return data
+  const database = getDB()
+  return database.transaction(() => {
+    const data: ExportData = {
+      version: EXPORT_FORMAT_VERSION,
+      exportedAt: new Date().toISOString(),
+    }
+    for (const category of categories) data[category] = queryTable(database, category)
+    return data
+  })()
 }
 
 // ---------------------------------------------------------------------------
@@ -277,11 +290,121 @@ function importCategory(
   return { imported, skipped, errors }
 }
 
+function readValidatedImportFile(filePath: string): { data?: ExportData; error?: string } {
+  if (!existsSync(filePath)) return { error: '文件不存在' }
+  if (statSync(filePath).size > MAX_IMPORT_FILE_BYTES) {
+    return { error: '导入文件超过 32 MB 上限' }
+  }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(readFileSync(filePath, 'utf-8'))
+  } catch {
+    return { error: 'JSON 格式无效' }
+  }
+  if (!validateExportData(parsed)) {
+    return { error: '数据格式校验失败：版本、字段或数据规模不受支持' }
+  }
+  return { data: parsed }
+}
+
+function normalizeImportOptions(options?: ImportOptions): ImportOptions {
+  const conflictResolution = options?.conflictResolution ?? 'skip'
+  if (!['skip', 'merge', 'overwrite'].includes(conflictResolution)) {
+    throw new Error('无效的冲突处理策略')
+  }
+  const requested = options?.selectedData ?? ALL_CATEGORIES
+  if (!Array.isArray(requested) || requested.some((category) => !TABLE_META[category])) {
+    throw new Error('导入类别无效')
+  }
+  return { conflictResolution, selectedData: [...new Set(requested)] }
+}
+
+function importValidatedData(data: ExportData, options?: ImportOptions): ImportResult {
+  const normalized = normalizeImportOptions(options)
+  const database = getDB()
+  const backup = createVerifiedDatabaseBackup(database, {
+    kind: 'pre-import',
+    databasePath: getDatabasePath(),
+  })
+  const importResult: ImportResult = {
+    success: true,
+    imported: {},
+    skipped: {},
+    errors: [],
+    backup,
+  }
+
+  try {
+    const doImport = database.transaction(() => {
+      for (const category of normalized.selectedData) {
+        const rows = data[category]
+        if (!rows || rows.length === 0) continue
+        const categoryResult = importCategory(category, rows, normalized.conflictResolution)
+        importResult.imported[category] = categoryResult.imported
+        importResult.skipped[category] = categoryResult.skipped
+        importResult.errors.push(...categoryResult.errors)
+      }
+      if (importResult.errors.length > 0) {
+        throw new Error('便携数据导入校验失败，事务已回滚')
+      }
+    })
+    doImport()
+    return importResult
+  } catch (error) {
+    return {
+      ...importResult,
+      success: false,
+      imported: Object.fromEntries(
+        Object.keys(importResult.imported).map((category) => [category, 0]),
+      ),
+      errors:
+        importResult.errors.length > 0
+          ? importResult.errors
+          : [error instanceof Error ? error.message : String(error)],
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // IPC registration
 // ---------------------------------------------------------------------------
 
-export function registerExportIPC(): void {
+export function registerExportIPC(dependencies: ExportIpcDependencies): void {
+  let importInProgress = false
+
+  const importWithCoordination = async (
+    data: ExportData,
+    options?: ImportOptions,
+  ): Promise<ImportResult> => {
+    if (importInProgress) {
+      return {
+        success: false,
+        imported: {},
+        skipped: {},
+        errors: ['A portable data import is already in progress'],
+      }
+    }
+
+    importInProgress = true
+    try {
+      const flushResult = await dependencies.requestRendererFlush()
+      if (!flushResult.ok) {
+        return {
+          success: false,
+          imported: {},
+          skipped: {},
+          errors: [flushResult.error || 'Unable to persist all open windows before import'],
+        }
+      }
+
+      const result = importValidatedData(data, options)
+      if (result.success) dependencies.scheduleRendererReload()
+      return result
+    } finally {
+      importInProgress = false
+    }
+  }
+
   // Export data to JSON file
   ipcMain.handle(
     'export-data',
@@ -310,37 +433,10 @@ export function registerExportIPC(): void {
           return { success: false, error: '用户取消' }
         }
 
-        const data = exportData(validCategories)
-        const json = JSON.stringify(data, null, 2)
-        writeFileSync(result.filePath, json, 'utf-8')
-
-        return { success: true, filePath: result.filePath }
-      } catch (err) {
-        return { success: false, error: String(err) }
-      }
-    },
-  )
-
-  // Export data to a specific path (no dialog, for progress-based flows)
-  ipcMain.handle(
-    'export-data-to-path',
-    async (
-      _e,
-      categories: ExportCategory[],
-      filePath: string,
-    ): Promise<{ success: boolean; filePath?: string; error?: string }> => {
-      try {
-        if (!Array.isArray(categories) || categories.length === 0) {
-          return { success: false, error: '请至少选择一个数据类别' }
-        }
+        const filePath = result.filePath
         const pathError = validateFilePath(filePath)
         if (pathError) {
           return { success: false, error: pathError }
-        }
-
-        const validCategories = categories.filter((c) => TABLE_META[c])
-        if (validCategories.length === 0) {
-          return { success: false, error: '没有有效的数据类别' }
         }
 
         const data = exportData(validCategories)
@@ -369,62 +465,20 @@ export function registerExportIPC(): void {
       }
 
       const filePath = result.filePaths[0]
-      if (!existsSync(filePath)) {
-        return { success: false, imported: {}, skipped: {}, errors: ['文件不存在'] }
+      const pathError = validateFilePath(filePath)
+      if (pathError) {
+        return { success: false, imported: {}, skipped: {}, errors: [pathError] }
       }
-
-      const raw = readFileSync(filePath, 'utf-8')
-      let parsed: unknown
-      try {
-        parsed = JSON.parse(raw)
-      } catch {
-        return { success: false, imported: {}, skipped: {}, errors: ['JSON 格式无效'] }
-      }
-
-      if (!validateExportData(parsed)) {
+      const validated = readValidatedImportFile(filePath)
+      if (!validated.data) {
         return {
           success: false,
           imported: {},
           skipped: {},
-          errors: ['数据格式校验失败：缺少必要字段或数据类型不正确'],
+          errors: [validated.error ?? '导入失败'],
         }
       }
-
-      const conflictResolution = options?.conflictResolution ?? 'skip'
-      const selectedData = options?.selectedData ?? ALL_CATEGORIES
-
-      const importResult: ImportResult = {
-        success: true,
-        imported: {},
-        skipped: {},
-        errors: [],
-      }
-
-      const db = getDB()
-
-      // Use a transaction for the entire import
-      const doImport = db.transaction(() => {
-        for (const cat of selectedData) {
-          const rows = parsed[cat]
-          if (!rows || !Array.isArray(rows) || rows.length === 0) continue
-
-          const catResult = importCategory(cat, rows, conflictResolution)
-          importResult.imported[cat] = catResult.imported
-          importResult.skipped[cat] = catResult.skipped
-          importResult.errors.push(...catResult.errors)
-        }
-      })
-
-      doImport()
-
-      if (
-        importResult.errors.length > 0 &&
-        Object.values(importResult.imported).every((v) => v === 0)
-      ) {
-        importResult.success = false
-      }
-
-      return importResult
+      return await importWithCoordination(validated.data, options)
     } catch (err) {
       return {
         success: false,
@@ -434,81 +488,6 @@ export function registerExportIPC(): void {
       }
     }
   })
-
-  // Import data from a specific file path
-  ipcMain.handle(
-    'import-data-from-path',
-    async (_e, filePath: string, options?: ImportOptions): Promise<ImportResult> => {
-      try {
-        const pathError = validateFilePath(filePath)
-        if (pathError) {
-          return { success: false, imported: {}, skipped: {}, errors: [pathError] }
-        }
-        if (!existsSync(filePath)) {
-          return { success: false, imported: {}, skipped: {}, errors: ['文件不存在'] }
-        }
-
-        const raw = readFileSync(filePath, 'utf-8')
-        let parsed: unknown
-        try {
-          parsed = JSON.parse(raw)
-        } catch {
-          return { success: false, imported: {}, skipped: {}, errors: ['JSON 格式无效'] }
-        }
-
-        if (!validateExportData(parsed)) {
-          return {
-            success: false,
-            imported: {},
-            skipped: {},
-            errors: ['数据格式校验失败：缺少必要字段或数据类型不正确'],
-          }
-        }
-
-        const conflictResolution = options?.conflictResolution ?? 'skip'
-        const selectedData = options?.selectedData ?? ALL_CATEGORIES
-
-        const importResult: ImportResult = {
-          success: true,
-          imported: {},
-          skipped: {},
-          errors: [],
-        }
-
-        const db = getDB()
-
-        const doImport = db.transaction(() => {
-          for (const cat of selectedData) {
-            const rows = parsed[cat]
-            if (!rows || !Array.isArray(rows) || rows.length === 0) continue
-
-            const catResult = importCategory(cat, rows, conflictResolution)
-            importResult.imported[cat] = catResult.imported
-            importResult.skipped[cat] = catResult.skipped
-            importResult.errors.push(...catResult.errors)
-          }
-        })
-
-        doImport()
-
-        if (
-          importResult.errors.length > 0 &&
-          Object.values(importResult.imported).every((v) => v === 0)
-        ) {
-          importResult.success = false
-        }
-
-        return importResult
-      } catch (err) {
-        return {
-          success: false,
-          imported: {},
-          skipped: {},
-          errors: [String(err)],
-        }
-      }
-    },
-  )
 
   // Get data counts for the export UI
   ipcMain.handle('export-get-counts', () => {

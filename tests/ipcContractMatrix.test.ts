@@ -251,7 +251,7 @@ describe('Renderer -> Service -> Preload -> IPC contract matrix', () => {
     }
   })
 
-  it('does not label disconnected or fallback knowledge capabilities as fully available', () => {
+  it('labels real local retrieval separately from disconnected or placeholder capabilities', () => {
     for (const contract of IPC_CHANNEL_CONTRACTS.filter(
       (item) => item.renderer === 'not connected',
     )) {
@@ -260,7 +260,10 @@ describe('Renderer -> Service -> Preload -> IPC contract matrix', () => {
 
     expect(
       IPC_CHANNEL_CONTRACTS.find((item) => item.channel === 'knowledge-semantic-search')?.status,
-    ).toBe('degraded')
+    ).toBe('available')
+    expect(
+      IPC_CHANNEL_CONTRACTS.find((item) => item.channel === 'knowledge-retrieval-status')?.status,
+    ).toBe('available')
     expect(
       IPC_CHANNEL_CONTRACTS.find((item) => item.channel === 'knowledge-rag-context')?.status,
     ).toBe('degraded')

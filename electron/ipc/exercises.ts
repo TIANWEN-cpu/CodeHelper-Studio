@@ -517,7 +517,7 @@ export function registerExercisesIPC(): void {
           code: string
           language: string
           baseRevision: number
-          title?: string
+          title?: string | null
         },
       ) => {
         if (!args || typeof args !== 'object') throw new Error('参数无效')
@@ -533,7 +533,7 @@ export function registerExercisesIPC(): void {
 
         args.exerciseId = args.exerciseId.trim().slice(0, 200)
         args.language = args.language.trim()
-        if (args.title !== undefined) {
+        if (args.title !== undefined && args.title !== null) {
           if (typeof args.title !== 'string') throw new Error('参数无效: title')
           args.title = args.title.trim().slice(0, 500)
         }

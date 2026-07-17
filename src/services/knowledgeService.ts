@@ -1,4 +1,9 @@
 import { invoke } from './ipc'
+import type {
+  KnowledgeRetrievalStatus,
+  KnowledgeSearchResponse,
+  KnowledgeSearchResult,
+} from '../shared/knowledgeRetrievalContract'
 
 export interface KnowledgeDoc {
   id: number
@@ -20,13 +25,7 @@ export interface KnowledgeDocDetail extends KnowledgeDoc {
   content: string
 }
 
-export interface SearchResult {
-  doc_id: number
-  filename: string
-  content: string
-  score: number
-  chunk_index: number
-}
+export type SearchResult = KnowledgeSearchResult
 
 export interface KnowledgeSummary {
   summary: string
@@ -64,12 +63,16 @@ export async function getDocument(docId: number): Promise<KnowledgeDocDetail | n
   return invoke<KnowledgeDocDetail | null>('knowledge-get', docId)
 }
 
-export async function searchDocuments(query: string): Promise<SearchResult[]> {
-  return invoke<SearchResult[]>('knowledge-search', query)
+export async function searchDocuments(query: string): Promise<KnowledgeSearchResponse> {
+  return invoke<KnowledgeSearchResponse>('knowledge-search', query)
 }
 
 export async function semanticSearch(query: string): Promise<SearchResult[]> {
   return invoke<SearchResult[]>('knowledge-semantic-search', query)
+}
+
+export async function getRetrievalStatus(): Promise<KnowledgeRetrievalStatus> {
+  return invoke<KnowledgeRetrievalStatus>('knowledge-retrieval-status')
 }
 
 export async function uploadDocument(): Promise<void> {
@@ -90,6 +93,13 @@ export type RAGContext = {
   recentProblems: unknown[]
   learningHistory: unknown[]
   knowledgeChunks: string[]
+  knowledgeSources?: Array<{
+    docId: number
+    filename: string
+    chunkIndex: number
+    score: number
+  }>
+  retrieval?: KnowledgeRetrievalStatus
   userProfile: {
     preferredLanguage: string
     difficultyLevel: string

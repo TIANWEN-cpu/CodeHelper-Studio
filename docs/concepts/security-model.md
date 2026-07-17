@@ -1,6 +1,6 @@
 # 安全模型
 
-本文档介绍 CodeHelper 的安全架构，涵盖 Electron 安全策略、API Key 加密、内容安全策略（CSP）以及代码执行沙箱。
+本文档介绍 CodeHelper 的安全架构，涵盖 Electron 安全策略、API Key 加密、内容安全策略（CSP）以及本地代码执行边界。
 
 ## 安全架构概览
 
@@ -23,8 +23,8 @@
 │  5. API Key 加密 (safeStorage)               │
 │     └─ 系统级加密存储敏感信息                   │
 │                                             │
-│  6. 代码执行限制 (codeRunner.ts)              │
-│     └─ 并发数、超时、输出大小限制               │
+│  6. 本地受控执行 (codeRunner.ts)              │
+│     └─ utility 进程、资源限制、进程树清理        │
 └─────────────────────────────────────────────┘
 ```
 
@@ -36,7 +36,7 @@
 // electron/main.ts
 const mainWindow = new BrowserWindow({
   webPreferences: {
-    preload: join(__dirname, '../preload/index.mjs'),
+    preload: getPreloadScriptPath(__dirname), // electron-vite 输出 index.js
     contextIsolation: true, // 启用上下文隔离
     nodeIntegration: false, // 禁用 Node.js 集成
     webSecurity: true, // 启用 Web 安全策略
@@ -87,6 +87,9 @@ ipcMain.handle('open-external', (_event, url: string) => {
 })
 ```
 
+`setWindowOpenHandler` 只处理新窗口。当前主窗口尚未注册 `will-navigate` 等顶级导航拦截，因此
+不能把这一段称为完整导航防御；该开放发现见 [安全审计 SEC-001](../security-audit.md)。
+
 ## Content Security Policy (CSP)
 
 通过 `onHeadersReceived` 拦截器为所有 HTTP 响应注入 CSP 头：
@@ -125,22 +128,22 @@ CSP 策略要点：
 **1. 通道白名单**
 
 ```typescript
-const allowedInvokeChannels = new Set([
+export const allowedInvokeChannels = new Set([
   'run-code',
+  'runner-detect-toolchains',
   'db-get-setting',
-  'db-set-setting',
-  'db-get-ai-configs',
-  'db-save-ai-config',
-  'db-delete-ai-config',
   'ai-chat',
-  'ai-fetch-models',
-  'problems-list',
-  'problems-get',
-  'problems-submit',
-  // ... 全部合法通道
+  'knowledge-retrieval-status',
+  'agent-tools-list',
+  // ... 当前共 113 个显式 invoke 通道
 ])
 
-const allowedEventChannels = new Set(['ai-chat-chunk', 'ai-chat-done'])
+export const allowedEventChannels = new Set([
+  'app-before-close',
+  'ai-chat-chunk',
+  'ai-chat-done',
+  'editor-workspace-changed',
+])
 ```
 
 **2. 序列化检查**
@@ -165,10 +168,14 @@ function isSerializable(value: unknown, depth = 0): boolean {
 AI 模型配置中的 API Key 使用 Electron 的 `safeStorage` API 进行系统级加密：
 
 ```typescript
-// electron/ipc/database.ts
+// electron/utils/apiKeyStorage.ts
 
 function encryptApiKey(apiKey: string): string {
-  if (!safeStorage.isEncryptionAvailable()) return apiKey
+  const storageBackend =
+    process.platform === 'linux' ? safeStorage.getSelectedStorageBackend?.() : undefined
+  if (!safeStorage.isEncryptionAvailable() || storageBackend === 'basic_text') {
+    throw new Error('Secure API key storage is unavailable on this system')
+  }
   return 'enc:' + safeStorage.encryptString(apiKey).toString('base64')
 }
 
@@ -195,11 +202,13 @@ function decryptApiKey(value: string): string {
 
 - **Windows**：DPAPI (Data Protection API)
 - **macOS**：Keychain
-- **Linux**：libsecret (GNOME Keyring / KWallet)
+- **Linux**：libsecret（GNOME Keyring / KWallet）；若 Electron 只能使用 `basic_text` backend，
+  新保存会 fail-closed
 
 ## 主进程参数校验
 
-每个 IPC 处理器都执行严格的输入校验，防御模式如下：
+每个 IPC 处理器都**必须**执行严格输入校验。当前合同矩阵会检查通道是否连接，但不能替代逐个
+Handler 的安全审计；防御模式如下：
 
 ```typescript
 // 类型校验
@@ -227,71 +236,63 @@ if (!['user', 'assistant', 'system'].includes(msg.role)) {
 
 ## 代码执行安全
 
-`codeRunner.ts` 对用户代码执行有多重安全限制：
+本地代码执行是 **受控运行，不是强隔离沙箱**。非 SQL 代码先进入一次性 Electron
+utility 进程；Windows x64 必须在原生 Job Host 返回 `READY`、确认 utility 已加入 Job
+Object 后才会收到用户代码。SQL 使用独立的 SQLite utility 进程和内存数据库。
 
 ```typescript
 const MAX_OUTPUT_SIZE = 1024 * 1024 // 输出最大 1MB
+const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024 // 单轮临时目录总量 50MB
 const MAX_CONCURRENT = 5 // 最多 5 个并发进程
 const DEFAULT_TIMEOUT = 10000 // 默认超时 10 秒
 ```
 
-限制措施：
+非 SQL 限制措施：
 
-1. **并发控制**：超过 5 个并发执行请求会直接拒绝
-2. **超时控制**：执行超过 10 秒的进程会被 kill
-3. **输出限制**：stdout/stderr 总量超过 1MB 时终止进程
-4. **临时文件**：使用 UUID 命名的临时文件，避免冲突和信息泄露
-5. **语言白名单**：仅支持 python、c、cpp、csharp、sql
+1. **并发控制**：超过 5 个并发执行请求会直接拒绝；槽位在 utility 与 Job Host 真实退出后才释放
+2. **超时控制**：执行超过 10 秒时终止进程树
+3. **输出限制**：stdout/stderr 合计超过 1 MB 时终止进程树
+4. **目录配额**：每轮递归监控 50 MB 与 20,000 个目录项；不跟随符号链接或 junction，扫描失败时保守终止
+5. **Windows Job Object**：最多 32 个活动进程、单进程 384 MB、整个 Job 768 MB，并启用 kill-on-close；正常收尾会等待 Job 活动进程归零，异常强杀路径依赖 kill-on-close
+6. **POSIX 尽力清理**：用 `ulimit` 限制文件大小；Python/C/C++/Mono 另尝试限制地址空间，Node 仅限制 V8 old-space，dotnet 没有进程内存上限；通过独立进程组终止后代
+7. **语言白名单**：仅支持 Python、C、C++、C#、JavaScript/Node.js 与 SQL
 
-```typescript
-export async function runCodeSnippet(
-  code: string,
-  language: string,
-  stdin?: string,
-): Promise<CodeRunResult> {
-  switch (language) {
-    case 'python':
-      return runPython(code, stdin)
-    case 'c':
-      return runCFamily(code, stdin, 'gcc')
-    case 'cpp':
-      return runCFamily(code, stdin, 'g++')
-    case 'csharp':
-      return runCSharp(code, stdin)
-    case 'sql':
-      return runSql(code) // 使用内存数据库
-    default:
-      return { stdout: '', stderr: `不支持的语言: ${language}`, exitCode: 1, stage: 'run' }
-  }
-}
-```
+SQL 不进入 Windows Job，也不使用非 SQL 临时目录配额。它在独立 SQLite utility 的内存
+数据库中执行，限制为 3 秒、256 KB 输入、100 条语句、1000 行结果、512 KB 格式化输出和
+64 KB/单元格；SQLite 支持时还会尝试设置 128 MB `hard_heap_limit`。
 
-SQL 执行使用内存数据库（`:memory:`），不影响应用数据：
+Windows Job Object 是资源与生命周期容器，不是 AppContainer。macOS/Linux 没有严格 RSS
+上限，`ulimit` 与进程组也不是 cgroup 或容器。本地受控路径中的代码都以当前用户身份运行，仍能访问当前用户
+有权限访问的文件和网络；POSIX 后代还可能通过建立新 session 逃离原进程组。
 
-```typescript
-async function runSql(code: string): Promise<CodeRunResult> {
-  const db = new Database(':memory:')
-  try {
-    const statements = splitSqlStatements(code)
-    // 执行所有语句，最后一个查询语句返回结果集
-    // ...
-  } finally {
-    db.close() // 确保关闭
-  }
-}
-```
+### Docker 强隔离（可选）
+
+当探测到 Docker daemon 与 `dockerRunner` 中固定 digest 的镜像时，UI 可将
+`strongIsolationAvailable` 设为 `true`。强隔离路径：
+
+1. **容器边界**：`--network none`、`--read-only`、`--cap-drop ALL`、`no-new-privileges`、非 root
+2. **资源限制**：CPU、内存、PID（C# 128，其他 32）、1 MB 输出、10 秒超时
+3. **清理**：`--cidfile` 记录容器 ID；超时或输出超限时 `docker rm -f`，并依赖 `--rm`
+4. **Fail-closed**：daemon/镜像不可用时拒绝强隔离请求，不退回本地执行
+5. **SQL 策略**：SQL 仅在本地受控的内存 SQLite utility 中运行，强隔离请求对 SQL 直接拒绝
+
+即使用户选择强隔离，也应优先运行可信代码；镜像需用户授权预先拉取，应用不会自动 `docker pull`。
 
 ## Electron Fuses
 
-构建配置中启用了 Electron Fuses，进一步加固安全：
+打包后的 `after-pack` 脚本启用 Electron Fuses，进一步加固安全：
 
-```yaml
-# electron-builder.yml
-extends:
-  - '@electron/fuses'
-fuseOptions:
-  EnableEmbeddedAsarIntegrityValidation: true
-  OnlyLoadAppFromAsar: true
+```typescript
+// scripts/after-pack.js
+await flipFuses(executablePath, {
+  version: FuseVersion.V1,
+  [FuseV1Options.RunAsNode]: false,
+  [FuseV1Options.EnableCookieEncryption]: true,
+  [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
+  [FuseV1Options.EnableNodeCliInspectArguments]: false,
+  [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
+  [FuseV1Options.OnlyLoadAppFromAsar]: true,
+})
 ```
 
 ## 安全最佳实践
@@ -322,3 +323,4 @@ fuseOptions:
 - [架构文档 - 安全模型](../architecture.md#安全模型) -- 安全特性概览
 - [ADR-001: Electron 选型](../adr/001-electron-choice.md) -- Electron 安全特性
 - [术语表](../glossary.md) -- CSP、contextIsolation 等术语解释
+- [安全审计报告](../security-audit.md) -- 当前开放发现、依赖和发布边界

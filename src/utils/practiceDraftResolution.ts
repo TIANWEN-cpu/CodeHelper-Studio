@@ -10,6 +10,7 @@ export interface ResolvedPracticeDraft {
   autosave: boolean
   conflict: boolean
   discardRecovery: boolean
+  recovered: boolean
 }
 
 function durableSnapshot(
@@ -42,6 +43,7 @@ export function resolvePracticeDraft(
       autosave: false,
       conflict: false,
       discardRecovery: false,
+      recovered: false,
     }
   }
 
@@ -58,6 +60,7 @@ export function resolvePracticeDraft(
       autosave: true,
       conflict: false,
       discardRecovery: false,
+      recovered: true,
     }
   }
 
@@ -70,6 +73,7 @@ export function resolvePracticeDraft(
       autosave: false,
       conflict: false,
       discardRecovery: true,
+      recovered: false,
     }
   }
 
@@ -82,6 +86,7 @@ export function resolvePracticeDraft(
       autosave: true,
       conflict: false,
       discardRecovery: false,
+      recovered: true,
     }
   }
 
@@ -93,5 +98,6 @@ export function resolvePracticeDraft(
     autosave: false,
     conflict: true,
     discardRecovery: false,
+    recovered: true,
   }
 }

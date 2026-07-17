@@ -10,5 +10,5 @@
     "outDir": "./out/main",
     "resolveJsonModule": true
   },
-  "include": ["electron/**/*", "electron.vite.config.ts"]
+  "include": ["electron/**/*", "src/shared/*.ts", "electron.vite.config.ts"]
 }

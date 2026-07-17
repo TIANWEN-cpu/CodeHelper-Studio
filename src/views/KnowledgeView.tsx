@@ -31,8 +31,12 @@ import { renderMarkdown } from '@/utils/markdown'
 import { consumePendingDeepLink, subscribeDeepLink } from '@/lib/deepLink'
 import { recordRecent } from '@/lib/recentItems'
 import type { KnowledgeDoc } from '@/services/knowledgeService'
+import type {
+  KnowledgeRetrievalChannel,
+  KnowledgeRetrievalStatus,
+} from '@/shared/knowledgeRetrievalContract'
 
-type SortMode = 'recent' | 'name' | 'chunks'
+type SortMode = 'relevance' | 'recent' | 'name' | 'chunks'
 type FilterKind = 'all' | 'topic' | 'repo' | 'type'
 
 interface ActiveFilter {
@@ -54,6 +58,10 @@ interface KnowledgeDisplayItem {
   time: string
   chunkCount: number
   score?: number
+  keywordScore?: number
+  semanticScore?: number
+  retrievalChannels?: KnowledgeRetrievalChannel[]
+  explanation?: string
   chunkIndex?: number
   source: 'document' | 'search'
 }
@@ -148,7 +156,21 @@ function toDocumentDisplayItem(doc: KnowledgeDoc): KnowledgeDisplayItem {
 
 function formatScore(score?: number): string | null {
   if (typeof score !== 'number' || Number.isNaN(score)) return null
-  return `${Math.round(score * 100)}% 匹配`
+  return `${Math.round(score * 100)}% 相关度`
+}
+
+function retrievalModeLabel(status: KnowledgeRetrievalStatus | null): string {
+  if (!status) return '检索能力探测中'
+  if (status.mode === 'hybrid') return '本地混合检索'
+  if (status.mode === 'hybrid-degraded') return '混合检索（降级）'
+  if (status.mode === 'keyword-fallback') return '关键词降级检索'
+  return '检索不可用'
+}
+
+function retrievalChannelLabel(channel: KnowledgeRetrievalChannel): string {
+  if (channel === 'keyword') return 'BM25'
+  if (channel === 'semantic') return '语义近似'
+  return '降级召回'
 }
 
 function filterLabel(filter: ActiveFilter): string {
@@ -243,6 +265,8 @@ export function KnowledgeView() {
     selectedDocument,
     loadingDocument,
     searchResults,
+    retrievalStatus,
+    loadingRetrievalStatus,
     loading,
     uploading,
     importingResourcePack,
@@ -342,6 +366,10 @@ export function KnowledgeView() {
             time: doc?.created_at ?? '',
             chunkCount: doc?.chunk_count ?? 0,
             score: result.score,
+            keywordScore: result.keywordScore,
+            semanticScore: result.semanticScore,
+            retrievalChannels: result.channels,
+            explanation: result.explanation,
             chunkIndex: result.chunk_index,
             source: 'search' as const,
           }
@@ -356,6 +384,7 @@ export function KnowledgeView() {
     })
 
     return filtered.slice().sort((a, b) => {
+      if (query.trim() || sortMode === 'relevance') return (b.score ?? 0) - (a.score ?? 0)
       if (sortMode === 'name') return a.title.localeCompare(b.title)
       if (sortMode === 'chunks') return b.chunkCount - a.chunkCount
       return new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime()
@@ -490,10 +519,12 @@ export function KnowledgeView() {
               />
             </div>
             <select
-              value={sortMode}
+              value={query.trim() ? 'relevance' : sortMode}
               onChange={(e) => setSortMode(e.target.value as SortMode)}
+              disabled={Boolean(query.trim())}
               className="px-3 py-2 text-sm text-[var(--color-text-secondary)] bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-lg outline-none focus:border-[var(--color-accent-primary)]"
             >
+              <option value="relevance">相关度排序</option>
               <option value="recent">最近导入</option>
               <option value="name">标题排序</option>
               <option value="chunks">片段数量</option>
@@ -519,6 +550,35 @@ export function KnowledgeView() {
         {error && (
           <div className="px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-lg text-xs text-red-400">
             {error}
+          </div>
+        )}
+        {!selectedItem && (
+          <div
+            data-testid="knowledge-retrieval-status"
+            title={retrievalStatus?.reason}
+            className={cn(
+              'flex items-center gap-2 border-y border-[var(--color-border-subtle)] px-1 py-2 text-xs',
+              retrievalStatus && !retrievalStatus.available
+                ? 'text-red-400'
+                : retrievalStatus?.degraded
+                  ? 'text-amber-300'
+                  : 'text-[var(--color-text-secondary)]',
+            )}
+          >
+            <BrainCircuit size={14} />
+            <span>
+              {loadingRetrievalStatus ? '检索能力探测中' : retrievalModeLabel(retrievalStatus)}
+            </span>
+            {retrievalStatus && (
+              <span className="text-[var(--color-text-muted)]">
+                {retrievalStatus.lexicalBackend} + {retrievalStatus.semanticBackend}
+              </span>
+            )}
+            {query.trim() && retrievalStatus && (
+              <span className="ml-auto font-mono text-[var(--color-text-muted)]">
+                {retrievalStatus.chunkCount} 个可检索片段
+              </span>
+            )}
           </div>
         )}
         {lastResourcePackImport && (
@@ -730,10 +790,24 @@ export function KnowledgeView() {
                               {formatScore(item.score)}
                             </span>
                           )}
+                          {item.retrievalChannels?.map((channel) => (
+                            <span
+                              key={channel}
+                              className="shrink-0 rounded border border-[var(--color-border-subtle)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-secondary)]"
+                            >
+                              {retrievalChannelLabel(channel)}
+                            </span>
+                          ))}
                         </div>
                         <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[var(--color-text-muted)]">
                           {item.desc}
                         </p>
+                        {item.explanation && (
+                          <p className="mt-1 flex items-center gap-1 text-[11px] text-[var(--color-text-secondary)]">
+                            <BrainCircuit size={11} className="shrink-0" />
+                            <span className="truncate">{item.explanation}</span>
+                          </p>
+                        )}
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <span className="rounded bg-[var(--color-bg-panel)] px-2 py-0.5 text-[11px] text-[var(--color-text-secondary)]">
                             {item.topic}
@@ -742,7 +816,9 @@ export function KnowledgeView() {
                             {item.repo}
                           </span>
                           <span className="text-[11px] text-[var(--color-text-muted)]">
-                            {item.chunkCount} 片段
+                            {item.source === 'search'
+                              ? `${item.sourcePath || item.filename} · 片段 #${(item.chunkIndex ?? 0) + 1}`
+                              : `${item.chunkCount} 片段`}
                           </span>
                         </div>
                       </div>

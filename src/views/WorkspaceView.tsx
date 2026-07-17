@@ -27,7 +27,7 @@ import { toast } from '@/stores/toastStore'
 import { CodeEditor } from '@/components/editor/CodeEditor'
 import type { SubmitResult as ExerciseSubmitResult } from '@/services/practiceService'
 import { MAX_EDITOR_TABS, useEditorStore, type EditorTabKind } from '@/stores/editorStore'
-import { isEmptyEditorDocument } from '@/utils/workspaceStarter'
+import { findWorkspaceStarterTarget } from '@/utils/workspaceStarter'
 import { getEditorTabCloseWarning } from '@/utils/editorTabClose'
 import {
   closeEditorWorkspaceTabLocally,
@@ -38,6 +38,14 @@ import {
   resolveEditorWorkspaceConflict,
   type EditorWorkspaceConflictResolution,
 } from '@/services/editorWorkspaceSync'
+import {
+  detectToolchains,
+  toolchainForLanguage,
+  type ExecutionMode,
+  type ToolchainReport,
+} from '@/services/workspaceService'
+import { getWorkspaceExecutionShortcut } from '@/utils/workspaceExecutionShortcut'
+import { isPracticeTab } from '@/utils/practiceTabs'
 
 const DEFAULT_WORKSPACE_CODE = `# 从左侧题库或工作区题目加载 starter code 后开始编码
 print("Hello, CodeHelper")`
@@ -55,6 +63,8 @@ const LANGUAGE_META: Record<string, { label: string; ext: string; cmd: string }>
   csharp: { label: 'C#', ext: 'cs', cmd: 'csc' },
   sql: { label: 'SQL', ext: 'sql', cmd: 'sqlite3' },
 }
+
+const STRONG_ISOLATION_LANGUAGES = new Set(['python', 'javascript', 'node', 'c', 'cpp', 'csharp'])
 
 function languageMeta(language: string): { label: string; ext: string; cmd: string } {
   return LANGUAGE_META[language] ?? { label: language, ext: 'txt', cmd: language }
@@ -123,6 +133,8 @@ interface WorkspaceExerciseContext {
   draftSaving?: boolean
   draftDirty?: boolean
   draftError?: string | null
+  draftDegradedMessage?: string | null
+  draftRestoreMessage?: string | null
   draftConflict?: boolean
   keepLocalDraft?: () => void
   reloadPersistedDraft?: () => void
@@ -172,11 +184,11 @@ export function WorkspaceView({
   const restoreTabs = useEditorStore((state) => state.restoreTabs)
   const recentlyClosedTabs = useEditorStore((state) => state.recentlyClosedTabs)
   const reopenTab = useEditorStore((state) => state.reopenTab)
-  const workspaceTabs = tabs.filter((tab) => tab.kind !== 'exercise')
-  const exerciseTabs = tabs.filter((tab) => tab.kind === 'exercise')
+  const workspaceTabs = tabs.filter((tab) => !isPracticeTab(tab))
+  const exerciseTabs = tabs.filter((tab) => isPracticeTab(tab))
   const visibleTabs = isExerciseMode ? exerciseTabs : workspaceTabs
   const visibleRecentlyClosedTabs = recentlyClosedTabs.filter((tab) =>
-    isExerciseMode ? tab.kind === 'exercise' : tab.kind !== 'exercise',
+    isExerciseMode ? isPracticeTab(tab) : !isPracticeTab(tab),
   )
   const activeTab = isExerciseMode
     ? (exerciseTabs.find((tab) => tab.id === exerciseContext?.tabId) ?? null)
@@ -234,6 +246,11 @@ export function WorkspaceView({
   const [terminalCollapsed, setTerminalCollapsed] = useState(bottomPanelCollapsed)
   const [resolvingConflict, setResolvingConflict] = useState(false)
   const [workspacePersistenceReady, setWorkspacePersistenceReady] = useState(false)
+  const [toolchainReport, setToolchainReport] = useState<ToolchainReport | null>(null)
+  const [toolchainRefreshing, setToolchainRefreshing] = useState(false)
+  const [executionMode, setExecutionMode] = useState<ExecutionMode>('local-controlled')
+  const confirmedLocalRunsRef = React.useRef(new Map<string, string>())
+  const starterInitializationAttemptedRef = React.useRef(false)
   const problemId = activeTab?.problemId ?? ''
   const fileName = exerciseContext
     ? (activeTab?.filename ??
@@ -337,7 +354,7 @@ export function WorkspaceView({
   )
 
   const workspaceConflict =
-    !isExerciseMode && editorDatabaseStatus === 'conflict' ? getEditorWorkspaceConflict() : null
+    editorDatabaseStatus === 'conflict' ? getEditorWorkspaceConflict() : null
   const workspaceConflictFilename = workspaceConflict
     ? (tabs.find((tab) => tab.id === workspaceConflict.tabId)?.filename ??
       recentlyClosedTabs.find((tab) => tab.id === workspaceConflict.tabId)?.filename ??
@@ -362,30 +379,104 @@ export function WorkspaceView({
     if (isExerciseMode || !editorHydrated) return
     if (workspaceTabs.length === 0) {
       createWorkspaceTab()
-      return
     }
-    if (!workspaceTabs.some((tab) => tab.id === activeTabId)) {
-      setActiveTab(workspaceTabs[0].id)
-    }
-  }, [activeTabId, createWorkspaceTab, editorHydrated, isExerciseMode, setActiveTab, workspaceTabs])
+  }, [createWorkspaceTab, editorHydrated, isExerciseMode, workspaceTabs])
 
   useEffect(() => {
     clearExecutionState()
   }, [clearExecutionState, executionScopeId])
 
+  useEffect(() => {
+    let cancelled = false
+    void detectToolchains(false)
+      .then((report) => {
+        if (!cancelled) setToolchainReport(report)
+      })
+      .catch(() => {
+        // Browser mock or IPC unavailable — keep honest degraded label via null report.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const languageToolchain = toolchainForLanguage(toolchainReport, language)
+  const strongIsolationSupported = STRONG_ISOLATION_LANGUAGES.has(language.trim().toLowerCase())
+  const strongIsolationReady =
+    strongIsolationSupported && toolchainReport?.isolation.strongIsolationAvailable === true
+  const languageUnavailable =
+    executionMode === 'strong-isolation'
+      ? !strongIsolationReady
+      : languageToolchain?.status === 'missing'
+  const languageReadyLabel =
+    executionMode === 'strong-isolation'
+      ? strongIsolationReady
+        ? '容器就绪'
+        : strongIsolationSupported
+          ? '容器未就绪'
+          : '强隔离不支持'
+      : !toolchainReport
+        ? '工具链探测中'
+        : languageToolchain?.status === 'ready'
+          ? '就绪'
+          : languageToolchain?.status === 'degraded'
+            ? '降级可用'
+            : '未就绪'
+  const isolationLabel =
+    executionMode === 'strong-isolation'
+      ? 'Docker 强隔离'
+      : (toolchainReport?.isolation.label ??
+        runResult?.isolation?.label ??
+        '本地受控运行（非强隔离）')
+  const isolationDescription =
+    executionMode === 'strong-isolation'
+      ? toolchainReport?.isolation.strongIsolationReason
+      : (toolchainReport?.isolation.description ?? runResult?.isolation?.description)
+  const toolchainTitle = [
+    executionMode === 'local-controlled' ? languageToolchain?.message : undefined,
+    executionMode === 'local-controlled' ? languageToolchain?.installHint : undefined,
+    isolationDescription,
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+  const handleRefreshToolchains = useCallback(async () => {
+    setToolchainRefreshing(true)
+    try {
+      setToolchainReport(await detectToolchains(true))
+    } catch (refreshError) {
+      toast.error(refreshError instanceof Error ? refreshError.message : '重新探测本地工具链失败')
+    } finally {
+      setToolchainRefreshing(false)
+    }
+  }, [])
+
+  const confirmUntrustedLocalExecution = useCallback((): boolean => {
+    // Imported and AI-written code can have incomplete provenance. Local-controlled
+    // execution therefore requires acknowledgement for each code fingerprint.
+    const fingerprint = `${language}\u0000${code}`
+    if (confirmedLocalRunsRef.current.get(executionScopeId) === fingerprint) return true
+    const confirmed = window.confirm(
+      '此题目或练习代码将在本机受控运行环境执行。当前环境限制超时、输出和临时目录，但不是容器或 AppContainer，代码仍可能访问本机文件与网络。确认继续吗？',
+    )
+    if (confirmed) confirmedLocalRunsRef.current.set(executionScopeId, fingerprint)
+    return confirmed
+  }, [code, executionScopeId, language])
+
   // Workspace standalone mode still uses the SQLite problems table.
   // Practice embedded mode receives its exercise id/code from PracticeView and submits via exercises-evaluate.
   useEffect(() => {
     if (isExerciseMode || !workspacePersistenceReady) return
+    if (starterInitializationAttemptedRef.current) return
+    starterInitializationAttemptedRef.current = true
     let cancelled = false
     void getProblems().then((list) => {
       if (cancelled) return
       if (list.length === 0) return
       const first = list[0]
       const state = useEditorStore.getState()
-      const current = state.tabs.find((tab) => tab.id === state.activeTabId)
-      if (!current || current.problemId) return
-      if (!isEmptyEditorDocument(current.content)) return
+      const current = findWorkspaceStarterTarget(state.tabs, activeVisibleTabId)
+      if (!current) return
       const starter = coerceStarterCode(first.starter_code, current.language)
       state.updateTab(current.id, {
         kind: 'problem',
@@ -397,24 +488,53 @@ export function WorkspaceView({
     return () => {
       cancelled = true
     }
-  }, [getProblems, isExerciseMode, workspacePersistenceReady])
+  }, [activeVisibleTabId, getProblems, isExerciseMode, workspacePersistenceReady])
 
   const handleRun = useCallback(async () => {
+    if (isRunning) return
     setTerminalCollapsed(false)
     clearError()
-    await runCode(code, language)
-  }, [clearError, runCode, code, language])
+    if (executionMode === 'local-controlled' && languageToolchain?.status === 'missing') {
+      toast.error(languageToolchain.message || `${languageMeta(language).label} 工具链未就绪`)
+      if (languageToolchain.installHint) toast.info(languageToolchain.installHint)
+      return
+    } else if (executionMode === 'local-controlled' && languageToolchain?.status === 'degraded') {
+      toast.info(languageToolchain.message)
+    }
+    if (executionMode === 'local-controlled' && !confirmUntrustedLocalExecution()) return
+    await runCode(code, language, executionMode)
+  }, [
+    clearError,
+    confirmUntrustedLocalExecution,
+    isRunning,
+    languageToolchain,
+    executionMode,
+    runCode,
+    code,
+    language,
+  ])
 
   const handleSubmit = useCallback(async () => {
+    if (isSubmitting) return
     setTerminalCollapsed(false)
     clearError()
+    if (!confirmUntrustedLocalExecution()) return
     if (exerciseContext) {
       await exerciseContext.submitCode(exerciseContext.id, code, language)
       return
     }
     if (!problemId) return
     await submitToProblem(problemId, code, language)
-  }, [clearError, exerciseContext, problemId, submitToProblem, code, language])
+  }, [
+    clearError,
+    confirmUntrustedLocalExecution,
+    exerciseContext,
+    problemId,
+    submitToProblem,
+    code,
+    language,
+    isSubmitting,
+  ])
 
   // 复制运行输出（stdout + stderr）到剪贴板，失败时给 toast 反馈。
   const copyRunOutput = useCallback(async () => {
@@ -439,10 +559,10 @@ export function WorkspaceView({
   // 在编辑器内输入时同样生效（这是它的主要价值），故不像视图切换那样让位输入框。
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey) || e.altKey) return
-      if (e.key !== 'Enter') return
+      const action = getWorkspaceExecutionShortcut(e)
+      if (!action || isRunning || (action === 'submit' && isSubmitting)) return
       e.preventDefault()
-      if (e.shiftKey) {
+      if (action === 'submit') {
         void handleSubmit()
       } else {
         void handleRun()
@@ -450,7 +570,7 @@ export function WorkspaceView({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [handleRun, handleSubmit])
+  }, [handleRun, handleSubmit, isRunning, isSubmitting])
 
   // 运行/提交报错时，一键把代码与报错交给 AI 诊断（打开 AI 面板并发送）。
   const runStderr = runResult && runResult.exitCode !== 0 ? runResult.stderr : ''
@@ -630,7 +750,7 @@ export function WorkspaceView({
           <div className="ml-auto flex items-center px-3 gap-2">
             <button
               onClick={handleRun}
-              disabled={isRunning || !code.trim()}
+              disabled={isRunning || !code.trim() || languageUnavailable}
               title="运行 (Ctrl Enter)"
               className="text-[var(--color-text-muted)] hover:text-white p-1 disabled:opacity-40 disabled:pointer-events-none"
             >
@@ -648,11 +768,10 @@ export function WorkspaceView({
               onChange={setCode}
               language={language}
               themeId={codeTheme}
-              onRun={handleRun}
               initialCursorPosition={activeTab?.cursorPosition}
               initialScrollTop={activeTab?.scrollTop ?? 0}
-              onCursorPositionChange={isExerciseMode ? undefined : handleCursorPositionChange}
-              onScrollTopChange={isExerciseMode ? undefined : handleScrollTopChange}
+              onCursorPositionChange={handleCursorPositionChange}
+              onScrollTopChange={handleScrollTopChange}
             />
           )}
         </div>
@@ -903,10 +1022,54 @@ export function WorkspaceView({
                         className="w-full bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text-secondary)] px-3 py-1.5 outline-none"
                       />
                     </div>
+                    <div>
+                      <label className="text-xs text-[var(--color-text-muted)] mb-1.5 block">
+                        执行模式
+                      </label>
+                      <div
+                        role="group"
+                        aria-label="执行模式"
+                        className="grid grid-cols-2 overflow-hidden rounded-md border border-[var(--color-border-subtle)]"
+                      >
+                        <button
+                          type="button"
+                          aria-pressed={executionMode === 'local-controlled'}
+                          onClick={() => setExecutionMode('local-controlled')}
+                          className={cn(
+                            'px-2 py-1.5 text-xs',
+                            executionMode === 'local-controlled'
+                              ? 'bg-[var(--color-accent-primary)]/15 text-[var(--color-accent-primary)]'
+                              : 'text-[var(--color-text-muted)]',
+                          )}
+                        >
+                          本地受控
+                        </button>
+                        <button
+                          type="button"
+                          aria-pressed={executionMode === 'strong-isolation'}
+                          onClick={() => setExecutionMode('strong-isolation')}
+                          disabled={!strongIsolationReady}
+                          title={
+                            !strongIsolationSupported
+                              ? '当前语言不支持强隔离；SQL 仅支持本地受控的内存 SQLite utility'
+                              : (toolchainReport?.isolation.strongIsolationReason ??
+                                '强隔离后端探测中')
+                          }
+                          className={cn(
+                            'border-l border-[var(--color-border-subtle)] px-2 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50',
+                            executionMode === 'strong-isolation'
+                              ? 'bg-[var(--color-accent-primary)]/15 text-[var(--color-accent-primary)]'
+                              : 'text-[var(--color-text-muted)]',
+                          )}
+                        >
+                          强隔离
+                        </button>
+                      </div>
+                    </div>
                     <div className="mt-auto space-y-2">
                       <button
                         onClick={handleRun}
-                        disabled={isRunning || !code.trim()}
+                        disabled={isRunning || !code.trim() || languageUnavailable}
                         className="w-full bg-[var(--color-accent-solid)] hover:bg-[var(--color-accent-solid-hover)] active:scale-95 text-[var(--color-on-accent)] py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-70 disabled:pointer-events-none"
                       >
                         {isRunning ? (
@@ -980,14 +1143,45 @@ export function WorkspaceView({
           </div>
         )}
 
-        {!isExerciseMode && editorRestoreStatus === 'degraded' && !workspaceConflict && (
+        {isExerciseMode &&
+          exerciseContext?.draftRestoreMessage &&
+          !exerciseContext.draftConflict && (
+            <div
+              role="status"
+              data-testid="practice-draft-restored"
+              className="shrink-0 border-t border-emerald-400/35 bg-emerald-950/70 px-3 py-1.5 text-xs text-emerald-100"
+            >
+              {exerciseContext.draftRestoreMessage}
+            </div>
+          )}
+
+        {isExerciseMode && exerciseContext?.draftDegradedMessage && (
           <div
             role="status"
+            data-testid="practice-draft-degraded"
             className="shrink-0 border-t border-amber-400/40 bg-[#2A2112] px-3 py-1.5 text-xs text-amber-100"
           >
-            {editorRestoreMessage ?? '工作区恢复失败；已备份损坏数据并打开默认工作区。'}
+            {exerciseContext.draftDegradedMessage}
           </div>
         )}
+
+        {(editorRestoreStatus === 'degraded' || editorRestoreStatus === 'recovered') &&
+          !workspaceConflict && (
+            <div
+              role="status"
+              className={cn(
+                'shrink-0 border-t px-3 py-1.5 text-xs',
+                editorRestoreStatus === 'degraded'
+                  ? 'border-amber-400/40 bg-[#2A2112] text-amber-100'
+                  : 'border-emerald-400/35 bg-emerald-950/70 text-emerald-100',
+              )}
+            >
+              {editorRestoreMessage ??
+                (editorRestoreStatus === 'degraded'
+                  ? '工作区恢复失败；已备份损坏数据并打开默认工作区。'
+                  : '已恢复上次异常退出前的工作区内容。')}
+            </div>
+          )}
 
         {/* Status Bar */}
         <div className="h-6 bg-[var(--color-accent-solid)] flex items-center justify-between px-3 text-[11px] text-[var(--color-on-accent)] font-medium tracking-wide z-10 shrink-0">
@@ -1014,8 +1208,23 @@ export function WorkspaceView({
                     ? 1
                     : 0}
             </span>
-            <span title="尚未完成启动时工具链探测；运行能力取决于本机环境">
-              {languageMeta(language).label} · 依赖本地工具链
+            <span className="flex items-center gap-1">
+              <span title={toolchainTitle || '运行能力取决于本机已安装的工具链'}>
+                {languageMeta(language).label} · {languageReadyLabel}
+              </span>
+              <button
+                type="button"
+                onClick={() => void handleRefreshToolchains()}
+                disabled={toolchainRefreshing}
+                title="重新探测本地工具链"
+                aria-label="重新探测本地工具链"
+                className="rounded p-0.5 hover:bg-white/15 disabled:opacity-50"
+              >
+                <RefreshCw size={10} className={toolchainRefreshing ? 'animate-spin' : undefined} />
+              </button>
+            </span>
+            <span title={toolchainReport?.isolation.description ?? isolationLabel}>
+              {isolationLabel}
             </span>
           </div>
           <div className="flex items-center gap-4">
@@ -1043,7 +1252,13 @@ export function WorkspaceView({
             )}
             <span
               title={
-                editorRestoreMessage ?? editorPersistenceError ?? editorDatabaseError ?? undefined
+                exerciseContext?.draftError ??
+                exerciseContext?.draftDegradedMessage ??
+                editorPersistenceError ??
+                editorDatabaseError ??
+                exerciseContext?.draftRestoreMessage ??
+                editorRestoreMessage ??
+                undefined
               }
             >
               {isExerciseMode
@@ -1053,9 +1268,25 @@ export function WorkspaceView({
                     ? '草稿版本冲突'
                     : exerciseContext?.draftError
                       ? '草稿保存失败'
-                      : exerciseContext?.draftDirty
-                        ? '草稿待保存'
-                        : '草稿已同步'
+                      : exerciseContext?.draftDegradedMessage
+                        ? '草稿仅本地保存'
+                        : editorRestoreStatus === 'degraded'
+                          ? '标签恢复降级'
+                          : editorPersistenceError
+                            ? '标签本地恢复失败'
+                            : editorDatabaseStatus === 'conflict'
+                              ? '标签数据库冲突'
+                              : editorDatabaseStatus === 'degraded'
+                                ? '标签仅本地保存'
+                                : exerciseContext?.draftRestoreMessage
+                                  ? '草稿已恢复'
+                                  : exerciseContext?.draftDirty
+                                    ? '草稿待保存'
+                                    : editorDatabaseStatus === 'syncing'
+                                      ? '标签同步中'
+                                      : editorRestoreStatus === 'recovered'
+                                        ? '标签已恢复'
+                                        : '草稿与标签已同步'
                 : !editorHydrated || editorDatabaseStatus === 'idle'
                   ? '工作区恢复中'
                   : editorRestoreStatus === 'degraded'
@@ -1070,9 +1301,17 @@ export function WorkspaceView({
                             ? '工作区同步中'
                             : editorDirty
                               ? '工作区待保存'
-                              : '工作区已保存'}
+                              : editorRestoreStatus === 'recovered'
+                                ? '工作区已恢复'
+                                : '工作区已保存'}
             </span>
-            <span title={exerciseContext?.draftError ?? undefined}>{fileName}</span>
+            <span
+              title={
+                exerciseContext?.draftError ?? exerciseContext?.draftDegradedMessage ?? undefined
+              }
+            >
+              {fileName}
+            </span>
             <span>{code.split('\n').length} 行</span>
           </div>
         </div>

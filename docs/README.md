@@ -16,18 +16,34 @@
 | [状态管理](concepts/state-management.md) | Zustand 状态管理模式与最佳实践       |
 | [数据流](concepts/data-flow.md)          | 数据从用户操作到持久化的完整流转路径 |
 
+### 用户操作与数据安全
+
+面向日常使用、迁移和故障恢复的操作文档。
+
+| 文档                                               | 说明                                      |
+| -------------------------------------------------- | ----------------------------------------- |
+| [设置指南](user-guide/settings-guide.md)           | 账户、外观、AI、记忆、数据与能力状态入口  |
+| [数据可移植性](data-portability.md)                | SQLite、JSON 子集和 localStorage 恢复边界 |
+| [备份与恢复手册](guides/backup-restore-runbook.md) | 完整 userData 备份与人工恢复              |
+| [发布回滚手册](guides/rollback-runbook.md)         | 已公开版本事故的可执行处置                |
+| [安全审计报告](security-audit.md)                  | 当前威胁模型、开放发现和残余风险          |
+| [依赖审计报告](dependency-audit.md)                | 生产与构建依赖的分层审计                  |
+
 ### 开发指南
 
 面向开发者的一站式工作流指引。
 
-| 文档                                  | 说明                           |
-| ------------------------------------- | ------------------------------ |
-| [快速上手](guides/getting-started.md) | 环境准备、首次克隆与运行       |
-| [日常开发](guides/development.md)     | 分支策略、代码风格、Git 工作流 |
-| [测试指南](guides/testing.md)         | 单元测试、集成测试与覆盖率     |
-| [调试指南](guides/debugging.md)       | 主进程/渲染进程调试技巧        |
-| [构建与发布](guides/deployment.md)    | 多平台构建、版本管理与 CI/CD   |
-| [贡献指南](guides/contributing.md)    | PR 规范、代码审查与发布流程    |
+| 文档                                               | 说明                           |
+| -------------------------------------------------- | ------------------------------ |
+| [快速上手](guides/getting-started.md)              | 环境准备、首次克隆与运行       |
+| [日常开发](guides/development.md)                  | 分支策略、代码风格、Git 工作流 |
+| [测试指南](guides/testing.md)                      | 单元测试、集成测试与覆盖率     |
+| [调试指南](guides/debugging.md)                    | 主进程/渲染进程调试技巧        |
+| [构建与发布](guides/deployment.md)                 | Windows 打包、签名与发布门禁   |
+| [发布与回滚清单](guides/release-checklist.md)      | 正式发布证据与发布后校验       |
+| [备份与恢复手册](guides/backup-restore-runbook.md) | 用户数据保护和恢复验证         |
+| [发布回滚手册](guides/rollback-runbook.md)         | 已公开版本事故响应             |
+| [贡献指南](guides/contributing.md)                 | PR 规范、代码审查与发布流程    |
 
 ### API 参考
 
@@ -74,7 +90,7 @@
 构建工具:  electron-vite 5 + Vite 7
 本地数据库: better-sqlite3
 CSS 方案:  Tailwind CSS 4
-测试框架:  Vitest 3
+测试框架:  Vitest 4
 代码规范:  ESLint 9 + Prettier 3
 CI/CD:    GitHub Actions
 ```
@@ -93,6 +109,6 @@ CI/CD:    GitHub Actions
 
 - [README.md](../README.md) -- 项目概览、功能特性与安装指南
 - [CONTRIBUTING.md](../CONTRIBUTING.md) -- 贡献指南（分支策略、PR 流程）
-- [FAQ.md](../FAQ.md) -- 常见问题解答
+- [FAQ](faq.md) -- 常见问题解答
 - [glossary.md](glossary.md) -- 技术术语速查
 - [search-index.md](search-index.md) -- 按关键词快速定位文档

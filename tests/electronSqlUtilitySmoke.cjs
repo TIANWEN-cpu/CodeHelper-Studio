@@ -2,6 +2,12 @@
 const { app, utilityProcess } = require('electron')
 const { existsSync } = require('fs')
 const { join, resolve } = require('path')
+const {
+  createIsolatedElectronUserData,
+  finishIsolatedElectronTest,
+} = require('../scripts/electron-test-user-data.cjs')
+
+const isolatedUserData = createIsolatedElectronUserData(app, 'codehelper-sql-utility-user-data-')
 
 // CI Linux runners cannot set chrome-sandbox setuid (mode 4755 / root).
 if (process.platform === 'linux') {
@@ -125,9 +131,9 @@ app
     await verifyKillableInfiniteQuery()
   })
   .then(() => {
-    app.quit()
+    finishIsolatedElectronTest(app, isolatedUserData, 0)
   })
   .catch((error) => {
     console.error(error)
-    app.exit(1)
+    finishIsolatedElectronTest(app, isolatedUserData, 1)
   })

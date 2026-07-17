@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EDITOR_WORKSPACE_STORAGE_VERSION } from '../src/shared/editorWorkspaceContract'
 
 const invoke = vi.fn()
 const onEvent = vi.fn()
@@ -31,7 +32,7 @@ describe('editor workspace service', () => {
       workspaceId: 'default',
       mutationId: 'migration-1',
       clientId: 'client-a',
-      storageVersion: 2,
+      storageVersion: EDITOR_WORKSPACE_STORAGE_VERSION,
       activeTabId: 'tab-a',
       tabs: [
         {

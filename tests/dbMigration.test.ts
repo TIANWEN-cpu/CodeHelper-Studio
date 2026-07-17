@@ -21,6 +21,7 @@ function migrationAdapter(
   return {
     prepare: (sql: string) => ({ all: () => queryAll(database, sql) }),
     exec: (sql: string) => database.run(sql),
+    inTransaction: false,
   } as unknown as Parameters<typeof ensureChatHistoryForeignKey>[0]
 }
 

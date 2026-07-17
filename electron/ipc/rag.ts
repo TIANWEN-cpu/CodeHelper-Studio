@@ -2,12 +2,15 @@ import { ipcMain, dialog } from 'electron'
 import { getDB } from '../db/index'
 import { readFileSync, statSync } from 'fs'
 import { basename, extname } from 'path'
-import { splitIntoChunks, escapeRegExp } from '../utils/textUtils'
+import { splitIntoChunks } from '../utils/textUtils'
 import { trackPerformance } from '../utils/perfMonitor'
-import type { KnowledgeChunkRow } from '../types/db'
 import type Database from 'better-sqlite3'
+import {
+  getKnowledgeRetrievalStatus,
+  searchKnowledgeHybrid,
+} from '../db/knowledgeRetrievalRepository'
+import type { KnowledgeSearchResult } from '../../src/shared/knowledgeRetrievalContract'
 
-export type ScoredKnowledgeChunk = KnowledgeChunkRow & { score: number }
 type KnowledgeDocListRow = {
   id: number
   filename: string
@@ -158,52 +161,10 @@ function enrichKnowledgeDoc<T extends KnowledgeDocListRow | KnowledgeDocDetailRo
   ) as unknown as T & KnowledgeDocMetadata
 }
 
-/**
- * 关键词检索上限：knowledge_chunks 可能很大，而 LIKE '%kw%' 无法走索引，
- * 会全表扫。这里给 SQL 一个硬上限，避免把数千条 chunk 全部读进内存再做 JS 精排。
- * 该上限远大于调用方最终需要的 limit（默认 5~10），只用于先收窄候选集。
- */
-const KEYWORD_SCAN_MAX = 200
-
-function keywordSearch(query: string, limit = 5): ScoredKnowledgeChunk[] {
-  const normalizedQuery = validateKnowledgeQuery(query)
-  const keywords = normalizedQuery
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((k) => k.length > 1)
-  if (keywords.length === 0) return []
-
-  const db = getReadyDB()
-  if (!db) return [] // DB not ready yet — return empty results gracefully.
-
-  const conditions = keywords.map(() => 'LOWER(kc.content) LIKE ?').join(' OR ')
-  const params = keywords.map((kw) => `%${kw}%`)
-  // 用 SQL LIMIT 收窄候选集（取最近 KEYWORD_SCAN_MAX 条命中），避免全量搬进内存。
-  const matchingChunks = db
-    .prepare(
-      `SELECT kc.*, kd.filename FROM knowledge_chunks kc JOIN knowledge_docs kd ON kc.doc_id = kd.id
-       WHERE ${conditions}
-       ORDER BY kc.id DESC
-       LIMIT ?`,
-    )
-    .all(...params, KEYWORD_SCAN_MAX) as KnowledgeChunkRow[]
-
-  // 预编译关键词正则一次，复用于所有 chunk（原先每个 chunk 都 new RegExp，CPU 热点）。
-  const matchers = keywords.map((kw) => new RegExp(escapeRegExp(kw), 'g'))
-  const scored = matchingChunks.map((chunk) => {
-    const text = chunk.content.toLowerCase()
-    let score = 0
-    for (const re of matchers) {
-      score += (text.match(re) || []).length
-    }
-    return { ...chunk, score }
-  })
-
-  scored.sort((a, b) => b.score - a.score)
-  return scored.slice(0, limit)
-}
-
-export function topConceptsFromChunks(chunks: ScoredKnowledgeChunk[], limit = 8): string[] {
+export function topConceptsFromChunks(
+  chunks: Array<Pick<KnowledgeSearchResult, 'content'>>,
+  limit = 8,
+): string[] {
   const counts = new Map<string, number>()
   const stopWords = new Set([
     'the',
@@ -356,8 +317,10 @@ export function registerRAGIPC(): void {
       if (typeof id !== 'number' || !Number.isFinite(id) || id < 1) throw new Error('参数无效: id')
       try {
         const db = await getDBWithTimeout()
-        db.prepare('DELETE FROM knowledge_chunks WHERE doc_id = ?').run(id)
-        db.prepare('DELETE FROM knowledge_docs WHERE id = ?').run(id)
+        db.transaction((docId: number) => {
+          db.prepare('DELETE FROM knowledge_chunks WHERE doc_id = ?').run(docId)
+          db.prepare('DELETE FROM knowledge_docs WHERE id = ?').run(docId)
+        })(id)
       } catch (error) {
         throw new Error(
           `删除知识文档失败: ${error instanceof Error ? error.message : String(error)}`,
@@ -368,27 +331,41 @@ export function registerRAGIPC(): void {
 
   ipcMain.handle(
     'knowledge-search',
-    trackPerformance('knowledge-search', (_e, query: string) => keywordSearch(query, 5)),
+    trackPerformance('knowledge-search', async (_e, query: string) => {
+      const normalizedQuery = validateKnowledgeQuery(query)
+      return searchKnowledgeHybrid(await getDBWithTimeout(), normalizedQuery, 12)
+    }),
   )
 
   ipcMain.handle(
-    'knowledge-semantic-search',
-    trackPerformance('knowledge-semantic-search', (_e, query: string) =>
-      keywordSearch(query, 10).map((chunk) => ({
-        content: chunk.content,
-        filename: chunk.filename,
-        doc_id: chunk.doc_id,
-        chunk_id: chunk.id,
-        score: Math.min(1, chunk.score / 5),
-        explanation: '当前使用关键词匹配作为语义搜索降级结果。',
-      })),
+    'knowledge-retrieval-status',
+    trackPerformance('knowledge-retrieval-status', async () =>
+      getKnowledgeRetrievalStatus(await getDBWithTimeout()),
     ),
   )
 
   ipcMain.handle(
+    'knowledge-semantic-search',
+    trackPerformance('knowledge-semantic-search', async (_e, query: string) => {
+      const response = searchKnowledgeHybrid(
+        await getDBWithTimeout(),
+        validateKnowledgeQuery(query),
+        10,
+      )
+      return response.results
+        .slice()
+        .sort((a, b) => b.semanticScore - a.semanticScore || b.score - a.score)
+    }),
+  )
+
+  ipcMain.handle(
     'knowledge-summarize',
-    trackPerformance('knowledge-summarize', (_e, query: string) => {
-      const chunks = keywordSearch(query, 5)
+    trackPerformance('knowledge-summarize', async (_e, query: string) => {
+      const chunks = searchKnowledgeHybrid(
+        await getDBWithTimeout(),
+        validateKnowledgeQuery(query),
+        5,
+      ).results
       const keyConcepts = topConceptsFromChunks(chunks, 6)
       return {
         summary:
@@ -428,16 +405,34 @@ export function registerRAGIPC(): void {
 
   ipcMain.handle(
     'knowledge-rag-context',
-    trackPerformance('knowledge-rag-context', (_e, query?: string) => ({
-      recentProblems: [],
-      learningHistory: [],
-      knowledgeChunks: query ? keywordSearch(query, 5).map((chunk) => chunk.content) : [],
-      userProfile: {
-        preferredLanguage: 'zh-CN',
-        difficultyLevel: 'beginner',
-        strongTopics: [],
-        weakTopics: [],
-      },
-    })),
+    trackPerformance('knowledge-rag-context', async (_e, query?: string) => {
+      const db = await getDBWithTimeout()
+      const response =
+        typeof query === 'string' && query.trim()
+          ? searchKnowledgeHybrid(db, validateKnowledgeQuery(query), 8)
+          : null
+      return {
+        recentProblems: [],
+        learningHistory: [],
+        knowledgeChunks:
+          response?.results.map(
+            (chunk) => `来源：${chunk.filename}#片段${chunk.chunk_index + 1}\n${chunk.content}`,
+          ) ?? [],
+        knowledgeSources:
+          response?.results.map((chunk) => ({
+            docId: chunk.doc_id,
+            filename: chunk.filename,
+            chunkIndex: chunk.chunk_index,
+            score: chunk.score,
+          })) ?? [],
+        retrieval: response?.retrieval ?? getKnowledgeRetrievalStatus(db),
+        userProfile: {
+          preferredLanguage: 'zh-CN',
+          difficultyLevel: 'beginner',
+          strongTopics: [],
+          weakTopics: [],
+        },
+      }
+    }),
   )
 }

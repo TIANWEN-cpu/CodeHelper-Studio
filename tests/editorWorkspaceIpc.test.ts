@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EDITOR_WORKSPACE_STORAGE_VERSION } from '../src/shared/editorWorkspaceContract'
 
 type TestIpcHandler = (...args: unknown[]) => Promise<unknown>
 
@@ -180,6 +181,32 @@ describe('editor workspace IPC', () => {
     ).rejects.toThrow('workspaceId')
   })
 
+  it('canonicalizes exercise saves before they reach the repository', async () => {
+    mockSave.mockReturnValue({
+      status: 'saved',
+      applied: true,
+      generation: 1,
+      tab: { id: 'exercise-a', kind: 'exercise', content: '', revision: 1 },
+    })
+
+    await handlers['editor-tab-save'](event, {
+      ...identity,
+      id: 'exercise-a',
+      filename: 'exercise.py',
+      language: 'python',
+      content: 'must remain draft-only',
+      kind: 'exercise',
+      problemId: 'exercise-a',
+      position: 0,
+      baseRevision: 0,
+    })
+
+    expect(mockSave).toHaveBeenCalledWith(
+      mockDB,
+      expect.objectContaining({ id: 'exercise-a', kind: 'exercise', content: '' }),
+    )
+  })
+
   it('forwards view, lifecycle, load, and active-tab operations', async () => {
     const saved = (revision: number) => ({
       status: 'saved',
@@ -216,7 +243,7 @@ describe('editor workspace IPC', () => {
     await handlers['editor-workspace-load'](event, { workspaceId: 'default' })
     await handlers['editor-workspace-migrate-legacy'](event, {
       ...identity,
-      storageVersion: 2,
+      storageVersion: EDITOR_WORKSPACE_STORAGE_VERSION,
       activeTabId: 'tab-a',
       tabs: [
         {
@@ -267,7 +294,7 @@ describe('editor workspace IPC', () => {
       mockDB,
       expect.objectContaining({
         workspaceId: 'default',
-        storageVersion: 2,
+        storageVersion: EDITOR_WORKSPACE_STORAGE_VERSION,
         activeTabId: 'tab-a',
         tabs: [expect.objectContaining({ id: 'tab-a', kind: 'exercise', status: 'open' })],
       }),

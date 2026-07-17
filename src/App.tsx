@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useEffect } from 'react'
 import { MotionConfig, motion } from 'motion/react'
+import { AlertTriangle, X } from 'lucide-react'
 import { Sidebar } from './components/layout/Sidebar'
 import { Header } from './components/layout/Header'
 import { AITutorPanel } from './components/layout/AITutorPanel'
@@ -19,9 +20,16 @@ import {
   loadAppearance,
   applyAll,
   applyTheme,
+  flushAppearanceWrites,
   resolveTheme,
   watchSystemTheme,
 } from './lib/appearance'
+import { getSetting, setSetting } from './services/settingsService'
+import {
+  DATABASE_RECOVERY_NOTICE_KEY,
+  parseDatabaseRecoveryNotice,
+  type DatabaseRecoveryNotice,
+} from './shared/databaseRecoveryContract'
 
 // Lazy Loaded Views for better initial bundle size
 const HomeView = lazy(() =>
@@ -84,6 +92,9 @@ function useAppReducedMotion(): boolean {
 function App() {
   const { currentView, showAITutor, setShowAITutor } = useAppStore()
   const reducedMotion = useAppReducedMotion()
+  const [databaseRecoveryNotice, setDatabaseRecoveryNotice] =
+    React.useState<DatabaseRecoveryNotice | null>(null)
+  const [rendererRecoveryReason, setRendererRecoveryReason] = React.useState<string | null>(null)
 
   // Alt+1..8 快速切换主视图（与侧边栏顺序一致）。
   useViewShortcuts()
@@ -94,6 +105,38 @@ function App() {
   }, [])
 
   useEffect(() => {
+    const url = new URL(window.location.href)
+    const reason = url.searchParams.get('rendererRecovery')
+    if (!reason) return
+    setRendererRecoveryReason(reason)
+    url.searchParams.delete('rendererRecovery')
+    window.history.replaceState(window.history.state, '', url.toString())
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void getSetting(DATABASE_RECOVERY_NOTICE_KEY)
+      .then((value) => {
+        if (!cancelled) setDatabaseRecoveryNotice(parseDatabaseRecoveryNotice(value))
+      })
+      .catch((error) => {
+        console.error('[STARTUP] Failed to read database recovery notice:', error)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const acknowledgeDatabaseRecovery = async () => {
+    try {
+      await setSetting(DATABASE_RECOVERY_NOTICE_KEY, '')
+      setDatabaseRecoveryNotice(null)
+    } catch {
+      toast.error('无法关闭数据库恢复提示，请稍后重试')
+    }
+  }
+
+  useEffect(() => {
     // Restore before starting the application-scoped synchronizer so direct entry into
     // practice still preserves the workspace topology. Both operations are idempotent
     // when React StrictMode replays this effect during development.
@@ -101,12 +144,25 @@ function App() {
     void ensureEditorWorkspaceSync()
 
     const unregisterWorkspace = registerAppCloseFlushHandler('editor-workspace', async () => {
-      const ok = await flushEditorWorkspaceForClose()
-      return ok ? { ok: true } : { ok: false, error: '编辑器工作区仍有内容未完成持久化' }
+      const result = await flushEditorWorkspaceForClose()
+      if (result.durability === 'database') return { ok: true }
+      return {
+        ok: false,
+        recoveryAvailable: result.durability === 'recovery',
+        error:
+          result.durability === 'recovery'
+            ? `编辑器未完成 SQLite 同步；最新内容已保存在本地恢复区${result.error ? `：${result.error}` : ''}`
+            : result.error || '编辑器工作区仍有内容未完成持久化',
+      }
+    })
+    const unregisterAppearance = registerAppCloseFlushHandler('appearance-settings', async () => {
+      await flushAppearanceWrites()
+      return { ok: true }
     })
     const unbindCloseLifecycle = bindAppCloseLifecycle()
     return () => {
       unbindCloseLifecycle()
+      unregisterAppearance()
       unregisterWorkspace()
     }
   }, [])
@@ -126,6 +182,7 @@ function App() {
         glassStyle: a.glassStyle,
         glassBlur: a.glassBlur,
         aiPetEnabled: a.aiPetEnabled,
+        aiPetSize: a.aiPetSize,
       })
       if (a.followSystem) {
         unwatch = watchSystemTheme((sysTheme) => {
@@ -188,6 +245,58 @@ function App() {
         <Sidebar />
 
         <div className="relative z-10 flex-1 flex flex-col min-w-0">
+          {rendererRecoveryReason && (
+            <div
+              role="status"
+              data-testid="renderer-recovery-banner"
+              className="flex shrink-0 items-start gap-3 border-b border-amber-400/40 bg-amber-500/12 px-4 py-2.5 text-amber-50"
+            >
+              <AlertTriangle size={17} className="mt-0.5 shrink-0 text-amber-300" />
+              <div className="min-w-0 flex-1 text-xs leading-relaxed">
+                <p className="font-semibold">界面进程异常退出，CodeHelper 已自动重新加载</p>
+                <p className="mt-0.5 text-[var(--color-text-secondary)]">
+                  正在从 SQLite
+                  与本地恢复区核对工作区。请确认状态栏显示已保存；若显示降级，请先保留恢复数据再重试。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRendererRecoveryReason(null)}
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-amber-100 transition-colors hover:bg-amber-100/10 hover:text-white"
+                aria-label="关闭界面恢复提示"
+                title="关闭提示"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          )}
+          {databaseRecoveryNotice && (
+            <div
+              role="status"
+              data-testid="database-recovery-banner"
+              className="flex shrink-0 items-start gap-3 border-b border-amber-400/40 bg-amber-500/12 px-4 py-2.5 text-amber-50"
+            >
+              <AlertTriangle size={17} className="mt-0.5 shrink-0 text-amber-300" />
+              <div className="min-w-0 flex-1 text-xs leading-relaxed">
+                <p className="font-semibold">数据库损坏已隔离，当前已使用新数据库启动</p>
+                <p className="mt-0.5 text-[var(--color-text-secondary)]">
+                  编辑器会从本地恢复区尝试恢复；其他原始数据仍保存在：
+                  <span className="ml-1 break-all font-mono text-amber-100">
+                    {databaseRecoveryNotice.backupPath}
+                  </span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void acknowledgeDatabaseRecovery()}
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-amber-100 transition-colors hover:bg-amber-100/10 hover:text-white"
+                aria-label="关闭数据库恢复提示"
+                title="关闭提示"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          )}
           {!hideHeader && <Header />}
           <main className="app-main flex-1 overflow-hidden relative">
             <motion.div

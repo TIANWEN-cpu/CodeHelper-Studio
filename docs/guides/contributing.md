@@ -1,6 +1,6 @@
 # 贡献指南
 
-> **[< 上一页: 构建与发布](deployment.md)**
+> **[< 上一页: 发布与回滚清单](release-checklist.md)**
 
 欢迎为 CodeHelper 贡献代码！本文档介绍贡献流程和规范。
 

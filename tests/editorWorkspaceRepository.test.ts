@@ -1,6 +1,8 @@
 import { createRequire } from 'node:module'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
+  EDITOR_WORKSPACE_SCHEMA_VERSION,
+  EDITOR_WORKSPACE_STORAGE_VERSION,
   closeEditorTab,
   deleteEditorTab,
   ensureEditorWorkspaceSchema,
@@ -12,6 +14,7 @@ import {
   updateEditorTabViewState,
   type SaveEditorTabInput,
 } from '../electron/db/editorWorkspaceRepository'
+import { legacyExerciseRecoveryTabId } from '../src/shared/editorWorkspaceContract'
 
 type BetterSqlite3 = typeof import('better-sqlite3')
 type BetterSqlite3Database = import('better-sqlite3').Database
@@ -58,6 +61,32 @@ describe.runIf(Database !== null)('editor workspace repository', () => {
 
   afterEach(() => database.close())
 
+  it('records the monotonic editor workspace schema version', () => {
+    expect(
+      database
+        .prepare("SELECT version FROM schema_migrations WHERE component = 'editor-workspace'")
+        .get(),
+    ).toEqual({ version: EDITOR_WORKSPACE_SCHEMA_VERSION })
+  })
+
+  it('refuses a database marked with a newer editor workspace schema', () => {
+    const future = new Database!(':memory:')
+    try {
+      future.exec(`
+        CREATE TABLE schema_migrations (
+          component TEXT PRIMARY KEY,
+          version INTEGER NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        INSERT INTO schema_migrations (component, version, updated_at)
+        VALUES ('editor-workspace', ${EDITOR_WORKSPACE_SCHEMA_VERSION + 1}, '2026-07-15T00:00:00Z');
+      `)
+      expect(() => ensureEditorWorkspaceSchema(future)).toThrow('newer than supported')
+    } finally {
+      future.close()
+    }
+  })
+
   it('creates workspace metadata and loads versioned tabs', () => {
     expect(saveEditorTab(database, tab())).toMatchObject({
       status: 'saved',
@@ -67,20 +96,20 @@ describe.runIf(Database !== null)('editor workspace repository', () => {
     })
     expect(setActiveEditorTab(database, 'default', 'tab-a')).toEqual({
       activeTabId: 'tab-a',
-      generation: 2,
+      generation: 1,
     })
 
     expect(loadEditorWorkspace(database)).toMatchObject({
       workspaceId: 'default',
       activeTabId: 'tab-a',
-      generation: 2,
+      generation: 1,
       legacyStorageVersion: 0,
       tabs: [{ id: 'tab-a', content: 'print("a")', status: 'open' }],
       recentlyClosedTabs: [],
     })
   })
 
-  it('persists file, problem, and exercise tab kinds', () => {
+  it('persists tab kinds and canonicalizes exercise saves to topology-only content', () => {
     expect(saveEditorTab(database, tab())).toMatchObject({
       status: 'saved',
       tab: { id: 'tab-a', kind: 'file' },
@@ -97,24 +126,34 @@ describe.runIf(Database !== null)('editor workspace repository', () => {
         }),
       ),
     ).toMatchObject({ status: 'saved', tab: { id: 'problem-a', kind: 'problem' } })
+    const exerciseInput = tab({
+      id: 'exercise-a',
+      mutationId: 'mutation-exercise-a',
+      kind: 'exercise',
+      problemId: 'exercise-a',
+      position: 2,
+    })
+    expect(saveEditorTab(database, exerciseInput)).toMatchObject({
+      status: 'saved',
+      applied: true,
+      tab: { id: 'exercise-a', kind: 'exercise', content: '' },
+    })
     expect(
-      saveEditorTab(
-        database,
-        tab({
-          id: 'exercise-a',
-          mutationId: 'mutation-exercise-a',
-          kind: 'exercise',
-          problemId: 'exercise-a',
-          position: 2,
-        }),
-      ),
-    ).toMatchObject({ status: 'saved', tab: { id: 'exercise-a', kind: 'exercise' } })
+      saveEditorTab(database, { ...exerciseInput, content: 'ignored retry payload' }),
+    ).toMatchObject({
+      status: 'saved',
+      applied: false,
+      tab: { id: 'exercise-a', content: '' },
+    })
 
     expect(loadEditorWorkspace(database).tabs.map((item) => [item.id, item.kind])).toEqual([
       ['tab-a', 'file'],
       ['problem-a', 'problem'],
       ['exercise-a', 'exercise'],
     ])
+    expect(
+      loadEditorWorkspace(database).tabs.find((item) => item.id === 'exercise-a')?.content,
+    ).toBe('')
   })
 
   it('isolates workspaces and merges independent tabs without snapshot loss', () => {
@@ -298,12 +337,12 @@ describe.runIf(Database !== null)('editor workspace repository', () => {
     saveEditorTab(database, tab())
     expect(setActiveEditorTab(database, 'default', 'tab-a')).toEqual({
       activeTabId: 'tab-a',
-      generation: 2,
+      generation: 1,
     })
-    expect(setActiveEditorTab(database, 'default', 'tab-a').generation).toBe(2)
+    expect(setActiveEditorTab(database, 'default', 'tab-a').generation).toBe(1)
     expect(setActiveEditorTab(database, 'default', 'missing')).toEqual({
       activeTabId: null,
-      generation: 3,
+      generation: 1,
     })
     expect(loadEditorWorkspace(database).activeTabId).toBe('tab-a')
   })
@@ -354,6 +393,11 @@ describe.runIf(Database !== null)('editor workspace repository', () => {
         )
         .get(),
     ).toBeUndefined()
+    expect(
+      database
+        .prepare("SELECT version FROM schema_migrations WHERE component = 'editor-workspace'")
+        .get(),
+    ).toEqual({ version: EDITOR_WORKSPACE_SCHEMA_VERSION })
     expect(
       saveEditorTab(
         database,
@@ -431,7 +475,7 @@ describe.runIf(Database !== null)('editor workspace repository', () => {
       workspaceId: 'default',
       mutationId: 'legacy-migration-1',
       clientId: 'client-a',
-      storageVersion: 2,
+      storageVersion: EDITOR_WORKSPACE_STORAGE_VERSION,
       activeTabId: 'local-b',
       tabs: [
         {
@@ -478,7 +522,7 @@ describe.runIf(Database !== null)('editor workspace repository', () => {
       status: 'migrated',
       workspace: {
         activeTabId: 'local-b',
-        legacyStorageVersion: 2,
+        legacyStorageVersion: EDITOR_WORKSPACE_STORAGE_VERSION,
         tabs: [
           {
             id: 'local-a',
@@ -488,9 +532,21 @@ describe.runIf(Database !== null)('editor workspace repository', () => {
           },
           { id: 'local-b', kind: 'problem', problemId: 'problem-b' },
         ],
-        recentlyClosedTabs: [{ id: 'local-closed', kind: 'exercise', content: 'closed content' }],
       },
     })
+    const exerciseInput = input.tabs[2]
+    const exerciseRecoveryId = legacyExerciseRecoveryTabId(exerciseInput)
+    expect(migrated.workspace.recentlyClosedTabs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'local-closed', kind: 'exercise', content: '' }),
+        expect.objectContaining({
+          id: exerciseRecoveryId,
+          kind: 'file',
+          content: 'closed content',
+        }),
+      ]),
+    )
+    expect(migrated.recoveredTabIds).toContain(exerciseRecoveryId)
 
     expect(
       migrateLegacyEditorWorkspace(database, { ...input, mutationId: 'legacy-migration-2' }),
@@ -505,7 +561,7 @@ describe.runIf(Database !== null)('editor workspace repository', () => {
       workspaceId: 'default',
       mutationId: 'legacy-conflict',
       clientId: 'client-a',
-      storageVersion: 2,
+      storageVersion: EDITOR_WORKSPACE_STORAGE_VERSION,
       activeTabId: 'tab-a',
       tabs: [
         {
@@ -537,7 +593,7 @@ describe.runIf(Database !== null)('editor workspace repository', () => {
       workspaceId: 'default',
       mutationId: 'legacy-status-conflict',
       clientId: 'client-a',
-      storageVersion: 2,
+      storageVersion: EDITOR_WORKSPACE_STORAGE_VERSION,
       activeTabId: null,
       tabs: [
         {
@@ -568,13 +624,158 @@ describe.runIf(Database !== null)('editor workspace repository', () => {
     ])
   })
 
+  it('upgrades v3 embedded content for exercise and exercise-* problem tabs transactionally', () => {
+    database.exec(`
+      INSERT INTO editor_workspaces (
+        workspace_id, last_active_tab_id, generation, legacy_storage_version
+      ) VALUES ('default', 'exercise-imported-open', 7, 3);
+      INSERT INTO editor_tabs (
+        workspace_id, tab_id, filename, language, content, tab_kind, problem_id,
+        tab_position, status, revision
+      ) VALUES
+        ('default', 'exercise-imported-open', 'open.py', 'python', 'open legacy code',
+         'problem', 'problem-open', 0, 'open', 4),
+        ('default', 'legacy-closed', 'closed.js', 'javascript', 'closed legacy code',
+         'exercise', 'exercise-closed', 0, 'closed', 2);
+    `)
+    const openRecoveryId = legacyExerciseRecoveryTabId({
+      id: 'exercise-imported-open',
+      filename: 'open.py',
+      language: 'python',
+      content: 'open legacy code',
+      problemId: 'problem-open',
+    })
+    const closedRecoveryId = legacyExerciseRecoveryTabId({
+      id: 'legacy-closed',
+      filename: 'closed.js',
+      language: 'javascript',
+      content: 'closed legacy code',
+      problemId: 'exercise-closed',
+    })
+    const input = {
+      workspaceId: 'default',
+      mutationId: 'upgrade-exercise-v3',
+      clientId: 'client-upgrade',
+      storageVersion: EDITOR_WORKSPACE_STORAGE_VERSION,
+      activeTabId: null,
+      tabs: [],
+    }
+
+    const upgraded = migrateLegacyEditorWorkspace(database, input)
+
+    expect(upgraded).toMatchObject({
+      status: 'migrated',
+      workspace: {
+        activeTabId: 'exercise-imported-open',
+        generation: 8,
+        legacyStorageVersion: EDITOR_WORKSPACE_STORAGE_VERSION,
+      },
+    })
+    expect(upgraded.recoveredTabIds).toEqual(
+      expect.arrayContaining([openRecoveryId, closedRecoveryId]),
+    )
+    expect(upgraded.workspace.tabs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'exercise-imported-open',
+          kind: 'problem',
+          content: '',
+          revision: 5,
+        }),
+        expect.objectContaining({ id: openRecoveryId, kind: 'file', content: 'open legacy code' }),
+      ]),
+    )
+    expect(upgraded.workspace.recentlyClosedTabs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'legacy-closed',
+          kind: 'exercise',
+          content: '',
+          revision: 3,
+        }),
+        expect.objectContaining({
+          id: closedRecoveryId,
+          kind: 'file',
+          content: 'closed legacy code',
+        }),
+      ]),
+    )
+
+    const rowCountBeforeRetry = (
+      database.prepare('SELECT COUNT(*) AS count FROM editor_tabs').get() as { count: number }
+    ).count
+    expect(
+      migrateLegacyEditorWorkspace(database, { ...input, mutationId: 'upgrade-exercise-v3-retry' }),
+    ).toMatchObject({
+      status: 'already-migrated',
+      workspace: { generation: 8, legacyStorageVersion: EDITOR_WORKSPACE_STORAGE_VERSION },
+      recoveredTabIds: [],
+    })
+    expect(
+      (database.prepare('SELECT COUNT(*) AS count FROM editor_tabs').get() as { count: number })
+        .count,
+    ).toBe(rowCountBeforeRetry)
+  })
+
+  it('rolls back recovery creation and exercise clearing when the v3 upgrade fails', () => {
+    database.exec(`
+      INSERT INTO editor_workspaces (workspace_id, generation, legacy_storage_version)
+      VALUES ('default', 3, 3);
+      INSERT INTO editor_tabs (
+        workspace_id, tab_id, filename, language, content, tab_kind, problem_id,
+        tab_position, status, revision
+      ) VALUES (
+        'default', 'exercise-rollback', 'legacy.py', 'python', 'must survive rollback',
+        'problem', 'problem-rollback', 0, 'open', 6
+      );
+      CREATE TRIGGER reject_exercise_recovery
+      BEFORE INSERT ON editor_tabs
+      WHEN NEW.tab_id LIKE 'recovered-exercise-%'
+      BEGIN
+        SELECT RAISE(ABORT, 'forced recovery failure');
+      END;
+    `)
+
+    expect(() =>
+      migrateLegacyEditorWorkspace(database, {
+        workspaceId: 'default',
+        mutationId: 'upgrade-exercise-rollback',
+        clientId: 'client-upgrade',
+        storageVersion: EDITOR_WORKSPACE_STORAGE_VERSION,
+        activeTabId: null,
+        tabs: [],
+      }),
+    ).toThrow('forced recovery failure')
+
+    expect(
+      database
+        .prepare(
+          `SELECT content, revision FROM editor_tabs
+           WHERE workspace_id = 'default' AND tab_id = 'exercise-rollback'`,
+        )
+        .get(),
+    ).toEqual({ content: 'must survive rollback', revision: 6 })
+    expect(
+      database
+        .prepare(
+          "SELECT COUNT(*) AS count FROM editor_tabs WHERE tab_id LIKE 'recovered-exercise-%'",
+        )
+        .get(),
+    ).toEqual({ count: 0 })
+    expect(loadEditorWorkspace(database)).toMatchObject({
+      generation: 3,
+      legacyStorageVersion: 3,
+      tabs: [{ id: 'exercise-rollback', kind: 'problem', content: 'must survive rollback' }],
+    })
+  })
+
   it('rolls back every imported tab and the version marker when migration fails', () => {
     expect(() =>
       migrateLegacyEditorWorkspace(database, {
         workspaceId: 'default',
         mutationId: 'legacy-failure',
         clientId: 'client-a',
-        storageVersion: 2,
+        storageVersion: EDITOR_WORKSPACE_STORAGE_VERSION,
         activeTabId: 'valid-first',
         tabs: [
           {

@@ -2,8 +2,59 @@ import Database from 'better-sqlite3'
 import { app } from 'electron'
 import { join } from 'path'
 import { readFileSync, existsSync } from 'fs'
+import { openDatabaseWithRecovery } from './databaseRecovery'
+import {
+  DATABASE_RECOVERY_NOTICE_KEY,
+  serializeDatabaseRecoveryNotice,
+} from '../../src/shared/databaseRecoveryContract'
+import { ensureExerciseDraftSchema } from './exerciseDraftRepository'
+import { ensureEditorWorkspaceSchema } from './editorWorkspaceRepository'
+import { ensureKnowledgeRetrievalSchema } from './knowledgeRetrievalRepository'
+import { ensureAgentSchema } from './agentRepository'
+import {
+  createVerifiedDatabaseBackup,
+  readApplicationSchemaVersion,
+  runDatabaseQuickCheck,
+} from './databaseBackup'
 
 let db: Database.Database | null = null
+
+export const APPLICATION_SCHEMA_VERSION = 1
+
+export interface DatabaseStartupStatus {
+  initialized: boolean
+  databasePath: string | null
+  quickCheck: string[]
+  applicationSchemaVersion: number
+  migrationBackupPath: string | null
+  recoveryBackupPath: string | null
+  error: string | null
+}
+
+let databaseStartupStatus: DatabaseStartupStatus = {
+  initialized: false,
+  databasePath: null,
+  quickCheck: [],
+  applicationSchemaVersion: 0,
+  migrationBackupPath: null,
+  recoveryBackupPath: null,
+  error: null,
+}
+
+export function getDatabaseStartupStatus(): DatabaseStartupStatus {
+  return { ...databaseStartupStatus, quickCheck: [...databaseStartupStatus.quickCheck] }
+}
+
+export function getDatabasePath(): string {
+  return join(app.getPath('userData'), 'codehelper.db')
+}
+
+export function runApplicationMigrationTransaction(
+  database: Database.Database,
+  migrate: () => void,
+): void {
+  database.transaction(migrate)()
+}
 
 /** Reset singleton for testing. */
 export function __resetDBForTesting() {
@@ -11,21 +62,21 @@ export function __resetDBForTesting() {
     db.close()
   }
   db = null
+  databaseStartupStatus = {
+    initialized: false,
+    databasePath: null,
+    quickCheck: [],
+    applicationSchemaVersion: 0,
+    migrationBackupPath: null,
+    recoveryBackupPath: null,
+    error: null,
+  }
 }
 
 export function getDB(): Database.Database {
   if (!db) {
-    const dbPath = join(app.getPath('userData'), 'codehelper.db')
+    const dbPath = getDatabasePath()
     console.log('[STARTUP] Initializing database at:', dbPath)
-    try {
-      db = new Database(dbPath)
-      db.pragma('journal_mode = WAL')
-      db.pragma('foreign_keys = ON')
-      console.log('[STARTUP] Database connected, WAL mode enabled')
-    } catch (err) {
-      console.error('[ERROR] Database connection failed:', err)
-      throw err
-    }
 
     // Load and execute schema - try multiple paths
     const candidates = [
@@ -47,28 +98,113 @@ export function getDB(): Database.Database {
       console.warn('[STARTUP] No schema file found in candidates:', candidates)
     }
 
-    if (schema) {
-      try {
-        db.exec(schema)
-        console.log('[STARTUP] Schema executed successfully')
-      } catch (err) {
-        console.error('[ERROR] Schema execution failed:', err)
-        throw err
-      }
-    }
-
+    let candidate: Database.Database | null = null
+    let migrationBackupPath: string | null = null
     try {
-      ensureSchemaColumns(db)
-      ensureChatHistoryForeignKey(db)
+      const opened = openDatabaseWithRecovery(
+        dbPath,
+        (database) => {
+          database.pragma('journal_mode = WAL')
+          database.pragma('foreign_keys = ON')
+          console.log('[STARTUP] Database connected, WAL mode enabled')
+          runApplicationMigrationTransaction(database, () => {
+            if (schema) database.exec(schema)
+            ensureSchemaColumns(database)
+            ensureExerciseDraftSchema(database)
+            ensureEditorWorkspaceSchema(database)
+            ensureKnowledgeRetrievalSchema(database)
+            ensureAgentSchema(database)
+            ensureChatHistoryForeignKey(database)
+            const postMigrationQuickCheck = runDatabaseQuickCheck(database)
+            if (
+              postMigrationQuickCheck.length !== 1 ||
+              postMigrationQuickCheck[0].trim().toLowerCase() !== 'ok'
+            ) {
+              throw new Error(
+                `Database quick_check failed after migration: ${postMigrationQuickCheck.join('; ')}`,
+              )
+            }
+            recordApplicationSchemaVersion(database, APPLICATION_SCHEMA_VERSION)
+          })
+          if (schema) console.log('[STARTUP] Schema executed successfully')
+        },
+        {
+          beforeOpenWritable: (database) => {
+            const recordedVersion = readApplicationSchemaVersion(database)
+            if (recordedVersion > APPLICATION_SCHEMA_VERSION) {
+              throw new Error(
+                `Database schema version ${recordedVersion} is newer than this application supports (${APPLICATION_SCHEMA_VERSION})`,
+              )
+            }
+            if (recordedVersion < APPLICATION_SCHEMA_VERSION) {
+              const backup = createVerifiedDatabaseBackup(database, {
+                kind: 'pre-migration',
+                databasePath: dbPath,
+                applicationVersion: app.getVersion(),
+              })
+              migrationBackupPath = backup.filePath
+              console.log('[STARTUP] Verified pre-migration database backup:', backup.filePath)
+            }
+          },
+        },
+      )
+      candidate = opened.database
+      if (opened.recoveryNotice) {
+        candidate
+          .prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)')
+          .run(DATABASE_RECOVERY_NOTICE_KEY, serializeDatabaseRecoveryNotice(opened.recoveryNotice))
+        console.error(
+          '[STARTUP][RECOVERY] Corrupt database isolated at:',
+          opened.recoveryNotice.backupPath,
+        )
+      }
+      db = candidate
+      candidate = null
+      databaseStartupStatus = {
+        initialized: true,
+        databasePath: dbPath,
+        quickCheck: runDatabaseQuickCheck(db),
+        applicationSchemaVersion: readApplicationSchemaVersion(db),
+        migrationBackupPath,
+        recoveryBackupPath: opened.recoveryNotice?.backupPath ?? null,
+        error: null,
+      }
       console.log('[STARTUP] Schema migrations ensured')
     } catch (err) {
-      console.error('[ERROR] Schema migration failed:', err)
+      try {
+        candidate?.close()
+      } catch {
+        // The original initialization failure is more useful than a close failure.
+      }
+      db = null
+      databaseStartupStatus = {
+        initialized: false,
+        databasePath: dbPath,
+        quickCheck: [],
+        applicationSchemaVersion: 0,
+        migrationBackupPath,
+        recoveryBackupPath: null,
+        error: err instanceof Error ? err.message : String(err),
+      }
+      console.error('[ERROR] Database initialization failed:', err)
       throw err
     }
 
     console.log('[STARTUP] Database initialization complete')
   }
   return db
+}
+
+function recordApplicationSchemaVersion(database: Database.Database, version: number): void {
+  database
+    .prepare(
+      `INSERT INTO schema_migrations (component, version, updated_at)
+       VALUES ('application', ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+       ON CONFLICT(component) DO UPDATE SET
+         version = excluded.version,
+         updated_at = excluded.updated_at`,
+    )
+    .run(version)
 }
 
 export function closeDB() {
@@ -112,9 +248,10 @@ export function ensureChatHistoryForeignKey(database: Database.Database): void {
   )
   if (hasSessionCascade) return
 
+  const ownsTransaction = !database.inTransaction
   try {
+    if (ownsTransaction) database.exec('BEGIN IMMEDIATE')
     database.exec(`
-      BEGIN IMMEDIATE;
       DROP TABLE IF EXISTS chat_history_migrated;
       CREATE TABLE chat_history_migrated (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -136,13 +273,15 @@ export function ensureChatHistoryForeignKey(database: Database.Database): void {
       ALTER TABLE chat_history_migrated RENAME TO chat_history;
       CREATE INDEX IF NOT EXISTS idx_chat_history_session
         ON chat_history(session_id, created_at, id);
-      COMMIT;
     `)
+    if (ownsTransaction) database.exec('COMMIT')
   } catch (error) {
-    try {
-      database.exec('ROLLBACK')
-    } catch {
-      // The migration may have failed before the transaction began.
+    if (ownsTransaction) {
+      try {
+        database.exec('ROLLBACK')
+      } catch {
+        // The migration may have failed before the transaction began.
+      }
     }
     throw error
   }

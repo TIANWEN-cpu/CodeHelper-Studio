@@ -76,6 +76,7 @@ describe('registerRAGIPC', () => {
     expect(handlers['knowledge-list']).toBeDefined()
     expect(handlers['knowledge-delete']).toBeDefined()
     expect(handlers['knowledge-search']).toBeDefined()
+    expect(handlers['knowledge-retrieval-status']).toBeDefined()
     expect(handlers['knowledge-semantic-search']).toBeDefined()
     expect(handlers['knowledge-summarize']).toBeDefined()
     expect(handlers['knowledge-concept-graph']).toBeDefined()
@@ -251,6 +252,7 @@ describe('registerRAGIPC', () => {
 
       await handlers['knowledge-delete'](null, 5)
       expect(runFn).toHaveBeenCalled()
+      expect(mockDB.transaction).toHaveBeenCalled()
     })
   })
 
@@ -272,7 +274,8 @@ describe('registerRAGIPC', () => {
 
     it('returns empty for single-char keywords', async () => {
       const result = await handlers['knowledge-search'](null, 'a')
-      expect(result).toEqual([])
+      expect(result).toMatchObject({ query: 'a', results: [] })
+      expect(result.retrieval.mode).toBe('hybrid')
     })
 
     it('searches and scores chunks', async () => {
@@ -292,8 +295,9 @@ describe('registerRAGIPC', () => {
       })
 
       const result = await handlers['knowledge-search'](null, 'Python data')
-      expect(result).toBeDefined() // returns array of matching chunks
-      expect(result.length).toBeLessThanOrEqual(5)
+      expect(result.results).toBeDefined()
+      expect(result.results.length).toBeLessThanOrEqual(12)
+      expect(result.retrieval).toMatchObject({ available: true, mode: 'hybrid' })
     })
 
     it('sorts results by score descending', async () => {
@@ -313,7 +317,9 @@ describe('registerRAGIPC', () => {
       })
 
       const result = await handlers['knowledge-search'](null, 'python')
-      expect(result[0].score).toBeGreaterThanOrEqual(result[result.length - 1].score)
+      expect(result.results[0].score).toBeGreaterThanOrEqual(
+        result.results[result.results.length - 1].score,
+      )
     })
 
     it('limits results to 5', async () => {
@@ -330,7 +336,7 @@ describe('registerRAGIPC', () => {
       })
 
       const result = await handlers['knowledge-search'](null, 'python')
-      expect(result.length).toBeLessThanOrEqual(5)
+      expect(result.results.length).toBeLessThanOrEqual(12)
     })
 
     it('truncates long query to 1000 chars', async () => {
@@ -352,6 +358,51 @@ describe('registerRAGIPC', () => {
         summary: expect.any(String),
         keyConcepts: expect.any(Array),
       })
+    })
+  })
+
+  describe('knowledge retrieval status and RAG sources', () => {
+    it('reports the active retrieval backends', async () => {
+      mockDB.prepare.mockReturnValue(makeStmt(undefined))
+      const { registerRAGIPC } = await import('../electron/ipc/rag')
+      registerRAGIPC()
+      await flushMicrotasks()
+
+      await expect(handlers['knowledge-retrieval-status']()).resolves.toMatchObject({
+        available: true,
+        degraded: false,
+        mode: 'hybrid',
+        lexicalBackend: 'fts5-bm25',
+        semanticBackend: 'fts5-trigram-local-ngram',
+      })
+    })
+
+    it('injects auditable filename and chunk labels into RAG context', async () => {
+      const chunks = [
+        {
+          id: 7,
+          doc_id: 3,
+          content: 'Breadth first search uses a queue.',
+          chunk_index: 2,
+          filename: 'graphs/bfs.md',
+        },
+      ]
+      mockDB.prepare.mockImplementation((sql: string) => {
+        if (sql.includes('knowledge_chunks') && sql.includes('JOIN')) return makeStmt(chunks)
+        return makeStmt(undefined)
+      })
+      const { registerRAGIPC } = await import('../electron/ipc/rag')
+      registerRAGIPC()
+      await flushMicrotasks()
+
+      const context = await handlers['knowledge-rag-context'](null, 'BFS queue')
+      expect(context.knowledgeChunks[0]).toContain('来源：graphs/bfs.md#片段3')
+      expect(context.knowledgeSources[0]).toMatchObject({
+        docId: 3,
+        filename: 'graphs/bfs.md',
+        chunkIndex: 2,
+      })
+      expect(context.retrieval.mode).toBe('hybrid')
     })
   })
 })

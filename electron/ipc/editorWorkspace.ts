@@ -19,6 +19,7 @@ import {
   type VersionedEditorTabMutationInput,
 } from '../db/editorWorkspaceRepository'
 import { trackPerformance } from '../utils/perfMonitor'
+import { EDITOR_WORKSPACE_STORAGE_VERSION } from '../../src/shared/editorWorkspaceContract'
 
 const MAX_WORKSPACE_ID_LENGTH = 100
 const MAX_TAB_ID_LENGTH = 200
@@ -93,13 +94,14 @@ function sanitizeSaveInput(value: unknown): SaveEditorTabInput {
     input.problemId === undefined || input.problemId === null
       ? null
       : requiredString(input.problemId, 'problemId', MAX_TAB_ID_LENGTH)
+  const kind = sanitizeTabKind(input.kind)
   return {
     ...sanitizeIdentity(input),
     id: requiredString(input.id, 'id', MAX_TAB_ID_LENGTH),
     filename: requiredString(input.filename, 'filename', MAX_FILENAME_LENGTH),
     language: requiredString(input.language, 'language', MAX_LANGUAGE_LENGTH),
-    content: input.content,
-    kind: sanitizeTabKind(input.kind),
+    content: kind === 'exercise' ? '' : input.content,
+    kind,
     problemId,
     position: safePosition(input.position),
     baseRevision: safeRevision(input.baseRevision),
@@ -108,7 +110,9 @@ function sanitizeSaveInput(value: unknown): SaveEditorTabInput {
 
 function sanitizeLegacyMigration(value: unknown): MigrateLegacyEditorWorkspaceInput {
   const input = requireObject(value)
-  if (input.storageVersion !== 2) throw new Error('参数无效: storageVersion')
+  if (input.storageVersion !== EDITOR_WORKSPACE_STORAGE_VERSION) {
+    throw new Error('参数无效: storageVersion')
+  }
   if (!Array.isArray(input.tabs) || input.tabs.length > MAX_MIGRATION_TABS) {
     throw new Error('参数无效: tabs')
   }
@@ -159,7 +163,7 @@ function sanitizeLegacyMigration(value: unknown): MigrateLegacyEditorWorkspaceIn
       : requiredString(input.activeTabId, 'activeTabId', MAX_TAB_ID_LENGTH)
   return {
     ...sanitizeIdentity(input),
-    storageVersion: 2,
+    storageVersion: EDITOR_WORKSPACE_STORAGE_VERSION,
     activeTabId,
     tabs,
   }

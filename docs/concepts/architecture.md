@@ -44,7 +44,7 @@ CodeHelper 是一个基于 Electron 的桌面编程辅助工具，采用经典�
 | 代码编辑器 | CodeMirror 6        | 6.x        | 轻量可扩展的编辑引擎      |
 | 本地数据库 | better-sqlite3      | 12.x       | 同步 SQLite 访问          |
 | CSS 框架   | Tailwind CSS        | 4.x        | 原子化 CSS                |
-| 测试框架   | Vitest              | 3.x        | 快速单元/集成测试         |
+| 测试框架   | Vitest              | 4.x        | 快速单元/集成测试         |
 | 代码规范   | ESLint + Prettier   | 9.x / 3.x  | 代码质量与格式化          |
 | Git Hooks  | Husky + lint-staged | 9.x / 16.x | 提交前自动检查            |
 
@@ -148,7 +148,7 @@ D:\codehelper\
 // 窗口安全配置
 const mainWindow = new BrowserWindow({
   webPreferences: {
-    preload: join(__dirname, '../preload/index.mjs'),
+    preload: getPreloadScriptPath(__dirname), // electron-vite 输出 index.js
     contextIsolation: true, // 关键：隔离上下文
     nodeIntegration: false, // 关键：禁用 Node.js 集成
     webSecurity: true, // 关键：启用 Web 安全

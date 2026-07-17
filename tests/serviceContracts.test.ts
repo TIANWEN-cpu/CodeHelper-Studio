@@ -5,6 +5,7 @@ vi.mock('../src/services/analyticsService', () => ({ track: vi.fn() }))
 import { submitToProblem } from '../src/services/workspaceService'
 import { getDraft } from '../src/services/practiceService'
 import { getLessonNote, searchLessons } from '../src/services/learnService'
+import { DEFAULT_EXPORT_CATEGORIES, importData } from '../src/services/settingsService'
 
 describe('renderer service IPC contracts', () => {
   const invoke = vi.fn()
@@ -54,5 +55,20 @@ describe('renderer service IPC contracts', () => {
   it('treats lesson search results as lesson ids', async () => {
     invoke.mockResolvedValueOnce(['lesson-1', 'lesson-2'])
     await expect(searchLessons('arrays')).resolves.toEqual(['lesson-1', 'lesson-2'])
+  })
+
+  it('uses merge semantics for the confirmed portable-data import flow', async () => {
+    invoke.mockResolvedValueOnce({
+      success: true,
+      imported: { settings: 2 },
+      skipped: {},
+      errors: [],
+    })
+
+    await expect(importData()).resolves.toMatchObject({ success: true })
+    expect(invoke).toHaveBeenCalledWith('import-data', {
+      conflictResolution: 'merge',
+      selectedData: DEFAULT_EXPORT_CATEGORIES,
+    })
   })
 })
