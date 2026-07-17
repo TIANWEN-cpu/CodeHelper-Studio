@@ -27,6 +27,9 @@ concurrency:
 
 env:
   NODE_VERSION: '22'
+  CODEHELPER_WINDOWS_RELEASE_MODE: 'unsigned'
+  CODEHELPER_REQUIRE_SIGNATURE: '0'
+  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
 jobs:
   # ---------------------------------------------------------------
@@ -255,7 +258,7 @@ jobs:
         if: runner.os == 'Linux'
         run: xvfb-run -a npm run test:electron-sql
 
-      - name: Reconfirm release tag before signing
+      - name: Reconfirm release tag before packaging
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
@@ -279,34 +282,44 @@ jobs:
               throw new Error(`Remote tag ${tag} resolves to ${object.type}:${object.sha}, expected commit ${expected}`)
             }
 
-      - name: Require Windows signing certificate
+      - name: Enforce unsigned Windows release mode
         if: matrix.platform == 'win'
         shell: pwsh
-        env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
         run: |
-          if ([string]::IsNullOrWhiteSpace($env:CSC_LINK)) {
-            throw 'CSC_LINK is required for an official Windows release.'
+          $ErrorActionPreference = 'Stop'
+          if ($env:CODEHELPER_WINDOWS_RELEASE_MODE -ne 'unsigned') {
+            throw 'CODEHELPER_WINDOWS_RELEASE_MODE must be unsigned.'
           }
-          if ([string]::IsNullOrWhiteSpace($env:CSC_KEY_PASSWORD)) {
-            throw 'CSC_KEY_PASSWORD is required for an official Windows release.'
+          if ($env:CSC_IDENTITY_AUTO_DISCOVERY -ne 'false') {
+            throw 'CSC_IDENTITY_AUTO_DISCOVERY must remain false for an unsigned release.'
+          }
+          if ($env:CODEHELPER_REQUIRE_SIGNATURE -ne '0') {
+            throw 'CODEHELPER_REQUIRE_SIGNATURE must remain 0 for an unsigned release.'
+          }
+          $forbiddenSigningVariables = @(
+            'CSC_LINK',
+            'CSC_KEY_PASSWORD',
+            'WIN_CSC_LINK',
+            'WIN_CSC_KEY_PASSWORD',
+            'CSC_NAME',
+            'CODEHELPER_EXPECTED_SIGNER_THUMBPRINT'
+          )
+          foreach ($name in $forbiddenSigningVariables) {
+            $value = [Environment]::GetEnvironmentVariable($name)
+            if (-not [string]::IsNullOrWhiteSpace($value)) {
+              throw "$name must be unset for an unsigned release."
+            }
           }
 
-      - name: Build signed Electron packages
+      - name: Build unsigned Electron packages
         run: npm run package:win
-        env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
 
-      - name: Verify signature, resources, install, restart, and hashes
+      - name: Verify unsigned Authenticode, resources, install, restart, and hashes
         if: matrix.platform == 'win'
         run: npm run verify:package:win
         env:
-          CODEHELPER_REQUIRE_SIGNATURE: '1'
           CODEHELPER_RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
           CODEHELPER_WORKFLOW_SHA: ${{ github.sha }}
-          CODEHELPER_EXPECTED_SIGNER_THUMBPRINT: ${{ secrets.CODEHELPER_SIGNER_THUMBPRINT }}
 
       - name: List artifacts
         shell: bash
@@ -415,7 +428,15 @@ jobs:
               str(manifest.get("sourceCommit", "")).lower() == source_commit,
               "release manifest sourceCommit does not match the prepared release commit",
           )
-          require(manifest.get("signatureRequired") is True, "release manifest must require signatures")
+          require(
+              manifest.get("signatureRequired") is False,
+              "release manifest must record unsigned verification mode",
+          )
+          require(
+              "expectedSignerThumbprint" in manifest
+              and manifest["expectedSignerThumbprint"] is None,
+              "unsigned release manifest must not pin a signer thumbprint",
+          )
           require(
               str(manifest.get("workflowCommit", "")).lower() == workflow_commit,
               "release manifest workflowCommit does not match this workflow run",
@@ -453,22 +474,24 @@ jobs:
               "SHA256SUMS.txt must contain exactly the packaged artifacts",
           )
 
-          signer_thumbprints = set()
-
-          def validate_signature(label, signature):
+          def validate_unsigned_signature(label, signature):
               require(isinstance(signature, dict), f"{label} Authenticode record is missing")
               if not isinstance(signature, dict):
                   return
-              require(signature.get("status") == "Valid", f"{label} Authenticode status is not Valid")
-              signer = str(signature.get("signerThumbprint") or "")
-              timestamp = str(signature.get("timestampThumbprint") or "")
-              require(re.fullmatch(r"[0-9a-fA-F]{40}", signer) is not None, f"{label} signer thumbprint is invalid")
               require(
-                  re.fullmatch(r"[0-9a-fA-F]{40}", timestamp) is not None,
-                  f"{label} timestamp certificate thumbprint is invalid",
+                  signature.get("status") == "NotSigned",
+                  f"{label} Authenticode status must be NotSigned",
               )
-              if signer:
-                  signer_thumbprints.add(signer.upper())
+              require(
+                  isinstance(signature.get("statusMessage"), str)
+                  and bool(signature["statusMessage"].strip()),
+                  f"{label} Authenticode status message is missing",
+              )
+              for field in ("signerSubject", "signerThumbprint", "timestampThumbprint"):
+                  require(
+                      field in signature and signature[field] is None,
+                      f"{label} unexpectedly contains {field} in unsigned mode",
+                  )
 
           for name in expected_records:
               record = records_by_name.get(name, {})
@@ -477,7 +500,7 @@ jobs:
               require(record.get("bytes") == path.stat().st_size, f"{name} byte count is incorrect")
               require(str(record.get("sha256", "")).lower() == digest, f"{name} SHA-256 is incorrect")
               if name in (installer, portable):
-                  validate_signature(name, record.get("authenticode"))
+                  validate_unsigned_signature(name, record.get("authenticode"))
 
           packaged_executable = manifest.get("packagedExecutable")
           require(isinstance(packaged_executable, dict), "packagedExecutable record is missing")
@@ -496,7 +519,7 @@ jobs:
                   is not None,
                   "packagedExecutable SHA-256 is invalid",
               )
-              validate_signature(
+              validate_unsigned_signature(
                   "win-unpacked/CodeHelper.exe", packaged_executable.get("authenticode")
               )
 
@@ -519,7 +542,9 @@ jobs:
               re.fullmatch(r"[0-9a-fA-F]{64}", str(job_host.get("sha256", ""))) is not None,
               "packaged Job Host SHA-256 is invalid",
           )
-          validate_signature("packaged codehelper-job-host.exe", job_host.get("authenticode"))
+          validate_unsigned_signature(
+              "packaged codehelper-job-host.exe", job_host.get("authenticode")
+          )
 
           installer_bytes = (root / installer).read_bytes()
           updater = manifest.get("updater")
@@ -564,6 +589,20 @@ jobs:
               require(smoke.get("runtimeCleanupVerified") is True, f"{label} runtime cleanup failed")
               if label == "installed":
                   require(smoke.get("installationRemoved") is True, "installed application was not removed")
+                  installed_authenticode = smoke.get("authenticode")
+                  require(
+                      isinstance(installed_authenticode, dict)
+                      and set(installed_authenticode) == {"installedExecutable", "uninstaller"},
+                      "installed smoke Authenticode evidence is incomplete",
+                  )
+                  if isinstance(installed_authenticode, dict):
+                      validate_unsigned_signature(
+                          "installed CodeHelper.exe",
+                          installed_authenticode.get("installedExecutable"),
+                      )
+                      validate_unsigned_signature(
+                          "installed uninstaller", installed_authenticode.get("uninstaller")
+                      )
               require(
                   str(smoke.get("jobHostSha256", "")).lower()
                   == str(job_host.get("sha256", "")).lower(),
@@ -590,21 +629,11 @@ jobs:
                   "release verification evidence is incomplete",
               )
 
-          pinned_signer = manifest.get("expectedSignerThumbprint")
-          if pinned_signer is not None:
-              require(
-                  re.fullmatch(r"[0-9a-fA-F]{40}", str(pinned_signer)) is not None,
-                  "expected signer thumbprint is invalid",
-              )
-              require(str(pinned_signer).upper() in signer_thumbprints, "expected signer was not used")
-
-          require(len(signer_thumbprints) == 1, "signed executables do not share one signer")
-
           if errors:
               for error in errors:
                   print(f"::error::{error}")
               sys.exit(1)
-          print("Release manifest, signatures, timestamps, and artifact hashes are valid.")
+          print("Release manifest, unsigned Authenticode evidence, and artifact hashes are valid.")
           PY
 
       - name: List downloaded artifacts
@@ -922,7 +951,15 @@ jobs:
               str(manifest.get("sourceCommit", "")).lower() == source_commit,
               "published manifest sourceCommit is incorrect",
           )
-          require(manifest.get("signatureRequired") is True, "published manifest does not require signatures")
+          require(
+              manifest.get("signatureRequired") is False,
+              "published manifest must record unsigned verification mode",
+          )
+          require(
+              "expectedSignerThumbprint" in manifest
+              and manifest["expectedSignerThumbprint"] is None,
+              "published unsigned manifest must not pin a signer thumbprint",
+          )
           require(
               str(manifest.get("workflowCommit", "")).lower() == workflow_commit,
               "published manifest workflowCommit does not match this workflow run",
@@ -956,22 +993,24 @@ jobs:
           except (TypeError, ValueError):
               errors.append("published generatedAt is not a valid ISO-8601 timestamp")
 
-          signer_thumbprints = set()
-
-          def validate_signature(label, signature):
+          def validate_unsigned_signature(label, signature):
               require(isinstance(signature, dict), f"{label} Authenticode record is missing")
               if not isinstance(signature, dict):
                   return
-              require(signature.get("status") == "Valid", f"{label} Authenticode status is not Valid")
-              signer = str(signature.get("signerThumbprint") or "")
-              timestamp = str(signature.get("timestampThumbprint") or "")
-              require(re.fullmatch(r"[0-9a-fA-F]{40}", signer) is not None, f"{label} signer thumbprint is invalid")
               require(
-                  re.fullmatch(r"[0-9a-fA-F]{40}", timestamp) is not None,
-                  f"{label} timestamp certificate thumbprint is invalid",
+                  signature.get("status") == "NotSigned",
+                  f"{label} Authenticode status must be NotSigned",
               )
-              if signer:
-                  signer_thumbprints.add(signer.upper())
+              require(
+                  isinstance(signature.get("statusMessage"), str)
+                  and bool(signature["statusMessage"].strip()),
+                  f"{label} Authenticode status message is missing",
+              )
+              for field in ("signerSubject", "signerThumbprint", "timestampThumbprint"):
+                  require(
+                      field in signature and signature[field] is None,
+                      f"{label} unexpectedly contains {field} in unsigned mode",
+                  )
 
           for name in expected_records:
               record = records_by_name.get(name, {})
@@ -983,7 +1022,7 @@ jobs:
                   f"{name} manifest SHA-256 is incorrect",
               )
               if name in (installer, portable):
-                  validate_signature(name, record.get("authenticode"))
+                  validate_unsigned_signature(name, record.get("authenticode"))
 
           packaged_executable = manifest.get("packagedExecutable")
           require(isinstance(packaged_executable, dict), "packagedExecutable record is missing")
@@ -1004,7 +1043,7 @@ jobs:
                   is not None,
                   "published packagedExecutable SHA-256 is invalid",
               )
-              validate_signature(
+              validate_unsigned_signature(
                   "win-unpacked/CodeHelper.exe", packaged_executable.get("authenticode")
               )
 
@@ -1027,7 +1066,9 @@ jobs:
               re.fullmatch(r"[0-9a-fA-F]{64}", str(job_host.get("sha256", ""))) is not None,
               "published Job Host SHA-256 is invalid",
           )
-          validate_signature("packaged codehelper-job-host.exe", job_host.get("authenticode"))
+          validate_unsigned_signature(
+              "packaged codehelper-job-host.exe", job_host.get("authenticode")
+          )
 
           installer_bytes = (root / installer).read_bytes()
           updater = manifest.get("updater")
@@ -1093,6 +1134,21 @@ jobs:
                       smoke.get("installationRemoved") is True,
                       "published installed application was not removed",
                   )
+                  installed_authenticode = smoke.get("authenticode")
+                  require(
+                      isinstance(installed_authenticode, dict)
+                      and set(installed_authenticode) == {"installedExecutable", "uninstaller"},
+                      "published installed smoke Authenticode evidence is incomplete",
+                  )
+                  if isinstance(installed_authenticode, dict):
+                      validate_unsigned_signature(
+                          "published installed CodeHelper.exe",
+                          installed_authenticode.get("installedExecutable"),
+                      )
+                      validate_unsigned_signature(
+                          "published installed uninstaller",
+                          installed_authenticode.get("uninstaller"),
+                      )
               require(
                   str(smoke.get("jobHostSha256", "")).lower()
                   == str(job_host.get("sha256", "")).lower(),
@@ -1119,24 +1175,12 @@ jobs:
                   "published verification evidence is incomplete",
               )
 
-          pinned_signer = manifest.get("expectedSignerThumbprint")
-          if pinned_signer is not None:
-              require(
-                  re.fullmatch(r"[0-9a-fA-F]{40}", str(pinned_signer)) is not None,
-                  "published expected signer thumbprint is invalid",
-              )
-              require(
-                  str(pinned_signer).upper() in signer_thumbprints,
-                  "published expected signer was not used",
-              )
-          require(len(signer_thumbprints) == 1, "published executable signer thumbprints differ")
-
           if errors:
               for error in errors:
                   print(f"::error::{error}")
               sys.exit(1)
 
-          print("Published release assets and SHA-256 checksums are valid.")
+          print("Published unsigned Authenticode evidence and SHA-256 checksums are valid.")
           PY
 
       - name: Determine latest-release policy
@@ -1480,9 +1524,9 @@ jobs:
           echo "## Release ${{ needs.prepare.outputs.tag }} Complete" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.draft }}" = "true" ]; then
-            echo "Windows desktop package built, uploaded, and verified as a draft." >> "$GITHUB_STEP_SUMMARY"
+            echo "Intentionally unsigned Windows desktop package built, uploaded, and verified as a draft." >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "Windows desktop package built, verified, and published successfully." >> "$GITHUB_STEP_SUMMARY"
+            echo "Intentionally unsigned Windows desktop package built, verified, and published successfully." >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "The Windows auto-update manifest is included for Electron Updater." >> "$GITHUB_STEP_SUMMARY"

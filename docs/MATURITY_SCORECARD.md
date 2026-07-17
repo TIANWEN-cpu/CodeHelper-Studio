@@ -27,20 +27,20 @@
 
 P2-P7 已把项目从原型推进到具备真实数据恢复、代码执行、知识检索、Agent 审批、Windows 打包
 门禁、验证型数据库快照和统一能力状态的桌面应用。本地安全、依赖、测试和无签名打包门禁已经
-收口；尚未达到 L4 的原因是正式签名发布、异地备份/恢复和运营责任等外部与产品化条件未完成。
+收口；尚未达到 L4 的原因是公开发布仍采用未签名资产，且异地备份/恢复和运营责任等外部与产品化条件未完成。
 
-| 维度       | 当前等级   | 已有证据                                                              | 主要短板                                             |
-| ---------- | ---------- | --------------------------------------------------------------------- | ---------------------------------------------------- |
-| 功能完整度 | L3         | 多标签工作区、练习、聊天、知识、Agent 和本地执行闭环                  | JSON 迁移仅覆盖子集；没有完整恢复向导                |
-| 用户体验   | L3         | 恢复/冲突/降级可见，数据保护和统一能力状态页可用                      | 无应用内恢复；异地复制和备份保留仍依赖人工           |
-| 技术架构   | L3         | Electron 进程隔离、SQLite 权威存储、版本化仓储和 IPC 合同矩阵         | 113 个 invoke 通道，部分 Handler 缺少统一中间件      |
-| AI 与检索  | L3         | OpenAI-compatible Provider、本地混合检索、来源和 Agent 工具证据       | Provider 健康依赖环境；不可信知识内容仍需边界治理    |
-| 数据可靠性 | L3         | WAL、损坏隔离、冲突、多窗口、验证型快照及导入/迁移前备份              | 无应用内恢复；同盘备份和降级读取仍需人工治理         |
-| 代码执行   | L3         | Windows Job Object、utility、资源限制和 Docker strong-isolation       | local-controlled 不是沙箱；POSIX 资源隔离较弱        |
-| 测试验证   | L4（本地） | 单元、Electron E2E、Docker、知识、Agent 和真实 Windows package smoke  | 环境相关 skip 必须单独记录；正式签名环境尚未实跑     |
-| 文档质量   | L3         | 架构、IPC、恢复、发布和安全文档齐全                                   | 仍需持续防止历史报告和实现漂移                       |
-| 部署能力   | L3         | 精确 tag/SHA、签名门禁、六资产、draft 校验、immutable 和发布后 digest | 真实证书、受保护 Environment 和正式 Release 尚未验证 |
-| 商业化     | L1         | 本地优先、用户自带 Provider                                           | 无账号、云同步、托管 AI、定价和运营体系              |
+| 维度       | 当前等级   | 已有证据                                                                         | 主要短板                                             |
+| ---------- | ---------- | -------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| 功能完整度 | L3         | 多标签工作区、练习、聊天、知识、Agent 和本地执行闭环                             | JSON 迁移仅覆盖子集；没有完整恢复向导                |
+| 用户体验   | L3         | 恢复/冲突/降级可见，数据保护和统一能力状态页可用                                 | 无应用内恢复；异地复制和备份保留仍依赖人工           |
+| 技术架构   | L3         | Electron 进程隔离、SQLite 权威存储、版本化仓储和 IPC 合同矩阵                    | 113 个 invoke 通道，部分 Handler 缺少统一中间件      |
+| AI 与检索  | L3         | OpenAI-compatible Provider、本地混合检索、来源和 Agent 工具证据                  | Provider 健康依赖环境；不可信知识内容仍需边界治理    |
+| 数据可靠性 | L3         | WAL、损坏隔离、冲突、多窗口、验证型快照及导入/迁移前备份                         | 无应用内恢复；同盘备份和降级读取仍需人工治理         |
+| 代码执行   | L3         | Windows Job Object、utility、资源限制和 Docker strong-isolation                  | local-controlled 不是沙箱；POSIX 资源隔离较弱        |
+| 测试验证   | L4（本地） | 单元、Electron E2E、Docker、知识、Agent 和真实 Windows package smoke             | 环境相关 skip 必须单独记录；未签名发布有平台信誉风险 |
+| 文档质量   | L3         | 架构、IPC、恢复、发布和安全文档齐全                                              | 仍需持续防止历史报告和实现漂移                       |
+| 部署能力   | L3         | 精确 tag/SHA、严格 NotSigned 门禁、六资产、draft 校验、immutable 和发布后 digest | 无发布者身份签名；正式 Release 仍待验证              |
+| 商业化     | L1         | 本地优先、用户自带 Provider                                                      | 无账号、云同步、托管 AI、定价和运营体系              |
 
 ## 已完成的关键成熟化
 
@@ -73,21 +73,20 @@ P2-P7 已把项目从原型推进到具备真实数据恢复、代码执行、�
 ### Windows 发布
 
 - 正式 workflow 锁定现有 tag、完整 SHA、默认分支可达性和仓库身份。
-- Windows 包要求 Authenticode、时间戳和可选证书指纹 pin。
+- Windows 包明确要求 Authenticode `NotSigned`，且 signer 与时间戳字段必须为空。
 - NSIS 与 Portable 执行两阶段 packaged smoke，验证资源、Job Host、重启持久化和清理。
 - Release 先进入 draft，重新下载验证后公开，并要求 GitHub API `immutable === true`。
 - 公开后再次下载六项资产，比较 staged bytes、SHA-256 和 server digest。
 
-这些是发布基础设施，不等于已经完成真实正式发布。外部 `release` Environment、证书和 Immutable
-Releases 设置仍需在活跃 `CodeHelper-Studio` 仓库验证。
+这些是发布基础设施，不等于已经完成真实正式发布。`release` Environment 和 Immutable Releases
+设置仍需在活跃 `CodeHelper-Studio` 仓库完成端到端验证。
 
 ## 当前阻断项
 
 ### 发布前必须关闭
 
-1. 在活跃仓库配置受保护 `release` Environment、签名 secrets 和 Immutable Releases。2026-07-17
-   的 GitHub API 检查显示 `CodeHelper-Studio` 尚无 `release` Environment。
-2. 使用真实证书完成一次不可变 Release 全流程，而不只是本地无签名 package smoke。
+1. 在活跃仓库完成一次未签名、六资产、不可变 Release 全流程，并保存发布后重新下载证据。
+2. 后续若面向更广泛用户分发，再评估代码签名；补签必须发布新版本，不能替换不可变资产。
 
 ### Beta 期间必须完成
 
@@ -124,8 +123,8 @@ localStorage 恢复层。灾难恢复仍需把完整 `userData` 复制到外部�
 
 2026-07-17 收口验收记录包括：
 
-- 单元测试与覆盖率各 2516 通过、2 条平台/专用 Electron harness 跳过；
-- 覆盖率：Statements 71.34%、Branches 66.63%、Functions 76.77%、Lines 73.59%；
+- 单元测试与覆盖率各 2518 通过、2 条平台/专用 Electron harness 跳过；
+- 覆盖率：Statements 71.36%、Branches 66.66%、Functions 76.77%、Lines 73.62%；
 - Electron E2E 24/24；
 - Docker isolation 28/28；
 - 知识检索 33/33；
@@ -140,7 +139,7 @@ localStorage 恢复层。灾难恢复仍需把完整 `userData` 复制到外部�
 
 - 发布阻断安全发现保持关闭，并在每次 Release 重跑 Electron/package 门禁；
 - 数据库快照具备异地保留策略，恢复路径由产品或稳定运维工具承接并完成演练；
-- 真实证书和受保护环境完成至少一次不可变正式 Release；
+- 面向广泛分发前完成可信发布者签名或等价身份机制，并通过一次不可变正式 Release；
 - 发布回滚在隔离数据副本上演练通过；
 - 完整依赖审计无未批准 High/Critical；
 - 用户支持、隐私、漏洞响应和版本生命周期流程有负责人；

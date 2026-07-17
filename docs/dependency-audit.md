@@ -58,7 +58,7 @@ Vite 已升级到 `7.3.6`，并使用其支持的 `esbuild@0.28.1`。`electron-v
 | 依赖             | 当前约束  | 用途                           |
 | ---------------- | --------- | ------------------------------ |
 | Electron         | `^41.7.1` | 桌面运行时                     |
-| electron-builder | `^26.8.1` | Windows 打包与签名             |
+| electron-builder | `26.15.3` | Windows 打包与 NSIS 安装器生成 |
 | electron-vite    | `^5.0.0`  | 主进程、preload、Renderer 构建 |
 | Vite             | `^7.3.6`  | Renderer 构建和开发服务器      |
 | esbuild          | `^0.28.1` | 固定 Vite 的修复版构建实例     |

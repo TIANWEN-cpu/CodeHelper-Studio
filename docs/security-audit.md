@@ -28,7 +28,7 @@ CodeHelper 已具备较强的本地数据恢复、受控执行、Docker 强隔�
 | 知识检索               | 本地混合检索可降级并展示来源；导入内容仍是不可信文本，可能进入 AI 上下文                    |
 | Agent                  | 主进程白名单、逐次审批、取消和 SQLite 审计已实现；不开放普通终端、文件写入或浏览器工具      |
 | 依赖                   | 生产与完整依赖树 audit 均为 0；Vite/esbuild 与 form-data advisory 已关闭                    |
-| Windows 发布           | 本地门禁完整；正式可信发布仍依赖活跃仓库、受保护 Environment、真实证书和 Immutable Releases |
+| Windows 发布           | 未签名 Authenticode、安装和不可变资产门禁完整；仍缺少独立发布者身份信任                     |
 | 自动更新               | 只生成和验证 updater metadata；应用内检查、下载和安装未实现                                 |
 
 当前没有开放的 High 或 Low 安全发现。SEC-004 仍作为 1 个 Medium 兼容性风险接受项保留，SEC-003
@@ -240,8 +240,9 @@ Agent 工具由主进程白名单定义：
 
 - 只允许活跃的 `TIANWEN-cpu/CodeHelper-Studio` 仓库；
 - 从已存在的语义化 tag 解析完整 SHA，并验证默认分支可达；
-- 使用受保护 `release` Environment 中的签名 secrets；
-- 安装程序、Portable、unpacked/installed 应用、卸载程序和 Job Host 必须通过 Authenticode；
+- 使用 `release` Environment，并固定未签名发布模式、关闭自动证书发现、拒绝签名变量注入；
+- 安装程序、Portable、unpacked/installed 应用、卸载程序和 Job Host 的 Authenticode 必须精确为
+  `NotSigned`，未知错误、损坏签名或意外证书都会失败；
 - 验证 Electron Fuses、资源、`latest.yml`、Job Host hash、NSIS 和 Portable 两阶段 smoke；
 - packaged smoke 使用隔离临时 `userData`，覆盖工作区、SQL、Node Job Host、知识来源、Agent 来源和
   Agent 取消终态；
@@ -249,8 +250,8 @@ Agent 工具由主进程白名单定义：
 - 公开后要求 GitHub API `immutable === true`，再次下载并比较 staged bytes、SHA-256 和 server
   digest。
 
-正式签名和不可变发布仍依赖外部配置：活跃仓库、受保护 Environment、真实证书、时间戳服务和
-GitHub Immutable Releases。缺少任一项时不能把本地无签名 smoke 称为正式 Release。
+正式发布仍依赖活跃仓库、适当治理的 Environment 和 GitHub Immutable Releases。本地产物不能
+直接改名上传；官方资产必须由 release SHA 重新构建，并通过未签名 Authenticode、哈希和运行门禁。
 
 `latest.yml` 和 blockmap 只是更新 metadata。当前没有 `electron-updater` 依赖或 `autoUpdater`
 主进程流程，不存在应用内自动检查、下载或安装更新。

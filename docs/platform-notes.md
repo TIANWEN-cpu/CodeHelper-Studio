@@ -6,7 +6,7 @@ This document records the cross-platform considerations, known differences, and 
 
 The current official release target is Windows x64. The electron-builder configuration also keeps
 macOS and Linux source-build targets, but those artifacts are not uploaded to GitHub Releases until
-they have equivalent signing, installation, runtime, restart-persistence, and uninstall gates.
+they have equivalent packaging, installation, runtime, restart-persistence, and uninstall gates.
 
 | Platform | Configured format | Architecture | Official release status |
 | -------- | ----------------- | ------------ | ----------------------- |
@@ -30,9 +30,10 @@ therefore requires either MinGW-w64 x64 `g++` or Visual Studio C++ Build Tools. 
 it from `native/windows/codehelper-job-host.cpp` and fail closed when no supported compiler is
 available.
 
-Official Windows releases additionally require valid Authenticode signatures and timestamps,
+The current Windows release policy is intentionally unsigned. Every relevant EXE must report the
+exact Authenticode status `NotSigned` with no signer or timestamp certificate. Releases still require
 verified Electron Fuses and resources, a silent NSIS install/core-loop/restart/uninstall smoke, the
-same runtime smoke for Portable, and published SHA-256 verification. See
+same runtime smoke for Portable, immutable assets, and published SHA-256 verification. See
 [Build and Release](guides/deployment.md) and the
 [Release and Rollback Checklist](guides/release-checklist.md).
 
@@ -45,7 +46,7 @@ The macOS build uses `resources/entitlements.mac.plist` to allow:
 - Dynamic library loading from the app bundle
 - Network access (AI API calls)
 
-Code signing requires setting `CSC_LINK` and `CSC_KEY_PASSWORD` environment variables.
+macOS code signing, if enabled for a future official target, requires platform-specific credentials.
 
 ## Keyboard Shortcuts
 

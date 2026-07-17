@@ -170,10 +170,22 @@ describe('production fix coverage', () => {
     for (const releaseScript of ['release:patch', 'release:minor', 'release:major']) {
       expect(packageJson.scripts[releaseScript]).toContain('npm run build:win')
     }
-    expect(releaseWorkflow).toContain('Verify signature, resources, install, restart, and hashes')
+    expect(releaseWorkflow).toContain(
+      'Verify unsigned Authenticode, resources, install, restart, and hashes',
+    )
     expect(releaseWorkflow).toContain('npm run verify:package:win')
-    expect(releaseWorkflow).toContain("CODEHELPER_REQUIRE_SIGNATURE: '1'")
-    expect(releaseWorkflow).toContain('CODEHELPER_EXPECTED_SIGNER_THUMBPRINT')
+    expect(releaseWorkflow).toContain("CODEHELPER_WINDOWS_RELEASE_MODE: 'unsigned'")
+    expect(releaseWorkflow).toContain("CODEHELPER_REQUIRE_SIGNATURE: '0'")
+    expect(releaseWorkflow).toContain("CSC_IDENTITY_AUTO_DISCOVERY: 'false'")
+    expect(releaseWorkflow).toContain('signature.get("status") == "NotSigned"')
+    expect(releaseWorkflow).toContain('manifest.get("signatureRequired") is False')
+    expect(releaseWorkflow).toContain('and manifest["expectedSignerThumbprint"] is None')
+    expect(releaseWorkflow).toContain('field in signature and signature[field] is None')
+    expect(releaseWorkflow).toContain('installed smoke Authenticode evidence is incomplete')
+    expect(releaseWorkflow).toContain('published installed uninstaller')
+    expect(releaseWorkflow).not.toContain('${{ secrets.CSC_LINK }}')
+    expect(releaseWorkflow).not.toContain('${{ secrets.CSC_KEY_PASSWORD }}')
+    expect(releaseWorkflow).not.toContain('${{ secrets.CODEHELPER_SIGNER_THUMBPRINT }}')
   })
 
   it('uses a non-5173 renderer dev port by default while keeping env overrides', async () => {
