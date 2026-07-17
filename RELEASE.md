@@ -26,12 +26,13 @@ v2.4.0 是 CodeHelper 的 Beta Candidate 收口版本。它把此前分散的数
 ## 开发与发布
 
 - Node/Vitest 与 Electron 所需的 `better-sqlite3` ABI 会由 npm 命令自动探测切换。
+- Windows 构建固定使用含 NSIS `UserProgramFiles` 有界复制修复的 electron-builder 26.15.3。
 - Windows 发布链验证 NSIS、Portable、资源、Electron Fuses、安装、启动、重启持久化、卸载、哈希和 updater metadata。
 - 正式 GitHub Release 资产限定为 Installer、blockmap、Portable、`latest.yml`、`SHA256SUMS.txt` 和 `release-manifest.json`。
 
 ## 验证
 
-- 单元测试与覆盖率：2515 通过，2 条平台/专用 Electron harness 跳过。
+- 单元测试与覆盖率：2516 通过，2 条平台/专用 Electron harness 跳过。
 - Electron E2E：24/24。
 - Docker isolation：28/28。
 - 知识检索：33/33。
