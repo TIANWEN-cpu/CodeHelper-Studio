@@ -4,6 +4,43 @@
 
 ---
 
+## [2.4.0] - 2026-07-17
+
+v2.4.0 是 CodeHelper 的 Beta Candidate 收口版本，重点完成数据可靠性、受控代码执行、混合知识检索、可审计 Agent、数据库保护、安全边界和 Windows 发布门禁。
+
+### 新功能 / 改进
+
+- **持久化与恢复**：工作区、练习草稿和标签拓扑以 SQLite 为权威存储，支持版本迁移、多窗口 revision、冲突副本、异常退出与 Renderer crash 恢复。
+- **受控代码执行**：非 SQL 运行迁移到一次性 utility 进程；Windows Job Host 提供 kill-on-close、进程和内存限制；Docker strong-isolation 使用固定 digest、无网络、只读根和非 root。
+- **混合知识检索**：新增 FTS/BM25、trigram、本地语义近似、降级召回、来源锚点和检索评测。
+- **Agent 工具链**：主进程工具白名单、强隔离逐次审批、取消/失败终态和 SQLite 审计完整落地。
+- **数据保护**：设置页可创建带 SHA-256、schema/app 版本和 `quick_check` 的 SQLite 快照；JSON 导入和数据库迁移前自动 fail-closed 备份。
+- **能力状态**：统一展示数据库、工具链、Job Host、Docker、知识检索、Agent、AI 配置和 `safeStorage` 的真实运行状态。
+- **发布工程**：Windows NSIS/Portable 加入资源、Fuses、安装、启动、重启持久化、卸载、哈希和 updater metadata 验证。
+
+### 安全
+
+- 主窗口 `will-navigate`、`will-redirect` 和新窗口统一 fail-closed，外部 HTTP/HTTPS 仅通过系统浏览器打开。
+- Renderer 不再拥有静默指定 JSON 导入导出路径的 IPC 能力，路径只能由原生文件对话框授权。
+- BrowserWindow 显式启用 sandbox，并固定 context isolation、webSecurity、webview、实验特性和不安全内容选项。
+- CSP 增加显式 `base-uri 'self'` 与 `form-action 'self'`。
+- Vite、esbuild 和 form-data advisory 已关闭，生产与完整 `npm audit` 均为 0。
+
+### 开发体验
+
+- `better-sqlite3` 的 Node/Electron ABI 由 `native:node`、`native:electron` 及 npm 生命周期钩子自动探测切换。
+- lint、格式、覆盖率、Electron harness、Docker integration 和 Windows package smoke 形成统一验收链。
+
+### 验证
+
+- 单元测试与覆盖率：2510 通过，2 条平台/专用 harness 跳过。
+- Electron E2E：24/24。
+- Docker isolation：28/28。
+- 知识检索：33/33；Agent：23/23。
+- TypeScript、ESLint、Prettier、完整依赖审计、Electron 专项 smoke 和 Windows package smoke 全部通过。
+
+---
+
 ## [2.3.0] - 2026-07-03
 
 v2.3.0 在 v2.2.1 基础上整合了 34 个提交，重点升级了学习工作台的记忆系统、全局检索与通知体系，并对时间计算、判题与代码运行做了全面的 UTC 一致性与健壮性修复。

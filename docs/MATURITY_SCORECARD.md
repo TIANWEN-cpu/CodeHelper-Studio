@@ -4,9 +4,9 @@
 >
 > 评估对象：`D:\codehelper` 当前 P2-P7 工作树
 >
-> 应用版本：`2.3.0`
+> 应用版本：`2.4.0`
 >
-> Git 基线：`16b228030c212e1df8ca7385611bdd877eb368a7` 加当前未提交增量
+> Git 基线：`v2.4.0` 发布候选分支
 
 本评分卡用于判断产品是否具备继续开发、Beta 和正式发布条件，不替代
 [安全审计](security-audit.md)、[发布清单](guides/release-checklist.md)或真实 workflow 证据。

@@ -29,9 +29,9 @@
 
 ## 当前版本
 
-**v2.3.0 - 2026-07-03**
+**v2.4.0 - 2026-07-17**
 
-这一版升级了学习工作台：长期记忆系统支持分类发送控制与 LLM 自动抽取，命令面板扩展为全局搜索并接入知识库检索，新增全局 toast 通知与成就提醒，间隔复习支持键盘自评，个人页接入周学习报告，AI 桌宠会在学习里程碑时庆祝。同时对连续学习天数、周报、首页看板等时间计算做了全面的 UTC 一致性修复。
+这一版完成了从 MVP 到 Beta Candidate 的系统收口：多标签工作区和练习草稿具备异常恢复与多窗口冲突保护，代码运行加入 Windows Job Object 和 Docker 强隔离，知识库升级为可审计混合检索，Agent 工具具备逐次审批与 SQLite 审计，并补齐数据库快照、能力状态、Electron 安全边界和 Windows 发布门禁。
 
 发布页：[CodeHelper Studio Releases](https://github.com/TIANWEN-cpu/CodeHelper-Studio/releases)
 
@@ -117,18 +117,18 @@
 - 能力页统一展示数据库、工具链、Windows Job Host、Docker、知识检索、Agent、AI 配置和
   `safeStorage` 状态，不会把“已配置”误报为 Provider 已连通。
 
-## v2.3.0 更新重点
+## v2.4.0 更新重点
 
-- 长期记忆系统升级：支持分类发送控制、记忆预览与 LLM 自动抽取，并补齐管理 UI。
-- 命令面板升级为全局搜索，新增最近访问记录与知识库检索。
-- 新增全局 toast 通知系统，成就解锁主动提醒，代码运行 / 提交 / AI 失败统一以 toast 呈现。
-- 间隔复习支持 `1/2/3` 键盘快捷键自评。
-- 个人页接入每周学习报告。
-- AI 桌宠在达成学习里程碑时庆祝并弹出气泡，闲置时偶尔播放微动画。
-- 知识库 RAG 检索结果可直接作为 AI 对话上下文注入。
-- 修复连续学习天数、周报、首页看板、SM-2 复习日期等时间计算的 UTC 一致性问题。
-- 代码运行器输出超限 / 超时时改为杀掉整棵进程树，错题删除级联清理复习计划。
-- RAG 检索限制候选数量并复用正则，活动事件查询封顶返回行数。
+- 多标签工作区、练习草稿和窗口关闭统一使用 SQLite 权威存储、版本化恢复与显式冲突处理。
+- 真实 Electron E2E 覆盖异常退出、Renderer crash、多窗口分叉、旧 schema 和数据库损坏。
+- 代码执行迁移到一次性 utility 进程；Windows 使用 Job Object，Docker 强隔离默认无网络、只读根和非 root。
+- 知识库加入 FTS/BM25、trigram、本地语义近似、来源锚点、降级原因和迁移评测。
+- Agent 工具使用主进程白名单、逐次审批、取消终态和 SQLite 审计证据。
+- 设置页新增验证型 SQLite 快照、导入/迁移前备份、数据保护和统一能力状态。
+- 主窗口导航、CSP、BrowserWindow sandbox 和文件导入导出 IPC 完成 fail-closed 安全加固。
+- `better-sqlite3` 的 Node/Electron ABI 由测试、开发和打包命令自动探测切换。
+- Windows NSIS 与 Portable 增加安装、重启持久化、卸载、Fuses、哈希和更新 metadata 门禁。
+- 完整依赖审计为 0；本地验收达到单元测试 2510 项、Electron E2E 24/24 和 Docker 28/28。
 
 完整变更见 [CHANGELOG.md](CHANGELOG.md)，发布说明见 [RELEASE.md](RELEASE.md)。
 
