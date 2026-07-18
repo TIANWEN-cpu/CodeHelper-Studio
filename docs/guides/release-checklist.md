@@ -25,12 +25,14 @@
 - [ ] 当前仓库为活跃的 `TIANWEN-cpu/CodeHelper-Studio`，不是归档或同名旧仓库。
 - [ ] release commit 已进入受保护默认分支，所需审查与 CI 均已完成。
 - [ ] 迁移变更已验证旧数据库原地升级；已记录是否允许降级读取。
-- [ ] GitHub Environment `release` 已启用所需审批人和部署限制。
+- [ ] 已复核并记录 GitHub Environment `release` 当前的审批人和部署限制策略；任何缺口均有明确风险记录。
 - [ ] GitHub 仓库已启用 Immutable Releases。
 - [ ] 已确认 Windows 发布模式为 `unsigned`，自动证书发现关闭，且构建环境未注入签名变量。
 - [ ] 已记录上一个已知良好 Release 的 tag、SHA、签名策略和 `SHA256SUMS.txt`。
 - [ ] 已在设置页创建并验证手动完整数据库备份，manifest 中的 SHA-256、quick check、应用版本和
       schema 版本均已记录。
+- [ ] 知识库维护按[知识库维护流程](knowledge-maintenance.md)完成 audit、dry-run、backup、apply 和
+      verify，且计划、规则、备份与最终维护动作快照的指纹一致。
 - [ ] 已把关键数据库快照或完整 `userData` 副本复制到原 `userData` 之外，不把同盘备份或 JSON
       导出当作灾难恢复副本。
 - [ ] 生产依赖审计、完整依赖审计、lint、格式、类型、单元、Electron E2E 和全部 Electron

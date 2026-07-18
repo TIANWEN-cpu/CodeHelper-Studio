@@ -29,9 +29,9 @@
 
 ## 当前版本
 
-**v2.4.0 - 2026-07-17**
+**v2.4.1 - 2026-07-19**
 
-这一版完成了从 MVP 到 Beta Candidate 的系统收口：多标签工作区和练习草稿具备异常恢复与多窗口冲突保护，代码运行加入 Windows Job Object 和 Docker 强隔离，知识库升级为可审计混合检索，Agent 工具具备逐次审批与 SQLite 审计，并补齐数据库快照、能力状态、Electron 安全边界和 Windows 发布门禁。
+这一版完成真实知识库治理并升级长文阅读体验：清理经过复核的重复和占位内容，持久化 7 类规范 metadata、来源与链接状态，新增目录、标题定位、阅读进度和安全外链处理，同时以验证型备份、事务 apply 和动作快照保证清理可回滚、可核验。
 
 发布页：[CodeHelper Studio Releases](https://github.com/TIANWEN-cpu/CodeHelper-Studio/releases)
 
@@ -117,18 +117,16 @@
 - 能力页统一展示数据库、工具链、Windows Job Host、Docker、知识检索、Agent、AI 配置和
   `safeStorage` 状态，不会把“已配置”误报为 Provider 已连通。
 
-## v2.4.0 更新重点
+## v2.4.1 更新重点
 
-- 多标签工作区、练习草稿和窗口关闭统一使用 SQLite 权威存储、版本化恢复与显式冲突处理。
-- 真实 Electron E2E 覆盖异常退出、Renderer crash、多窗口分叉、旧 schema 和数据库损坏。
-- 代码执行迁移到一次性 utility 进程；Windows 使用 Job Object，Docker 强隔离默认无网络、只读根和非 root。
-- 知识库加入 FTS/BM25、trigram、本地语义近似、来源锚点、降级原因和迁移评测。
-- Agent 工具使用主进程白名单、逐次审批、取消终态和 SQLite 审计证据。
-- 设置页新增验证型 SQLite 快照、导入/迁移前备份、数据保护和统一能力状态。
-- 主窗口导航、CSP、BrowserWindow sandbox 和文件导入导出 IPC 完成 fail-closed 安全加固。
-- `better-sqlite3` 的 Node/Electron ABI 由测试、开发和打包命令自动探测切换。
-- Windows NSIS 与 Portable 增加安装、重启持久化、卸载、Fuses、哈希和更新 metadata 门禁。
-- 完整依赖审计为 0；本地验收达到单元测试 2518 项、Electron E2E 24/24 和 Docker 28/28。
+- 真实知识库清理后保留 2141 篇文档和 10618 个 chunks，所有删除项都有明确原因与来源快照。
+- 7 个稳定分类、展示标题、来源、标签、正文 SHA 和 38,470 条链接审计持久化到 SQLite。
+- 长文阅读新增目录、标题定位、阅读进度、来源信息、相对链接解析和加载失败重试。
+- Markdown 不再自动请求任意远程图片，外链通过受控桌面 IPC 打开并展示审计状态。
+- Windows 维护 CLI 使用只读审计、不可变计划、验证型备份、单事务 apply 和只读 verify。
+- 应用 schema v2 仅在迁移时执行全量回填，常规启动避免重复读取全部正文。
+- 资源包使用受控 manifest 分类和包内相对来源路径，未知知识分类拒绝导入。
+- 完整依赖审计为 0；单元测试、Python SQLite 测试、类型、lint、格式和生产构建通过。
 
 完整变更见 [CHANGELOG.md](CHANGELOG.md)，发布说明见 [RELEASE.md](RELEASE.md)。
 

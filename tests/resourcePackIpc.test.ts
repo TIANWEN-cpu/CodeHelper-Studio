@@ -18,8 +18,14 @@ vi.mock('electron', () => ({
 
 const knowledgeDocs: Array<{ id: number; filename: string; chunk_count: number }> = []
 const knowledgeChunks: Array<{ doc_id: number; content: string; chunk_index: number }> = []
+const knowledgeMetadata: Array<{
+  docId: number
+  categoryKey: string | null
+  categoryLabel: string | null
+}> = []
 const problems: Array<{ id: number; title: string; source: string; description: string }> = []
 let failKnowledgeChunkAt: number | null = null
+let failKnowledgeMetadata = false
 
 const mockDB = {
   prepare: vi.fn((sql: string) => {
@@ -41,6 +47,19 @@ const mockDB = {
           if (chunkIndex === failKnowledgeChunkAt) throw new Error('chunk insert failed')
           knowledgeChunks.push({ doc_id: docId, content, chunk_index: chunkIndex })
           return { lastInsertRowid: knowledgeChunks.length }
+        }),
+      }
+    }
+    if (sql.includes('INSERT INTO knowledge_doc_metadata')) {
+      return {
+        run: vi.fn((...args: unknown[]) => {
+          if (failKnowledgeMetadata) throw new Error('metadata insert failed')
+          knowledgeMetadata.push({
+            docId: args[0] as number,
+            categoryKey: args[6] as string | null,
+            categoryLabel: args[7] as string | null,
+          })
+          return { changes: 1 }
         }),
       }
     }
@@ -90,12 +109,14 @@ const mockDB = {
   transaction: vi.fn((fn: (...args: unknown[]) => unknown) => (...args: unknown[]) => {
     const docsSnapshot = knowledgeDocs.map((doc) => ({ ...doc }))
     const chunksSnapshot = knowledgeChunks.map((chunk) => ({ ...chunk }))
+    const metadataSnapshot = knowledgeMetadata.map((metadata) => ({ ...metadata }))
     const problemsSnapshot = problems.map((problem) => ({ ...problem }))
     try {
       return fn(...args)
     } catch (error) {
       knowledgeDocs.splice(0, knowledgeDocs.length, ...docsSnapshot)
       knowledgeChunks.splice(0, knowledgeChunks.length, ...chunksSnapshot)
+      knowledgeMetadata.splice(0, knowledgeMetadata.length, ...metadataSnapshot)
       problems.splice(0, problems.length, ...problemsSnapshot)
       throw error
     }
@@ -114,7 +135,7 @@ function createPackRoot() {
   mkdirSync(join(tempRoot, 'problems'), { recursive: true })
   writeFileSync(
     join(tempRoot, 'manifest.json'),
-    JSON.stringify({ generated_at: '2026-06-06T00:00:00Z' }),
+    JSON.stringify({ id: '01-core-cs-foundation', generated_at: '2026-06-06T00:00:00Z' }),
   )
   writeFileSync(
     join(tempRoot, 'knowledge-docs', 'core', 'tcp.md'),
@@ -145,8 +166,10 @@ describe('resource pack import', () => {
     Object.keys(handlers).forEach((key) => delete handlers[key])
     knowledgeDocs.length = 0
     knowledgeChunks.length = 0
+    knowledgeMetadata.length = 0
     problems.length = 0
     failKnowledgeChunkAt = null
+    failKnowledgeMetadata = false
     mockDB.prepare.mockClear()
     mockDB.transaction.mockClear()
   })
@@ -209,6 +232,78 @@ describe('resource pack import', () => {
     expect(result.errors).toContain('知识文档导入失败 core/tcp.md: chunk insert failed')
     expect(knowledgeDocs).toEqual([])
     expect(knowledgeChunks).toEqual([])
+  })
+
+  it('rolls back a knowledge document when metadata insertion fails', async () => {
+    const rootPath = createPackRoot()
+    failKnowledgeMetadata = true
+    const { importResourcePackFromDirectory } = await import('../electron/ipc/resourcePack')
+
+    const result = importResourcePackFromDirectory(rootPath)
+
+    expect(result.knowledge).toMatchObject({ imported: 0, skipped: 1, chunks: 0 })
+    expect(result.errors).toContain('知识文档导入失败 core/tcp.md: metadata insert failed')
+    expect(knowledgeDocs).toEqual([])
+    expect(knowledgeChunks).toEqual([])
+  })
+
+  it('rejects an unknown manifest category even when the directory name changes', async () => {
+    const rootPath = createPackRoot()
+    writeFileSync(join(rootPath, 'manifest.json'), JSON.stringify({ id: 'unknown-batch' }))
+    const { importResourcePackFromDirectory } = await import('../electron/ipc/resourcePack')
+
+    expect(() => importResourcePackFromDirectory(rootPath)).toThrow('未知资源包分类: unknown-batch')
+  })
+
+  it('accepts an ad hoc manifest-free pack and preserves its frontmatter category', async () => {
+    tempRoot = mkdtempSync(join(tmpdir(), 'codehelper-pack-no-manifest-'))
+    mkdirSync(join(tempRoot, 'knowledge-docs', 'algorithms'), { recursive: true })
+    writeFileSync(
+      join(tempRoot, 'knowledge-docs', 'algorithms', 'binary-search.md'),
+      ['---', 'title: Binary search', 'category: 算法', '---', '# Binary search'].join('\n'),
+      'utf-8',
+    )
+    const { importResourcePackFromDirectory } = await import('../electron/ipc/resourcePack')
+
+    const result = importResourcePackFromDirectory(tempRoot)
+
+    expect(result.knowledge).toMatchObject({ found: 1, imported: 1, skipped: 0 })
+    expect(knowledgeMetadata).toEqual([{ docId: 1, categoryKey: null, categoryLabel: '算法' }])
+  })
+
+  it('maps the real import-ready aggregate layout to canonical categories without an id', async () => {
+    tempRoot = mkdtempSync(join(tmpdir(), 'codehelper-import-ready-'))
+    const coreDir = join(tempRoot, 'knowledge-docs', '01-cs-foundation', 'acme__core')
+    const recoveredDir = join(tempRoot, 'knowledge-docs', '99-special-recovered', 'acme__ai-notes')
+    mkdirSync(coreDir, { recursive: true })
+    mkdirSync(recoveredDir, { recursive: true })
+    writeFileSync(join(coreDir, 'network.md'), '# Network', 'utf-8')
+    writeFileSync(join(recoveredDir, 'vision.md'), '# Vision', 'utf-8')
+    writeFileSync(
+      join(tempRoot, 'manifest.json'),
+      JSON.stringify({
+        generated_at: '2026-06-06T00:00:00Z',
+        repositories: [
+          {
+            slug: 'acme/ai-notes',
+            category: 'AI与深度学习',
+            category_dir: '03-ai-deep-learning',
+          },
+        ],
+      }),
+      'utf-8',
+    )
+    const { importResourcePackFromDirectory } = await import('../electron/ipc/resourcePack')
+
+    const result = importResourcePackFromDirectory(tempRoot)
+
+    expect(result.knowledge).toMatchObject({ found: 2, imported: 2, skipped: 0 })
+    expect(
+      knowledgeMetadata.map(({ categoryKey, categoryLabel }) => [categoryKey, categoryLabel]),
+    ).toEqual([
+      ['01-core-cs-foundation', '计算机基础'],
+      ['02-ai-deep-learning', 'AI 与深度学习'],
+    ])
   })
 
   it('rejects directories without knowledge-docs or problems', async () => {

@@ -96,8 +96,9 @@ electron/
 │   ├── problemMeta.ts   # 题目元数据推断（来源、赛道、平台、模式）
 │   └── chatHelpers.ts   # 聊天辅助（内置预设、记忆候选提取、搜索词构建）
 ├── db/
-│   ├── index.ts         # 数据库连接管理（单例、WAL 模式、Schema 迁移）
-│   └── schema.sql       # 建表语句（11 张表）
+│   ├── index.ts         # 数据库连接管理（单例、WAL、完整备份、原子迁移）
+│   ├── knowledgeMetadataRepository.ts # 知识 metadata、链接审计和维护日志
+│   └── schema.sql       # 持久表、约束与索引定义
 └── types/
     └── db.ts            # 数据库行类型定义
 ```
@@ -345,6 +346,7 @@ knowledge-upload IPC
    |-- 读取文件内容（PDF 使用 pdf-parse 解析）
    |-- splitIntoChunks(content, 500) 分块
    |-- INSERT INTO knowledge_docs
+   |-- INSERT INTO knowledge_doc_metadata
    |-- INSERT INTO knowledge_chunks（逐块）
         |
         v
@@ -357,6 +359,7 @@ knowledge-search IPC
    |-- FTS5 trigram + 本地 n-gram 语义近似
    |-- bounded LIKE 作为明确降级/补充通道
    |-- Reciprocal Rank Fusion + 来源去重
+   |-- JOIN knowledge_doc_metadata 补充来源与分类
    |-- 返回结果、来源、命中说明和检索能力状态
 ```
 
@@ -532,6 +535,18 @@ SQLite 数据库文件存储在用户数据目录下，使用 WAL 模式提升�
 | `chunk_index` | INTEGER  | 分块序号                             |
 | `created_at`  | DATETIME | 创建时间                             |
 
+#### knowledge_doc_metadata（知识文档元数据表）
+
+与 `knowledge_docs` 一对一，通过 `doc_id` 级联关联。保存 `display_title`、来源仓库/URL/路径/提交、稳定分类键与显示名、标签、导入目标、文档类型、可见性和正文 SHA-256。知识列表、阅读器、分类筛选和 RAG 来源展示都以该表为结构化来源；旧文档在 application schema v2 启动迁移时从 front matter、文件名和文件类型回填。
+
+#### knowledge_link_audit（知识链接审计表）
+
+按 `doc_id + line_number + raw_target` 唯一记录原始目标、解析后目标、链接类型、HTTP 状态和审计状态。状态集合为 `reachable`、`not_found`、`temporary_error`、`restricted`、`malformed`、`unresolved_relative`、`unchecked`。删除正文时链接审计随文档级联删除。
+
+#### knowledge_maintenance_runs / knowledge_maintenance_actions（知识维护日志）
+
+`knowledge_maintenance_runs` 绑定 `run_key`、计划 SHA-256、备份/报告路径、生命周期状态和清理前后计数；`knowledge_maintenance_actions` 保存每个动作的文档 ID、保留文档 ID、理由、来源 metadata、内容哈希和 before/after JSON 快照。actions 仅外键关联 run，不直接外键关联 `knowledge_docs`，因此正文删除后仍保留可验收的来源与理由。
+
 #### settings（用户设置表）
 
 | 字段    | 类型 | 说明   |
@@ -541,16 +556,11 @@ SQLite 数据库文件存储在用户数据目录下，使用 WAL 模式提升�
 
 ### Schema 迁移策略
 
-`electron/db/index.ts` 中的 `ensureSchemaColumns()` 函数在每次启动时检查 `problems` 表的列结构，自动添加缺失的列。这是一种轻量级的前向迁移方案：
+应用级版本记录在 `schema_migrations(component = 'application')`。当前 application schema 为 v2：启动发现旧版本时，先在只读打开和 `quick_check` 通过后使用 `VACUUM INTO` 创建完整 pre-migration 备份，并写入包含文件 SHA-256、大小、schema 版本和 `quick_check` 结果的 manifest。随后才重新以可写方式打开数据库。
 
-```typescript
-const columns = database.prepare('PRAGMA table_info(problems)').all()
-const existing = new Set(columns.map((c) => c.name))
-// 逐个检查并添加缺失列
-if (!existing.has('tracks')) {
-  database.exec("ALTER TABLE problems ADD COLUMN tracks TEXT DEFAULT '[]'")
-}
-```
+所有建表、旧列补齐、组件仓储迁移、知识 metadata backfill、迁移后 `PRAGMA quick_check` 和 application 版本更新都在同一个 better-sqlite3 事务内完成。任何 DDL、回填或完整性检查失败都会回滚事务，v1 数据和版本记录保持不变；备份路径与启动错误保留在 `DatabaseStartupStatus` 供维护界面和验收读取。
+
+`ensureSchemaColumns()` 仍负责 `problems` 的早期兼容列；编辑器、知识检索、知识 metadata 和 Agent 使用各自的 `ensure*Schema()` 复核约束与组件版本，而不是仅依赖 `CREATE TABLE IF NOT EXISTS`。
 
 ---
 

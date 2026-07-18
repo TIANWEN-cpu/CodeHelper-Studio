@@ -11,17 +11,19 @@ import {
   statSync,
   writeFileSync,
 } from 'fs'
-import { basename, dirname, join, resolve } from 'path'
+import { basename, dirname, isAbsolute, join, resolve } from 'path'
 import {
   DATABASE_BACKUP_MANIFEST_VERSION,
+  KNOWLEDGE_MAINTENANCE_BACKUP_MANIFEST_VERSION,
   type DatabaseBackupIntegrity,
   type DatabaseBackupKind,
   type DatabaseBackupListResult,
+  type DatabaseBackupManifestVersion,
   type DatabaseBackupRecord,
 } from '../../src/shared/maintenanceContract'
 
 interface DatabaseBackupManifest {
-  manifestVersion: typeof DATABASE_BACKUP_MANIFEST_VERSION
+  manifestVersion: DatabaseBackupManifestVersion
   id: string
   kind: DatabaseBackupKind
   createdAt: string
@@ -34,6 +36,12 @@ interface DatabaseBackupManifest {
   applicationVersion: string
   applicationSchemaVersion: number
   componentSchemaVersions: Record<string, number>
+  maintenanceState?: Record<string, unknown>
+  sourceDatabasePath?: string
+  sourceDatabaseIdentity?: Record<string, unknown>
+  sourceDatabaseFullFingerprint?: string
+  backupDatabaseFullFingerprint?: string
+  planSha256?: string
 }
 
 export interface CreateDatabaseBackupOptions {
@@ -47,6 +55,10 @@ export interface CreateDatabaseBackupOptions {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isSha256(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-f0-9]{64}$/i.test(value)
 }
 
 function tableExists(database: Database.Database, tableName: string): boolean {
@@ -174,14 +186,20 @@ export function createVerifiedDatabaseBackup(
 
 function parseManifest(value: unknown): DatabaseBackupManifest | null {
   if (!isRecord(value)) return null
-  if (value.manifestVersion !== DATABASE_BACKUP_MANIFEST_VERSION) return null
+  const manifestVersion = value.manifestVersion
+  if (
+    manifestVersion !== DATABASE_BACKUP_MANIFEST_VERSION &&
+    manifestVersion !== KNOWLEDGE_MAINTENANCE_BACKUP_MANIFEST_VERSION
+  ) {
+    return null
+  }
   if (typeof value.id !== 'string' || !value.id) return null
   if (!['manual', 'pre-import', 'pre-migration'].includes(String(value.kind))) return null
   if (typeof value.createdAt !== 'string' || typeof value.verifiedAt !== 'string') return null
   if (typeof value.fileName !== 'string' || basename(value.fileName) !== value.fileName) return null
   if (!value.fileName.endsWith('.db')) return null
   if (!Number.isSafeInteger(value.sizeBytes) || Number(value.sizeBytes) < 0) return null
-  if (typeof value.sha256 !== 'string' || !/^[a-f0-9]{64}$/i.test(value.sha256)) return null
+  if (!isSha256(value.sha256)) return null
   if (value.integrity !== 'ok' && value.integrity !== 'failed') return null
   if (
     !Array.isArray(value.quickCheck) ||
@@ -197,8 +215,57 @@ function parseManifest(value: unknown): DatabaseBackupManifest | null {
     if (!Number.isSafeInteger(version) || Number(version) < 0) return null
     componentSchemaVersions[component] = Number(version)
   }
+
+  let maintenanceBinding: Pick<
+    DatabaseBackupManifest,
+    | 'maintenanceState'
+    | 'sourceDatabasePath'
+    | 'sourceDatabaseIdentity'
+    | 'sourceDatabaseFullFingerprint'
+    | 'backupDatabaseFullFingerprint'
+    | 'planSha256'
+  > = {}
+  if (manifestVersion === KNOWLEDGE_MAINTENANCE_BACKUP_MANIFEST_VERSION) {
+    if (!isRecord(value.maintenanceState)) return null
+    if (
+      typeof value.sourceDatabasePath !== 'string' ||
+      !value.sourceDatabasePath ||
+      !isAbsolute(value.sourceDatabasePath)
+    ) {
+      return null
+    }
+    if (
+      !isRecord(value.sourceDatabaseIdentity) ||
+      !isRecord(value.sourceDatabaseIdentity.database) ||
+      (value.sourceDatabaseIdentity.wal !== null && !isRecord(value.sourceDatabaseIdentity.wal))
+    ) {
+      return null
+    }
+    if (
+      !isSha256(value.sourceDatabaseFullFingerprint) ||
+      !isSha256(value.backupDatabaseFullFingerprint) ||
+      !isSha256(value.planSha256)
+    ) {
+      return null
+    }
+    if (
+      value.sourceDatabaseFullFingerprint.toLowerCase() !==
+      value.backupDatabaseFullFingerprint.toLowerCase()
+    ) {
+      return null
+    }
+    maintenanceBinding = {
+      maintenanceState: value.maintenanceState,
+      sourceDatabasePath: value.sourceDatabasePath,
+      sourceDatabaseIdentity: value.sourceDatabaseIdentity,
+      sourceDatabaseFullFingerprint: value.sourceDatabaseFullFingerprint.toLowerCase(),
+      backupDatabaseFullFingerprint: value.backupDatabaseFullFingerprint.toLowerCase(),
+      planSha256: value.planSha256.toLowerCase(),
+    }
+  }
+
   return {
-    manifestVersion: DATABASE_BACKUP_MANIFEST_VERSION,
+    manifestVersion,
     id: value.id,
     kind: value.kind as DatabaseBackupKind,
     createdAt: value.createdAt,
@@ -211,6 +278,7 @@ function parseManifest(value: unknown): DatabaseBackupManifest | null {
     applicationVersion: value.applicationVersion,
     applicationSchemaVersion: Number(value.applicationSchemaVersion),
     componentSchemaVersions,
+    ...maintenanceBinding,
   }
 }
 

@@ -2,10 +2,12 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   KnowledgeDoc,
   KnowledgeDocDetail,
+  KnowledgeLinkAuditRecord,
   ResourcePackImportResult,
   SearchResult,
   getRetrievalStatus,
   getDocument,
+  getDocumentLinkAudit,
   getDocuments,
   importResourcePack,
   searchDocuments,
@@ -18,6 +20,8 @@ export interface UseKnowledgeDataReturn {
   documents: KnowledgeDoc[]
   selectedDocument: KnowledgeDocDetail | null
   loadingDocument: boolean
+  documentError: string | null
+  documentLinkAudit: KnowledgeLinkAuditRecord[]
   searchResults: SearchResult[]
   retrievalStatus: KnowledgeRetrievalStatus | null
   loadingRetrievalStatus: boolean
@@ -39,6 +43,8 @@ export function useKnowledgeData(): UseKnowledgeDataReturn {
   const [documents, setDocuments] = useState<KnowledgeDoc[]>([])
   const [selectedDocument, setSelectedDocument] = useState<KnowledgeDocDetail | null>(null)
   const [loadingDocument, setLoadingDocument] = useState(false)
+  const [documentError, setDocumentError] = useState<string | null>(null)
+  const [documentLinkAudit, setDocumentLinkAudit] = useState<KnowledgeLinkAuditRecord[]>([])
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [retrievalStatus, setRetrievalStatus] = useState<KnowledgeRetrievalStatus | null>(null)
   const [loadingRetrievalStatus, setLoadingRetrievalStatus] = useState(false)
@@ -105,14 +111,24 @@ export function useKnowledgeData(): UseKnowledgeDataReturn {
     const requestId = detailRequestId.current + 1
     detailRequestId.current = requestId
     setLoadingDocument(true)
+    setSelectedDocument(null)
+    setDocumentLinkAudit([])
+    setDocumentError(null)
     setError(null)
     try {
-      const doc = await getDocument(id)
-      if (detailRequestId.current === requestId) setSelectedDocument(doc)
+      const [doc, linkAudit] = await Promise.all([
+        getDocument(id),
+        getDocumentLinkAudit(id).catch(() => []),
+      ])
+      if (!doc) throw new Error('文档不存在，可能已在知识库清理中移除。')
+      if (detailRequestId.current === requestId) {
+        setSelectedDocument(doc)
+        setDocumentLinkAudit(linkAudit)
+      }
       return doc
     } catch (err) {
       if (detailRequestId.current === requestId) {
-        setError(err instanceof Error ? err.message : '加载文档详情失败')
+        setDocumentError(err instanceof Error ? err.message : '加载文档详情失败')
       }
       return null
     } finally {
@@ -178,6 +194,8 @@ export function useKnowledgeData(): UseKnowledgeDataReturn {
     documents,
     selectedDocument,
     loadingDocument,
+    documentError,
+    documentLinkAudit,
     searchResults,
     retrievalStatus,
     loadingRetrievalStatus,

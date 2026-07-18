@@ -42,9 +42,11 @@ test('hybrid knowledge retrieval returns auditable sources in IPC and UI', async
   const packRoot = await mkdtemp(join(tmpdir(), 'codehelper-knowledge-pack-'))
   const knowledgeDir = join(packRoot, 'knowledge-docs', 'algorithms')
   await mkdir(knowledgeDir, { recursive: true })
-  await writeFile(
-    join(knowledgeDir, 'binary-search.md'),
-    `---
+  const longBody = Array.from(
+    { length: 48 },
+    (_, index) => `第 ${index + 1} 段用于验证长文滚动进度与标题定位。`,
+  ).join('\n\n')
+  const markdown = `---
 title: "二分查找与边界"
 source_repo: "phase4-e2e"
 source_path: "algorithms/binary-search.md"
@@ -59,9 +61,24 @@ tags:
 
 Binary search locates a target in a sorted array by repeatedly halving the interval.
 二分查找要求有序数组，并需要谨慎处理 left、right 和 mid 的边界。
-`,
-    'utf8',
-  )
+
+[跳到深层标题](#API%20(v2)%3A%20深层%20标题!)
+
+${longBody}
+
+#### API (v2): 深层 标题!
+
+深层标题正文。
+
+##### 第五级标题
+
+第五级正文。
+
+###### 第六级标题
+
+第六级正文。
+`
+  await writeFile(join(knowledgeDir, 'binary-search.md'), markdown.replace(/\n/g, '\r\n'), 'utf8')
 
   const application = await electron.launch({
     args: [appRoot],
@@ -111,6 +128,23 @@ Binary search locates a target in a sorted array by repeatedly halving the inter
     await expect(resultCard.getByText('phase4-e2e', { exact: true })).toBeVisible()
     await expect(resultCard.getByText(/algorithms\/binary-search\.md · 片段 #1/)).toBeVisible()
     await expect(resultCard.getByText('语义近似', { exact: true })).toBeVisible()
+
+    await resultCard.click()
+    const renderedDocument = page.locator('article .knowledge-markdown')
+    await expect(renderedDocument).toBeVisible()
+    await expect(renderedDocument.locator('h2')).toHaveText('二分查找与边界')
+    await expect(renderedDocument).toContainText('Binary search locates a target')
+    await expect(renderedDocument.locator('h5#api-v2-深层-标题')).toHaveText('API (v2): 深层 标题!')
+    await expect(renderedDocument.locator('h6')).toHaveCount(2)
+
+    await renderedDocument.getByRole('link', { name: '跳到深层标题' }).click()
+    await expect
+      .poll(() =>
+        page
+          .getByTestId('knowledge-reader-scroll')
+          .evaluate((element) => (element as HTMLElement).scrollTop),
+      )
+      .toBeGreaterThan(0)
   } finally {
     await closeApplication(application)
     await rm(userDataDir, { recursive: true, force: true })
@@ -144,6 +178,36 @@ test('knowledge retrieval migration rebuilds FTS indexes for existing chunks', a
       filename: 'legacy/graph-search.md',
       channels: expect.arrayContaining(['keyword', 'semantic']),
     })
+  } finally {
+    await closeApplication(application)
+    await rm(userDataDir, { recursive: true, force: true })
+  }
+})
+
+test('Windows course markdown renders block elements instead of raw syntax', async () => {
+  test.setTimeout(60_000)
+  const userDataDir = await mkdtemp(join(tmpdir(), 'codehelper-course-render-e2e-'))
+  const application = await electron.launch({
+    args: [appRoot],
+    env: {
+      ...process.env,
+      CODEHELPER_E2E_USER_DATA: userDataDir,
+      CODEHELPER_E2E_HEADLESS: '1',
+    },
+  })
+
+  try {
+    const page = await application.firstWindow()
+    await page.waitForLoadState('domcontentloaded')
+    await expect(page.getByTestId('nav-learn')).toBeVisible({ timeout: 30_000 })
+    await page.getByTestId('nav-learn').click()
+
+    const renderedLesson = page.locator('.learn-markdown')
+    await expect(renderedLesson).toBeVisible()
+    await expect(renderedLesson.locator('h2').first()).toHaveText('C++ 学习地图与环境准备')
+    await expect(renderedLesson.locator('h3').first()).toHaveText('课程概述')
+    await expect(renderedLesson.locator('pre code').first()).toContainText('#include <iostream>')
+    await expect(renderedLesson.locator('p').filter({ hasText: /^#/ })).toHaveCount(0)
   } finally {
     await closeApplication(application)
     await rm(userDataDir, { recursive: true, force: true })

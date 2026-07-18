@@ -668,6 +668,17 @@ export const IPC_CHANNEL_CONTRACTS: readonly IpcChannelContract[] = [
     'Loads one imported document including its content.',
   ),
   invoke(
+    'knowledge-link-audit',
+    'knowledge-link-audit',
+    'KnowledgeView (offline link status)',
+    'knowledgeService.getDocumentLinkAudit',
+    'registerRAGIPC',
+    'docId: number',
+    'KnowledgeLinkAuditRecord[]',
+    'available',
+    'Returns persisted per-link resolution and HTTP audit status without issuing network requests.',
+  ),
+  invoke(
     'knowledge-delete',
     'knowledge-delete',
     'KnowledgeView / useKnowledgeData',

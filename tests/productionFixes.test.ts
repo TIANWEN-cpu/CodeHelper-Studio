@@ -194,6 +194,53 @@ describe('production fix coverage', () => {
     expect(releaseWorkflow).not.toContain('${{ secrets.CODEHELPER_SIGNER_THUMBPRINT }}')
   })
 
+  it('keeps package.json and package-lock.json versions aligned during release bumps', async () => {
+    const source = await readFile(join(process.cwd(), 'scripts/version-bump.js'), 'utf8')
+
+    expect(source).toContain("const lockPath = path.resolve(__dirname, '..', 'package-lock.json')")
+    expect(source).toContain('lock.version = newVersion')
+    expect(source).toContain("lock.packages[''].version = newVersion")
+  })
+
+  it('fails release preparation on package metadata drift or full-tree audit findings', async () => {
+    const source = await readFile(join(process.cwd(), '.github/workflows/release.yml'), 'utf8')
+    const productionAudit = 'npm audit --omit=dev --audit-level=high'
+    const fullAudit = 'npm audit --audit-level=high'
+
+    expect(source).toContain('LOCK_VERSION=$(node -p "require(\'./package-lock.json\').version")')
+    expect(source).toContain(
+      "LOCK_ROOT_VERSION=$(node -p \"require('./package-lock.json').packages?.['']?.version ?? ''\")",
+    )
+    expect(source).toContain(
+      'package-lock.json version ($LOCK_VERSION) does not match package.json',
+    )
+    expect(source).toContain(
+      'package-lock.json root package version ($LOCK_ROOT_VERSION) does not match package.json',
+    )
+    expect(source.indexOf(productionAudit)).toBeGreaterThan(-1)
+    expect(
+      source.indexOf(fullAudit, source.indexOf(productionAudit) + productionAudit.length),
+    ).toBeGreaterThan(source.indexOf(productionAudit))
+  })
+
+  it('requires an explicit switch before the knowledge maintenance wrapper can apply', async () => {
+    const source = await readFile(
+      join(process.cwd(), 'scripts/run-knowledge-maintenance.ps1'),
+      'utf8',
+    )
+
+    expect(source).toContain("[ValidateSet('plan', 'backup', 'apply', 'verify')]")
+    expect(source).toContain('[switch]$ConfirmApply')
+    expect(source).toContain("throw 'Apply requires the explicit -ConfirmApply switch'")
+    expect(source).toContain("'--backup-manifest', ([string]$backup.manifest_path), '--yes'")
+    expect(source).toContain('function Invoke-MaintenanceCommand')
+    expect(source).toContain("$ErrorActionPreference = 'Continue'")
+    expect(source).toContain('$ErrorActionPreference = $previousErrorActionPreference')
+    expect(source).toContain(
+      'throw "Knowledge maintenance command failed with exit code $exitCode`n$text"',
+    )
+  })
+
   it('uses a non-5173 renderer dev port by default while keeping env overrides', async () => {
     const source = await readFile(join(process.cwd(), 'electron.vite.config.ts'), 'utf8')
 

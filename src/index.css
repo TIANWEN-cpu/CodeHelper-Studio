@@ -799,27 +799,28 @@ body {
 
 .knowledge-reader-overlay {
   color: var(--color-text-primary);
-  background:
-    radial-gradient(
-      circle at 16% 0%,
-      color-mix(in srgb, var(--color-accent-primary) 14%, transparent),
-      transparent 34%
-    ),
-    radial-gradient(
-      circle at 86% 4%,
-      color-mix(in srgb, var(--color-accent-purple) 12%, transparent),
-      transparent 30%
-    ),
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--color-bg-base) 92%, var(--color-bg-panel)),
-      var(--color-bg-base)
-    );
+  background: color-mix(in srgb, var(--color-bg-base) 94%, var(--color-bg-panel));
 }
 
 .knowledge-reader-toolbar {
   border-bottom: 1px solid color-mix(in srgb, var(--color-border-default) 82%, transparent);
   background: color-mix(in srgb, var(--color-bg-panel) 94%, transparent);
+  color: var(--color-text-primary);
+}
+
+.knowledge-reader-progress {
+  background: color-mix(in srgb, var(--color-border-subtle) 72%, transparent);
+}
+
+.knowledge-reader-progress > div {
+  height: 100%;
+  background: var(--color-accent-primary);
+  transition: width 90ms linear;
+}
+
+.knowledge-reader-mobile-toc {
+  border: 1px solid color-mix(in srgb, var(--color-border-default) 88%, transparent);
+  background: color-mix(in srgb, var(--color-bg-panel) 98%, var(--color-bg-base));
   color: var(--color-text-primary);
 }
 
@@ -895,6 +896,22 @@ body {
   color: color-mix(in srgb, var(--color-accent-warning) 86%, var(--color-text-primary));
 }
 
+.knowledge-reader-link-notice,
+.knowledge-reader-error {
+  border: 1px solid color-mix(in srgb, var(--color-border-default) 84%, transparent);
+  background: color-mix(in srgb, var(--color-bg-card) 90%, var(--color-bg-base));
+}
+
+.knowledge-reader-link-notice-info {
+  border-color: color-mix(in srgb, var(--color-accent-primary) 38%, var(--color-border-default));
+  color: var(--color-text-secondary);
+}
+
+.knowledge-reader-link-notice-warning {
+  border-color: color-mix(in srgb, var(--color-accent-warning) 44%, var(--color-border-default));
+  color: var(--color-text-secondary);
+}
+
 .knowledge-markdown {
   color: var(--color-text-secondary);
   overflow-wrap: anywhere;
@@ -910,6 +927,10 @@ body {
   font-size: 2rem;
   font-weight: 750;
   line-height: 1.25;
+}
+
+.knowledge-markdown [id] {
+  scroll-margin-top: 1.5rem;
 }
 
 .knowledge-markdown h2 {
@@ -930,12 +951,23 @@ body {
   line-height: 1.4;
 }
 
-.knowledge-markdown h4 {
+.knowledge-markdown h4,
+.knowledge-markdown h5,
+.knowledge-markdown h6 {
   margin-top: 1.4rem;
   margin-bottom: 0.65rem;
   color: var(--color-text-primary);
   font-size: 1rem;
   font-weight: 650;
+  line-height: 1.5;
+}
+
+.knowledge-markdown h5 {
+  font-size: 0.95rem;
+}
+
+.knowledge-markdown h6 {
+  font-size: 0.9rem;
 }
 
 .knowledge-markdown p {
@@ -975,6 +1007,23 @@ body {
   color: var(--color-accent-primary);
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+.knowledge-markdown a[data-knowledge-link='true'] {
+  cursor: pointer;
+}
+
+.knowledge-markdown a[data-link-status='not_found'],
+.knowledge-markdown a[data-link-status='malformed'] {
+  color: var(--color-accent-danger);
+  text-decoration-style: wavy;
+}
+
+.knowledge-markdown a[data-link-status='temporary_error'],
+.knowledge-markdown a[data-link-status='restricted'],
+.knowledge-markdown a[data-link-status='unresolved_relative'] {
+  color: var(--color-accent-warning);
+  text-decoration-style: dashed;
 }
 
 .knowledge-markdown code {
@@ -1059,12 +1108,38 @@ body {
     0 24px 80px rgba(15, 23, 42, 0.12);
 }
 
+:root[data-theme='light'] .knowledge-reader-mobile-toc,
+:root[data-theme='light'] .knowledge-reader-link-notice,
+:root[data-theme='light'] .knowledge-reader-error {
+  background: #ffffff;
+}
+
 :root[data-theme='light'] .knowledge-markdown pre {
   background: #f8fafc;
 }
 
 :root[data-theme='light'] .knowledge-markdown pre code {
   color: #172033;
+}
+
+@media (max-width: 640px) {
+  .knowledge-reader-paper {
+    width: calc(100vw - 1rem);
+    margin-block: 0.75rem;
+    padding: 1.5rem 1rem;
+  }
+
+  .knowledge-reader-document-header h1 {
+    font-size: 1.55rem;
+  }
+
+  .knowledge-markdown h1 {
+    font-size: 1.55rem;
+  }
+
+  .knowledge-markdown h2 {
+    font-size: 1.25rem;
+  }
 }
 
 /* 减少动态效果：用户在设置里开启后，全局弱化过渡/动画 */

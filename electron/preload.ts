@@ -37,6 +37,7 @@ export const allowedInvokeChannels = new Set([
   'knowledge-upload',
   'knowledge-list',
   'knowledge-get',
+  'knowledge-link-audit',
   'knowledge-delete',
   'knowledge-search',
   'knowledge-retrieval-status',

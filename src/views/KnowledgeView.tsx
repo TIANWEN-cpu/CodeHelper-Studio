@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  AlertTriangle,
   ArrowLeft,
   BookOpen,
   BrainCircuit,
@@ -11,10 +12,13 @@ import {
   FileText,
   Folder,
   Layers3,
+  Link2,
+  ListTree,
   MessageSquare,
   PackageOpen,
   PanelLeft,
   PanelLeftClose,
+  RotateCcw,
   Search,
   Sparkles,
   ScrollText,
@@ -27,10 +31,15 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useKnowledgeData } from '@/hooks/useKnowledgeData'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
-import { renderMarkdown } from '@/utils/markdown'
+import { renderKnowledgeMarkdown, resolveKnowledgeHeadingId } from '@/utils/markdown'
+import {
+  applyKnowledgeLinkAuditTooltip,
+  defragmentKnowledgeHref,
+  resolveKnowledgeLink,
+} from '@/utils/knowledgeLinks'
 import { consumePendingDeepLink, subscribeDeepLink } from '@/lib/deepLink'
 import { recordRecent } from '@/lib/recentItems'
-import type { KnowledgeDoc } from '@/services/knowledgeService'
+import type { KnowledgeDoc, KnowledgeLinkAuditRecord } from '@/services/knowledgeService'
 import type {
   KnowledgeRetrievalChannel,
   KnowledgeRetrievalStatus,
@@ -51,9 +60,12 @@ interface KnowledgeDisplayItem {
   desc: string
   fileType: string
   topic: string
+  topicKey: string
   repo: string
+  repoKey: string
   sourcePath?: string
   sourceUrl?: string
+  sourceCommit?: string
   tags: string[]
   time: string
   chunkCount: number
@@ -64,6 +76,11 @@ interface KnowledgeDisplayItem {
   explanation?: string
   chunkIndex?: number
   source: 'document' | 'search'
+}
+
+interface KnowledgeLinkNotice {
+  tone: 'info' | 'warning'
+  message: string
 }
 
 const PAGE_SIZE = 72
@@ -82,8 +99,39 @@ const CATEGORY_LABELS: Record<string, string> = {
   '03-interview-career': '求职面试',
   '04-cs408-and-courses': 'CS408 / 课程',
   '05-roadmap-and-bug-manual': '学习路线 / Bug 手册',
-  '06-book-resource-indexes': '书籍索引',
+  '06-book-resource-indexes': '书籍与资源索引',
   '07-language-specific': '语言专题',
+}
+
+const CATEGORY_ALIASES: Record<string, string> = {
+  '01-cs-foundation': '01-core-cs-foundation',
+  '02-programming-books': '06-book-resource-indexes',
+  '03-ai-deep-learning': '02-ai-deep-learning',
+  '04-courses': '04-cs408-and-courses',
+  '05-cs408': '04-cs408-and-courses',
+  '06-interview': '03-interview-career',
+  '07-learning-roadmap': '05-roadmap-and-bug-manual',
+  '08-go': '07-language-specific',
+  '09-java': '07-language-specific',
+  '99-special-recovered': '99-special-recovered',
+}
+
+const CATEGORY_VALUE_ALIASES: Record<string, string> = {
+  综合计算机基础: '01-core-cs-foundation',
+  计算机基础: '01-core-cs-foundation',
+  AI与深度学习: '02-ai-deep-learning',
+  'AI 与深度学习': '02-ai-deep-learning',
+  面试求职: '03-interview-career',
+  求职面试: '03-interview-career',
+  考研408: '04-cs408-and-courses',
+  课程资料: '04-cs408-and-courses',
+  'CS408 / 课程': '04-cs408-and-courses',
+  编程书籍: '06-book-resource-indexes',
+  书籍索引: '06-book-resource-indexes',
+  书籍与资源索引: '06-book-resource-indexes',
+  Go: '07-language-specific',
+  Java: '07-language-specific',
+  语言专题: '07-language-specific',
 }
 
 function normalizeFileType(fileType?: string | null): string {
@@ -91,19 +139,80 @@ function normalizeFileType(fileType?: string | null): string {
   return value || 'md'
 }
 
-function getTopic(doc: Pick<KnowledgeDoc, 'category' | 'category_dir'>): string {
-  if (doc.category?.trim()) return doc.category.trim()
+function getTopic(
+  doc: Pick<KnowledgeDoc, 'category' | 'category_dir' | 'category_key' | 'category_label'>,
+): { key: string; label: string } {
+  const explicitKey = doc.category_key?.trim()
   const dir = doc.category_dir?.trim()
-  if (dir && CATEGORY_LABELS[dir]) return CATEGORY_LABELS[dir]
-  if (dir) return dir
-  return '未分类资料'
+  const category = doc.category_label?.trim() || doc.category?.trim()
+  const key =
+    explicitKey ||
+    (dir ? CATEGORY_ALIASES[dir] || dir : '') ||
+    (category ? CATEGORY_VALUE_ALIASES[category] || category : '') ||
+    'uncategorized'
+  const label =
+    doc.category_label?.trim() ||
+    CATEGORY_LABELS[key] ||
+    (category ? CATEGORY_LABELS[CATEGORY_VALUE_ALIASES[category]] || category : '') ||
+    (dir ? CATEGORY_LABELS[dir] || dir : '') ||
+    '未分类资料'
+  return { key, label }
 }
 
-function getRepo(doc: Pick<KnowledgeDoc, 'source_repo' | 'filename'>): string {
-  if (doc.source_repo?.trim()) return doc.source_repo.trim()
+function normalizeRepoValue(value?: string): string | null {
+  const trimmed = value?.trim()
+  if (!trimmed) return null
+  try {
+    const url = new URL(trimmed)
+    if (url.hostname.toLowerCase() === 'github.com') {
+      const [owner, repo] = url.pathname.split('/').filter(Boolean)
+      if (owner && repo) return `${owner}/${repo.replace(/\.git$/i, '')}`
+    }
+  } catch {
+    // Slug-style repository identifiers are handled below.
+  }
+  return trimmed.replace(/^https?:\/\/(?:www\.)?github\.com\//i, '').replace(/\.git$/i, '')
+}
+
+function getRepo(doc: Pick<KnowledgeDoc, 'source_repo' | 'filename'>): {
+  key: string
+  label: string
+} {
+  const sourceRepo = normalizeRepoValue(doc.source_repo)
+  if (sourceRepo) return { key: sourceRepo.toLocaleLowerCase('en-US'), label: sourceRepo }
   const prefix = doc.filename.split('__')[0]?.trim()
-  if (prefix && !/^\d+$/.test(prefix)) return prefix
-  return '未知来源'
+  if (prefix && !/^\d+$/.test(prefix)) {
+    return { key: prefix.toLocaleLowerCase('en-US'), label: prefix }
+  }
+  return { key: 'unknown', label: '未知来源' }
+}
+
+function normalizeSourcePath(value?: string): string | null {
+  const trimmed = value?.trim().replace(/\\/g, '/')
+  if (!trimmed) return null
+  try {
+    return decodeURIComponent(trimmed).replace(/^\/+/, '').replace(/\/+/g, '/')
+  } catch {
+    return trimmed.replace(/^\/+/, '').replace(/\/+/g, '/')
+  }
+}
+
+function sourceDocumentKey(repoKey: string, sourcePath?: string): string | null {
+  const normalizedPath = normalizeSourcePath(sourcePath)
+  if (!normalizedPath || repoKey === 'unknown') return null
+  return `${repoKey}::${normalizedPath}`
+}
+
+function githubRawAssetUrl(repo: string, commit: string, sourcePath: string): string | null {
+  const normalizedRepo = normalizeRepoValue(repo)
+  const normalizedPath = normalizeSourcePath(sourcePath)
+  if (!normalizedRepo || !normalizedPath || !commit.trim()) return null
+  const [owner, name, ...extra] = normalizedRepo.split('/')
+  if (!owner || !name || extra.length > 0) return null
+  return `https://raw.githubusercontent.com/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/${encodeURIComponent(commit.trim())}/${normalizedPath
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/')}`
 }
 
 function stripFrontMatter(content: string): string {
@@ -134,8 +243,10 @@ function shortText(text: string | undefined, limit = 160): string {
 /** 把知识文档映射为列表展示项（文档分支与命令面板深链共用同一口径）。 */
 function toDocumentDisplayItem(doc: KnowledgeDoc): KnowledgeDisplayItem {
   const fileType = normalizeFileType(doc.file_type)
+  const topic = getTopic(doc)
+  const repo = getRepo(doc)
   const tags = Array.from(
-    new Set([fileType, getTopic(doc), ...(doc.tags ?? []).filter((tag) => tag !== 'knowledge')]),
+    new Set([fileType, topic.label, ...(doc.tags ?? []).filter((tag) => tag !== 'knowledge')]),
   ).slice(0, 4)
   return {
     id: doc.id,
@@ -143,10 +254,13 @@ function toDocumentDisplayItem(doc: KnowledgeDoc): KnowledgeDisplayItem {
     filename: doc.filename,
     desc: shortText(doc.content_preview),
     fileType,
-    topic: getTopic(doc),
-    repo: getRepo(doc),
+    topic: topic.label,
+    topicKey: topic.key,
+    repo: repo.label,
+    repoKey: repo.key,
     sourcePath: doc.source_path,
     sourceUrl: doc.source_url,
+    sourceCommit: doc.source_commit,
     tags,
     time: doc.created_at,
     chunkCount: doc.chunk_count,
@@ -238,8 +352,78 @@ function buildKnowledgePrompt(
   }
 }
 
-function KnowledgeMarkdown({ markdown }: { markdown: string }) {
-  const html = useMemo(() => renderMarkdown(markdown), [markdown])
+function KnowledgeMarkdown({
+  markdown,
+  html,
+  linkAudit,
+  source,
+  onClick,
+}: {
+  markdown: string
+  html: string
+  linkAudit: KnowledgeLinkAuditRecord[]
+  source: KnowledgeDisplayItem
+  onClick: (event: React.MouseEvent<HTMLDivElement>) => void
+}) {
+  const rootRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+    const recordsByTarget = new Map<string, KnowledgeLinkAuditRecord[]>()
+    for (const record of linkAudit) {
+      const records = recordsByTarget.get(record.raw_target) ?? []
+      records.push(record)
+      recordsByTarget.set(record.raw_target, records)
+      const defragmented = defragmentKnowledgeHref(record.raw_target)
+      if (defragmented && defragmented !== record.raw_target) {
+        const fragmentAgnosticRecords = recordsByTarget.get(defragmented) ?? []
+        fragmentAgnosticRecords.push(record)
+        recordsByTarget.set(defragmented, fragmentAgnosticRecords)
+      }
+    }
+
+    for (const anchor of root.querySelectorAll<HTMLAnchorElement>(
+      'a[data-knowledge-link="true"]',
+    )) {
+      const href = anchor.getAttribute('href') || ''
+      const records =
+        recordsByTarget.get(href) ?? recordsByTarget.get(defragmentKnowledgeHref(href)) ?? []
+      const record = records.find((item) => item.status === 'not_found') ?? records[0]
+      const status = record?.status || 'unchecked'
+      anchor.dataset.linkStatus = status
+      const statusLabel =
+        status === 'reachable'
+          ? '离线检查：可访问'
+          : status === 'not_found'
+            ? '离线检查：上游确认不存在'
+            : status === 'temporary_error'
+              ? '离线检查：临时网络错误，未判定失效'
+              : status === 'malformed'
+                ? '链接格式异常'
+                : status === 'restricted'
+                  ? '离线检查：访问受限，未判定失效'
+                  : status === 'unresolved_relative'
+                    ? '相对链接暂未解析'
+                    : '尚未完成离线检查'
+      applyKnowledgeLinkAuditTooltip(anchor, statusLabel, record?.checked_at)
+    }
+
+    for (const image of root.querySelectorAll<HTMLImageElement>('img')) {
+      const rawSource = image.getAttribute('src') || ''
+      const resolution = resolveKnowledgeLink(rawSource, {
+        source_repo: source.repo,
+        source_url: source.sourceUrl,
+        source_path: source.sourcePath,
+        source_commit: source.sourceCommit,
+      })
+      if (resolution.kind === 'corpus-document' && source.sourceCommit) {
+        const rawUrl = githubRawAssetUrl(source.repo, source.sourceCommit, resolution.corpusPath)
+        if (rawUrl) image.src = rawUrl
+      }
+    }
+  }, [html, linkAudit, source])
+
   if (!markdown.trim()) {
     return (
       <div className="py-12 text-center text-sm text-[var(--color-text-muted)]">
@@ -247,7 +431,14 @@ function KnowledgeMarkdown({ markdown }: { markdown: string }) {
       </div>
     )
   }
-  return <div className="knowledge-markdown" dangerouslySetInnerHTML={{ __html: html }} />
+  return (
+    <div
+      ref={rootRef}
+      className="knowledge-markdown"
+      onClick={onClick}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  )
 }
 
 export function KnowledgeView() {
@@ -258,12 +449,22 @@ export function KnowledgeView() {
   const [selectedItem, setSelectedItem] = useState<KnowledgeDisplayItem | null>(null)
   const [page, setPage] = useState(1)
   const [pendingDocId, setPendingDocId] = useState<number | null>(null)
+  const [pendingHeadingId, setPendingHeadingId] = useState<string | null>(null)
+  const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null)
+  const [readingProgress, setReadingProgress] = useState(0)
+  const [linkNotice, setLinkNotice] = useState<KnowledgeLinkNotice | null>(null)
+  const [mobileTocOpen, setMobileTocOpen] = useState(false)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const readerScrollRef = useRef<HTMLDivElement | null>(null)
+  const scrollFrame = useRef<number | null>(null)
+  const headingOffsetsRef = useRef<Array<{ id: string; top: number }>>([])
 
   const {
     documents,
     selectedDocument,
     loadingDocument,
+    documentError,
+    documentLinkAudit,
     searchResults,
     retrievalStatus,
     loadingRetrievalStatus,
@@ -316,26 +517,36 @@ export function KnowledgeView() {
     const doc = docsById.get(pendingDocId)
     if (!doc) return
     setSelectedItem(toDocumentDisplayItem(doc))
+    setPendingHeadingId(null)
+    setActiveHeadingId(null)
+    setReadingProgress(0)
+    setLinkNotice(null)
     void loadDocument(doc.id)
     setPendingDocId(null)
   }, [pendingDocId, docsById, loadDocument])
 
   const topicGroups = useMemo(() => {
-    const map = new Map<string, number>()
+    const map = new Map<string, { label: string; count: number }>()
     for (const doc of documents) {
       const topic = getTopic(doc)
-      map.set(topic, (map.get(topic) ?? 0) + 1)
+      const current = map.get(topic.key)
+      map.set(topic.key, { label: topic.label, count: (current?.count ?? 0) + 1 })
     }
-    return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    return [...map.entries()].sort(
+      (a, b) => b[1].count - a[1].count || a[1].label.localeCompare(b[1].label),
+    )
   }, [documents])
 
   const repoGroups = useMemo(() => {
-    const map = new Map<string, number>()
+    const map = new Map<string, { label: string; count: number }>()
     for (const doc of documents) {
       const repo = getRepo(doc)
-      map.set(repo, (map.get(repo) ?? 0) + 1)
+      const current = map.get(repo.key)
+      map.set(repo.key, { label: repo.label, count: (current?.count ?? 0) + 1 })
     }
-    return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    return [...map.entries()].sort(
+      (a, b) => b[1].count - a[1].count || a[1].label.localeCompare(b[1].label),
+    )
   }, [documents])
 
   const typeGroups = useMemo(() => {
@@ -347,21 +558,38 @@ export function KnowledgeView() {
     return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
   }, [documents])
 
+  const activeFilterLabel = useMemo(() => {
+    if (activeFilter.kind === 'topic') {
+      return (
+        topicGroups.find(([key]) => key === activeFilter.value)?.[1].label ?? activeFilter.value
+      )
+    }
+    if (activeFilter.kind === 'repo') {
+      return repoGroups.find(([key]) => key === activeFilter.value)?.[1].label ?? activeFilter.value
+    }
+    return filterLabel(activeFilter)
+  }, [activeFilter, repoGroups, topicGroups])
+
   const displayItems = useMemo<KnowledgeDisplayItem[]>(() => {
     const items = query.trim()
       ? searchResults.map((result) => {
           const doc = docsById.get(result.doc_id)
           const fileType = normalizeFileType(doc?.file_type)
+          const topic = doc ? getTopic(doc) : { key: 'search-results', label: '检索结果' }
+          const repo = doc ? getRepo(doc) : { key: 'unknown', label: '未知来源' }
           return {
             id: result.doc_id,
             title: doc ? cleanTitle(doc) : result.filename,
             filename: result.filename,
             desc: result.content,
             fileType,
-            topic: doc ? getTopic(doc) : '检索结果',
-            repo: doc ? getRepo(doc) : '未知来源',
+            topic: topic.label,
+            topicKey: topic.key,
+            repo: repo.label,
+            repoKey: repo.key,
             sourcePath: doc?.source_path,
             sourceUrl: doc?.source_url,
+            sourceCommit: doc?.source_commit,
             tags: [fileType, `片段 #${result.chunk_index + 1}`],
             time: doc?.created_at ?? '',
             chunkCount: doc?.chunk_count ?? 0,
@@ -378,8 +606,8 @@ export function KnowledgeView() {
 
     const filtered = items.filter((item) => {
       if (activeFilter.kind === 'all') return true
-      if (activeFilter.kind === 'topic') return item.topic === activeFilter.value
-      if (activeFilter.kind === 'repo') return item.repo === activeFilter.value
+      if (activeFilter.kind === 'topic') return item.topicKey === activeFilter.value
+      if (activeFilter.kind === 'repo') return item.repoKey === activeFilter.value
       return item.fileType === activeFilter.value
     })
 
@@ -395,28 +623,53 @@ export function KnowledgeView() {
   const safePage = Math.min(page, totalPages)
   const visibleItems = displayItems.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
   const totalChunks = documents.reduce((sum, doc) => sum + (doc.chunk_count || 0), 0)
+  const docsBySourcePath = useMemo(() => {
+    const map = new Map<string, KnowledgeDoc | null>()
+    for (const doc of documents) {
+      const repo = getRepo(doc)
+      const key = sourceDocumentKey(repo.key, doc.source_path)
+      if (!key) continue
+      map.set(key, map.has(key) ? null : doc)
+    }
+    return map
+  }, [documents])
   const activeDocument = selectedDocument?.id === selectedItem?.id ? selectedDocument : null
   const activeTitle = activeDocument?.display_title?.trim() || selectedItem?.title || ''
   const detailContent = activeDocument?.content ? stripFrontMatter(activeDocument.content) : ''
   const documentReady = Boolean(activeDocument) && !loadingDocument
+  const renderedDocument = useMemo(() => renderKnowledgeMarkdown(detailContent), [detailContent])
 
-  const handleSelectItem = async (item: KnowledgeDisplayItem) => {
-    setSelectedItem(item)
-    await loadDocument(item.id)
-    recordRecent({ kind: 'knowledge', id: String(item.id) })
-  }
+  const handleSelectItem = useCallback(
+    async (item: KnowledgeDisplayItem, headingId: string | null = null) => {
+      setSelectedItem(item)
+      setPendingHeadingId(headingId)
+      setActiveHeadingId(null)
+      setReadingProgress(0)
+      setLinkNotice(null)
+      setMobileTocOpen(false)
+      await loadDocument(item.id)
+      recordRecent({ kind: 'knowledge', id: String(item.id) })
+    },
+    [loadDocument],
+  )
 
   const handleFilterChange = (filter: ActiveFilter) => {
     setActiveFilter(filter)
     if (selectedItem) {
       setSelectedItem(null)
       setAIContext(null)
+      setLinkNotice(null)
     }
   }
 
   const handleBackToList = () => {
     setSelectedItem(null)
     setAIContext(null)
+    setPendingHeadingId(null)
+    setActiveHeadingId(null)
+    setReadingProgress(0)
+    setLinkNotice(null)
+    setMobileTocOpen(false)
   }
 
   const handleDelete = async (item: KnowledgeDisplayItem) => {
@@ -424,6 +677,206 @@ export function KnowledgeView() {
     await deleteDocument(item.id)
     if (selectedItem?.id === item.id) setSelectedItem(null)
   }
+
+  const resolveOutlineId = useCallback(
+    (fragment?: string) => resolveKnowledgeHeadingId(fragment, renderedDocument.outline),
+    [renderedDocument.outline],
+  )
+
+  const scrollToHeading = useCallback((headingId: string, behavior: ScrollBehavior = 'smooth') => {
+    const container = readerScrollRef.current
+    if (!container) return false
+    const cached = headingOffsetsRef.current.find((heading) => heading.id === headingId)
+    if (!cached) return false
+    container.scrollTo({ top: Math.max(0, cached.top - 24), behavior })
+    setActiveHeadingId(headingId)
+    setMobileTocOpen(false)
+    return true
+  }, [])
+
+  const cacheHeadingOffsets = useCallback(() => {
+    const container = readerScrollRef.current
+    if (!container) {
+      headingOffsetsRef.current = []
+      return
+    }
+    const containerTop = container.getBoundingClientRect().top
+    headingOffsetsRef.current = renderedDocument.outline.flatMap((heading) => {
+      const element = document.getElementById(heading.id)
+      if (!element || !container.contains(element)) return []
+      return [
+        {
+          id: heading.id,
+          top: element.getBoundingClientRect().top - containerTop + container.scrollTop,
+        },
+      ]
+    })
+  }, [renderedDocument.outline])
+
+  const handleReaderScroll = useCallback(() => {
+    if (scrollFrame.current != null) cancelAnimationFrame(scrollFrame.current)
+    scrollFrame.current = requestAnimationFrame(() => {
+      const container = readerScrollRef.current
+      if (!container) return
+      const available = container.scrollHeight - container.clientHeight
+      setReadingProgress(
+        available <= 0 ? 100 : Math.min(100, (container.scrollTop / available) * 100),
+      )
+
+      const offsets = headingOffsetsRef.current
+      const threshold = container.scrollTop + 96
+      let low = 0
+      let high = offsets.length - 1
+      let activeIndex = -1
+      while (low <= high) {
+        const middle = (low + high) >> 1
+        if (offsets[middle].top <= threshold) {
+          activeIndex = middle
+          low = middle + 1
+        } else {
+          high = middle - 1
+        }
+      }
+      setActiveHeadingId(offsets[activeIndex]?.id ?? offsets[0]?.id ?? null)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!documentReady) {
+      headingOffsetsRef.current = []
+      return
+    }
+    const frame = requestAnimationFrame(() => {
+      cacheHeadingOffsets()
+      handleReaderScroll()
+    })
+    const container = readerScrollRef.current
+    const article = container?.querySelector('article')
+    const observer =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(() => {
+            cacheHeadingOffsets()
+            handleReaderScroll()
+          })
+    if (article) observer?.observe(article)
+    return () => {
+      cancelAnimationFrame(frame)
+      observer?.disconnect()
+    }
+  }, [cacheHeadingOffsets, documentReady, handleReaderScroll])
+
+  useEffect(() => {
+    const container = readerScrollRef.current
+    if (!selectedItem || !container) return
+    container.scrollTo({ top: 0 })
+    setReadingProgress(0)
+    handleReaderScroll()
+  }, [handleReaderScroll, selectedItem])
+
+  useEffect(() => {
+    if (!documentReady || !pendingHeadingId) return
+    const frame = requestAnimationFrame(() => {
+      const resolvedId = resolveOutlineId(pendingHeadingId)
+      if (resolvedId && scrollToHeading(resolvedId, 'auto')) {
+        setLinkNotice(null)
+      } else {
+        setLinkNotice({ tone: 'warning', message: `未找到标题定位：#${pendingHeadingId}` })
+      }
+      setPendingHeadingId(null)
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [documentReady, pendingHeadingId, resolveOutlineId, scrollToHeading])
+
+  useEffect(
+    () => () => {
+      if (scrollFrame.current != null) cancelAnimationFrame(scrollFrame.current)
+    },
+    [],
+  )
+
+  const handleMarkdownClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement
+      const anchor = target.closest<HTMLAnchorElement>('a[data-knowledge-link="true"]')
+      if (!anchor || !selectedItem) return
+      event.preventDefault()
+      const href = anchor.getAttribute('href') || ''
+      const resolution = resolveKnowledgeLink(href, {
+        source_repo: selectedItem.repo,
+        source_url: selectedItem.sourceUrl,
+        source_path: selectedItem.sourcePath,
+        source_commit: selectedItem.sourceCommit,
+      })
+
+      if (resolution.kind === 'same-document') {
+        const headingId = resolveOutlineId(resolution.fragment)
+        if (headingId && scrollToHeading(headingId)) {
+          setLinkNotice(null)
+        } else {
+          setLinkNotice({ tone: 'warning', message: '这个文内链接没有匹配到可定位的标题。' })
+        }
+        return
+      }
+
+      if (resolution.kind === 'corpus-document') {
+        const key = sourceDocumentKey(selectedItem.repoKey, resolution.corpusPath)
+        const targetDocument = key ? docsBySourcePath.get(key) : null
+        if (targetDocument) {
+          void handleSelectItem(toDocumentDisplayItem(targetDocument), resolution.fragment ?? null)
+          return
+        }
+        if (resolution.externalUrl) {
+          setLinkNotice({
+            tone: 'info',
+            message: '本地知识库未收录该目标，已转到可追踪的上游文件地址。',
+          })
+          void window.api.invoke('open-external', resolution.externalUrl).catch(() => {
+            setLinkNotice({ tone: 'warning', message: '无法打开上游文件地址，请稍后重试。' })
+          })
+          return
+        }
+        setLinkNotice({ tone: 'warning', message: '无法从当前来源信息解析这个相对链接。' })
+        return
+      }
+
+      if (resolution.kind === 'external') {
+        if (resolution.protocol === 'mailto:') {
+          setLinkNotice({ tone: 'warning', message: '当前桌面端只允许打开 http/https 外部链接。' })
+          return
+        }
+        setLinkNotice({
+          tone: 'info',
+          message: '正在浏览器中打开外部链接；离线审计状态见链接提示。',
+        })
+        void window.api.invoke('open-external', resolution.resolvedHref).catch(() => {
+          setLinkNotice({ tone: 'warning', message: '无法打开外部链接，请检查地址后重试。' })
+        })
+        return
+      }
+
+      setLinkNotice({
+        tone: 'warning',
+        message:
+          resolution.kind === 'blocked'
+            ? '这个链接使用了不受支持或不安全的地址格式，已阻止打开。'
+            : '缺少足够的来源信息，暂时无法解析这个链接。',
+      })
+    },
+    [docsBySourcePath, handleSelectItem, resolveOutlineId, scrollToHeading, selectedItem],
+  )
+
+  const handleOpenSource = useCallback(() => {
+    if (!selectedItem?.sourceUrl) return
+    const resolution = resolveKnowledgeLink(selectedItem.sourceUrl)
+    if (resolution.kind !== 'external' || !['http:', 'https:'].includes(resolution.protocol)) {
+      setLinkNotice({ tone: 'warning', message: '来源地址不是可安全打开的 http/https 链接。' })
+      return
+    }
+    void window.api.invoke('open-external', resolution.resolvedHref).catch(() => {
+      setLinkNotice({ tone: 'warning', message: '无法打开上游来源，请稍后重试。' })
+    })
+  }, [selectedItem])
 
   const handleKnowledgeAI = useCallback(
     (action: 'summary' | 'cards' | 'questions') => {
@@ -635,20 +1088,20 @@ export function KnowledgeView() {
                       主题分类
                     </div>
                     <div className="space-y-1">
-                      {topicGroups.map(([name, count]) => (
+                      {topicGroups.map(([key, group]) => (
                         <button
-                          key={name}
-                          onClick={() => handleFilterChange(makeFilter('topic', name))}
+                          key={key}
+                          onClick={() => handleFilterChange(makeFilter('topic', key))}
                           className={cn(
                             'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors text-left',
-                            activeFilter.kind === 'topic' && activeFilter.value === name
+                            activeFilter.kind === 'topic' && activeFilter.value === key
                               ? 'bg-[var(--color-accent-purple)]/14 text-[var(--color-accent-purple)]'
                               : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-white',
                           )}
                         >
-                          <span className="truncate">{name}</span>
+                          <span className="truncate">{group.label}</span>
                           <span className="text-xs font-mono text-[var(--color-text-muted)]">
-                            {count}
+                            {group.count}
                           </span>
                         </button>
                       ))}
@@ -661,20 +1114,20 @@ export function KnowledgeView() {
                       来源仓库
                     </div>
                     <div className="space-y-1">
-                      {repoGroups.slice(0, 18).map(([name, count]) => (
+                      {repoGroups.map(([key, group]) => (
                         <button
-                          key={name}
-                          onClick={() => handleFilterChange(makeFilter('repo', name))}
+                          key={key}
+                          onClick={() => handleFilterChange(makeFilter('repo', key))}
                           className={cn(
                             'w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left',
-                            activeFilter.kind === 'repo' && activeFilter.value === name
+                            activeFilter.kind === 'repo' && activeFilter.value === key
                               ? 'bg-[var(--color-accent-purple)]/14 text-[var(--color-accent-purple)]'
                               : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-white',
                           )}
                         >
-                          <span className="truncate">{name}</span>
+                          <span className="truncate">{group.label}</span>
                           <span className="text-xs font-mono text-[var(--color-text-muted)]">
-                            {count}
+                            {group.count}
                           </span>
                         </button>
                       ))}
@@ -724,7 +1177,7 @@ export function KnowledgeView() {
             <div className="p-4 border-b border-[var(--color-border-subtle)] flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <span className="font-medium text-white text-sm">
-                  {query.trim() ? '搜索结果' : filterLabel(activeFilter)} ({displayItems.length})
+                  {query.trim() ? '搜索结果' : activeFilterLabel} ({displayItems.length})
                 </span>
                 <p className="text-[11px] text-[var(--color-text-muted)] mt-1 truncate">
                   当前只渲染第 {safePage} 页的 {visibleItems.length} 条，避免大批量资料滚动卡顿。
@@ -859,14 +1312,15 @@ export function KnowledgeView() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <div className="knowledge-reader-toolbar flex h-14 shrink-0 items-center justify-between px-5 shadow-sm">
+            <div className="knowledge-reader-toolbar flex h-14 shrink-0 items-center justify-between gap-3 overflow-x-auto px-3 shadow-sm sm:px-5">
               <div className="flex min-w-0 items-center gap-3">
                 <button
                   onClick={handleBackToList}
-                  className="knowledge-reader-secondary-button inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium"
+                  className="knowledge-reader-secondary-button inline-flex h-9 shrink-0 items-center gap-2 rounded-md px-2.5 text-sm font-medium sm:px-3"
+                  title="返回知识库"
                 >
                   <ArrowLeft size={16} />
-                  返回知识库
+                  <span className="hidden sm:inline">返回知识库</span>
                 </button>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-[var(--color-text-primary)]">
@@ -878,44 +1332,84 @@ export function KnowledgeView() {
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
+                {renderedDocument.outline.length > 0 && (
+                  <button
+                    onClick={() => setMobileTocOpen((open) => !open)}
+                    className="knowledge-reader-secondary-button inline-flex h-9 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium xl:hidden"
+                    title="文档目录"
+                    aria-expanded={mobileTocOpen}
+                  >
+                    <ListTree size={14} />
+                    <span className="hidden md:inline">目录</span>
+                  </button>
+                )}
                 {selectedItem.sourceUrl && (
                   <button
-                    onClick={() => void window.api.invoke('open-external', selectedItem.sourceUrl)}
-                    className="knowledge-reader-secondary-button inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-xs font-medium"
+                    onClick={handleOpenSource}
+                    className="knowledge-reader-secondary-button inline-flex h-9 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium sm:px-3"
+                    title="打开上游仓库"
                   >
                     <ExternalLink size={14} />
-                    上游
+                    <span className="hidden md:inline">上游</span>
                   </button>
                 )}
                 <button
                   onClick={() => handleKnowledgeAI('summary')}
                   disabled={!documentReady}
-                  className="knowledge-reader-primary-button inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                  className="knowledge-reader-primary-button inline-flex h-9 items-center gap-1.5 rounded-md px-2.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:px-3"
                   title={documentReady ? '让 AI 总结当前全文' : '正文加载完成后可用'}
                 >
                   <Sparkles size={14} />
-                  AI 总结
+                  <span className="hidden md:inline">AI 总结</span>
                 </button>
                 <button
                   onClick={() => handleKnowledgeAI('cards')}
                   disabled={!documentReady}
-                  className="knowledge-reader-secondary-button inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                  className="knowledge-reader-secondary-button inline-flex h-9 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 sm:px-3"
                   title={documentReady ? '根据当前全文生成复习卡' : '正文加载完成后可用'}
                 >
                   <ScrollText size={14} />
-                  复习卡
+                  <span className="hidden lg:inline">复习卡</span>
                 </button>
                 <button
                   onClick={() => handleKnowledgeAI('questions')}
                   disabled={!documentReady}
-                  className="knowledge-reader-secondary-button inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                  className="knowledge-reader-secondary-button inline-flex h-9 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 sm:px-3"
                   title={documentReady ? '围绕当前全文生成提问方向' : '正文加载完成后可用'}
                 >
                   <MessageSquare size={14} />
-                  提问
+                  <span className="hidden lg:inline">提问</span>
                 </button>
               </div>
             </div>
+            <div className="knowledge-reader-progress h-0.5 shrink-0" aria-hidden="true">
+              <div style={{ width: `${readingProgress}%` }} />
+            </div>
+
+            {mobileTocOpen && renderedDocument.outline.length > 0 && (
+              <div className="knowledge-reader-mobile-toc absolute left-3 right-3 top-16 z-10 max-h-[55vh] overflow-y-auto rounded-md p-3 shadow-xl xl:hidden">
+                <div className="mb-2 text-xs font-semibold text-[var(--color-text-muted)]">
+                  文档目录
+                </div>
+                <div className="space-y-1">
+                  {renderedDocument.outline.map((heading) => (
+                    <button
+                      key={heading.id}
+                      onClick={() => scrollToHeading(heading.id)}
+                      className={cn(
+                        'block w-full rounded px-2 py-1.5 text-left text-xs leading-relaxed',
+                        heading.id === activeHeadingId
+                          ? 'bg-[var(--color-accent-primary)]/12 text-[var(--color-accent-primary)]'
+                          : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]',
+                      )}
+                      style={{ paddingLeft: `${8 + (heading.depth - 1) * 12}px` }}
+                    >
+                      {heading.text}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="flex min-h-0 flex-1">
               <aside className="knowledge-reader-sidebar hidden w-72 shrink-0 overflow-y-auto px-4 py-5 xl:block">
@@ -943,6 +1437,20 @@ export function KnowledgeView() {
                           {selectedItem.chunkCount}
                         </div>
                       </div>
+                      <div className="knowledge-reader-info-card rounded-md p-3">
+                        <div className="text-xs text-[var(--color-text-muted)]">源文件路径</div>
+                        <div className="mt-1 break-all text-xs leading-relaxed text-[var(--color-text-primary)]">
+                          {selectedItem.sourcePath || selectedItem.filename}
+                        </div>
+                      </div>
+                      {selectedItem.sourceCommit && (
+                        <div className="knowledge-reader-info-card rounded-md p-3">
+                          <div className="text-xs text-[var(--color-text-muted)]">来源版本</div>
+                          <div className="mt-1 break-all font-mono text-xs text-[var(--color-text-primary)]">
+                            {selectedItem.sourceCommit}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -964,6 +1472,32 @@ export function KnowledgeView() {
                     </div>
                   )}
 
+                  {renderedDocument.outline.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                        <ListTree size={13} />
+                        文档目录
+                      </div>
+                      <nav className="mt-3 space-y-1" aria-label="文档目录">
+                        {renderedDocument.outline.map((heading) => (
+                          <button
+                            key={heading.id}
+                            onClick={() => scrollToHeading(heading.id)}
+                            className={cn(
+                              'block w-full rounded px-2 py-1.5 text-left text-xs leading-relaxed transition-colors',
+                              heading.id === activeHeadingId
+                                ? 'bg-[var(--color-accent-primary)]/12 text-[var(--color-accent-primary)]'
+                                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]',
+                            )}
+                            style={{ paddingLeft: `${8 + (heading.depth - 1) * 12}px` }}
+                          >
+                            {heading.text}
+                          </button>
+                        ))}
+                      </nav>
+                    </div>
+                  )}
+
                   {selectedItem.time && (
                     <div className="text-xs leading-relaxed text-[var(--color-text-muted)]">
                       导入时间：{selectedItem.time}
@@ -972,7 +1506,12 @@ export function KnowledgeView() {
                 </div>
               </aside>
 
-              <div className="min-w-0 flex-1 overflow-y-auto">
+              <div
+                ref={readerScrollRef}
+                onScroll={handleReaderScroll}
+                data-testid="knowledge-reader-scroll"
+                className="min-w-0 flex-1 overflow-y-auto"
+              >
                 <article className="knowledge-reader-paper mx-auto my-8 min-h-[calc(100vh-7rem)] w-[min(980px,calc(100vw-2rem))] px-8 py-10 sm:px-14 sm:py-12 lg:px-20">
                   <header className="knowledge-reader-document-header mb-8 pb-6">
                     <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-[var(--color-text-muted)]">
@@ -1011,12 +1550,59 @@ export function KnowledgeView() {
                     </div>
                   )}
 
+                  {linkNotice && (
+                    <div
+                      className={cn(
+                        'knowledge-reader-link-notice mb-6 flex items-start gap-2 rounded-md px-3 py-2.5 text-sm',
+                        linkNotice.tone === 'warning'
+                          ? 'knowledge-reader-link-notice-warning'
+                          : 'knowledge-reader-link-notice-info',
+                      )}
+                      role="status"
+                    >
+                      {linkNotice.tone === 'warning' ? (
+                        <AlertTriangle className="mt-0.5 shrink-0" size={15} />
+                      ) : (
+                        <Link2 className="mt-0.5 shrink-0" size={15} />
+                      )}
+                      <span>{linkNotice.message}</span>
+                    </div>
+                  )}
+
                   {loadingDocument && !detailContent ? (
                     <div className="py-20 text-center text-sm text-[var(--color-text-muted)]">
                       正在读取文档正文...
                     </div>
+                  ) : documentError ? (
+                    <div className="knowledge-reader-error rounded-md p-6 text-center" role="alert">
+                      <AlertTriangle
+                        className="mx-auto text-[var(--color-accent-warning)]"
+                        size={24}
+                      />
+                      <p className="mt-3 text-sm font-medium text-[var(--color-text-primary)]">
+                        正文读取失败
+                      </p>
+                      <p className="mt-1 text-sm text-[var(--color-text-muted)]">{documentError}</p>
+                      <button
+                        onClick={() => void loadDocument(selectedItem.id)}
+                        className="knowledge-reader-secondary-button mt-4 inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium"
+                      >
+                        <RotateCcw size={15} />
+                        重试
+                      </button>
+                    </div>
+                  ) : documentReady ? (
+                    <KnowledgeMarkdown
+                      markdown={detailContent}
+                      html={renderedDocument.html}
+                      linkAudit={documentLinkAudit}
+                      source={selectedItem}
+                      onClick={handleMarkdownClick}
+                    />
                   ) : (
-                    <KnowledgeMarkdown markdown={detailContent || selectedItem.desc} />
+                    <div className="py-20 text-center text-sm text-[var(--color-text-muted)]">
+                      正文尚未就绪。
+                    </div>
                   )}
                 </article>
               </div>

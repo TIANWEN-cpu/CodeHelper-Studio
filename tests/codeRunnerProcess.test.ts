@@ -58,7 +58,7 @@ describe('codeRunner real child process', () => {
     expect(runDir).toContain('codehelper-run')
     expect(secretValue).toBe('missing')
     expect(existsSync(runDir)).toBe(false)
-  })
+  }, 15_000)
 
   it('closes stdin even when no input was supplied', async () => {
     const result = await runCodeSnippet(

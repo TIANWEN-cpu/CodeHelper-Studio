@@ -9,6 +9,13 @@ import {
   getKnowledgeRetrievalStatus,
   searchKnowledgeHybrid,
 } from '../db/knowledgeRetrievalRepository'
+import {
+  buildKnowledgeDocMetadata,
+  getKnowledgeLinkAuditForDocument,
+  insertKnowledgeDocMetadata,
+  parseKnowledgeTagsJson,
+  titleFromKnowledgeFilename,
+} from '../db/knowledgeMetadataRepository'
 import type { KnowledgeSearchResult } from '../../src/shared/knowledgeRetrievalContract'
 
 type KnowledgeDocListRow = {
@@ -18,6 +25,21 @@ type KnowledgeDocListRow = {
   chunk_count: number
   created_at: string
   content_preview?: string | null
+  metadata_fallback_content?: string | null
+  metadata_doc_id?: number | null
+  display_title?: string | null
+  source_repo?: string | null
+  source_url?: string | null
+  source_path?: string | null
+  source_commit?: string | null
+  category_key?: string | null
+  category_label?: string | null
+  tags_json?: string | null
+  import_target?: string | null
+  generated_at?: string | null
+  document_kind?: string | null
+  visibility?: string | null
+  content_sha256?: string | null
 }
 type KnowledgeDocDetailRow = KnowledgeDocListRow & {
   content: string | null
@@ -27,10 +49,20 @@ type KnowledgeDocMetadata = {
   source_repo?: string
   source_url?: string
   source_path?: string
+  source_commit?: string
+  category_key?: string
+  category_label?: string
   category?: string
   category_dir?: string
   tags?: string[]
+  import_target?: string
+  generated_at?: string
+  document_kind?: string
+  visibility?: string
+  content_sha256?: string
 }
+
+export type ScoredKnowledgeChunk = Pick<KnowledgeSearchResult, 'content' | 'score'>
 
 // ---------------------------------------------------------------------------
 // Deferred DB wrapper — prevents blocking startup with synchronous DB init.
@@ -40,9 +72,7 @@ type KnowledgeDocMetadata = {
 // and delay window creation. The wrapper below:
 //   1. Kicks off init on first access (lazy).
 //   2. Does NOT block the event loop — init runs in the microtask queue.
-//   3. Returns null via getReadyDB() until init finishes, so IPC handlers
-//      can return graceful empty responses instead of blocking or crashing.
-//   4. Adds a configurable timeout (default 15 s) so a hung DB open cannot
+//   3. Adds a configurable timeout (default 15 s) so a hung DB open cannot
 //      stall the app indefinitely.
 // ---------------------------------------------------------------------------
 
@@ -71,26 +101,9 @@ function ensureKnowledgeDBInit(): void {
 }
 
 /**
- * Return the DB if already initialised, otherwise trigger background init and
- * return null.  IPC handlers call this and, on null, return a graceful
- * "not-ready" payload instead of blocking.
- */
-function getReadyDB(): Database.Database | null {
-  if (knowledgeDBReady && knowledgeDB) return knowledgeDB
-  if (knowledgeDBReady && !knowledgeDB) {
-    // Edge case: ready flag set but ref lost — re-fetch synchronously.
-    knowledgeDB = getDB()
-    return knowledgeDB
-  }
-  // Not ready yet — kick off init (if not already started) and return null.
-  ensureKnowledgeDBInit()
-  return null
-}
-
-/**
- * Like getReadyDB() but waits up to DB_INIT_TIMEOUT_MS for init to finish.
- * Used by write-heavy handlers (upload, delete) where returning "not ready"
- * would lose user data.
+ * Wait up to DB_INIT_TIMEOUT_MS for deferred initialization to finish.
+ * Used whenever an IPC request needs a definitive database result instead of
+ * silently degrading to an empty response during startup.
  */
 async function getDBWithTimeout(): Promise<Database.Database> {
   if (knowledgeDBReady && knowledgeDB) return knowledgeDB
@@ -104,9 +117,6 @@ async function getDBWithTimeout(): Promise<Database.Database> {
   if (!knowledgeDB) knowledgeDB = db
   return db
 }
-
-/** Kick off background init eagerly so it finishes before the user needs it. */
-ensureKnowledgeDBInit()
 
 function validateKnowledgeQuery(query: string): string {
   if (typeof query !== 'string' || !query.trim()) throw new Error('参数无效: query')
@@ -128,36 +138,81 @@ export function extractYamlTags(frontMatter: string): string[] {
 }
 
 export function titleFromFilename(filename: string): string {
-  return filename
-    .replace(/\.md$/i, '')
-    .split('__')
-    .slice(-1)[0]
-    .replace(/^[a-f0-9]{8,}_?/i, '')
-    .replace(/[-_]+/g, ' ')
-    .trim()
+  return titleFromKnowledgeFilename(filename)
 }
 
 function enrichKnowledgeDoc<T extends KnowledgeDocListRow | KnowledgeDocDetailRow>(
   row: T,
 ): T & KnowledgeDocMetadata {
-  const preview = 'content' in row ? row.content : row.content_preview
-  if (typeof preview !== 'string') return row
-
-  const frontMatter = preview.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? ''
-  const displayTitle = extractYamlScalar(frontMatter, 'title') ?? titleFromFilename(row.filename)
-  const metadata: KnowledgeDocMetadata = {
-    display_title: displayTitle,
-    source_repo: extractYamlScalar(frontMatter, 'source_repo'),
-    source_url: extractYamlScalar(frontMatter, 'source_url'),
-    source_path: extractYamlScalar(frontMatter, 'source_path'),
-    category: extractYamlScalar(frontMatter, 'category'),
-    category_dir: extractYamlScalar(frontMatter, 'category_dir'),
+  const base = { ...row } as Record<string, unknown>
+  for (const key of [
+    'metadata_fallback_content',
+    'metadata_doc_id',
+    'display_title',
+    'source_repo',
+    'source_url',
+    'source_path',
+    'source_commit',
+    'category_key',
+    'category_label',
+    'tags_json',
+    'import_target',
+    'generated_at',
+    'document_kind',
+    'visibility',
+    'content_sha256',
+  ]) {
+    delete base[key]
   }
-  const tags = extractYamlTags(frontMatter)
-  if (tags.length > 0) metadata.tags = tags
+
+  let metadata: KnowledgeDocMetadata
+  if (row.metadata_doc_id !== null && row.metadata_doc_id !== undefined) {
+    metadata = {
+      display_title: row.display_title ?? undefined,
+      source_repo: row.source_repo ?? undefined,
+      source_url: row.source_url ?? undefined,
+      source_path: row.source_path ?? undefined,
+      source_commit: row.source_commit ?? undefined,
+      category_key: row.category_key ?? undefined,
+      category_label: row.category_label ?? undefined,
+      tags: parseKnowledgeTagsJson(row.tags_json),
+      import_target: row.import_target ?? undefined,
+      generated_at: row.generated_at ?? undefined,
+      document_kind: row.document_kind ?? undefined,
+      visibility: row.visibility ?? undefined,
+      content_sha256: row.content_sha256 ?? undefined,
+    }
+  } else {
+    const fallback = buildKnowledgeDocMetadata({
+      filename: row.filename,
+      fileType: row.file_type,
+      content:
+        ('content' in row ? row.content : null) ??
+        row.metadata_fallback_content ??
+        row.content_preview,
+    })
+    metadata = {
+      display_title: fallback.display_title,
+      source_repo: fallback.source_repo ?? undefined,
+      source_url: fallback.source_url ?? undefined,
+      source_path: fallback.source_path ?? undefined,
+      source_commit: fallback.source_commit ?? undefined,
+      category_key: fallback.category_key ?? undefined,
+      category_label: fallback.category_label ?? undefined,
+      tags: fallback.tags,
+      import_target: fallback.import_target ?? undefined,
+      generated_at: fallback.generated_at ?? undefined,
+      document_kind: fallback.document_kind,
+      visibility: fallback.visibility,
+      content_sha256: fallback.content_sha256,
+    }
+  }
+
+  metadata.category = metadata.category_label
+  metadata.category_dir = metadata.category_key
 
   return Object.fromEntries(
-    Object.entries({ ...row, ...metadata }).filter(([, value]) => value !== undefined),
+    Object.entries({ ...base, ...metadata }).filter(([, value]) => value !== undefined),
   ) as unknown as T & KnowledgeDocMetadata
 }
 
@@ -233,26 +288,38 @@ export function registerRAGIPC(): void {
             )
           }
         } else if (ext === '.pdf') {
+          let parser: import('pdf-parse').PDFParse | null = null
           try {
-            const pdfParseModule = await import('pdf-parse')
-            const pdfParseFn = (pdfParseModule as unknown as Record<string, unknown>).default as
-              | ((data: Buffer) => Promise<{ text: string }>)
-              | undefined
-            const pdfParse =
-              pdfParseFn ??
-              (pdfParseModule as unknown as (data: Buffer) => Promise<{ text: string }>)
+            const { PDFParse } = await import('pdf-parse')
             const buffer = readFileSync(filePath)
-            const textResult = await pdfParse(buffer)
+            parser = new PDFParse({ data: new Uint8Array(buffer) })
+            const textResult = await parser.getText()
             content = textResult.text
+            if (!content.trim()) {
+              throw new Error('未提取到可读文本，文件可能是扫描版 PDF')
+            }
           } catch (error) {
             throw new Error(
               `PDF 解析失败: ${error instanceof Error ? error.message : String(error)}`,
             )
+          } finally {
+            await parser?.destroy().catch(() => undefined)
           }
         }
 
         // Split into chunks (~500 chars)
         const chunks = splitIntoChunks(content, 500)
+        const metadata = buildKnowledgeDocMetadata({
+          filename,
+          fileType: ext,
+          content,
+          fallbacks: {
+            source_repo: 'local-import',
+            source_path: filePath,
+            import_target: 'manual-upload',
+            visibility: 'local',
+          },
+        })
 
         // 单文件的 doc + chunks 写入包进事务：避免中途失败留下
         // chunk_count 与实际 chunk 数不一致的“半截文档”。
@@ -264,7 +331,8 @@ export function registerRAGIPC(): void {
               )
               .run(docFilename, docExt, docContent, chunks.length)
 
-            const docId = docResult.lastInsertRowid
+            const docId = Number(docResult.lastInsertRowid)
+            insertKnowledgeDocMetadata(db, docId, metadata)
             const insertChunk = db.prepare(
               'INSERT INTO knowledge_chunks (doc_id, content, chunk_index) VALUES (?,?,?)',
             )
@@ -286,9 +354,19 @@ export function registerRAGIPC(): void {
     const db = await getDBWithTimeout()
     return db
       .prepare(
-        `SELECT id, filename, file_type, chunk_count, created_at, substr(content, 1, 1800) AS content_preview
-         FROM knowledge_docs
-         ORDER BY created_at DESC, id DESC`,
+        `SELECT kd.id, kd.filename, kd.file_type, kd.chunk_count, kd.created_at,
+                substr(kd.content, 1, 1800) AS content_preview,
+                CASE WHEN metadata.doc_id IS NULL THEN kd.content ELSE NULL END
+                  AS metadata_fallback_content,
+                metadata.doc_id AS metadata_doc_id,
+                metadata.display_title, metadata.source_repo, metadata.source_url,
+                metadata.source_path, metadata.source_commit, metadata.category_key,
+                metadata.category_label, metadata.tags_json, metadata.import_target,
+                metadata.generated_at, metadata.document_kind, metadata.visibility,
+                metadata.content_sha256
+         FROM knowledge_docs kd
+         LEFT JOIN knowledge_doc_metadata metadata ON metadata.doc_id = kd.id
+         ORDER BY kd.created_at DESC, kd.id DESC`,
       )
       .all()
       .map((row) => enrichKnowledgeDoc(row as KnowledgeDocListRow))
@@ -296,18 +374,32 @@ export function registerRAGIPC(): void {
 
   ipcMain.handle(
     'knowledge-get',
-    trackPerformance('knowledge-get', (_e, id: number) => {
+    trackPerformance('knowledge-get', async (_e, id: number) => {
       if (typeof id !== 'number' || !Number.isFinite(id) || id < 1) throw new Error('参数无效: id')
-      const db = getReadyDB()
-      if (!db) return null
+      const db = await getDBWithTimeout()
       const row = db
         .prepare(
-          `SELECT id, filename, file_type, content, chunk_count, created_at
-           FROM knowledge_docs
-           WHERE id = ?`,
+          `SELECT kd.id, kd.filename, kd.file_type, kd.content, kd.chunk_count, kd.created_at,
+                  metadata.doc_id AS metadata_doc_id,
+                  metadata.display_title, metadata.source_repo, metadata.source_url,
+                  metadata.source_path, metadata.source_commit, metadata.category_key,
+                  metadata.category_label, metadata.tags_json, metadata.import_target,
+                  metadata.generated_at, metadata.document_kind, metadata.visibility,
+                  metadata.content_sha256
+           FROM knowledge_docs kd
+           LEFT JOIN knowledge_doc_metadata metadata ON metadata.doc_id = kd.id
+           WHERE kd.id = ?`,
         )
         .get(id) as KnowledgeDocDetailRow | undefined
       return row ? enrichKnowledgeDoc(row) : null
+    }),
+  )
+
+  ipcMain.handle(
+    'knowledge-link-audit',
+    trackPerformance('knowledge-link-audit', async (_e, id: number) => {
+      if (typeof id !== 'number' || !Number.isFinite(id) || id < 1) throw new Error('参数无效: id')
+      return getKnowledgeLinkAuditForDocument(await getDBWithTimeout(), id)
     }),
   )
 

@@ -1,9 +1,47 @@
+import { isSafeKnowledgeHref } from './knowledgeLinks'
+
 const CODE_BLOCK_TOKEN = '\u0000CODE_BLOCK_'
 const TABLE_TOKEN = '\u0000TABLE_'
+const INLINE_TOKEN = '\u0000INLINE_'
+const INLINE_PLACEHOLDER = new RegExp(`${INLINE_TOKEN}\\d+\u0000`, 'g')
+const BLOCK_PLACEHOLDER = new RegExp(`\u0000(?:CODE_BLOCK_|TABLE_)\\d+\u0000`, 'g')
 
 type Placeholder = {
   token: string
   html: string
+}
+
+export interface KnowledgeMarkdownOutlineItem {
+  id: string
+  text: string
+  depth: 1 | 2 | 3 | 4 | 5 | 6
+}
+
+export interface KnowledgeMarkdownRenderOptions {
+  renderImages?: boolean
+}
+
+export interface KnowledgeMarkdownRenderResult {
+  html: string
+  outline: KnowledgeMarkdownOutlineItem[]
+}
+
+type InlineRenderer = (text: string) => string
+
+type BlockRenderContext = {
+  renderInline: InlineRenderer
+  outline?: KnowledgeMarkdownOutlineItem[]
+  slugCounts?: Map<string, number>
+  headingIds?: Set<string>
+}
+
+type ParsedInlineLink = {
+  raw: string
+  label: string
+  target: string
+  title?: string
+  image: boolean
+  end: number
 }
 
 function escapeHtml(value: string): string {
@@ -15,7 +53,7 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;')
 }
 
-function isSafeLink(href: string): boolean {
+function isSafeLegacyLink(href: string): boolean {
   const trimmed = href.trim()
   if (!trimmed) return false
   if (trimmed.startsWith('#') || trimmed.startsWith('/') || trimmed.startsWith('./')) return true
@@ -27,26 +65,323 @@ function isSafeLink(href: string): boolean {
   }
 }
 
-function renderInline(text: string): string {
+function renderInlineFormatting(text: string): string {
   let result = escapeHtml(text)
-
-  result = result.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, (match, label, href) => {
-    const decodedHref = String(href)
-      .replace(/&amp;/g, '&')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-    if (!isSafeLink(decodedHref)) return match
-    return `<a href="${escapeHtml(decodedHref)}" target="_blank" rel="noreferrer noopener">${label}</a>`
-  })
-
   result = result.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
   result = result.replace(/(^|[^*])\*(?!\s)(.+?)(?<!\s)\*/g, '$1<em>$2</em>')
   result = result.replace(/`([^`]+?)`/g, '<code>$1</code>')
-  result = result
+  return result
     .replace(/\[严重\]/g, '<span style="color:var(--theme-danger);font-weight:600">[严重]</span>')
     .replace(/\[警告\]/g, '<span style="color:var(--theme-warning);font-weight:600">[警告]</span>')
     .replace(/\[提示\]/g, '<span style="color:var(--theme-accent);font-weight:600">[提示]</span>')
-  return result
+}
+
+const MAX_INLINE_LINK_TARGET_SCAN = 16 * 1024
+
+function findInlineLinkCandidates(source: string): Map<number, number> {
+  const candidates = new Map<number, number>()
+  const brackets: number[] = []
+  let escaped = false
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (char === '\\') {
+      escaped = true
+      continue
+    }
+    if (char === '[') {
+      brackets.push(index)
+      continue
+    }
+    if (char === ']' && brackets.length > 0) {
+      const openBracket = brackets.pop() as number
+      if (source[index + 1] !== '(') continue
+      const start = source[openBracket - 1] === '!' ? openBracket - 1 : openBracket
+      candidates.set(start, index)
+    }
+  }
+  return candidates
+}
+
+function unescapeMarkdownTarget(value: string): string {
+  return value.replace(/\\([\\()<>"'])/g, '$1')
+}
+
+function parseInlineLink(
+  source: string,
+  start: number,
+  closeBracket: number,
+): ParsedInlineLink | null {
+  const image = source[start] === '!'
+  const openBracket = image ? start + 1 : start
+  if (source[openBracket] !== '[') return null
+  if (!image && start > 0 && source[start - 1] === '!') return null
+  if (closeBracket <= openBracket || source[closeBracket + 1] !== '(') return null
+
+  let cursor = closeBracket + 2
+  const scanEnd = Math.min(source.length, cursor + MAX_INLINE_LINK_TARGET_SCAN)
+  while (cursor < scanEnd && /[ \t]/.test(source[cursor])) cursor += 1
+  if (cursor >= scanEnd) return null
+
+  let target = ''
+  if (source[cursor] === '<') {
+    const targetStart = cursor + 1
+    cursor = targetStart
+    let escaped = false
+    while (cursor < scanEnd) {
+      const char = source[cursor]
+      if (escaped) {
+        escaped = false
+        cursor += 1
+        continue
+      }
+      if (char === '\\') {
+        escaped = true
+        cursor += 1
+        continue
+      }
+      if (char === '>') break
+      if (char === '\n' || char === '\r') return null
+      cursor += 1
+    }
+    if (source[cursor] !== '>') return null
+    target = source.slice(targetStart, cursor)
+    cursor += 1
+  } else {
+    const targetStart = cursor
+    let nestedParentheses = 0
+    let escaped = false
+    while (cursor < scanEnd) {
+      const char = source[cursor]
+      if (escaped) {
+        escaped = false
+        cursor += 1
+        continue
+      }
+      if (char === '\\') {
+        escaped = true
+        cursor += 1
+        continue
+      }
+      if (char === '(') {
+        nestedParentheses += 1
+        cursor += 1
+        continue
+      }
+      if (char === ')') {
+        if (nestedParentheses === 0) break
+        nestedParentheses -= 1
+        cursor += 1
+        continue
+      }
+      if (/\s/.test(char) && nestedParentheses === 0) break
+      cursor += 1
+    }
+    if (nestedParentheses !== 0) return null
+    target = source.slice(targetStart, cursor)
+  }
+  if (!target) return null
+
+  while (cursor < scanEnd && /[ \t]/.test(source[cursor])) cursor += 1
+  let title: string | undefined
+  if (source[cursor] !== ')') {
+    const opener = source[cursor]
+    const closer = opener === '"' ? '"' : opener === "'" ? "'" : opener === '(' ? ')' : ''
+    if (!closer) return null
+    cursor += 1
+    const titleStart = cursor
+    let escaped = false
+    let nestedTitleParentheses = 0
+    while (cursor < scanEnd) {
+      const char = source[cursor]
+      if (escaped) {
+        escaped = false
+        cursor += 1
+        continue
+      }
+      if (char === '\\') {
+        escaped = true
+        cursor += 1
+        continue
+      }
+      if (opener === '(' && char === '(') {
+        nestedTitleParentheses += 1
+        cursor += 1
+        continue
+      }
+      if (char === closer) {
+        if (nestedTitleParentheses > 0) {
+          nestedTitleParentheses -= 1
+          cursor += 1
+          continue
+        }
+        break
+      }
+      if (char === '\n' || char === '\r') return null
+      cursor += 1
+    }
+    if (source[cursor] !== closer) return null
+    title = unescapeMarkdownTarget(source.slice(titleStart, cursor))
+    cursor += 1
+    while (cursor < scanEnd && /[ \t]/.test(source[cursor])) cursor += 1
+    if (source[cursor] !== ')') return null
+  }
+
+  const end = cursor + 1
+  return {
+    raw: source.slice(start, end),
+    label: source.slice(openBracket + 1, closeBracket),
+    target: unescapeMarkdownTarget(target),
+    ...(title !== undefined ? { title } : {}),
+    image,
+    end,
+  }
+}
+
+function replaceInlineLinks(source: string, render: (link: ParsedInlineLink) => string): string {
+  const output: string[] = []
+  const candidates = findInlineLinkCandidates(source)
+  let copiedUntil = 0
+  let cursor = 0
+  while (cursor < source.length) {
+    const closeBracket = candidates.get(cursor)
+    const link = closeBracket === undefined ? null : parseInlineLink(source, cursor, closeBracket)
+    if (!link) {
+      cursor += 1
+      continue
+    }
+    output.push(source.slice(copiedUntil, cursor), render(link))
+    cursor = link.end
+    copiedUntil = cursor
+  }
+  output.push(source.slice(copiedUntil))
+  return output.join('')
+}
+
+function renderInlineLegacy(text: string): string {
+  const placeholders: Placeholder[] = []
+  const stash = (html: string): string => {
+    const token = `${INLINE_TOKEN}${placeholders.length}\u0000`
+    placeholders.push({ token, html })
+    return token
+  }
+  const source = replaceInlineLinks(text, (link) => {
+    if (link.image || !isSafeLegacyLink(link.target)) return link.raw
+    return stash(
+      `<a href="${escapeHtml(link.target)}" target="_blank" rel="noreferrer noopener">${renderInlineFormatting(link.label)}</a>`,
+    )
+  })
+  return restoreInlinePlaceholders(renderInlineFormatting(source), placeholders)
+}
+
+function isExternalKnowledgeHref(href: string): boolean {
+  try {
+    const protocol = new URL(href).protocol
+    return protocol === 'http:' || protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+function restoreInlinePlaceholders(html: string, placeholders: Placeholder[]): string {
+  if (placeholders.length === 0) return html
+  const byToken = new Map(placeholders.map((placeholder) => [placeholder.token, placeholder.html]))
+  return html.replace(INLINE_PLACEHOLDER, (token) => byToken.get(token) ?? token)
+}
+
+function renderInlineKnowledge(text: string, renderImages: boolean): string {
+  const placeholders: Placeholder[] = []
+  const stash = (html: string): string => {
+    const token = `${INLINE_TOKEN}${placeholders.length}\u0000`
+    placeholders.push({ token, html })
+    return token
+  }
+
+  const source = replaceInlineLinks(text, (link) => {
+    if (!isSafeKnowledgeHref(link.target)) return link.raw
+    const titleAttribute = link.title !== undefined ? ` title="${escapeHtml(link.title)}"` : ''
+    if (link.image) {
+      if (renderImages) {
+        return stash(
+          `<img src="${escapeHtml(link.target)}" alt="${escapeHtml(link.label)}"${titleAttribute} loading="lazy" decoding="async" />`,
+        )
+      }
+      const label = link.label.trim() || '图片'
+      return stash(
+        `<a href="${escapeHtml(link.target)}" data-knowledge-link="true" data-knowledge-image="true"${titleAttribute}>查看图片：${renderInlineFormatting(label)}</a>`,
+      )
+    }
+    const externalAttributes = isExternalKnowledgeHref(link.target)
+      ? ' target="_blank" rel="noreferrer noopener"'
+      : ''
+    return stash(
+      `<a href="${escapeHtml(link.target)}" data-knowledge-link="true"${titleAttribute}${externalAttributes}>${renderInlineFormatting(link.label)}</a>`,
+    )
+  })
+
+  return restoreInlinePlaceholders(renderInlineFormatting(source), placeholders)
+}
+
+function headingText(markdown: string): string {
+  return replaceInlineLinks(markdown, (link) => link.label)
+    .replace(/[`*_~]/g, '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+export function knowledgeHeadingSlug(value: string): string {
+  const normalized = value
+    .normalize('NFKC')
+    .toLocaleLowerCase('en-US')
+    .replace(/[^\p{Letter}\p{Number}\p{Mark}\s-]/gu, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+  return normalized || 'section'
+}
+
+function uniqueHeadingSlug(
+  value: string,
+  counts: Map<string, number>,
+  headingIds: Set<string>,
+): string {
+  const base = knowledgeHeadingSlug(value)
+  let suffix = counts.get(base) ?? 0
+  let candidate = suffix === 0 ? base : `${base}-${suffix}`
+  while (headingIds.has(candidate)) {
+    suffix += 1
+    candidate = `${base}-${suffix}`
+  }
+  counts.set(base, suffix + 1)
+  headingIds.add(candidate)
+  return candidate
+}
+
+export function resolveKnowledgeHeadingId(
+  fragment: string | undefined,
+  outline: readonly Pick<KnowledgeMarkdownOutlineItem, 'id'>[],
+): string | null {
+  if (!fragment) return null
+  const rawValue = fragment.replace(/^#/, '').trim()
+  if (!rawValue) return null
+  const exact = outline.find((heading) => heading.id === rawValue)
+  if (exact) return exact.id
+
+  let decodedValue = rawValue
+  try {
+    decodedValue = decodeURIComponent(rawValue)
+  } catch {
+    // Keep malformed percent escapes deterministic and fail to a slug lookup.
+  }
+  const decodedExact = outline.find((heading) => heading.id === decodedValue)
+  if (decodedExact) return decodedExact.id
+  const normalized = knowledgeHeadingSlug(decodedValue)
+  return outline.find((heading) => heading.id === normalized)?.id ?? null
 }
 
 function isTableDivider(line: string): boolean {
@@ -62,7 +397,7 @@ function splitTableRow(line: string): string[] {
     .map((cell) => cell.trim())
 }
 
-function renderTable(lines: string[]): string {
+function renderTable(lines: string[], renderInline: InlineRenderer): string {
   const [headerLine, , ...bodyLines] = lines
   const headers = splitTableRow(headerLine)
   const rows = bodyLines.map(splitTableRow)
@@ -93,7 +428,11 @@ function stashCodeBlocks(markdown: string, placeholders: Placeholder[]): string 
   })
 }
 
-function stashTables(markdown: string, placeholders: Placeholder[]): string {
+function stashTables(
+  markdown: string,
+  placeholders: Placeholder[],
+  renderInline: InlineRenderer,
+): string {
   const lines = markdown.split('\n')
   const out: string[] = []
   for (let i = 0; i < lines.length; i += 1) {
@@ -106,7 +445,7 @@ function stashTables(markdown: string, placeholders: Placeholder[]): string {
       }
       i -= 1
       const token = `${TABLE_TOKEN}${placeholders.length}\u0000`
-      placeholders.push({ token, html: renderTable(tableLines) })
+      placeholders.push({ token, html: renderTable(tableLines, renderInline) })
       out.push(token)
     } else {
       out.push(lines[i])
@@ -116,10 +455,13 @@ function stashTables(markdown: string, placeholders: Placeholder[]): string {
 }
 
 function restorePlaceholders(html: string, placeholders: Placeholder[]): string {
-  return placeholders.reduce((next, item) => next.split(item.token).join(item.html), html)
+  if (placeholders.length === 0) return html
+  const byToken = new Map(placeholders.map((placeholder) => [placeholder.token, placeholder.html]))
+  return html.replace(BLOCK_PLACEHOLDER, (token) => byToken.get(token) ?? token)
 }
 
-function renderBlocks(markdown: string): string {
+function renderBlocks(markdown: string, context: BlockRenderContext): string {
+  const { renderInline } = context
   const lines = markdown.split('\n')
   const blocks: string[] = []
   let paragraph: string[] = []
@@ -164,11 +506,19 @@ function renderBlocks(markdown: string): string {
       continue
     }
 
-    const heading = /^(#{1,3})\s+(.+)$/.exec(line)
+    const heading = /^(#{1,6})\s+(.+)$/.exec(line)
     if (heading) {
       flushAll()
-      const level = heading[1].length + 1
-      blocks.push(`<h${level}>${renderInline(heading[2])}</h${level}>`)
+      const depth = heading[1].length as 1 | 2 | 3 | 4 | 5 | 6
+      const level = Math.min(depth + 1, 6)
+      if (context.outline && context.slugCounts && context.headingIds) {
+        const text = headingText(heading[2])
+        const id = uniqueHeadingSlug(text, context.slugCounts, context.headingIds)
+        context.outline.push({ id, text, depth })
+        blocks.push(`<h${level} id="${escapeHtml(id)}">${renderInline(heading[2])}</h${level}>`)
+      } else {
+        blocks.push(`<h${level}>${renderInline(heading[2])}</h${level}>`)
+      }
       continue
     }
 
@@ -209,17 +559,40 @@ function renderBlocks(markdown: string): string {
   return blocks.join('')
 }
 
-export function renderMarkdown(markdown: string): string {
+function renderMarkdownInternal(markdown: string, context: BlockRenderContext): string {
   if (!markdown) return ''
-  if (/^\n+$/.test(markdown)) return '<p><br/></p>'
+
+  // Files read on Windows commonly use CRLF. Leaving the trailing carriage
+  // return on each line prevents block patterns such as headings and lists
+  // from matching, so normalize once before every parsing stage.
+  const normalizedMarkdown = markdown.replace(/\r\n?/g, '\n')
+  if (/^\n+$/.test(normalizedMarkdown)) return '<p><br/></p>'
   const placeholders: Placeholder[] = []
-  const withoutCode = stashCodeBlocks(markdown, placeholders)
-  const withoutTables = stashTables(withoutCode, placeholders)
+  const withoutCode = stashCodeBlocks(normalizedMarkdown, placeholders)
+  const withoutTables = stashTables(withoutCode, placeholders, context.renderInline)
   const leadingBreak = withoutTables.startsWith('\n') ? '<p><br/></p>' : ''
   return (
     leadingBreak +
-    restorePlaceholders(renderBlocks(withoutTables.replace(/^\n+/, '')), placeholders)
+    restorePlaceholders(renderBlocks(withoutTables.replace(/^\n+/, ''), context), placeholders)
   )
+}
+
+export function renderMarkdown(markdown: string): string {
+  return renderMarkdownInternal(markdown, { renderInline: renderInlineLegacy })
+}
+
+export function renderKnowledgeMarkdown(
+  markdown: string,
+  options: KnowledgeMarkdownRenderOptions = {},
+): KnowledgeMarkdownRenderResult {
+  const outline: KnowledgeMarkdownOutlineItem[] = []
+  const html = renderMarkdownInternal(markdown, {
+    renderInline: (text) => renderInlineKnowledge(text, options.renderImages === true),
+    outline,
+    slugCounts: new Map<string, number>(),
+    headingIds: new Set<string>(),
+  })
+  return { html, outline }
 }
 
 export const renderSafeMarkdown = renderMarkdown

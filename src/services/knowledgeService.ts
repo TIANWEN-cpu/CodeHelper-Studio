@@ -16,9 +16,17 @@ export interface KnowledgeDoc {
   source_repo?: string
   source_url?: string
   source_path?: string
+  source_commit?: string
+  category_key?: string
+  category_label?: string
   category?: string
   category_dir?: string
   tags?: string[]
+  import_target?: string
+  generated_at?: string
+  document_kind?: string
+  visibility?: string
+  content_sha256?: string
 }
 
 export interface KnowledgeDocDetail extends KnowledgeDoc {
@@ -35,9 +43,12 @@ export interface KnowledgeSummary {
 export interface ResourcePackImportResult {
   rootPath: string
   manifest?: {
+    id?: string
+    title?: string
     generated_at?: string
     source_root?: string
     output_root?: string
+    import_target?: string
   }
   knowledge: {
     found: number
@@ -55,12 +66,29 @@ export interface ResourcePackImportResult {
   errors: string[]
 }
 
+export interface KnowledgeLinkAuditRecord {
+  id: number
+  doc_id: number
+  line_number: number
+  raw_target: string
+  resolved_target: string | null
+  link_kind: string
+  status: string
+  http_status: number | null
+  checked_at: string | null
+  detail: string | null
+}
+
 export async function getDocuments(): Promise<KnowledgeDoc[]> {
   return invoke<KnowledgeDoc[]>('knowledge-list')
 }
 
 export async function getDocument(docId: number): Promise<KnowledgeDocDetail | null> {
   return invoke<KnowledgeDocDetail | null>('knowledge-get', docId)
+}
+
+export async function getDocumentLinkAudit(docId: number): Promise<KnowledgeLinkAuditRecord[]> {
+  return invoke<KnowledgeLinkAuditRecord[]>('knowledge-link-audit', docId)
 }
 
 export async function searchDocuments(query: string): Promise<KnowledgeSearchResponse> {

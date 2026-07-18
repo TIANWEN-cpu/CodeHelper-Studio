@@ -3,6 +3,28 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // Collect registered handlers
 const handlers: Record<string, (...args: unknown[]) => unknown> = {}
 
+const pdfParseMocks = vi.hoisted(() => ({
+  construct: vi.fn(),
+  getText: vi.fn(),
+  destroy: vi.fn(),
+}))
+
+vi.mock('pdf-parse', () => ({
+  PDFParse: class {
+    constructor(options: { data: Uint8Array }) {
+      pdfParseMocks.construct(options)
+    }
+
+    getText() {
+      return pdfParseMocks.getText()
+    }
+
+    destroy() {
+      return pdfParseMocks.destroy()
+    }
+  },
+}))
+
 // Mock electron
 vi.mock('electron', () => ({
   ipcMain: {
@@ -64,6 +86,10 @@ describe('registerRAGIPC', () => {
     Object.keys(handlers).forEach((k) => delete handlers[k])
     mockDB.prepare.mockReset()
     mockDB.exec.mockReset()
+    pdfParseMocks.construct.mockReset()
+    pdfParseMocks.getText.mockReset()
+    pdfParseMocks.destroy.mockReset()
+    pdfParseMocks.destroy.mockResolvedValue(undefined)
   })
 
   it('registers all RAG handlers', async () => {
@@ -74,6 +100,8 @@ describe('registerRAGIPC', () => {
 
     expect(handlers['knowledge-upload']).toBeDefined() // IPC handler registration
     expect(handlers['knowledge-list']).toBeDefined()
+    expect(handlers['knowledge-get']).toBeDefined()
+    expect(handlers['knowledge-link-audit']).toBeDefined()
     expect(handlers['knowledge-delete']).toBeDefined()
     expect(handlers['knowledge-search']).toBeDefined()
     expect(handlers['knowledge-retrieval-status']).toBeDefined()
@@ -174,6 +202,37 @@ describe('registerRAGIPC', () => {
       expect(result).toEqual(['readme.md'])
     })
 
+    it('uploads PDF text with the pdf-parse v2 class API', async () => {
+      const { dialog } = await import('electron')
+      const fs = await import('fs')
+      const buffer = Buffer.from('pdf-content')
+      ;(dialog.showOpenDialog as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canceled: false,
+        filePaths: ['/test/doc.pdf'],
+      })
+      ;(fs.statSync as ReturnType<typeof vi.fn>).mockReturnValue({ size: 100 })
+      ;(fs.readFileSync as ReturnType<typeof vi.fn>).mockReturnValue(buffer)
+      pdfParseMocks.getText.mockResolvedValue({ text: '# PDF title\r\nExtracted body' })
+
+      mockDB.prepare.mockImplementation((sql: string) => {
+        if (sql.includes('INSERT INTO knowledge_docs')) {
+          return { run: vi.fn(() => ({ lastInsertRowid: 3 })), get: vi.fn(), all: vi.fn() }
+        }
+        if (sql.includes('INSERT INTO knowledge_chunks')) {
+          return { run: vi.fn(), get: vi.fn(), all: vi.fn() }
+        }
+        return makeStmt(undefined)
+      })
+
+      const { registerRAGIPC } = await import('../electron/ipc/rag')
+      registerRAGIPC()
+
+      await expect(handlers['knowledge-upload']()).resolves.toEqual(['doc.pdf'])
+      expect(pdfParseMocks.construct).toHaveBeenCalledWith({ data: expect.any(Uint8Array) })
+      expect(pdfParseMocks.getText).toHaveBeenCalledOnce()
+      expect(pdfParseMocks.destroy).toHaveBeenCalledOnce()
+    })
+
     it('throws when file exceeds size limit', async () => {
       const { dialog } = await import('electron')
       const fs = await import('fs')
@@ -190,7 +249,7 @@ describe('registerRAGIPC', () => {
       await expect(handlers['knowledge-upload']()).rejects.toThrow('超过大小限制')
     })
 
-    it('handles PDF parse failure gracefully', async () => {
+    it('handles PDF parse failure gracefully and destroys the parser', async () => {
       const { dialog } = await import('electron')
       const fs = await import('fs')
       ;(dialog.showOpenDialog as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -199,13 +258,14 @@ describe('registerRAGIPC', () => {
       })
       ;(fs.statSync as ReturnType<typeof vi.fn>).mockReturnValue({ size: 100 })
       ;(fs.readFileSync as ReturnType<typeof vi.fn>).mockReturnValue(Buffer.from('pdf-content'))
+      pdfParseMocks.getText.mockRejectedValue(new Error('invalid PDF'))
 
       mockDB.prepare.mockReturnValue(makeStmt(undefined))
       const { registerRAGIPC } = await import('../electron/ipc/rag')
       registerRAGIPC()
 
-      // PDF import will fail in test environment
-      await expect(handlers['knowledge-upload']()).rejects.toThrow()
+      await expect(handlers['knowledge-upload']()).rejects.toThrow('PDF 解析失败: invalid PDF')
+      expect(pdfParseMocks.destroy).toHaveBeenCalledOnce()
     })
   })
 
@@ -224,7 +284,47 @@ describe('registerRAGIPC', () => {
       await flushMicrotasks() // allow deferred DB init to complete
 
       const result = await handlers['knowledge-list']()
-      expect(result).toEqual(docs)
+      expect(result).toEqual([expect.objectContaining(docs[0])])
+      expect(result[0]).toMatchObject({
+        display_title: 'doc',
+        tags: [],
+        document_kind: 'text',
+        visibility: 'local',
+      })
+    })
+  })
+
+  describe('knowledge-get', () => {
+    it('waits for database initialization and returns the full document', async () => {
+      const doc = {
+        id: 1,
+        filename: 'doc.md',
+        file_type: '.md',
+        content: '# Full content',
+        chunk_count: 1,
+        created_at: '2024-01-01',
+      }
+      mockDB.prepare.mockImplementation((sql: string) => {
+        if (sql.includes('FROM knowledge_docs')) return makeStmt(doc)
+        return makeStmt(undefined)
+      })
+
+      const { registerRAGIPC } = await import('../electron/ipc/rag')
+      registerRAGIPC()
+
+      await expect(handlers['knowledge-get'](null, 1)).resolves.toMatchObject(doc)
+    })
+  })
+
+  describe('knowledge-link-audit', () => {
+    it('rejects invalid document ids', async () => {
+      const { registerRAGIPC } = await import('../electron/ipc/rag')
+      registerRAGIPC()
+
+      await expect(handlers['knowledge-link-audit'](null, 0)).rejects.toThrow('参数无效: id')
+      await expect(handlers['knowledge-link-audit'](null, Number.NaN)).rejects.toThrow(
+        '参数无效: id',
+      )
     })
   })
 

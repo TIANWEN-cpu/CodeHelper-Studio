@@ -1,10 +1,10 @@
-# CodeHelper v2.4.0 Release Notes
+# CodeHelper v2.4.1 Release Notes
 
-发布日期：2026-07-17
+发布日期：2026-07-19
 
 ## 概览
 
-v2.4.0 是 CodeHelper 的 Beta Candidate 收口版本。它把此前分散的数据恢复、代码运行、知识库和 AI 工作流整合为可验证的桌面产品闭环，并补齐安全、备份、审计和 Windows 发布门禁。
+v2.4.1 是一次知识库数据质量与阅读体验更新。它清理真实语料中的重复、空页、模板和占位内容，持久化规范分类、来源与链接状态，并用验证型备份、事务写入和维护动作快照保证全过程可审计。
 
 ## Windows 发布说明
 
@@ -15,38 +15,38 @@ v2.4.0 是 CodeHelper 的 Beta Candidate 收口版本。它把此前分散的数
 
 ## 亮点
 
-- **数据丢失防护**：工作区、练习草稿、标签顺序、光标和滚动位置以 SQLite 为权威存储；异常退出、Renderer crash、多窗口分叉和旧 schema 均有真实 Electron 恢复路径。
-- **受控代码执行**：代码在一次性 utility 进程中运行；Windows Job Host 提供进程树和资源限制，Docker strong-isolation 默认无网络、只读根、非 root、cap drop 和资源配额。
-- **可审计知识检索**：FTS/BM25、trigram 和本地语义近似共同召回，UI 展示来源锚点、检索通道和降级原因。
-- **审批型 Agent**：主进程工具白名单、逐次审批、取消/失败终态和 SQLite 审计证据完整落地。
-- **数据库保护**：支持验证型 SQLite 快照，导入和迁移前自动备份；每个快照记录版本、大小、SHA-256 与 `quick_check`。
-- **统一能力状态**：设置页展示数据库、工具链、Windows Job Host、Docker、知识检索、Agent、AI Provider 与 `safeStorage` 的真实状态。
+- **真实语料治理**：删除经过复核的同源重复、空页、模板、占位、极短分类 stub 和无入链 sidebar，清理后保留 2141 篇文档与 10618 个 chunks。
+- **持久化 metadata**：7 类规范分类、展示标题、来源仓库、源文件、commit、标签、可见性和正文 SHA-256 进入 SQLite。
+- **链接审计**：38,470 条相对链接、本地语料、外链与异常状态统一记录并展示；404、临时错误、受限和畸形地址不会混为一类。
+- **长文阅读**：新增目录、标题定位、阅读进度、来源信息、全文 AI 上下文和加载失败重试。
+- **隐私保护**：不可信 Markdown 不再自动加载第三方图片，外链通过受控 IPC 打开。
+- **维护安全**：Windows CLI 严格执行只读审计、dry-run、验证备份、单事务 apply 和只读 verify。
 
 ## 安全与依赖
 
-- 主窗口导航与重定向 fail-closed；外部 HTTP/HTTPS 链接只交给系统浏览器。
-- JSON 导入导出路径只能由原生文件对话框授权，Renderer 原始路径 IPC 已移除。
-- BrowserWindow 启用 sandbox，并固定 context isolation、webSecurity、webview 和不安全内容选项。
-- CSP 增加 `base-uri 'self'` 和 `form-action 'self'`。
+- 人工删除规则绑定文档 ID、文件名、正文哈希和来源信息，防止数据库重建后 ID 复用造成误删。
+- 备份 manifest 绑定源数据库身份和计划 SHA，并验证完整文件哈希与 SQLite `quick_check`。
+- apply 前后核对核心数据、metadata、链接、FTS、维护运行和每条动作快照；任一失败都会回滚。
+- Markdown 图片默认转为显式链接，避免阅读文档时向任意第三方发送请求。
 - 完整 `npm audit` 为 0。
 
 ## 开发与发布
 
-- Node/Vitest 与 Electron 所需的 `better-sqlite3` ABI 会由 npm 命令自动探测切换。
-- Windows 构建固定使用含 NSIS `UserProgramFiles` 有界复制修复的 electron-builder 26.15.3。
-- Windows 发布链验证 NSIS、Portable、资源、Electron Fuses、安装、启动、重启持久化、卸载、哈希和 updater metadata。
-- 正式 GitHub Release 资产限定为 Installer、blockmap、Portable、`latest.yml`、`SHA256SUMS.txt` 和 `release-manifest.json`。
+- 应用 schema 提升至 2，迁移前自动备份；全量 metadata 回填只在 v1 到 v2 时执行。
+- 资源包优先使用受控 `manifest.id` 分类，未知知识分类 fail closed。
+- 版本脚本同步更新 package 与 lockfile 版本。
+- Windows 发布继续使用既有未签名资产、哈希、安装、重启、卸载和 Immutable Release 门禁。
 
 ## 验证
 
-- 单元测试与覆盖率：2518 通过，2 条平台/专用 Electron harness 跳过。
-- Electron E2E：24/24。
-- Docker isolation：28/28。
-- 知识检索：33/33。
-- Agent：23/23。
-- Electron drafts、workspace、database recovery、SQL utility、runner utility 和 Windows Job Host smoke 全部通过。
-- TypeScript、ESLint、Prettier、生产构建、完整依赖审计与 Windows package smoke 全部通过。
+- Vitest：2589 通过，2 条专用用例跳过；覆盖率为 Statements 73.06%、Branches 68.38%、Functions 79.17%、Lines 75.48%。
+- Python SQLite 维护测试：18/18。
+- 知识库 Electron E2E：3/3；真实清理后数据库的隔离副本完成应用 schema 1 到 2 启动迁移，metadata、链接和维护动作指纹保持不变。
+- Windows 全量 Electron E2E：25/25；Docker isolation：28/28；知识检索：36/36；Agent：23/23。
+- Electron drafts、workspace、database recovery、SQL utility、runner utility 和 Job Host 原生 harness 全部通过。
+- TypeScript、ESLint、Prettier、生产构建和生产/完整依赖审计通过。
+- Windows package smoke、正式 release workflow 和发布后资产验证由 `v2.4.1` 发布门禁继续执行。
 
 ## 升级说明
 
-数据库迁移会在写入前创建验证型快照。仍建议在升级前退出旧版本，并把整个 Electron `userData` 目录复制到外部位置。便携 JSON 只覆盖部分逻辑数据，不能替代完整数据库或 `userData` 备份。
+数据库迁移会在写入前创建验证型快照。升级前应退出旧版本，并把整个 Electron `userData` 目录复制到外部位置。便携 JSON 只覆盖部分逻辑数据，不能替代完整数据库或 `userData` 备份。
