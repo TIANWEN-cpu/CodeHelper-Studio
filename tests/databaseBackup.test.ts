@@ -171,6 +171,115 @@ describe('database backup snapshots', () => {
     )
   })
 
+  it('lists a maintenance manifest v2 while preserving the app v1 writer', () => {
+    const backup = createVerifiedDatabaseBackup(database, {
+      kind: 'manual',
+      databasePath,
+      backupDirectory,
+      now: new Date('2026-07-17T03:30:00.000Z'),
+      id: 'maintenance-v2',
+    })
+    const appManifest = JSON.parse(readFileSync(backup.manifestPath, 'utf8')) as Record<
+      string,
+      unknown
+    >
+    expect(appManifest.manifestVersion).toBe(1)
+
+    const fingerprint = 'a'.repeat(64)
+    const planSha256 = 'b'.repeat(64)
+    writeFileSync(
+      backup.manifestPath,
+      JSON.stringify({
+        ...appManifest,
+        manifestVersion: 2,
+        maintenanceState: {
+          tables: {
+            knowledge_doc_metadata: false,
+            knowledge_link_audit: false,
+            knowledge_maintenance_runs: false,
+            knowledge_maintenance_actions: false,
+          },
+          metadata_rows: 0,
+          metadata_fingerprint: fingerprint,
+          link_audit_rows: 0,
+          link_audit_fingerprint: fingerprint,
+          maintenance_run_rows: 0,
+          maintenance_action_rows: 0,
+        },
+        sourceDatabasePath: databasePath,
+        sourceDatabaseIdentity: {
+          database: { path: databasePath, sha256: fingerprint },
+          wal: null,
+        },
+        sourceDatabaseFullFingerprint: fingerprint,
+        backupDatabaseFullFingerprint: fingerprint,
+        planSha256,
+      }),
+      'utf8',
+    )
+
+    const result = listDatabaseBackups(backupDirectory)
+
+    expect(result.warnings).toEqual([])
+    expect(result.backups).toHaveLength(1)
+    expect(result.backups[0]).toMatchObject({
+      id: 'maintenance-v2',
+      manifestVersion: 2,
+      sourceDatabasePath: databasePath,
+      sourceDatabaseFullFingerprint: fingerprint,
+      backupDatabaseFullFingerprint: fingerprint,
+      planSha256,
+    })
+
+    writeFileSync(
+      backup.manifestPath,
+      JSON.stringify({
+        ...JSON.parse(readFileSync(backup.manifestPath, 'utf8')),
+        backupDatabaseFullFingerprint: 'c'.repeat(64),
+      }),
+      'utf8',
+    )
+    const mismatched = listDatabaseBackups(backupDirectory)
+    expect(mismatched.backups).toEqual([])
+    expect(mismatched.warnings).toEqual([
+      expect.stringContaining('Ignored invalid backup manifest'),
+    ])
+  })
+
+  it('rejects a maintenance manifest v2 with incomplete binding evidence', () => {
+    const backup = createVerifiedDatabaseBackup(database, {
+      kind: 'manual',
+      databasePath,
+      backupDirectory,
+      now: new Date('2026-07-17T03:45:00.000Z'),
+      id: 'incomplete-maintenance-v2',
+    })
+    const appManifest = JSON.parse(readFileSync(backup.manifestPath, 'utf8')) as Record<
+      string,
+      unknown
+    >
+    writeFileSync(
+      backup.manifestPath,
+      JSON.stringify({
+        ...appManifest,
+        manifestVersion: 2,
+        maintenanceState: {},
+        sourceDatabasePath: databasePath,
+        sourceDatabaseIdentity: { database: {}, wal: null },
+        sourceDatabaseFullFingerprint: 'a'.repeat(64),
+        backupDatabaseFullFingerprint: 'a'.repeat(64),
+      }),
+      'utf8',
+    )
+
+    const result = listDatabaseBackups(backupDirectory)
+
+    expect(result.backups).toEqual([])
+    expect(result.warnings).toContain(
+      `Ignored invalid backup manifest: ${backup.manifestPath.split(/[\\/]/).pop()}`,
+    )
+  })
+
   it('excludes backups whose current size or SHA-256 no longer matches the manifest', () => {
     const sizeMismatch = createVerifiedDatabaseBackup(database, {
       kind: 'manual',

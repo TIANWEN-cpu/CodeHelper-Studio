@@ -10,6 +10,8 @@ dist-release/
 # Build artifacts
 *.tsbuildinfo
 artifacts/
+__pycache__/
+*.py[cod]
 
 # Claude
 .superpowers/
@@ -52,4 +54,7 @@ CODEX_HANDOFF_*.md
 
 # Local Playwright / agent output
 output/
+
+# Local knowledge-maintenance audit artifacts
+codehelper-knowledge-*.json
 

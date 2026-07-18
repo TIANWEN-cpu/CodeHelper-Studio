@@ -46,7 +46,7 @@ test('data protection and capability status use verified Electron runtime eviden
     )
     expect(capability.database).toMatchObject({
       quickCheck: 'ok',
-      applicationSchemaVersion: 1,
+      applicationSchemaVersion: 2,
     })
     expect(capability.runtime).toMatchObject({
       isPackaged: false,
@@ -63,7 +63,7 @@ test('data protection and capability status use verified Electron runtime eviden
       kind: 'manual',
       integrity: 'ok',
       quickCheck: ['ok'],
-      applicationSchemaVersion: 1,
+      applicationSchemaVersion: 2,
     })
 
     const backup = created.backup!

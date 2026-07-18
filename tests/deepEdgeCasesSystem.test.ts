@@ -113,11 +113,11 @@ describe('Deep: renderMarkdown edge cases', () => {
       expect(result).toContain('&amp;')
     })
 
-    it('four or more hashes does not create heading', () => {
-      const result = renderMarkdown('#### four hashes')
-      // The regex only handles #, ##, ### so #### is not matched
-      expect(result).not.toContain('<h5>')
-      expect(result).toContain('#### four hashes')
+    it('supports fourth- through sixth-level markdown headings', () => {
+      const result = renderMarkdown('#### H4\n##### H5\n###### H6')
+      expect(result).toContain('<h5>H4</h5>')
+      expect(result).toContain('<h6>H5</h6>')
+      expect(result).toContain('<h6>H6</h6>')
     })
 
     it('heading at very end of string', () => {

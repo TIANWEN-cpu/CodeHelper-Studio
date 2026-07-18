@@ -25,6 +25,7 @@
 | [设置指南](user-guide/settings-guide.md)           | 账户、外观、AI、记忆、数据与能力状态入口  |
 | [数据可移植性](data-portability.md)                | SQLite、JSON 子集和 localStorage 恢复边界 |
 | [备份与恢复手册](guides/backup-restore-runbook.md) | 完整 userData 备份与人工恢复              |
+| [知识库维护流程](guides/knowledge-maintenance.md)  | 证据绑定、只读计划、备份、应用与验证      |
 | [发布回滚手册](guides/rollback-runbook.md)         | 已公开版本事故的可执行处置                |
 | [安全审计报告](security-audit.md)                  | 当前威胁模型、开放发现和残余风险          |
 | [依赖审计报告](dependency-audit.md)                | 生产与构建依赖的分层审计                  |

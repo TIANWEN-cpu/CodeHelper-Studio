@@ -10,6 +10,7 @@ import {
 import { ensureExerciseDraftSchema } from './exerciseDraftRepository'
 import { ensureEditorWorkspaceSchema } from './editorWorkspaceRepository'
 import { ensureKnowledgeRetrievalSchema } from './knowledgeRetrievalRepository'
+import { ensureKnowledgeMetadataSchema } from './knowledgeMetadataRepository'
 import { ensureAgentSchema } from './agentRepository'
 import {
   createVerifiedDatabaseBackup,
@@ -19,7 +20,7 @@ import {
 
 let db: Database.Database | null = null
 
-export const APPLICATION_SCHEMA_VERSION = 1
+export const APPLICATION_SCHEMA_VERSION = 2
 
 export interface DatabaseStartupStatus {
   initialized: boolean
@@ -100,6 +101,7 @@ export function getDB(): Database.Database {
 
     let candidate: Database.Database | null = null
     let migrationBackupPath: string | null = null
+    let previousApplicationSchemaVersion = APPLICATION_SCHEMA_VERSION
     try {
       const opened = openDatabaseWithRecovery(
         dbPath,
@@ -112,6 +114,9 @@ export function getDB(): Database.Database {
             ensureSchemaColumns(database)
             ensureExerciseDraftSchema(database)
             ensureEditorWorkspaceSchema(database)
+            ensureKnowledgeMetadataSchema(database, {
+              fullBackfill: previousApplicationSchemaVersion < APPLICATION_SCHEMA_VERSION,
+            })
             ensureKnowledgeRetrievalSchema(database)
             ensureAgentSchema(database)
             ensureChatHistoryForeignKey(database)
@@ -131,6 +136,7 @@ export function getDB(): Database.Database {
         {
           beforeOpenWritable: (database) => {
             const recordedVersion = readApplicationSchemaVersion(database)
+            previousApplicationSchemaVersion = recordedVersion
             if (recordedVersion > APPLICATION_SCHEMA_VERSION) {
               throw new Error(
                 `Database schema version ${recordedVersion} is newer than this application supports (${APPLICATION_SCHEMA_VERSION})`,

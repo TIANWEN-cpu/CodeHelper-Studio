@@ -12,6 +12,7 @@ const backupMocks = vi.hoisted(() => ({
 const schemaMocks = vi.hoisted(() => ({
   ensureExerciseDraftSchema: vi.fn(),
   ensureEditorWorkspaceSchema: vi.fn(),
+  ensureKnowledgeMetadataSchema: vi.fn(),
   ensureKnowledgeRetrievalSchema: vi.fn(),
   ensureAgentSchema: vi.fn(),
 }))
@@ -57,6 +58,9 @@ vi.mock('../electron/db/editorWorkspaceRepository', () => ({
 }))
 vi.mock('../electron/db/knowledgeRetrievalRepository', () => ({
   ensureKnowledgeRetrievalSchema: schemaMocks.ensureKnowledgeRetrievalSchema,
+}))
+vi.mock('../electron/db/knowledgeMetadataRepository', () => ({
+  ensureKnowledgeMetadataSchema: schemaMocks.ensureKnowledgeMetadataSchema,
 }))
 vi.mock('../electron/db/agentRepository', () => ({
   ensureAgentSchema: schemaMocks.ensureAgentSchema,
@@ -132,6 +136,13 @@ describe('electron/db/index', () => {
     expect(mockDBInstance.transaction).toHaveBeenCalledTimes(1)
     expect(schemaMocks.ensureExerciseDraftSchema).toHaveBeenCalledWith(mockDBInstance)
     expect(schemaMocks.ensureEditorWorkspaceSchema).toHaveBeenCalledWith(mockDBInstance)
+    expect(schemaMocks.ensureKnowledgeMetadataSchema).toHaveBeenCalledWith(mockDBInstance, {
+      fullBackfill: false,
+    })
+  })
+
+  it('uses application schema version 2 for the metadata and audit migration', () => {
+    expect(APPLICATION_SCHEMA_VERSION).toBe(2)
   })
 
   it('creates a verified backup before migrating an older application schema', () => {
@@ -160,6 +171,9 @@ describe('electron/db/index', () => {
     expect(backupMocks.createVerifiedDatabaseBackup.mock.invocationCallOrder[0]).toBeLessThan(
       schemaMocks.ensureExerciseDraftSchema.mock.invocationCallOrder[0],
     )
+    expect(schemaMocks.ensureKnowledgeMetadataSchema).toHaveBeenCalledWith(mockDBInstance, {
+      fullBackfill: true,
+    })
   })
 
   it('refuses a database created by a newer application schema', () => {

@@ -6,6 +6,7 @@ import { getPreloadScriptPath } from '../electron/utils/runtimePaths'
 
 describe('Electron startup configuration', () => {
   const mainSource = readFileSync(new URL('../electron/main.ts', import.meta.url), 'utf8')
+  const ragSource = readFileSync(new URL('../electron/ipc/rag.ts', import.meta.url), 'utf8')
 
   it('points BrowserWindow preload at the JavaScript file emitted by electron-vite', () => {
     const preloadPath = getPreloadScriptPath('D:/codehelper/out/main')
@@ -53,9 +54,28 @@ describe('Electron startup configuration', () => {
   })
 
   it('closes SQLite at will-quit after renderer close handshakes can flush', () => {
-    expect(mainSource).toContain("import { closeDB } from './db/index'")
+    expect(mainSource).toContain("import { closeDB, getDatabasePath } from './db/index'")
     expect(mainSource).toMatch(/app\.on\('will-quit',[\s\S]*?closeDB\(\)/)
     expect(mainSource).not.toMatch(/app\.on\('before-quit',[\s\S]*?closeDB\(\)/)
+  })
+
+  it('acquires the database process lease before registering database IPC', () => {
+    expect(mainSource).toContain(
+      "import { acquireProcessLease, type ProcessLease } from './utils/processLease'",
+    )
+    expect(mainSource.indexOf("acquireProcessLease(getDatabasePath(), 'app')")).toBeLessThan(
+      mainSource.indexOf('registerDatabaseIPC()'),
+    )
+    expect(mainSource).toMatch(
+      /app\.on\('will-quit',[\s\S]*?closeDB\(\)[\s\S]*?appProcessLease\?\.release\(\)/,
+    )
+  })
+
+  it('does not open the database while the RAG module is being evaluated', () => {
+    expect(ragSource).not.toMatch(/^ensureKnowledgeDBInit\(\)$/m)
+    expect(ragSource).toMatch(
+      /async function getDBWithTimeout\(\)[\s\S]*?ensureKnowledgeDBInit\(\)/,
+    )
   })
 
   it('fails closed for both main-window navigation and redirects', () => {

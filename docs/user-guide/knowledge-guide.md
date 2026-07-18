@@ -12,6 +12,9 @@ CodeHelper 内置离线优先的知识库 RAG（检索增强生成）系统，�
 - trigram 与本地字符 n-gram 语义近似
 - 中英计算机术语扩展与 RRF 排名融合
 - 明确显示检索后端、降级状态、命中通道和文档来源
+- 按稳定分类键筛选，并展示来源仓库、路径、提交和标签
+- 长文 H1-H6 目录、标题跳转和阅读进度指示
+- 按源行展示链接审计状态，区分永久失效与临时网络错误
 
 ## 导入文档
 
@@ -64,7 +67,8 @@ problems/
    - 读取文件内容
    - 对于 PDF 文件，使用 `pdf-parse` 库提取文本
    - 将文本按约 500 字符自动分块
-   - 将文档元数据和分块数据存入数据库
+   - 从 front matter、文件名和导入上下文生成结构化 metadata
+   - 在单一事务中保存正文、metadata 和分块
 5. 导入完成后，文档出现在知识库列表中
 
 ### 文档列表
@@ -72,9 +76,27 @@ problems/
 导入后的文档在知识库列表中展示：
 
 - 文件名
+- 显示标题
 - 文件类型（txt / md / pdf）
+- 分类、标签和来源仓库
 - 分块数量
 - 导入时间
+
+分类使用稳定的 `category_key` 进行筛选，并以 `category_label` 显示。资源包 metadata 可提供 `source_repo`、`source_url`、`source_path`、`source_commit`、`generated_at` 和 `import_target`；手动上传的本地文件使用本地来源 fallback，不会伪造上游仓库信息。
+
+### 阅读长文
+
+打开文档后，Markdown 标题 H1-H6 会生成目录。目录项和正文标题使用同一套 slug 规则，因此带空格、标点、括号或 URL fragment 的标题仍可定位。阅读器顶部进度条会随当前滚动位置实时更新。
+
+来源区展示可用的仓库、URL、源路径、提交和正文 SHA-256。链接状态来自只读审计记录：
+
+- `reachable`：目标可访问
+- `not_found`：已确认未找到
+- `temporary_error`：超时、服务异常等临时失败，不能据此删除正文
+- `restricted`：需要权限或被访问策略限制
+- `malformed`：目标格式无效
+- `unresolved_relative`：相对链接无法映射到已导入文档
+- `unchecked`：尚无确定检查结果
 
 ## 检索文档
 
@@ -110,7 +132,9 @@ problems/
 
 - 在知识库列表中选择要删除的文档
 - 点击删除按钮
-- 文档及其所有分块数据将被级联删除
+- 文档、分块、metadata 和链接审计将按外键级联删除
+
+批量治理不等同于界面中的单文档删除。正式维护流程必须经过 audit、dry-run、完整备份、apply 和 verify，并在维护 run/action 日志中保留删除 ID、原因、来源、保留文档和清理前后数量。临时网络错误不能作为删除正文的理由。具体操作见 [知识库维护指南](../guides/knowledge-maintenance.md)。
 
 ## 使用场景
 
@@ -153,10 +177,16 @@ problems/
 
 ### 存储结构
 
-知识库使用两张数据库表：
+知识库治理使用六张持久表：
 
-- `knowledge_docs` - 存储文档元数据和原始内容
+- `knowledge_docs` - 存储文件名、类型、原始内容和分块计数
 - `knowledge_chunks` - 存储文档分块，通过 `doc_id` 关联到文档
+- `knowledge_doc_metadata` - 存储显示标题、分类、标签、来源和正文 SHA-256
+- `knowledge_link_audit` - 存储按文档和源行定位的链接解析与检查结果
+- `knowledge_maintenance_runs` - 存储计划、备份、报告和清理前后计数
+- `knowledge_maintenance_actions` - 存储每条删除或 metadata 更新的理由与快照
+
+删除 `knowledge_docs` 会级联删除对应 chunks、metadata 和 link audit。维护 actions 不直接外键关联文档，所以受审删除完成后，原因和来源快照仍可留档。FTS5 的 `knowledge_chunks_fts` 与 `knowledge_chunks_trigram` 是由 chunks trigger 同步的检索虚拟表，不替代以上持久治理记录。
 
 ### 评测与后续扩展
 

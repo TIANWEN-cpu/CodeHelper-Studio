@@ -17,6 +17,7 @@ const VALID_RELEASES = ['patch', 'minor', 'major', 'prepatch', 'preminor', 'prem
 const VERSION_REGEX = /^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/
 
 const pkgPath = path.resolve(__dirname, '..', 'package.json')
+const lockPath = path.resolve(__dirname, '..', 'package-lock.json')
 
 function parseVersion(version) {
   const match = version.match(VERSION_REGEX)
@@ -122,6 +123,15 @@ function main() {
   // Update package.json
   pkg.version = newVersion
   fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8')
+
+  if (fs.existsSync(lockPath)) {
+    const lock = JSON.parse(fs.readFileSync(lockPath, 'utf-8'))
+    lock.version = newVersion
+    if (lock.packages && lock.packages['']) {
+      lock.packages[''].version = newVersion
+    }
+    fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2) + '\n', 'utf-8')
+  }
 
   console.log(`Version bumped: ${currentVersion} -> ${newVersion}`)
 

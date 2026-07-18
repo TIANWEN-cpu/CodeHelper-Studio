@@ -513,7 +513,7 @@ interface MemoryItem {
 
 1. 读取文件内容（PDF 使用 pdf-parse 解析）
 2. 按 500 字符分块
-3. 写入 `knowledge_docs` 和 `knowledge_chunks` 表
+3. 在同一事务中写入 `knowledge_docs`、`knowledge_doc_metadata` 和 `knowledge_chunks`
 
 **实现位置**: `electron/ipc/rag.ts`
 
@@ -532,6 +532,62 @@ interface Document {
   file_type: string
   chunk_count: number
   created_at: string
+  content_preview?: string
+  display_title?: string
+  source_repo?: string
+  source_url?: string
+  source_path?: string
+  source_commit?: string
+  category_key?: string
+  category_label?: string
+  tags?: string[]
+  import_target?: string
+  generated_at?: string
+  document_kind?: string
+  visibility?: string
+  content_sha256?: string
+}
+```
+
+**实现位置**: `electron/ipc/rag.ts`
+
+#### `knowledge-get`
+
+按文档 ID 获取全文和来源 metadata。返回字段与 `knowledge-list` 一致，并额外包含 `content`。
+
+**参数**: `id: number`
+
+**返回值**: `(Document & { content: string }) | null`
+
+**实现位置**: `electron/ipc/rag.ts`
+
+#### `knowledge-link-audit`
+
+按源文档行号返回链接审计结果。
+
+**参数**: `id: number`
+
+**返回值**: `KnowledgeLinkAuditRecord[]`
+
+```typescript
+interface KnowledgeLinkAuditRecord {
+  id: number
+  doc_id: number
+  line_number: number
+  raw_target: string
+  resolved_target: string | null
+  link_kind: string
+  status:
+    | 'reachable'
+    | 'not_found'
+    | 'temporary_error'
+    | 'restricted'
+    | 'malformed'
+    | 'unresolved_relative'
+    | 'unchecked'
+  http_status: number | null
+  checked_at: string | null
+  detail: string | null
 }
 ```
 
@@ -799,9 +855,11 @@ AI 流式输出完成。
 
 完整建表语句位于 `electron/db/schema.sql`。
 
-共 11 张表：`problems`、`submissions`、`mistakes`、`ai_configs`、`chat_sessions`、`chat_history`、`prompt_presets`、`memories`、`knowledge_docs`、`knowledge_chunks`、`settings`。
+知识库治理使用六张持久表：`knowledge_docs`、`knowledge_chunks`、`knowledge_doc_metadata`、`knowledge_link_audit`、`knowledge_maintenance_runs` 和 `knowledge_maintenance_actions`。其中 metadata 与链接审计随文档级联删除；维护 action 不直接外键关联文档，以便删除正文后仍保留原因、来源和内容快照。
 
-详细字段说明请参阅 [docs/architecture.md - 数据库设计](./architecture.md#数据库设计) 一节。
+应用 schema 版本记录在 `schema_migrations(component = 'application')`。v1 升级到 v2 前会先创建并校验完整 SQLite 备份，再在单一事务中完成 DDL、metadata backfill、`quick_check` 和版本记录；任一步失败都会回滚迁移事务。
+
+详细字段说明请参阅 [数据库 Schema 文档](./api/database-schema.md) 和 [架构文档 - 数据库设计](./architecture.md#数据库设计)。
 
 ---
 

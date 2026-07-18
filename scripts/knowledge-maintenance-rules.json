@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "required_batch_count": 7,
+  "chunk_size": 1500,
+  "auto_delete_duplicates": true,
+  "duplicate_evidence_set": "same_source_duplicate_delete",
+  "evidence_artifacts": {
+    "candidate_inbound": {
+      "source": "../codehelper-knowledge-candidate-inbound.json",
+      "sha256": "b31916c6ceaa23dd9032dcded643dca69dc5de19070ba8524596f43dcf357919"
+    },
+    "readonly_audit": {
+      "source": "../codehelper-knowledge-readonly-audit-local.json",
+      "sha256": "7bc4079f4d09d1ab5d487fc9797d6770859f776b0465dfa59f6c94add85b9d38"
+    },
+    "remote_status": {
+      "source": "../codehelper-knowledge-remote-status.json",
+      "sha256": "164aab06df508601d4e3ae7940dcede143c5bc8f15f7646c09be352b0c1db743"
+    },
+    "confirmed_404": {
+      "source": "../codehelper-knowledge-confirmed404-fixable.json",
+      "sha256": "3c4ac04b711baa04a808d6cd5a4a9031fb7ee80c07cd92679a6474fa898ae374"
+    }
+  },
+  "batch_categories": {
+    "01-core-cs-foundation": {
+      "category_key": "01-core-cs-foundation",
+      "category_label": "计算机基础"
+    },
+    "02-ai-deep-learning": {
+      "category_key": "02-ai-deep-learning",
+      "category_label": "AI 与深度学习"
+    },
+    "03-interview-career": {
+      "category_key": "03-interview-career",
+      "category_label": "求职面试"
+    },
+    "04-cs408-and-courses": {
+      "category_key": "04-cs408-and-courses",
+      "category_label": "CS408 / 课程"
+    },
+    "05-roadmap-and-bug-manual": {
+      "category_key": "05-roadmap-and-bug-manual",
+      "category_label": "学习路线 / Bug 手册"
+    },
+    "06-book-resource-indexes": {
+      "category_key": "06-book-resource-indexes",
+      "category_label": "书籍与资源索引"
+    },
+    "07-language-specific": {
+      "category_key": "07-language-specific",
+      "category_label": "语言专题"
+    }
+  },
+  "manual_review": {
+    "source": "../codehelper-knowledge-candidate-inbound.json",
+    "source_sha256": "b31916c6ceaa23dd9032dcded643dca69dc5de19070ba8524596f43dcf357919",
+    "selected_count": 61,
+    "expected_fields": [
+      "id",
+      "filename",
+      "content_sha256",
+      "source_repo",
+      "source_path",
+      "source_commit"
+    ],
+    "expected_documents_sha256": "dc12399e9aa42cc0c2ca099b0aeaaf173a1c05b920db6504fb41d9818168c4fd",
+    "selection_note": "Only explicitly reviewed zero-inbound empty pages, templates, placeholders, company-list stubs, and corpus-navigation sidebars are selected."
+  },
+  "manual_delete": [],
+  "manual_delete_groups": [
+    {
+      "reason_code": "empty-body-zero-inbound",
+      "evidence_set": "empty_body",
+      "reason": "正文为空且没有任何入链，无法提供可读或可检索的知识内容。",
+      "ids": [
+        719, 721, 723, 731, 733, 734, 738, 739, 746, 754, 759, 760, 766, 767, 771, 776, 788, 793,
+        794, 1203, 1204, 2197
+      ]
+    },
+    {
+      "reason_code": "template-zero-inbound",
+      "evidence_set": "templates",
+      "reason": "仅包含未填写模板且没有任何入链，不属于有效知识文档。",
+      "ids": [722, 725, 727, 729]
+    },
+    {
+      "reason_code": "explicit-placeholder-zero-inbound",
+      "evidence_set": "specific_placeholders",
+      "reason": "内容明确表示缺失、待补充或没有资料，且没有任何入链。",
+      "ids": [715, 742, 749]
+    },
+    {
+      "reason_code": "company-list-stub-zero-inbound",
+      "evidence_set": "big_factory_stubs",
+      "reason": "大厂面试分类页仅有极短占位内容且没有任何入链。",
+      "ids": [862, 863, 864, 865, 866, 867, 868]
+    },
+    {
+      "reason_code": "sidebar-navigation-zero-inbound",
+      "evidence_set": "sidebars",
+      "reason": "仅用于上游站点导航的 sidebar 文件，在本地语料中没有入链且不提供独立知识内容。",
+      "ids": [
+        747, 748, 750, 752, 753, 755, 757, 758, 762, 763, 769, 770, 772, 774, 775, 777, 779, 780,
+        782, 783, 785, 786, 789, 791, 792
+      ]
+    }
+  ]
+}

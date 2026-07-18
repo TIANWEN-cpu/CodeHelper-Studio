@@ -141,20 +141,26 @@ D:\codehelper\
 └── tailwind.config.js
 ```
 
-## 数据库表结构（10张表）
+## 核心数据库表结构
 
-| 表名             | 用途           |
-| ---------------- | -------------- |
-| problems         | 题目表         |
-| submissions      | 提交记录表     |
-| mistakes         | 错题表         |
-| ai_configs       | AI模型配置表   |
-| chat_history     | 聊天消息历史表 |
-| chat_sessions    | 聊天会话表     |
-| prompt_presets   | 预设提示词表   |
-| knowledge_docs   | 知识库文档表   |
-| knowledge_chunks | 知识向量片段表 |
-| settings         | 用户设置表     |
+| 表名                          | 用途                       |
+| ----------------------------- | -------------------------- |
+| problems                      | 题目表                     |
+| submissions                   | 提交记录表                 |
+| mistakes                      | 错题表                     |
+| ai_configs                    | AI模型配置表               |
+| chat_history                  | 聊天消息历史表             |
+| chat_sessions                 | 聊天会话表                 |
+| prompt_presets                | 预设提示词表               |
+| knowledge_docs                | 知识库文档表               |
+| knowledge_chunks              | 知识向量片段表             |
+| knowledge_doc_metadata        | 分类、来源、标题与内容哈希 |
+| knowledge_link_audit          | 文档链接解析与状态审计     |
+| knowledge_maintenance_runs    | 知识库维护运行及备份摘要   |
+| knowledge_maintenance_actions | 每次维护动作的完整审计快照 |
+| settings                      | 用户设置表                 |
+
+知识库治理的证据、备份和写入边界见[知识库维护流程](../guides/knowledge-maintenance.md)。
 
 ## 配色方案（Catppuccin Mocha）
 

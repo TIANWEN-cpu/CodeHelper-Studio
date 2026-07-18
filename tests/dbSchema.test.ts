@@ -437,6 +437,192 @@ describe('DB schema: knowledge_chunks 表', () => {
   })
 })
 
+describe('DB schema: knowledge metadata and maintenance audit', () => {
+  it('defines persistent metadata with source, category, visibility, and hash fields', () => {
+    const columns = queryAll('PRAGMA table_info(knowledge_doc_metadata)')
+    expect(columns.map((column) => column.name)).toEqual(
+      expect.arrayContaining([
+        'doc_id',
+        'display_title',
+        'source_repo',
+        'source_url',
+        'source_path',
+        'source_commit',
+        'category_key',
+        'category_label',
+        'tags_json',
+        'import_target',
+        'generated_at',
+        'document_kind',
+        'visibility',
+        'content_sha256',
+      ]),
+    )
+
+    db.run(
+      `INSERT INTO knowledge_docs (filename, file_type, content)
+       VALUES ('metadata.md', 'md', '# Metadata')`,
+    )
+    const docId = queryOne('SELECT last_insert_rowid() AS id')!.id
+    db.run(
+      `INSERT INTO knowledge_doc_metadata
+         (doc_id, display_title, tags_json, document_kind, visibility, content_sha256)
+       VALUES (?, 'Metadata', '[]', 'markdown', 'local', ?)`,
+      [docId, 'a'.repeat(64)],
+    )
+    db.run(
+      `INSERT INTO knowledge_docs (filename, file_type, content)
+       VALUES ('invalid-metadata.md', 'md', '# Invalid')`,
+    )
+    const invalidDocId = queryOne('SELECT last_insert_rowid() AS id')!.id
+    expect(() => {
+      db.run(
+        `INSERT INTO knowledge_doc_metadata
+           (doc_id, display_title, tags_json, document_kind, visibility, content_sha256)
+         VALUES (?, 'Invalid', '{}', 'markdown', 'local', ?)`,
+        [invalidDocId, 'b'.repeat(64)],
+      )
+    }).toThrow()
+  })
+
+  it('defines link audit constraints and cascades rows with their document', () => {
+    db.run(
+      `INSERT INTO knowledge_docs (filename, file_type, content)
+       VALUES ('links.md', 'md', '# Links')`,
+    )
+    const docId = queryOne('SELECT last_insert_rowid() AS id')!.id
+    db.run(
+      `INSERT INTO knowledge_link_audit
+         (doc_id, line_number, raw_target, link_kind, status, http_status)
+       VALUES (?, 2, 'https://example.com', 'external', 'reachable', 200)`,
+      [docId],
+    )
+    expect(() => {
+      db.run(
+        `INSERT INTO knowledge_link_audit
+           (doc_id, line_number, raw_target, link_kind, status, http_status)
+         VALUES (?, 0, 'bad', 'blocked', 'malformed', 99)`,
+        [docId],
+      )
+    }).toThrow()
+    db.run('DELETE FROM knowledge_docs WHERE id = ?', [docId])
+    expect(
+      queryOne('SELECT COUNT(*) AS count FROM knowledge_link_audit WHERE doc_id = ?', [docId])!
+        .count,
+    ).toBe(0)
+  })
+
+  it('accepts only the seven canonical link audit statuses', () => {
+    db.run(
+      `INSERT INTO knowledge_docs (filename, file_type, content)
+       VALUES ('status-links.md', 'md', '# Status links')`,
+    )
+    const docId = queryOne('SELECT last_insert_rowid() AS id')!.id
+    const statuses = [
+      'reachable',
+      'not_found',
+      'temporary_error',
+      'restricted',
+      'malformed',
+      'unresolved_relative',
+      'unchecked',
+    ]
+    statuses.forEach((status, index) => {
+      db.run(
+        `INSERT INTO knowledge_link_audit
+           (doc_id, line_number, raw_target, link_kind, status)
+         VALUES (?, ?, ?, 'external', ?)`,
+        [docId, index + 1, `target-${index}`, status],
+      )
+    })
+    expect(() => {
+      db.run(
+        `INSERT INTO knowledge_link_audit
+           (doc_id, line_number, raw_target, link_kind, status)
+         VALUES (?, 20, 'legacy', 'external', 'ok')`,
+        [docId],
+      )
+    }).toThrow()
+  })
+
+  it('keeps maintenance action doc_id as a non-cascading historical reference', () => {
+    const actionForeignKeys = queryAll('PRAGMA foreign_key_list(knowledge_maintenance_actions)')
+    expect(actionForeignKeys).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ table: 'knowledge_maintenance_runs', from: 'run_id' }),
+      ]),
+    )
+    expect(actionForeignKeys.some((foreignKey) => foreignKey.from === 'doc_id')).toBe(false)
+
+    db.run(
+      `INSERT INTO knowledge_maintenance_runs
+         (run_key, plan_sha256, operation, before_doc_count, before_chunk_count)
+       VALUES ('schema-test', ?, 'cleanup', 1, 1)`,
+      ['a'.repeat(64)],
+    )
+    const run = queryOne('SELECT id FROM knowledge_maintenance_runs ORDER BY id DESC LIMIT 1')!
+    db.run(
+      `INSERT INTO knowledge_maintenance_actions
+         (run_id, action_id, doc_id, action_type, reason_code, filename)
+       VALUES (?, 'schema-delete', 999999, 'delete', 'placeholder', 'removed.md')`,
+      [run.id],
+    )
+    expect(
+      queryOne('SELECT doc_id, reason_code FROM knowledge_maintenance_actions WHERE run_id = ?', [
+        run.id,
+      ]),
+    ).toMatchObject({ doc_id: 999999, reason_code: 'placeholder' })
+  })
+
+  it('enforces maintenance run/action boundaries and cascades actions with a run', () => {
+    db.run(
+      `INSERT INTO knowledge_maintenance_runs
+         (run_key, plan_sha256, operation, before_doc_count)
+       VALUES ('constraint-run', ?, 'cleanup', 0)`,
+      ['b'.repeat(64)],
+    )
+    const runId = queryOne('SELECT last_insert_rowid() AS id')!.id
+    db.run(
+      `INSERT INTO knowledge_maintenance_actions
+         (run_id, action_id, action_type, reason_code, filename, content_sha256)
+       VALUES (?, 'constraint-action', 'delete', 'placeholder', 'removed.md', ?)`,
+      [runId, 'c'.repeat(64)],
+    )
+    expect(() => {
+      db.run(
+        `INSERT INTO knowledge_maintenance_actions
+           (run_id, action_id, action_type, reason_code, filename)
+         VALUES (?, 'constraint-action', 'delete', 'placeholder', 'duplicate.md')`,
+        [runId],
+      )
+    }).toThrow()
+    expect(() => {
+      db.run(
+        `INSERT INTO knowledge_maintenance_actions
+           (run_id, action_id, action_type, reason_code, filename)
+         VALUES (999999, 'missing-run', 'delete', 'placeholder', 'missing.md')`,
+      )
+    }).toThrow()
+    expect(() => {
+      db.run("UPDATE knowledge_maintenance_runs SET summary_json = '[]' WHERE id = ?", [runId])
+    }).toThrow()
+    expect(() => {
+      db.run("UPDATE knowledge_maintenance_runs SET status = 'completed' WHERE id = ?", [runId])
+    }).toThrow()
+    expect(() => {
+      db.run("UPDATE knowledge_maintenance_actions SET content_sha256 = 'ABC' WHERE run_id = ?", [
+        runId,
+      ])
+    }).toThrow()
+    db.run('DELETE FROM knowledge_maintenance_runs WHERE id = ?', [runId])
+    expect(
+      queryOne('SELECT COUNT(*) AS count FROM knowledge_maintenance_actions WHERE run_id = ?', [
+        runId,
+      ])!.count,
+    ).toBe(0)
+  })
+})
+
 describe('DB schema: settings 表', () => {
   it('settings 表存在', () => {
     const tables = queryAll("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'")

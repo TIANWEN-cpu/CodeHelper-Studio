@@ -1,12 +1,12 @@
 # CodeHelper 成熟度评分卡
 
-> 评估日期：2026-07-17
+> 评估日期：2026-07-19
 >
 > 评估对象：`D:\codehelper` 当前 P2-P7 工作树
 >
-> 应用版本：`2.4.0`
+> 应用版本：`2.4.1`
 >
-> Git 基线：`v2.4.0` 发布候选分支
+> Git 基线：`release/v2.4.1` 发布候选分支
 
 本评分卡用于判断产品是否具备继续开发、Beta 和正式发布条件，不替代
 [安全审计](security-audit.md)、[发布清单](guides/release-checklist.md)或真实 workflow 证据。
@@ -69,6 +69,10 @@ P2-P7 已把项目从原型推进到具备真实数据恢复、代码执行、�
 - UI 展示来源锚点、检索通道和降级原因。
 - Agent 工具由主进程白名单定义，强隔离执行要求逐次审批。
 - 运行、审批、取消、失败和工具输出都有 SQLite 审计证据。
+- 真实知识库治理后保留 2141 篇文档、10618 个 chunks、2141 条 metadata 和 38,470 条链接审计记录。
+- 维护证据包含 1 次运行和 2,219 条动作，其中 78 条删除、2,141 条 metadata upsert；最终
+  `quick_check=ok`、外键错误为 0，FTS keyword/trigram smoke 通过。
+- 真实 Electron 启动完成应用 schema `1 -> 2` 迁移，metadata、链接和维护动作指纹保持不变。
 
 ### Windows 发布
 
@@ -121,17 +125,18 @@ localStorage 恢复层。灾难恢复仍需把完整 `userData` 复制到外部�
 
 ## 最近验证基线
 
-2026-07-17 收口验收记录包括：
+2026-07-19 收口验收记录包括：
 
-- 单元测试与覆盖率各 2518 通过、2 条平台/专用 Electron harness 跳过；
-- 覆盖率：Statements 71.36%、Branches 66.66%、Functions 76.77%、Lines 73.62%；
-- Electron E2E 24/24；
+- Vitest 与覆盖率各 2589 通过、2 条专用用例跳过；
+- 覆盖率：Statements 73.06%、Branches 68.38%、Functions 79.17%、Lines 75.48%；
+- Python SQLite 维护测试 18/18；
+- Electron E2E 25/25；
 - Docker isolation 28/28；
-- 知识检索 33/33；
+- 知识检索 36/36；
 - Agent 23/23；
 - Electron drafts、workspace、database recovery、SQL utility、runner utility 和 Job Host 冒烟通过；
 - typecheck、lint、Prettier、`git diff --check`、生产及完整 `npm audit` 通过；
-- NSIS 与 Portable 的安装、运行、重启持久化、卸载、资源、Fuses、哈希和 updater metadata 通过。
+- 正式 NSIS/Portable package smoke、release workflow 和发布后资产验证仍需在 `v2.4.1` 标签上完成。
 
 这些数字是一次验收快照。代码、依赖或 workflow 改动后必须重新运行，不能用本文替代实时结果。
 

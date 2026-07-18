@@ -21,7 +21,7 @@ import { registerEditorWorkspaceIPC } from './ipc/editorWorkspace'
 import { registerAgentIPC } from './ipc/agent'
 import { registerMaintenanceIPC } from './ipc/maintenance'
 import { registerCapabilitiesIPC } from './ipc/capabilities'
-import { closeDB } from './db/index'
+import { closeDB, getDatabasePath } from './db/index'
 import { logIpcStatsSummary, getIpcStats } from './utils/perfMonitor'
 import { registerIpcHandler, rateLimitMiddleware } from './utils/middleware'
 import { buildContentSecurityPolicy } from './utils/contentSecurityPolicy'
@@ -38,8 +38,11 @@ import { arch, release } from 'os'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
 import { randomUUID } from 'crypto'
+import { acquireProcessLease, type ProcessLease } from './utils/processLease'
 
 process.env.CODEHELPER_RECOVERY_BOOT_ID = randomUUID()
+
+let appProcessLease: ProcessLease | null = null
 
 // ---------------------------------------------------------------------------
 // Diagnostic startup timer
@@ -700,6 +703,8 @@ app
   .then(() => {
     startupLog('app.whenReady fired')
     console.log('[STARTUP] userData path:', app.getPath('userData'))
+    appProcessLease = acquireProcessLease(getDatabasePath(), 'app')
+    startupLog('Process lease acquired')
 
     startupLog('Setting up application menu...')
     setupApplicationMenu()
@@ -803,6 +808,9 @@ app
   })
   .catch((err) => {
     startupError('app.whenReady() rejected', err)
+    appProcessLease?.release()
+    appProcessLease = null
+    app.quit()
   })
 
 app.on('window-all-closed', () => {
@@ -814,4 +822,6 @@ app.on('will-quit', () => {
   // `will-quit` runs after BrowserWindow close handshakes, so the renderer's
   // final editor/draft IPC writes complete before SQLite checkpoints and closes.
   closeDB()
+  appProcessLease?.release()
+  appProcessLease = null
 })
