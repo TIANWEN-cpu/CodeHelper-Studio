@@ -670,13 +670,8 @@ jobs:
           > **Unsigned Windows release:** The Installer and Portable assets are intentionally unsigned. Windows may display **Unknown Publisher** or a Microsoft Defender SmartScreen prompt. Download only from this GitHub Release and verify `SHA256SUMS.txt`.
 
           NOTES_EOF
-          if [ -f RELEASE.md ]; then
-            cat RELEASE.md >> release_notes.md
-          else
-            cat >> release_notes.md << 'CHANGELOG_EOF'
-            ${{ needs.prepare.outputs.changelog }}
-            CHANGELOG_EOF
-          fi
+          test -f RELEASE.md
+          cat RELEASE.md >> release_notes.md
 
       - name: Reconfirm release tag before publishing
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
