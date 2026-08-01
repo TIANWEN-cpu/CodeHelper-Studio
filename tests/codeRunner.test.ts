@@ -1065,48 +1065,51 @@ describe('codeRunner', () => {
       for (const proc of procs) proc.emit('close', null)
     })
 
-    it('reuses capacity after taskkill reports authoritative tree termination', async () => {
-      vi.useFakeTimers()
-      const procs = Array.from({ length: 5 }, (_, index) =>
-        Object.assign(new EventEmitter(), {
-          stdin: new PassThrough(),
-          stdout: new PassThrough(),
-          stderr: new PassThrough(),
-          pid: 55_321 + index,
-          kill: vi.fn(() => true),
-        }),
-      )
-      let spawnIndex = 0
-      vi.mocked(spawn).mockImplementation(() => procs[spawnIndex++] as any)
-      // killProcessTree reports success (taskkill succeeds) but the fake
-      // process never emits exit/close, modelling a child that ignores
-      // termination without a hard-kill failure.
-      vi.mocked(execFileSync).mockReturnValue('C:\\resolved\\taskkill.exe\n')
-
-      const pending = procs.map(() => runCodeSnippet('while(true){}', 'python'))
-      await vi.advanceTimersByTimeAsync(12_001)
-
-      const results = await Promise.all(pending)
-      expect(results).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            exitCode: 1,
-            timedOut: true,
-            stderr: expect.stringContaining('未收到进程退出确认，已停止等待'),
+    it.runIf(process.platform === 'win32')(
+      'reuses capacity after taskkill reports authoritative tree termination',
+      async () => {
+        vi.useFakeTimers()
+        const procs = Array.from({ length: 5 }, (_, index) =>
+          Object.assign(new EventEmitter(), {
+            stdin: new PassThrough(),
+            stdout: new PassThrough(),
+            stderr: new PassThrough(),
+            pid: 55_321 + index,
+            kill: vi.fn(() => true),
           }),
-        ]),
-      )
+        )
+        let spawnIndex = 0
+        vi.mocked(spawn).mockImplementation(() => procs[spawnIndex++] as any)
+        // killProcessTree reports success (taskkill succeeds) but the fake
+        // process never emits exit/close, modelling a child that ignores
+        // termination without a hard-kill failure.
+        vi.mocked(execFileSync).mockReturnValue('C:\\resolved\\taskkill.exe\n')
 
-      vi.mocked(spawn).mockReturnValue(mockChildProcess(0, 'next') as any)
-      await expect(runCodeSnippet('print("next")', 'python')).resolves.toMatchObject({
-        exitCode: 0,
-        stdout: 'next',
-      })
-      expect(spawn).toHaveBeenCalledTimes(6)
+        const pending = procs.map(() => runCodeSnippet('while(true){}', 'python'))
+        await vi.advanceTimersByTimeAsync(12_001)
 
-      vi.useRealTimers()
-      for (const proc of procs) proc.emit('close', null)
-    })
+        const results = await Promise.all(pending)
+        expect(results).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              exitCode: 1,
+              timedOut: true,
+              stderr: expect.stringContaining('未收到进程退出确认，已停止等待'),
+            }),
+          ]),
+        )
+
+        vi.mocked(spawn).mockReturnValue(mockChildProcess(0, 'next') as any)
+        await expect(runCodeSnippet('print("next")', 'python')).resolves.toMatchObject({
+          exitCode: 0,
+          stdout: 'next',
+        })
+        expect(spawn).toHaveBeenCalledTimes(6)
+
+        vi.useRealTimers()
+        for (const proc of procs) proc.emit('close', null)
+      },
+    )
   })
 
   // ─────────────────────────────────────────────
