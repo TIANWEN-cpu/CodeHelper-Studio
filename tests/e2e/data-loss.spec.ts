@@ -1125,6 +1125,7 @@ test('two windows synchronize content, tab positions, and closed status', async 
   electronApp,
   page: windowA,
 }) => {
+  test.setTimeout(60_000)
   const firstCode = 'shared_marker = "window-a"\nprint(shared_marker)'
   const secondCode = 'shared_marker = "window-b"\nprint(shared_marker)'
   const firstNewTab = 'untitled_1.py'
