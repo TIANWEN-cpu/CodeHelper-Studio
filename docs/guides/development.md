@@ -9,7 +9,7 @@
 ### 分支策略
 
 ```
-main (生产分支)
+master (生产/默认分支)
   │
   ├── feature/xxx     功能分支
   ├── fix/xxx         修复分支
@@ -17,14 +17,14 @@ main (生产分支)
   └── docs/xxx        文档分支
 ```
 
-- `main`：稳定分支，始终可构建和发布
-- 功能分支：从 `main` 创建，完成后通过 PR 合并回 `main`
+- `master`：稳定分支（默认分支），始终可构建和发布
+- 功能分支：从 `master` 创建，完成后通过 PR 合并回 `master`
 
 ### 创建功能分支
 
 ```bash
-# 从 main 创建功能分支
-git checkout main
+# 从 master 创建功能分支
+git checkout master
 git pull
 git checkout -b feature/my-feature
 

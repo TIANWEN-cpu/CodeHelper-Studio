@@ -2,16 +2,27 @@ import Database from 'better-sqlite3'
 import { app } from 'electron'
 import { join } from 'path'
 import { readFileSync, existsSync } from 'fs'
+import { createHash } from 'crypto'
 import { openDatabaseWithRecovery } from './databaseRecovery'
 import {
   DATABASE_RECOVERY_NOTICE_KEY,
   serializeDatabaseRecoveryNotice,
 } from '../../src/shared/databaseRecoveryContract'
 import { ensureExerciseDraftSchema } from './exerciseDraftRepository'
-import { ensureEditorWorkspaceSchema } from './editorWorkspaceRepository'
-import { ensureKnowledgeRetrievalSchema } from './knowledgeRetrievalRepository'
-import { ensureKnowledgeMetadataSchema } from './knowledgeMetadataRepository'
-import { ensureAgentSchema } from './agentRepository'
+import {
+  EDITOR_WORKSPACE_SCHEMA_VERSION,
+  ensureEditorWorkspaceSchema,
+} from './editorWorkspaceRepository'
+import {
+  KEYWORD_SCHEMA_VERSION,
+  TRIGRAM_SCHEMA_VERSION,
+  ensureKnowledgeRetrievalSchema,
+} from './knowledgeRetrievalRepository'
+import {
+  KNOWLEDGE_METADATA_SCHEMA_SQL,
+  ensureKnowledgeMetadataSchema,
+} from './knowledgeMetadataRepository'
+import { AGENT_SCHEMA_VERSION, ensureAgentSchema } from './agentRepository'
 import {
   createVerifiedDatabaseBackup,
   readApplicationSchemaVersion,
@@ -21,6 +32,71 @@ import {
 let db: Database.Database | null = null
 
 export const APPLICATION_SCHEMA_VERSION = 2
+
+const SCHEMA_COLUMN_ADDITIONS = [
+  { name: 'tracks', sql: "ALTER TABLE problems ADD COLUMN tracks TEXT DEFAULT '[]'" },
+  { name: 'platform', sql: "ALTER TABLE problems ADD COLUMN platform TEXT DEFAULT 'internal'" },
+  { name: 'mode', sql: "ALTER TABLE problems ADD COLUMN mode TEXT DEFAULT 'oj'" },
+  { name: 'exam_style', sql: "ALTER TABLE problems ADD COLUMN exam_style TEXT DEFAULT 'acm'" },
+  { name: 'year', sql: 'ALTER TABLE problems ADD COLUMN year INTEGER' },
+  { name: 'official_url', sql: 'ALTER TABLE problems ADD COLUMN official_url TEXT' },
+  { name: 'estimated_time', sql: 'ALTER TABLE problems ADD COLUMN estimated_time INTEGER' },
+]
+
+/**
+ * 当前构建实际执行的 schema 内容指纹。
+ *
+ * 备份/回填触发不再只依赖手维护的 APPLICATION_SCHEMA_VERSION 计数器：任何一次发布
+ * 修改了 schema.sql 或 ensure* 迁移片段而忘记递增计数器，哈希也会变化，从而在下次
+ * 启动触发一次已验证的迁移前备份。计数器仍保留作为次要信号。
+ */
+function computeSchemaFingerprint(schema: string): string {
+  const hash = createHash('sha256')
+  hash.update(`application-schema:${APPLICATION_SCHEMA_VERSION}\n`)
+  hash.update(schema)
+  hash.update('\n')
+  for (const addition of SCHEMA_COLUMN_ADDITIONS) hash.update(`schema-columns:${addition.sql}\n`)
+  hash.update(`exercise-draft:1\n`)
+  hash.update(`editor-workspace:${EDITOR_WORKSPACE_SCHEMA_VERSION}\n`)
+  hash.update(`knowledge-metadata:${KNOWLEDGE_METADATA_SCHEMA_SQL}\n`)
+  hash.update(
+    `knowledge-retrieval:keyword:${KEYWORD_SCHEMA_VERSION}:trigram:${TRIGRAM_SCHEMA_VERSION}\n`,
+  )
+  hash.update(`agent:${AGENT_SCHEMA_VERSION}\n`)
+  hash.update('chat-history-fk:1\n')
+  return hash.digest('hex')
+}
+
+function hasTable(database: Database.Database, tableName: string): boolean {
+  return Boolean(
+    database
+      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
+      .get(tableName),
+  )
+}
+
+function hasColumn(database: Database.Database, tableName: string, columnName: string): boolean {
+  if (!hasTable(database, tableName)) return false
+  const columns = database.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{
+    name: string
+  }>
+  return columns.some((column) => column.name === columnName)
+}
+
+/** 读取上次迁移后记录的 schema 指纹；无记录（旧库/无列）返回 null。 */
+function readRecordedSchemaHash(database: Database.Database): string | null {
+  if (!hasColumn(database, 'schema_migrations', 'schema_hash')) return null
+  const row = database
+    .prepare("SELECT schema_hash FROM schema_migrations WHERE component = 'application'")
+    .get() as { schema_hash: string | null } | undefined
+  return typeof row?.schema_hash === 'string' && row.schema_hash ? row.schema_hash : null
+}
+
+function ensureSchemaHashColumn(database: Database.Database): void {
+  if (!hasColumn(database, 'schema_migrations', 'schema_hash')) {
+    database.exec('ALTER TABLE schema_migrations ADD COLUMN schema_hash TEXT')
+  }
+}
 
 export interface DatabaseStartupStatus {
   initialized: boolean
@@ -102,6 +178,8 @@ export function getDB(): Database.Database {
     let candidate: Database.Database | null = null
     let migrationBackupPath: string | null = null
     let previousApplicationSchemaVersion = APPLICATION_SCHEMA_VERSION
+    let previousSchemaHashDiffers = false
+    const schemaFingerprint = computeSchemaFingerprint(schema)
     try {
       const opened = openDatabaseWithRecovery(
         dbPath,
@@ -111,11 +189,14 @@ export function getDB(): Database.Database {
           console.log('[STARTUP] Database connected, WAL mode enabled')
           runApplicationMigrationTransaction(database, () => {
             if (schema) database.exec(schema)
+            ensureSchemaHashColumn(database)
             ensureSchemaColumns(database)
             ensureExerciseDraftSchema(database)
             ensureEditorWorkspaceSchema(database)
             ensureKnowledgeMetadataSchema(database, {
-              fullBackfill: previousApplicationSchemaVersion < APPLICATION_SCHEMA_VERSION,
+              fullBackfill:
+                previousApplicationSchemaVersion < APPLICATION_SCHEMA_VERSION ||
+                previousSchemaHashDiffers,
             })
             ensureKnowledgeRetrievalSchema(database)
             ensureAgentSchema(database)
@@ -130,6 +211,7 @@ export function getDB(): Database.Database {
               )
             }
             recordApplicationSchemaVersion(database, APPLICATION_SCHEMA_VERSION)
+            recordApplicationSchemaHash(database, schemaFingerprint)
           })
           if (schema) console.log('[STARTUP] Schema executed successfully')
         },
@@ -142,7 +224,10 @@ export function getDB(): Database.Database {
                 `Database schema version ${recordedVersion} is newer than this application supports (${APPLICATION_SCHEMA_VERSION})`,
               )
             }
-            if (recordedVersion < APPLICATION_SCHEMA_VERSION) {
+            // 指纹不同（schema.sql 或 ensure* 迁移发生变化、或旧库尚未记录指纹）
+            // 与版本计数器任一中触发，都先做一次已验证的迁移前备份。
+            previousSchemaHashDiffers = readRecordedSchemaHash(database) !== schemaFingerprint
+            if (recordedVersion < APPLICATION_SCHEMA_VERSION || previousSchemaHashDiffers) {
               const backup = createVerifiedDatabaseBackup(database, {
                 kind: 'pre-migration',
                 databasePath: dbPath,
@@ -213,6 +298,12 @@ function recordApplicationSchemaVersion(database: Database.Database, version: nu
     .run(version)
 }
 
+function recordApplicationSchemaHash(database: Database.Database, schemaHash: string): void {
+  database
+    .prepare("UPDATE schema_migrations SET schema_hash = ? WHERE component = 'application'")
+    .run(schemaHash)
+}
+
 export function closeDB() {
   if (db) {
     db.close()
@@ -223,17 +314,8 @@ export function closeDB() {
 function ensureSchemaColumns(database: Database.Database) {
   const columns = database.prepare('PRAGMA table_info(problems)').all() as Array<{ name: string }>
   const existing = new Set(columns.map((column) => column.name))
-  const additions = [
-    { name: 'tracks', sql: "ALTER TABLE problems ADD COLUMN tracks TEXT DEFAULT '[]'" },
-    { name: 'platform', sql: "ALTER TABLE problems ADD COLUMN platform TEXT DEFAULT 'internal'" },
-    { name: 'mode', sql: "ALTER TABLE problems ADD COLUMN mode TEXT DEFAULT 'oj'" },
-    { name: 'exam_style', sql: "ALTER TABLE problems ADD COLUMN exam_style TEXT DEFAULT 'acm'" },
-    { name: 'year', sql: 'ALTER TABLE problems ADD COLUMN year INTEGER' },
-    { name: 'official_url', sql: 'ALTER TABLE problems ADD COLUMN official_url TEXT' },
-    { name: 'estimated_time', sql: 'ALTER TABLE problems ADD COLUMN estimated_time INTEGER' },
-  ]
 
-  for (const item of additions) {
+  for (const item of SCHEMA_COLUMN_ADDITIONS) {
     if (!existing.has(item.name)) {
       database.exec(item.sql)
     }

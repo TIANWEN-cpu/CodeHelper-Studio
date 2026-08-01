@@ -7,7 +7,13 @@ vi.mock('../electron/utils/middleware', () => ({
 }))
 
 import { describe, it, expect } from 'vitest'
-import { safePetId, normalizeSlug, manifestId, displayName } from '../electron/ipc/pets'
+import {
+  safePetId,
+  normalizeSlug,
+  manifestId,
+  displayName,
+  validateZipEntries,
+} from '../electron/ipc/pets'
 import type { CodexPetManifest } from '../electron/ipc/pets'
 
 describe('safePetId (路径遍历防护)', () => {
@@ -116,5 +122,33 @@ describe('displayName', () => {
 
   it('全部缺失时用 fallback', () => {
     expect(displayName({} as CodexPetManifest, 'fallback')).toBe('fallback')
+  })
+})
+
+describe('validateZipEntries (zip-slip 防护)', () => {
+  it('接受正常条目', () => {
+    expect(() =>
+      validateZipEntries(['pet.json', 'spritesheet.webp', 'meta/readme.md']),
+    ).not.toThrow()
+  })
+
+  it('拒绝 .. 路径段（含反斜杠形式）', () => {
+    expect(() => validateZipEntries(['../evil.txt'])).toThrow('ZIP 包包含非法路径')
+    expect(() => validateZipEntries(['a/../../secret'])).toThrow('ZIP 包包含非法路径')
+    expect(() => validateZipEntries(['a\\..\\..\\secret'])).toThrow('ZIP 包包含非法路径')
+  })
+
+  it('拒绝绝对路径条目', () => {
+    expect(() => validateZipEntries(['/etc/passwd'])).toThrow('ZIP 包包含非法路径')
+    expect(() => validateZipEntries(['/windows/system32/x'])).toThrow('ZIP 包包含非法路径')
+  })
+
+  it('拒绝带盘符的条目', () => {
+    expect(() => validateZipEntries(['C:\\Windows\\system32'])).toThrow('ZIP 包包含非法路径')
+    expect(() => validateZipEntries(['D:/escape.txt'])).toThrow('ZIP 包包含非法路径')
+  })
+
+  it('忽略空条目行', () => {
+    expect(() => validateZipEntries(['', 'pet.json', ' '])).not.toThrow()
   })
 })

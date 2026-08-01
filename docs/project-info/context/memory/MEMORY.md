@@ -1,2 +1,0 @@
-- [用户角色](user_role.md) — 用户是体验者，AI独立完成全部开发
-- [CodeHelper项目](project_codehelper.md) — D:\codehelper, Electron单体应用, 打包为.exe

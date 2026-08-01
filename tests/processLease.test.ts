@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -98,5 +98,33 @@ describe('cross-process database lease', () => {
         isProcessAlive: () => true,
       }),
     ).toThrow(/held by maintenance pid/)
+  })
+
+  it('fails closed for a recent partial marker that may still be owned by a live writer', () => {
+    const databasePath = temporaryDatabasePath()
+    const path = getProcessLeasePath(databasePath)
+    writeFileSync(path, '{"pid": 1234, "kind": "ap')
+
+    expect(() =>
+      acquireProcessLease(databasePath, 'app', {
+        staleAfterMs: 60_000,
+      }),
+    ).toThrow(/unreadable/)
+    expect(existsSync(path)).toBe(true)
+  })
+
+  it('self-heals an unreadable marker only after its stale timeout', () => {
+    const databasePath = temporaryDatabasePath()
+    const path = getProcessLeasePath(databasePath)
+    writeFileSync(path, '')
+    utimesSync(path, new Date(0), new Date(0))
+
+    const lease = acquireProcessLease(databasePath, 'app', {
+      now: () => 1_000_000,
+      staleAfterMs: 1,
+    })
+    expect(lease.marker.pid).toBe(process.pid)
+    lease.release()
+    expect(existsSync(path)).toBe(false)
   })
 })

@@ -251,7 +251,7 @@ export async function resolveAllowedProviderTarget(
       }),
     ])
   } catch {
-    throw new Error('鏃犳硶瑙ｆ瀽 AI Provider 鍩熷悕')
+    throw new Error('无法解析 AI Provider 域名')
   } finally {
     if (timeout) clearTimeout(timeout)
   }
@@ -265,7 +265,7 @@ export async function resolveAllowedProviderTarget(
     return isBlockedResolvedAddress(entry.address)
   })
   if (addresses.length === 0 || invalidAddress) {
-    throw new Error('涓嶅厑璁歌闂 Base URL锛氬煙鍚嶈В鏋愬埌绉佺綉鎴栨湰鏈哄湴鍧€')
+    throw new Error('不允许访问该 Base URL：域名解析到私网或本机地址')
   }
   const selected = addresses[0]
   const vettedAddresses = addresses.map((entry) => ({

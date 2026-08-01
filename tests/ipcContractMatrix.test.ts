@@ -267,18 +267,6 @@ describe('Renderer -> Service -> Preload -> IPC contract matrix', () => {
     expect(
       IPC_CHANNEL_CONTRACTS.find((item) => item.channel === 'knowledge-rag-context')?.status,
     ).toBe('degraded')
-
-    for (const channel of [
-      'knowledge-concept-graph',
-      'knowledge-concept-detail',
-      'knowledge-auto-tag',
-      'knowledge-tags',
-      'knowledge-tag-documents',
-    ]) {
-      expect(IPC_CHANNEL_CONTRACTS.find((item) => item.channel === channel)?.status).toBe(
-        'placeholder',
-      )
-    }
   })
 
   it('keeps the knowledge summary service name and object response aligned with its handler', async () => {
@@ -297,7 +285,7 @@ describe('Renderer -> Service -> Preload -> IPC contract matrix', () => {
 
     const contract = IPC_CHANNEL_CONTRACTS.find((item) => item.channel === 'knowledge-summarize')
     expect(contract).toMatchObject({
-      service: 'knowledgeStore.summarizeResults / knowledgeService.summarizeDocuments',
+      service: 'knowledgeService.summarizeDocuments',
       response: 'KnowledgeSummary { summary, keyConcepts }',
       status: 'degraded',
     })

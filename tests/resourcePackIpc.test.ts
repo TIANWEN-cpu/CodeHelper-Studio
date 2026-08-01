@@ -6,6 +6,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 const handlers: Record<string, (...args: unknown[]) => unknown> = {}
 
 vi.mock('electron', () => ({
+  app: {
+    isPackaged: false,
+  },
   ipcMain: {
     handle: vi.fn((channel: string, handler: (...args: unknown[]) => unknown) => {
       handlers[channel] = handler

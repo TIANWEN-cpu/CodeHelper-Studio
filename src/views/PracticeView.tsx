@@ -1,13 +1,11 @@
 import React, { useState } from 'react'
 import {
   Search,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   FileCode2,
   PanelLeftClose,
   PanelLeft,
-  Loader2,
   Layers3,
   Target,
   Sparkles,
@@ -36,19 +34,37 @@ import {
 import { onEditorWorkspaceChanged } from '@/services/editorWorkspaceService'
 import { isPracticeTab, practiceTabKind } from '@/utils/practiceTabs'
 import { getPracticeDraftCloseWarning } from '@/services/practiceDraftSession'
+import {
+  Badge,
+  Button,
+  Card,
+  ConfirmDialog,
+  EmptyState,
+  IconButton,
+  Input,
+  Select,
+  Skeleton,
+  Spinner,
+  Tabs,
+  type BadgeVariant,
+} from '@/components/ui'
 
 // ---- Difficulty helpers ----
 
-const difficultyColor: Record<string, string> = {
-  简单: '#10B981',
-  中等: '#F59E0B',
-  困难: '#EF4444',
-  基础: '#10B981',
-  进阶: '#F59E0B',
-  综合: '#8B5CF6',
-  easy: '#10B981',
-  medium: '#F59E0B',
-  hard: '#EF4444',
+const difficultyVariant: Record<string, BadgeVariant> = {
+  简单: 'success',
+  中等: 'warning',
+  困难: 'danger',
+  基础: 'success',
+  进阶: 'warning',
+  综合: 'purple',
+  easy: 'success',
+  medium: 'warning',
+  hard: 'danger',
+}
+
+function getDifficultyVariant(d: string): BadgeVariant {
+  return difficultyVariant[d] ?? 'accent'
 }
 
 const PAGE_SIZE = 80
@@ -56,6 +72,17 @@ const PAGE_SIZE = 80
 interface PracticeTabNotice {
   tone: 'info' | 'error'
   message: string
+}
+
+interface PracticeConfirmOptions {
+  title: string
+  description: string
+  confirmText?: string
+  danger?: boolean
+}
+
+interface PracticeConfirmState extends PracticeConfirmOptions {
+  resolve: (confirmed: boolean) => void
 }
 
 const EXERCISE_EXTENSION: Record<string, string> = {
@@ -89,27 +116,43 @@ function getDifficultyLabel(d: string): string {
 
 // ---- Difficulty filter button ----
 
+const DIFF_ACTIVE_STYLES: Record<BadgeVariant, string> = {
+  neutral:
+    'border-[var(--color-border-default)] bg-[var(--color-bg-hover)] text-[var(--color-text-primary)]',
+  accent:
+    'border-[var(--color-accent-primary)]/50 bg-[var(--color-accent-primary)]/10 text-[var(--color-accent-primary)]',
+  purple:
+    'border-[var(--color-accent-purple)]/50 bg-[var(--color-accent-purple)]/10 text-[var(--color-accent-purple)]',
+  success:
+    'border-[var(--color-accent-success)]/50 bg-[var(--color-accent-success)]/10 text-[var(--color-accent-success)]',
+  danger:
+    'border-[var(--color-accent-danger)]/50 bg-[var(--color-accent-danger)]/10 text-[var(--color-accent-danger)]',
+  warning:
+    'border-[var(--color-accent-warning)]/50 bg-[var(--color-accent-warning)]/10 text-[var(--color-accent-warning)]',
+}
+
 function DiffBtn({
   label,
   active,
-  color,
+  variant,
   onClick,
 }: {
   label: string
   active: boolean
-  color: string
+  variant: BadgeVariant
   onClick: () => void
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
-        'px-2.5 py-1 rounded-md text-xs font-medium transition-all border',
+        'rounded-md border px-2.5 py-1 text-xs font-medium transition-all',
         active
-          ? 'border-current bg-current/10'
-          : 'border-[var(--color-border-subtle)] text-[var(--color-text-muted)] hover:text-white hover:border-[var(--color-border-hover)] bg-transparent',
+          ? DIFF_ACTIVE_STYLES[variant]
+          : 'border-[var(--color-border-subtle)] bg-transparent text-[var(--color-text-muted)] hover:border-[var(--color-border-default)] hover:text-[var(--color-text-primary)]',
       )}
-      style={active ? { color } : undefined}
     >
       {label}
     </button>
@@ -129,6 +172,7 @@ export function PracticeView() {
   const [page, setPage] = useState(1)
   const [tabCloseNotice, setTabCloseNotice] = useState<PracticeTabNotice | null>(null)
   const [remotePracticeCloseEpoch, setRemotePracticeCloseEpoch] = useState(0)
+  const [confirmState, setConfirmState] = useState<PracticeConfirmState | null>(null)
   const initialTargetHandledRef = React.useRef(false)
   const selectingExerciseIdsRef = React.useRef(new Set<string>())
   const locallyClosingTabIdsRef = React.useRef(new Set<string>())
@@ -166,6 +210,22 @@ export function PracticeView() {
     keepLocalDraft,
     reloadPersistedDraft,
   } = usePracticeData()
+
+  const requestConfirm = React.useCallback(
+    (options: PracticeConfirmOptions) =>
+      new Promise<boolean>((resolve) => {
+        setConfirmState({ ...options, resolve })
+      }),
+    [],
+  )
+
+  const settleConfirm = React.useCallback(
+    (confirmed: boolean) => {
+      confirmState?.resolve(confirmed)
+      setConfirmState(null)
+    },
+    [confirmState],
+  )
 
   const handleSelectExercise = React.useCallback(
     async (id: string) => {
@@ -297,7 +357,16 @@ export function PracticeView() {
             conflict: draftCloseConflict,
             error: result.error,
           })
-          if (draftCloseWarning && !window.confirm(draftCloseWarning)) return
+          if (
+            draftCloseWarning &&
+            !(await requestConfirm({
+              title: '关闭练习标签',
+              description: draftCloseWarning,
+              confirmText: '关闭标签',
+              danger: true,
+            }))
+          )
+            return
           if (draftCloseConflict) {
             toast.info('草稿版本冲突仍未处理，最新本地内容仅保存在恢复区')
           } else if (result.durability === 'recovery') {
@@ -308,7 +377,16 @@ export function PracticeView() {
           draftCloseWarning = recoveryOnlyState
             ? getPracticeDraftCloseWarning(recoveryOnlyState)
             : null
-          if (draftCloseWarning && !window.confirm(draftCloseWarning)) return
+          if (
+            draftCloseWarning &&
+            !(await requestConfirm({
+              title: '关闭练习标签',
+              description: draftCloseWarning,
+              confirmText: '关闭标签',
+              danger: true,
+            }))
+          )
+            return
         }
 
         const persistence = getEditorTabPersistenceState(tabId)
@@ -320,7 +398,16 @@ export function PracticeView() {
           persistenceError: editorState.persistenceError,
           error: persistence.error ?? editorState.databaseError,
         })
-        if (warning && !window.confirm(warning)) return
+        if (
+          warning &&
+          !(await requestConfirm({
+            title: '关闭练习标签',
+            description: warning,
+            confirmText: '关闭标签',
+            danger: true,
+          }))
+        )
+          return
 
         if (exerciseTabs.length === 1) {
           const sessionResult = clearPracticeSession()
@@ -335,9 +422,13 @@ export function PracticeView() {
 
         let closed = await requestCloseEditorWorkspaceTab(tabId)
         if (!closed) {
-          const closeLocally = window.confirm(
-            'SQLite 标签同步仍未成功。确定后将仅在本地关闭标签，练习代码仍由草稿恢复区保护。',
-          )
+          const closeLocally = await requestConfirm({
+            title: '仅在本地关闭标签',
+            description:
+              'SQLite 标签同步仍未成功。确定后将仅在本地关闭标签，练习代码仍由草稿恢复区保护。',
+            confirmText: '仅本地关闭',
+            danger: true,
+          })
           if (!closeLocally) return
           await closeEditorWorkspaceTabLocally(tabId)
           closed = true
@@ -380,6 +471,7 @@ export function PracticeView() {
       flushDraft,
       getRecoveryOnlyDraftCloseState,
       handleSelectExercise,
+      requestConfirm,
     ],
   )
 
@@ -554,8 +646,8 @@ export function PracticeView() {
                   className={cn(
                     'shrink-0 border-b px-4 py-2 text-xs leading-relaxed',
                     tabCloseNotice.tone === 'error'
-                      ? 'border-red-400/40 bg-red-950/70 text-red-100'
-                      : 'border-sky-400/35 bg-sky-950/70 text-sky-100',
+                      ? 'border-[var(--color-accent-danger)]/40 bg-[var(--color-accent-danger)]/10 text-[var(--color-accent-danger)]'
+                      : 'border-[var(--color-accent-primary)]/35 bg-[var(--color-accent-primary)]/10 text-[var(--color-accent-primary)]',
                   )}
                 >
                   {tabCloseNotice.message}
@@ -567,61 +659,58 @@ export function PracticeView() {
                   {/* Search & Filter Header */}
                   <div className="p-4 border-b border-[var(--color-border-subtle)] space-y-3 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--color-bg-card)_92%,transparent),var(--color-bg-base))]">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-white tracking-wide">练习题库</h3>
-                      {loading && (
-                        <Loader2
-                          size={14}
-                          className="text-[var(--color-text-muted)] animate-spin"
-                        />
-                      )}
+                      <h3 className="text-sm font-semibold text-[var(--color-text-primary)] tracking-wide">
+                        练习题库
+                      </h3>
+                      {loading && <Spinner size="sm" />}
                     </div>
                     <div className="grid grid-cols-3 gap-2">
-                      <div className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-3 py-2">
+                      <Card padding="sm">
                         <div className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)]">
                           <Target size={11} />
                           总题数
                         </div>
-                        <div className="mt-1 text-sm font-semibold text-white">
+                        <div className="mt-1 text-sm font-semibold text-[var(--color-text-primary)]">
                           {exercises.length}
                         </div>
-                      </div>
-                      <div className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-3 py-2">
+                      </Card>
+                      <Card padding="sm">
                         <div className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)]">
                           <FileCode2 size={11} />
                           当前
                         </div>
-                        <div className="mt-1 text-sm font-semibold text-white">
+                        <div className="mt-1 text-sm font-semibold text-[var(--color-text-primary)]">
                           {filteredExercises.length}
                         </div>
-                      </div>
-                      <div className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-3 py-2">
+                      </Card>
+                      <Card padding="sm">
                         <div className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)]">
                           <Layers3 size={11} />
                           路线
                         </div>
-                        <div className="mt-1 text-sm font-semibold text-white">
+                        <div className="mt-1 text-sm font-semibold text-[var(--color-text-primary)]">
                           {trackOptions.length}
                         </div>
-                      </div>
+                      </Card>
                     </div>
                     <div className="relative">
                       <Search
                         size={14}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]"
+                        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]"
                       />
-                      <input
+                      <Input
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="搜索题目..."
-                        className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-white pl-9 pr-3 py-2 outline-none focus:border-[var(--color-accent-primary)] placeholder:text-[var(--color-text-muted)] transition-colors"
+                        className="pl-9"
                       />
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <DiffBtn
                         label="全部"
                         active={!difficultyFilter}
-                        color="#6366F1"
+                        variant="accent"
                         onClick={() => setDifficultyFilter(undefined)}
                       />
                       {difficultyOptions.slice(0, 6).map((difficulty) => (
@@ -629,7 +718,7 @@ export function PracticeView() {
                           key={difficulty}
                           label={getDifficultyLabel(difficulty)}
                           active={difficultyFilter === difficulty}
-                          color={difficultyColor[difficulty] ?? '#6366F1'}
+                          variant={getDifficultyVariant(difficulty)}
                           onClick={() => setDifficultyFilter(difficulty)}
                         />
                       ))}
@@ -643,17 +732,17 @@ export function PracticeView() {
                         className={cn(
                           'flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-all',
                           sourceFilter === 'problem'
-                            ? 'border-[#10B981] bg-[#10B981]/14 text-[#10B981]'
-                            : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] hover:text-white',
+                            ? 'border-[var(--color-accent-success)]/50 bg-[var(--color-accent-success)]/10 text-[var(--color-accent-success)]'
+                            : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
                         )}
                         aria-pressed={sourceFilter === 'problem'}
                         title="只看导入题库"
                       >
                         <Database size={13} />
                         导入题库
-                        <span className="rounded-full bg-white/15 px-1.5 py-0.5 text-[10px]">
+                        <Badge variant="neutral" className="rounded-full px-1.5 py-0.5 text-[10px]">
                           {importedProblemCount}
-                        </span>
+                        </Badge>
                       </button>
                       {trackOptions.includes('ai-tutor') && (
                         <button
@@ -673,15 +762,15 @@ export function PracticeView() {
                         >
                           <Sparkles size={13} />
                           AI Tutor
-                          <span className="rounded-full bg-white/15 px-1.5 py-0.5 text-[10px]">
+                          <span className="rounded-full bg-[var(--color-on-accent)]/20 px-1.5 py-0.5 text-[10px]">
                             {aiTutorExerciseCount}
                           </span>
                         </button>
                       )}
-                      <select
+                      <Select
                         value={trackFilter ?? ''}
                         onChange={(event) => setTrackFilter(event.target.value || undefined)}
-                        className="w-full rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-3 py-2 text-xs text-white outline-none transition-colors focus:border-[var(--color-accent-primary)]"
+                        aria-label="路线筛选"
                       >
                         <option value="">全部路线</option>
                         {trackOptions.map((track) => (
@@ -689,32 +778,34 @@ export function PracticeView() {
                             {track}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     </div>
                     <div className="flex items-center justify-between rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-3 py-2 text-[11px] text-[var(--color-text-muted)]">
                       <span>
                         内置练习 {builtinExerciseCount} · 导入题库 {importedProblemCount}
                       </span>
                       <div className="flex items-center gap-2">
-                        <button
+                        <IconButton
+                          label="上一页"
+                          variant="outline"
+                          size="sm"
                           onClick={() => setPage((p) => Math.max(1, p - 1))}
                           disabled={safePage <= 1}
-                          className="rounded border border-[var(--color-border-subtle)] p-1 disabled:opacity-40 hover:text-white"
-                          title="上一页"
                         >
-                          <ChevronLeft size={13} />
-                        </button>
+                          <ChevronLeft />
+                        </IconButton>
                         <span className="font-mono">
                           {safePage}/{totalPages}
                         </span>
-                        <button
+                        <IconButton
+                          label="下一页"
+                          variant="outline"
+                          size="sm"
                           onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                           disabled={safePage >= totalPages}
-                          className="rounded border border-[var(--color-border-subtle)] p-1 disabled:opacity-40 hover:text-white"
-                          title="下一页"
                         >
-                          <ChevronRight size={13} />
-                        </button>
+                          <ChevronRight />
+                        </IconButton>
                       </div>
                     </div>
                   </div>
@@ -722,79 +813,72 @@ export function PracticeView() {
                   {/* Exercise List */}
                   <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
                     {error && (
-                      <div className="mx-2 p-3 bg-[#EF4444]/10 border border-[#EF4444]/20 rounded-lg text-xs text-[#EF4444]">
+                      <div className="mx-2 rounded-lg border border-[var(--color-accent-danger)]/30 bg-[var(--color-accent-danger)]/10 p-3 text-xs text-[var(--color-accent-danger)]">
                         {error}
                       </div>
                     )}
-                    {!loading && filteredExercises.length === 0 && (
-                      <div className="flex flex-col items-center justify-center h-48 text-[var(--color-text-muted)] text-xs">
-                        <FileCode2 size={32} className="mb-2 opacity-40" />
-                        <span>暂无匹配题目</span>
+                    {loading && visibleExercises.length === 0 && !error && (
+                      <div className="space-y-2 p-1" aria-hidden>
+                        {Array.from({ length: 6 }).map((_, i) => (
+                          <Skeleton key={i} className="h-16" />
+                        ))}
                       </div>
                     )}
+                    {!loading && filteredExercises.length === 0 && (
+                      <EmptyState icon={FileCode2} title="暂无匹配题目" />
+                    )}
                     <AnimatePresence initial={false}>
-                      {visibleExercises.map((ex, index) => {
-                        const color = difficultyColor[ex.difficulty] ?? '#6366F1'
-                        return (
-                          <motion.button
-                            layout
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -6 }}
-                            transition={{ duration: 0.2, delay: Math.min(index, 8) * 0.015 }}
-                            key={ex.id}
-                            onClick={() => handleSelectExercise(ex.id)}
-                            className="w-full text-left p-3 rounded-lg border border-transparent hover:border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-hover)] transition-colors group"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm text-white font-medium truncate group-hover:text-[#A5B4FC] transition-colors">
-                                  {ex.title}
-                                </p>
-                                <div className="flex items-center gap-2 mt-1.5">
-                                  <span
-                                    className="text-[10px] font-medium px-1.5 py-0.5 rounded border"
-                                    style={{
-                                      color,
-                                      borderColor: `${color}33`,
-                                      backgroundColor: `${color}15`,
-                                    }}
-                                  >
-                                    {getDifficultyLabel(ex.difficulty)}
-                                  </span>
-                                  {ex.track_id && (
-                                    <span className="text-[10px] text-[var(--color-text-muted)] bg-[var(--color-bg-card)] px-1.5 py-0.5 rounded">
-                                      {ex.track_id}
-                                    </span>
-                                  )}
-                                  <span
-                                    className={cn(
-                                      'text-[10px] px-1.5 py-0.5 rounded',
-                                      ex.source_type === 'problem'
-                                        ? 'bg-[#10B981]/10 text-[#10B981]'
-                                        : 'bg-[var(--color-accent-purple)]/10 text-[var(--color-accent-purple)]',
-                                    )}
-                                  >
-                                    {ex.source_type === 'problem' ? '导入题库' : '内置练习'}
-                                  </span>
-                                  {ex.source && (
-                                    <span className="text-[10px] text-[var(--color-text-muted)] bg-[var(--color-bg-card)] px-1.5 py-0.5 rounded">
-                                      {ex.source}
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="mt-2 line-clamp-2 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
-                                  {ex.prompt}
-                                </p>
+                      {visibleExercises.map((ex, index) => (
+                        <motion.button
+                          layout
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -6 }}
+                          transition={{ duration: 0.2, delay: Math.min(index, 8) * 0.015 }}
+                          key={ex.id}
+                          onClick={() => handleSelectExercise(ex.id)}
+                          className="group w-full text-left p-3 rounded-lg border border-transparent hover:border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-[var(--color-text-primary)] font-medium truncate group-hover:text-[var(--color-accent-primary)] transition-colors">
+                                {ex.title}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                <Badge
+                                  variant={getDifficultyVariant(ex.difficulty)}
+                                  className="px-1.5 text-[10px]"
+                                >
+                                  {getDifficultyLabel(ex.difficulty)}
+                                </Badge>
+                                {ex.track_id && (
+                                  <Badge variant="neutral" className="px-1.5 text-[10px]">
+                                    {ex.track_id}
+                                  </Badge>
+                                )}
+                                <Badge
+                                  variant={ex.source_type === 'problem' ? 'success' : 'purple'}
+                                  className="px-1.5 text-[10px]"
+                                >
+                                  {ex.source_type === 'problem' ? '导入题库' : '内置练习'}
+                                </Badge>
+                                {ex.source && (
+                                  <Badge variant="neutral" className="px-1.5 text-[10px]">
+                                    {ex.source}
+                                  </Badge>
+                                )}
                               </div>
-                              <ChevronDown
-                                size={14}
-                                className="text-[var(--color-text-muted)] -rotate-90 opacity-0 group-hover:opacity-100 transition-opacity"
-                              />
+                              <p className="mt-2 line-clamp-2 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
+                                {ex.prompt}
+                              </p>
                             </div>
-                          </motion.button>
-                        )
-                      })}
+                            <ChevronRight
+                              size={14}
+                              className="shrink-0 text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity"
+                            />
+                          </div>
+                        </motion.button>
+                      ))}
                     </AnimatePresence>
                   </div>
                 </div>
@@ -809,86 +893,80 @@ export function PracticeView() {
                     transition={{ duration: 0.28, ease: 'easeOut' }}
                     className="p-6 relative"
                   >
-                    <button
+                    <IconButton
+                      label="收起描述面板"
                       onClick={() => setPanelCollapsed(true)}
-                      className="absolute right-4 top-4 p-1.5 hover:bg-[var(--color-bg-hover)] rounded-md text-[var(--color-text-muted)] hover:text-white transition-colors"
-                      title="收起描述面板"
+                      className="absolute right-4 top-4"
                     >
-                      <PanelLeftClose size={16} />
-                    </button>
+                      <PanelLeftClose />
+                    </IconButton>
 
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => setViewMode('list')}
-                      className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] hover:text-white transition-colors mb-3 -ml-1"
+                      className="-ml-2 mb-3"
                     >
                       <ChevronLeft size={14} />
                       返回题库
-                    </button>
+                    </Button>
 
                     {loadingExercise ? (
                       <div className="flex items-center gap-2 text-[var(--color-text-muted)] text-sm py-8">
-                        <Loader2 size={16} className="animate-spin" />
+                        <Spinner size="sm" />
                         加载中...
                       </div>
                     ) : currentExercise ? (
                       <>
                         <div className="flex flex-col gap-1 mb-4 pr-8">
-                          <h2 className="text-xl font-bold text-white tracking-wide">
+                          <h2 className="text-xl font-bold text-[var(--color-text-primary)] tracking-wide">
                             {currentExercise.title}
                           </h2>
-                          <div className="flex items-center gap-3 text-xs mt-2">
-                            <span
-                              className="px-2 py-1 rounded border font-medium"
-                              style={{
-                                color: difficultyColor[currentExercise.difficulty] ?? '#10B981',
-                                borderColor: `${difficultyColor[currentExercise.difficulty] ?? '#10B981'}33`,
-                                backgroundColor: `${difficultyColor[currentExercise.difficulty] ?? '#10B981'}15`,
-                              }}
+                          <div className="flex flex-wrap items-center gap-2 mt-2">
+                            <Badge
+                              variant={getDifficultyVariant(currentExercise.difficulty)}
+                              className="px-2 py-1"
                             >
                               {getDifficultyLabel(currentExercise.difficulty)}
-                            </span>
-                            <span className="px-2 py-1 rounded border border-[var(--color-border-subtle)] text-[var(--color-text-muted)]">
+                            </Badge>
+                            <Badge
+                              variant={
+                                currentExercise.source_type === 'problem' ? 'success' : 'purple'
+                              }
+                              className="px-2 py-1"
+                            >
                               {currentExercise.source_type === 'problem' ? '导入题库' : '内置练习'}
-                            </span>
+                            </Badge>
                             {currentExercise.source && (
-                              <span className="px-2 py-1 rounded border border-[var(--color-border-subtle)] text-[var(--color-text-muted)]">
+                              <Badge variant="neutral" className="px-2 py-1">
                                 {currentExercise.source}
-                              </span>
+                              </Badge>
                             )}
                           </div>
                         </div>
 
                         {/* Tab bar */}
-                        <div className="flex items-center gap-4 border-b border-[var(--color-border-subtle)] pb-2 mb-6">
-                          <button
-                            onClick={() => setDetailTab('desc')}
-                            className={cn(
-                              'text-sm font-medium pb-2 -mb-[9px] transition-colors',
-                              detailTab === 'desc'
-                                ? 'text-white border-b-2 border-white'
-                                : 'text-[var(--color-text-muted)] hover:text-white',
-                            )}
-                          >
-                            题目描述
-                          </button>
-                          {currentExercise.hints && currentExercise.hints.length > 0 && (
-                            <button
-                              onClick={() => setDetailTab('hints')}
-                              className={cn(
-                                'text-sm font-medium pb-2 -mb-[9px] transition-colors',
-                                detailTab === 'hints'
-                                  ? 'text-white border-b-2 border-white'
-                                  : 'text-[var(--color-text-muted)] hover:text-white',
-                              )}
-                            >
-                              提示 ({currentExercise.hints.length})
-                            </button>
-                          )}
-                        </div>
+                        <Tabs
+                          items={[
+                            { value: 'desc', label: '题目描述' },
+                            ...(currentExercise.hints && currentExercise.hints.length > 0
+                              ? [
+                                  {
+                                    value: 'hints',
+                                    label: `提示 (${currentExercise.hints.length})`,
+                                  },
+                                ]
+                              : []),
+                          ]}
+                          value={detailTab}
+                          onChange={(value) => setDetailTab(value as 'desc' | 'hints')}
+                          ariaLabel="题目详情"
+                          className="mb-6"
+                        />
 
                         {/* Tab content: real description / hints switch */}
                         {detailTab === 'desc' || !currentExercise.hints?.length ? (
-                          <div className="prose prose-invert prose-sm text-[var(--color-text-secondary)] whitespace-pre-wrap leading-relaxed">
+                          <div className="text-sm text-[var(--color-text-secondary)] whitespace-pre-wrap leading-relaxed">
                             {currentExercise.prompt}
                           </div>
                         ) : (
@@ -900,9 +978,7 @@ export function PracticeView() {
                         )}
                       </>
                     ) : (
-                      <div className="text-sm text-[var(--color-text-muted)] py-8">
-                        请从题库中选择一道题目
-                      </div>
+                      <EmptyState icon={FileCode2} title="请从题库中选择一道题目" />
                     )}
                   </motion.div>
                 </div>
@@ -915,13 +991,9 @@ export function PracticeView() {
       {/* Collapsed panel icon */}
       {panelCollapsed && (
         <div className="absolute left-0 top-0 bottom-0 w-12 bg-[var(--color-bg-panel)] border-r border-[var(--color-border-subtle)] flex flex-col items-center py-4 z-20">
-          <button
-            onClick={() => setPanelCollapsed(false)}
-            className="p-2 text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors"
-            title="展开题目描述"
-          >
-            <PanelLeft size={16} />
-          </button>
+          <IconButton label="展开题目描述" onClick={() => setPanelCollapsed(false)}>
+            <PanelLeft />
+          </IconButton>
         </div>
       )}
 
@@ -962,6 +1034,16 @@ export function PracticeView() {
           }
         />
       </div>
+
+      <ConfirmDialog
+        open={confirmState !== null}
+        title={confirmState?.title ?? ''}
+        description={confirmState?.description}
+        confirmText={confirmState?.confirmText}
+        danger={confirmState?.danger ?? false}
+        onConfirm={() => settleConfirm(true)}
+        onCancel={() => settleConfirm(false)}
+      />
     </div>
   )
 }

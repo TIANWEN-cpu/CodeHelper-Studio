@@ -6,6 +6,7 @@ import { Header } from './components/layout/Header'
 import { AITutorPanel } from './components/layout/AITutorPanel'
 import { AIPet } from './components/AIPet'
 import { ToastContainer } from './components/ToastContainer'
+import { Spinner } from './components/ui'
 import { registerToast } from './utils/errorHandler'
 import { toast } from './stores/toastStore'
 import { useEditorStore } from './stores/editorStore'
@@ -62,11 +63,9 @@ const AITutorView = lazy(() =>
 
 // Loading Fallback
 const ViewLoader = () => (
-  <div className="w-full h-full flex flex-col items-center justify-center">
-    <div className="w-8 h-8 rounded-full border-2 border-[var(--color-border-subtle)] border-t-[var(--color-accent-primary)] animate-spin mb-4" />
-    <span className="text-sm text-[var(--color-text-muted)] animate-pulse">
-      Loading workspace...
-    </span>
+  <div className="w-full h-full flex flex-col items-center justify-center gap-4">
+    <Spinner size="lg" className="text-[var(--color-accent-primary)]" />
+    <span className="text-sm text-[var(--color-text-muted)] animate-pulse">正在加载工作区…</span>
   </div>
 )
 
@@ -90,7 +89,9 @@ function useAppReducedMotion(): boolean {
 }
 
 function App() {
-  const { currentView, showAITutor, setShowAITutor } = useAppStore()
+  const currentView = useAppStore((state) => state.currentView)
+  const showAITutor = useAppStore((state) => state.showAITutor)
+  const setShowAITutor = useAppStore((state) => state.setShowAITutor)
   const reducedMotion = useAppReducedMotion()
   const [databaseRecoveryNotice, setDatabaseRecoveryNotice] =
     React.useState<DatabaseRecoveryNotice | null>(null)
@@ -249,11 +250,16 @@ function App() {
             <div
               role="status"
               data-testid="renderer-recovery-banner"
-              className="flex shrink-0 items-start gap-3 border-b border-amber-400/40 bg-amber-500/12 px-4 py-2.5 text-amber-50"
+              className="flex shrink-0 items-start gap-3 border-b border-[var(--color-accent-warning)]/40 bg-[var(--color-accent-warning)]/10 px-4 py-2.5"
             >
-              <AlertTriangle size={17} className="mt-0.5 shrink-0 text-amber-300" />
+              <AlertTriangle
+                size={17}
+                className="mt-0.5 shrink-0 text-[var(--color-accent-warning)]"
+              />
               <div className="min-w-0 flex-1 text-xs leading-relaxed">
-                <p className="font-semibold">界面进程异常退出，CodeHelper 已自动重新加载</p>
+                <p className="font-semibold text-[var(--color-text-primary)]">
+                  界面进程异常退出，CodeHelper 已自动重新加载
+                </p>
                 <p className="mt-0.5 text-[var(--color-text-secondary)]">
                   正在从 SQLite
                   与本地恢复区核对工作区。请确认状态栏显示已保存；若显示降级，请先保留恢复数据再重试。
@@ -262,7 +268,7 @@ function App() {
               <button
                 type="button"
                 onClick={() => setRendererRecoveryReason(null)}
-                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-amber-100 transition-colors hover:bg-amber-100/10 hover:text-white"
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
                 aria-label="关闭界面恢复提示"
                 title="关闭提示"
               >
@@ -274,14 +280,19 @@ function App() {
             <div
               role="status"
               data-testid="database-recovery-banner"
-              className="flex shrink-0 items-start gap-3 border-b border-amber-400/40 bg-amber-500/12 px-4 py-2.5 text-amber-50"
+              className="flex shrink-0 items-start gap-3 border-b border-[var(--color-accent-warning)]/40 bg-[var(--color-accent-warning)]/10 px-4 py-2.5"
             >
-              <AlertTriangle size={17} className="mt-0.5 shrink-0 text-amber-300" />
+              <AlertTriangle
+                size={17}
+                className="mt-0.5 shrink-0 text-[var(--color-accent-warning)]"
+              />
               <div className="min-w-0 flex-1 text-xs leading-relaxed">
-                <p className="font-semibold">数据库损坏已隔离，当前已使用新数据库启动</p>
+                <p className="font-semibold text-[var(--color-text-primary)]">
+                  数据库损坏已隔离，当前已使用新数据库启动
+                </p>
                 <p className="mt-0.5 text-[var(--color-text-secondary)]">
                   编辑器会从本地恢复区尝试恢复；其他原始数据仍保存在：
-                  <span className="ml-1 break-all font-mono text-amber-100">
+                  <span className="ml-1 break-all font-mono text-[var(--color-accent-warning)]">
                     {databaseRecoveryNotice.backupPath}
                   </span>
                 </p>
@@ -289,7 +300,7 @@ function App() {
               <button
                 type="button"
                 onClick={() => void acknowledgeDatabaseRecovery()}
-                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-amber-100 transition-colors hover:bg-amber-100/10 hover:text-white"
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
                 aria-label="关闭数据库恢复提示"
                 title="关闭提示"
               >

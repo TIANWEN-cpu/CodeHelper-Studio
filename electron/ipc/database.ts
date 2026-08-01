@@ -201,15 +201,15 @@ export function registerDatabaseIPC(): void {
           !Number.isFinite(args.config_id) ||
           args.config_id < 1
         ) {
-          throw new Error('璇疯鎻愪緵鏈夋晥鐨勬ā鍨嬮厤缃?')
+          throw new Error('请提供有效的模型配置')
         }
         const row = getDB()
           .prepare('SELECT api_key, base_url FROM ai_configs WHERE id = ?')
           .get(args.config_id) as { api_key: string; base_url: string } | undefined
-        if (!row) throw new Error('妯″瀷閰嶇疆涓嶅瓨鍦?')
+        if (!row) throw new Error('模型配置不存在')
         assertCredentialBaseUrl(row.base_url, args.base_url)
         args.api_key = decryptApiKey(row.api_key)
-        if (!args.api_key) throw new Error('API Key 鏃犳硾瑙ｆ垨宸叉崯鍧?')
+        if (!args.api_key) throw new Error('API Key 无法解密或已损坏')
       }
       const provider = await resolveAllowedProviderTarget(args.base_url)
       const requestTarget = { ...provider, url: `${args.base_url}/models` }

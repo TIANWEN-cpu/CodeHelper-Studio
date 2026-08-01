@@ -380,13 +380,13 @@ practice-backed 标签内嵌代码会转换为普通 `recovered-exercise-*` 文�
 
 如果以上方案都无法解决问题：
 
-1. 查看 [GitHub Issues](https://github.com/TIANWEN-cpu/CodeHelper/issues) 中是否有类似问题
+1. 查看 [GitHub Issues](https://github.com/TIANWEN-cpu/CodeHelper-Studio/issues) 中是否有类似问题
 2. 提交新的 Issue，提供以下信息：
    - 操作系统和版本
    - Node.js 版本
    - 详细的错误信息
    - 复现步骤
-3. 在 [GitHub Discussions](https://github.com/TIANWEN-cpu/CodeHelper/discussions) 中提问
+3. 在 [GitHub Discussions](https://github.com/TIANWEN-cpu/CodeHelper-Studio/discussions) 中提问
 
 ---
 

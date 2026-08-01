@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import { Command, ChevronDown, Bell, Sun, Moon, Terminal, Sparkles, Cpu } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -274,7 +275,7 @@ export function Header() {
   }
 
   return (
-    <header className="app-header h-16 flex-shrink-0 flex items-center gap-3 px-5 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]/80 backdrop-blur-md z-30 relative text-[var(--color-text-primary)] lg:px-6">
+    <header className="app-header h-14 flex-shrink-0 flex items-center gap-3 px-5 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]/80 backdrop-blur-md z-30 relative text-[var(--color-text-primary)] lg:px-6">
       <div className="hidden w-[170px] min-w-0 items-center gap-2 text-sm text-[var(--color-text-secondary)] xl:flex">
         <Sparkles size={15} className="text-[var(--color-accent-primary)]" />
         <span className="truncate font-medium">{VIEW_LABELS[currentView]}</span>
@@ -298,7 +299,7 @@ export function Header() {
               openPalette()
             }}
             placeholder="快速跳转..."
-            className="h-9 w-full bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-lg pl-9 pr-12 py-1.5 text-sm text-white placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent-primary)] focus:ring-4 focus:ring-[var(--color-accent-primary)]/10 transition-all hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-hover)] focus:bg-[var(--color-bg-panel)] shadow-sm cursor-pointer"
+            className="h-9 w-full bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-lg pl-9 pr-12 py-1.5 text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent-primary)] focus:ring-4 focus:ring-[var(--color-accent-primary)]/10 transition-all hover:border-[var(--color-border-default)] hover:bg-[var(--color-bg-hover)] focus:bg-[var(--color-bg-panel)] shadow-sm cursor-pointer"
           />
           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
             <kbd className="hidden sm:inline-flex items-center gap-1 bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] rounded px-1.5 py-0.5 text-[10px] font-mono text-[var(--color-text-muted)]">
@@ -337,13 +338,17 @@ export function Header() {
               <div
                 className={cn(
                   'w-2 h-2 rounded-full shrink-0',
-                  currentModelConfig ? 'bg-[#10B981]' : 'bg-[var(--color-text-muted)]',
+                  currentModelConfig
+                    ? 'bg-[var(--color-accent-success)]'
+                    : 'bg-[var(--color-text-muted)]',
                 )}
               ></div>
               <span
                 className={cn(
                   'truncate',
-                  currentModelConfig ? 'text-white' : 'text-[var(--color-text-muted)]',
+                  currentModelConfig
+                    ? 'text-[var(--color-text-primary)]'
+                    : 'text-[var(--color-text-muted)]',
                 )}
               >
                 {currentModelConfig?.model ?? '未配置模型'}
@@ -365,7 +370,7 @@ export function Header() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -6, scale: 0.98 }}
                 transition={{ duration: 0.14, ease: 'easeOut' }}
-                className="absolute right-0 top-full mt-2 w-[340px] overflow-hidden rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-panel)] shadow-2xl shadow-black/40 ring-1 ring-white/5 z-50"
+                className="absolute right-0 top-full mt-2 w-[340px] overflow-hidden rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-panel)] shadow-[var(--shadow-popover)] z-50"
               >
                 <div className="max-h-80 overflow-y-auto p-2">
                   {modelConfigs.length === 0 ? (
@@ -384,15 +389,15 @@ export function Header() {
                           className={cn(
                             'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
                             active
-                              ? 'bg-[var(--color-accent-purple)]/14 text-white'
-                              : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-white',
+                              ? 'bg-[var(--color-accent-purple)]/14 text-[var(--color-text-primary)]'
+                              : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]',
                           )}
                         >
                           <span
                             className={cn(
                               'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border',
                               active
-                                ? 'border-[#10B981]/50 bg-[#10B981]/10 text-[#10B981]'
+                                ? 'border-[var(--color-accent-success)]/50 bg-[var(--color-accent-success)]/10 text-[var(--color-accent-success)]'
                                 : 'border-[var(--color-border-subtle)] text-[var(--color-text-muted)]',
                             )}
                           >
@@ -410,7 +415,7 @@ export function Header() {
                             className={cn(
                               'shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium',
                               active
-                                ? 'border-[#10B981]/35 bg-[#10B981]/10 text-[#10B981]'
+                                ? 'border-[var(--color-accent-success)]/35 bg-[var(--color-accent-success)]/10 text-[var(--color-accent-success)]'
                                 : 'border-[var(--color-border-subtle)] text-[var(--color-text-muted)]',
                               switching && 'animate-pulse',
                             )}
@@ -445,12 +450,12 @@ export function Header() {
         <button
           onClick={() => setCurrentView('review')}
           aria-label={dueCount > 0 ? `${dueCount} 个待复习` : '打开复习'}
-          className="relative p-2 text-[var(--color-text-secondary)] hover:text-white hover:bg-[var(--color-bg-hover)] active:scale-95 rounded-md transition-all"
+          className="relative p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] active:scale-95 rounded-md transition-all"
           title={dueCount > 0 ? `${dueCount} 个待复习` : '复习'}
         >
           <Bell size={18} />
           {dueCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-semibold leading-none text-white bg-[#EF4444] rounded-full border border-[var(--color-bg-base)]">
+            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center text-[10px] font-semibold leading-none text-[var(--color-on-accent)] bg-[var(--color-accent-danger)] rounded-full border border-[var(--color-bg-base)]">
               {dueCount > 99 ? '99+' : dueCount}
             </span>
           )}
@@ -458,101 +463,107 @@ export function Header() {
         <button
           onClick={toggleTheme}
           aria-label={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
-          className="p-2 text-[var(--color-text-secondary)] hover:text-white hover:bg-[var(--color-bg-hover)] active:scale-95 rounded-md transition-all"
+          className="p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] active:scale-95 rounded-md transition-all"
           title={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
         >
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
       </div>
 
-      {/* Command Palette Overlay */}
-      <AnimatePresence>
-        {paletteOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/24 backdrop-blur-[2px]"
-            onMouseDown={closePalette}
-          >
+      {/* Command Palette Overlay（portal 到 body：header 的 backdrop-blur 会成为 fixed 后代的包含块） */}
+      {createPortal(
+        <AnimatePresence>
+          {paletteOpen && (
             <motion.div
-              initial={{ opacity: 0, y: -8, scale: 0.985 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.985 }}
-              transition={{ duration: 0.16, ease: 'easeOut' }}
-              className="w-full max-w-xl mx-4 rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-panel)] shadow-2xl shadow-black/40 ring-1 ring-white/5 overflow-hidden"
-              onMouseDown={(e) => e.stopPropagation()}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+              className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/40 backdrop-blur-[2px]"
+              onMouseDown={closePalette}
             >
-              <div className="flex items-center gap-2 px-4 border-b border-[var(--color-border-subtle)]">
-                <Command size={16} className="text-[var(--color-text-muted)]" />
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={query}
-                  onChange={(e) => {
-                    setQuery(e.target.value)
-                    setActiveIndex(0)
-                  }}
-                  onKeyDown={onInputKeyDown}
-                  placeholder="搜索页面、课程、练习或知识库..."
-                  className="flex-1 bg-transparent py-3 text-sm text-white placeholder-[var(--color-text-muted)] focus:outline-none"
-                />
-                <kbd className="hidden sm:inline-flex items-center bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] rounded px-1.5 py-0.5 text-[10px] font-mono text-[var(--color-text-muted)]">
-                  Esc
-                </kbd>
-              </div>
-              <ul className="max-h-72 overflow-y-auto py-2">
-                {filteredItems.length === 0 ? (
-                  <li className="px-4 py-3 text-sm text-[var(--color-text-muted)]">无匹配结果</li>
-                ) : (
-                  filteredItems.map((item, index) => {
-                    const group = item.badge ?? KIND_LABELS[item.kind]
-                    const prevGroup =
-                      index > 0
-                        ? (filteredItems[index - 1].badge ??
-                          KIND_LABELS[filteredItems[index - 1].kind])
-                        : null
-                    return (
-                      <React.Fragment key={item.key}>
-                        {group !== prevGroup && (
-                          <li className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-                            {group}
-                          </li>
-                        )}
-                        <li>
-                          <button
-                            onClick={() => runCommand(item)}
-                            onMouseEnter={() => setActiveIndex(index)}
-                            className={cn(
-                              'w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm text-left transition-colors',
-                              index === activeIndex
-                                ? 'bg-[var(--color-bg-hover)] text-white'
-                                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]',
-                            )}
-                          >
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate">{item.label}</span>
-                              {item.sublabel && (
-                                <span className="block truncate text-[11px] text-[var(--color-text-muted)]">
-                                  {item.sublabel}
-                                </span>
+              <motion.div
+                role="dialog"
+                aria-modal="true"
+                aria-label="命令面板"
+                initial={{ opacity: 0, y: -8, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.985 }}
+                transition={{ duration: 0.16, ease: 'easeOut' }}
+                className="w-full max-w-xl mx-4 rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-panel)] shadow-[var(--shadow-dialog)] overflow-hidden"
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-2 px-4 border-b border-[var(--color-border-subtle)]">
+                  <Command size={16} className="text-[var(--color-text-muted)]" />
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={query}
+                    onChange={(e) => {
+                      setQuery(e.target.value)
+                      setActiveIndex(0)
+                    }}
+                    onKeyDown={onInputKeyDown}
+                    placeholder="搜索页面、课程、练习或知识库..."
+                    className="flex-1 bg-transparent py-3 text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none"
+                  />
+                  <kbd className="hidden sm:inline-flex items-center bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] rounded px-1.5 py-0.5 text-[10px] font-mono text-[var(--color-text-muted)]">
+                    Esc
+                  </kbd>
+                </div>
+                <ul className="max-h-72 overflow-y-auto py-2">
+                  {filteredItems.length === 0 ? (
+                    <li className="px-4 py-3 text-sm text-[var(--color-text-muted)]">无匹配结果</li>
+                  ) : (
+                    filteredItems.map((item, index) => {
+                      const group = item.badge ?? KIND_LABELS[item.kind]
+                      const prevGroup =
+                        index > 0
+                          ? (filteredItems[index - 1].badge ??
+                            KIND_LABELS[filteredItems[index - 1].kind])
+                          : null
+                      return (
+                        <React.Fragment key={item.key}>
+                          {group !== prevGroup && (
+                            <li className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+                              {group}
+                            </li>
+                          )}
+                          <li>
+                            <button
+                              onClick={() => runCommand(item)}
+                              onMouseEnter={() => setActiveIndex(index)}
+                              className={cn(
+                                'w-full flex items-center justify-between gap-3 px-4 py-2.5 text-sm text-left transition-colors',
+                                index === activeIndex
+                                  ? 'bg-[var(--color-bg-hover)] text-[var(--color-text-primary)]'
+                                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]',
                               )}
-                            </span>
-                            <span className="shrink-0 rounded-full border border-[var(--color-border-subtle)] px-2 py-0.5 text-[10px] text-[var(--color-text-muted)]">
-                              {KIND_LABELS[item.kind]}
-                            </span>
-                          </button>
-                        </li>
-                      </React.Fragment>
-                    )
-                  })
-                )}
-              </ul>
+                            >
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate">{item.label}</span>
+                                {item.sublabel && (
+                                  <span className="block truncate text-[11px] text-[var(--color-text-muted)]">
+                                    {item.sublabel}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="shrink-0 rounded-full border border-[var(--color-border-subtle)] px-2 py-0.5 text-[10px] text-[var(--color-text-muted)]">
+                                {KIND_LABELS[item.kind]}
+                              </span>
+                            </button>
+                          </li>
+                        </React.Fragment>
+                      )
+                    })
+                  )}
+                </ul>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </header>
   )
 }

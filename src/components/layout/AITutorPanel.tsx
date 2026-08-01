@@ -8,7 +8,6 @@ import {
   BrainCircuit,
   FileCode,
   Send,
-  Loader2,
   Plus,
   Trash2,
   History,
@@ -24,6 +23,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'motion/react'
+import { Button, EmptyState, IconButton, Markdown, Spinner, Textarea } from '@/components/ui'
 import { useChatStore, initChatStreaming } from '@/stores/chatStore'
 import { getSendCategories, getLlmExtractEnabled } from '@/services/memoryService'
 import {
@@ -33,7 +33,6 @@ import {
   useAppStore,
   type AIContextSnapshot,
 } from '@/store'
-import { renderMarkdown } from '@/utils/markdown'
 import type { ViewType } from '@/types'
 
 // 当前页面 -> 中文上下文标签（与 Sidebar 导航保持一致）。
@@ -105,28 +104,28 @@ const PAGE_QUICK_ACTIONS: Partial<Record<ViewType, QuickAction[]>> = {
       label: '规划今天',
       prompt: '请根据当前学习状态，帮我制定今天的学习顺序和时间分配。',
       icon: Target,
-      color: '#F59E0B',
+      color: 'var(--color-accent-warning)',
     },
     {
       id: 'home-review',
       label: '找薄弱点',
       prompt: '请帮我从最近学习记录中归纳可能的薄弱点，并给出下一步行动。',
       icon: BrainCircuit,
-      color: '#3B82F6',
+      color: 'var(--color-accent-primary)',
     },
     {
       id: 'home-summary',
       label: '总结今日',
       prompt: '请帮我生成一份今日学习总结模板，包含课程、练习、错题和待复习项。',
       icon: ScrollText,
-      color: '#10B981',
+      color: 'var(--color-accent-success)',
     },
     {
       id: 'home-motivate',
       label: '降低选择',
       prompt: '请只告诉我接下来 15 分钟最应该做的一件事，并说明原因。',
       icon: Lightbulb,
-      color: '#8B5CF6',
+      color: 'var(--color-accent-purple)',
     },
   ],
   learn: [
@@ -135,28 +134,28 @@ const PAGE_QUICK_ACTIONS: Partial<Record<ViewType, QuickAction[]>> = {
       label: '解释这一节',
       prompt: '请解释当前课程这一节的核心知识点，并指出最容易误解的地方。',
       icon: BookOpen,
-      color: '#8B5CF6',
+      color: 'var(--color-accent-purple)',
     },
     {
       id: 'learn-practice',
       label: '生成练习题',
       prompt: '请基于当前课程内容生成 3 道递进式小练习，不要直接给答案。',
       icon: FileCode,
-      color: '#10B981',
+      color: 'var(--color-accent-success)',
     },
     {
       id: 'learn-summary',
       label: '总结知识点',
       prompt: '请把当前课程内容整理成适合复习的知识点卡片。',
       icon: ScrollText,
-      color: '#3B82F6',
+      color: 'var(--color-accent-primary)',
     },
     {
       id: 'learn-check',
       label: '检查理解',
       prompt: '请用 5 个问题检查我是否理解当前课程内容，并逐步追问。',
       icon: Lightbulb,
-      color: '#F59E0B',
+      color: 'var(--color-accent-warning)',
     },
   ],
   practice: [
@@ -165,28 +164,28 @@ const PAGE_QUICK_ACTIONS: Partial<Record<ViewType, QuickAction[]>> = {
       label: '给我提示',
       prompt: '请针对当前题目给我一个不剧透完整解法的分阶段提示。',
       icon: Lightbulb,
-      color: '#F59E0B',
+      color: 'var(--color-accent-warning)',
     },
     {
       id: 'practice-complexity',
       label: '分析复杂度',
       prompt: '请分析当前解法可能的时间复杂度和空间复杂度，并提示如何优化。',
       icon: BrainCircuit,
-      color: '#3B82F6',
+      color: 'var(--color-accent-primary)',
     },
     {
       id: 'practice-debug',
       label: '找出错误',
       prompt: '请检查当前代码可能失败的边界情况，并给出最小反例。',
       icon: Bug,
-      color: '#EF4444',
+      color: 'var(--color-accent-danger)',
     },
     {
       id: 'practice-tests',
       label: '生成测试用例',
       prompt: '请为当前题目生成覆盖常规、边界和反例的测试用例。',
       icon: FileCode,
-      color: '#10B981',
+      color: 'var(--color-accent-success)',
     },
   ],
   review: [
@@ -195,28 +194,28 @@ const PAGE_QUICK_ACTIONS: Partial<Record<ViewType, QuickAction[]>> = {
       label: '分析错误原因',
       prompt: '请分析当前错题的错误根因，并指出我应该补的知识点。',
       icon: Bug,
-      color: '#EF4444',
+      color: 'var(--color-accent-danger)',
     },
     {
       id: 'review-similar',
       label: '生成同类题',
       prompt: '请根据当前错题生成 3 道同类训练题，难度逐步增加。',
       icon: FileCode,
-      color: '#10B981',
+      color: 'var(--color-accent-success)',
     },
     {
       id: 'review-plan',
       label: '制定复习计划',
       prompt: '请基于当前错题给我制定 7 天复习计划。',
       icon: RotateCcw,
-      color: '#F59E0B',
+      color: 'var(--color-accent-warning)',
     },
     {
       id: 'review-compare',
       label: '对比正确解法',
       prompt: '请对比我的错误代码和正确思路，指出关键差异。',
       icon: ScrollText,
-      color: '#8B5CF6',
+      color: 'var(--color-accent-purple)',
     },
   ],
   workspace: [
@@ -225,28 +224,28 @@ const PAGE_QUICK_ACTIONS: Partial<Record<ViewType, QuickAction[]>> = {
       label: '解释当前文件',
       prompt: '请解释当前文件的结构、核心逻辑和关键函数。',
       icon: FileCode,
-      color: '#6366F1',
+      color: 'var(--color-accent-purple)',
     },
     {
       id: 'workspace-optimize',
       label: '优化当前函数',
       prompt: '请优化当前代码的可读性、性能和边界处理，并说明改动原因。',
       icon: Sparkles,
-      color: '#8B5CF6',
+      color: 'var(--color-accent-purple)',
     },
     {
       id: 'workspace-bugs',
       label: '查找潜在 bug',
       prompt: '请审查当前代码，优先找出潜在 bug、边界条件和异常路径。',
       icon: Bug,
-      color: '#EF4444',
+      color: 'var(--color-accent-danger)',
     },
     {
       id: 'workspace-tests',
       label: '生成单元测试',
       prompt: '请为当前代码生成单元测试，覆盖正常输入、边界输入和失败路径。',
       icon: ShieldCheck,
-      color: '#10B981',
+      color: 'var(--color-accent-success)',
     },
   ],
   knowledge: [
@@ -255,28 +254,28 @@ const PAGE_QUICK_ACTIONS: Partial<Record<ViewType, QuickAction[]>> = {
       label: '生成知识卡',
       prompt: '请把当前知识内容整理成一张复习卡片，包含概念、例子和易错点。',
       icon: ScrollText,
-      color: '#8B5CF6',
+      color: 'var(--color-accent-purple)',
     },
     {
       id: 'knowledge-map',
       label: '梳理图谱',
       prompt: '请把当前知识点和相关前置/后续知识整理成文字版知识图谱。',
       icon: BrainCircuit,
-      color: '#3B82F6',
+      color: 'var(--color-accent-primary)',
     },
     {
       id: 'knowledge-quiz',
       label: '生成自测',
       prompt: '请根据当前知识库内容生成 5 个自测问题。',
       icon: Lightbulb,
-      color: '#F59E0B',
+      color: 'var(--color-accent-warning)',
     },
     {
       id: 'knowledge-note',
       label: '整理笔记',
       prompt: '请把我接下来提供的材料整理成结构化学习笔记。',
       icon: BookOpen,
-      color: '#10B981',
+      color: 'var(--color-accent-success)',
     },
   ],
 }
@@ -285,22 +284,28 @@ const DEFAULT_QUICK_ACTIONS: QuickAction[] = [
   {
     id: 'fallback-code',
     icon: FileCode,
-    color: '#6366F1',
+    color: 'var(--color-accent-purple)',
     label: '解释这段代码',
     prompt: '解释这段代码',
   },
-  { id: 'fallback-debug', icon: Bug, color: '#EF4444', label: '帮我调试', prompt: '帮我调试' },
+  {
+    id: 'fallback-debug',
+    icon: Bug,
+    color: 'var(--color-accent-danger)',
+    label: '帮我调试',
+    prompt: '帮我调试',
+  },
   {
     id: 'fallback-practice',
     icon: BookOpen,
-    color: '#F59E0B',
+    color: 'var(--color-accent-warning)',
     label: '出一道练习题',
     prompt: '出一道练习题',
   },
   {
     id: 'fallback-summary',
     icon: MessageSquare,
-    color: '#10B981',
+    color: 'var(--color-accent-success)',
     label: '总结知识点',
     prompt: '总结知识点',
   },
@@ -314,11 +319,52 @@ const KIND_LABELS: Record<AIContextSnapshot['kind'], string> = {
   knowledge: '知识文档',
 }
 
+// 助手消息 Markdown 统一走 ui Markdown（variant="ai" 自动挂 ai-markdown 钩子类）。
 function AssistantMarkdown({ content }: { content: string }) {
-  return (
-    <div className="ai-markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }} />
-  )
+  return <Markdown content={content} variant="ai" />
 }
+
+interface MessageBubbleProps {
+  message: { id: string; role: 'user' | 'assistant' | 'system'; content: string }
+  index: number
+  isStreamingMsg: boolean
+}
+
+// 气泡级 memo：流式 chunk 只更新最后一条消息，未变化的历史气泡整体跳过重渲染
+// （Markdown 内部还带 60ms 防抖，进一步收敛昂贵的 markdown 重算）。
+const MessageBubble = React.memo(function MessageBubble({
+  message,
+  index,
+  isStreamingMsg,
+}: MessageBubbleProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.05 * Math.min(index, 5) }}
+      className={cn('flex', message.role === 'user' ? 'justify-end' : 'justify-start')}
+    >
+      {message.role === 'user' ? (
+        <div className="bg-[var(--color-accent-solid)] text-[var(--color-on-accent)] px-4 py-2.5 rounded-2xl rounded-tr-sm max-w-[85%] text-sm leading-relaxed shadow-sm">
+          {message.content}
+        </div>
+      ) : (
+        <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] text-[var(--color-text-primary)] px-4 py-3.5 rounded-2xl rounded-tl-sm max-w-[90%] text-sm leading-relaxed shadow-sm">
+          {message.content ? (
+            <>
+              <AssistantMarkdown content={message.content} />
+              {isStreamingMsg && (
+                <span className="inline-block w-1.5 h-4 bg-[var(--color-accent-purple)] ml-0.5 animate-pulse rounded-sm align-text-bottom" />
+              )}
+            </>
+          ) : (
+            <Spinner size="sm" className="text-[var(--color-accent-purple)]" />
+          )}
+        </div>
+      )}
+    </motion.div>
+  )
+})
 
 // 把教学模式 + 当前 AI 上下文（题目/代码/错题）组装为提问前缀，让对话结合上下文而非孤立聊天。
 function buildContextPrefix(
@@ -426,9 +472,21 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
     latestPanelWidthRef.current = aiPanelWidth || AI_PANEL_DEFAULT_WIDTH
   }, [aiPanelWidth])
 
-  // Auto-scroll to bottom when messages or streaming content change.
+  // rAF 节流的自动滚动：流式 chunk 期间每秒 ~60 帧结算一次，避免每次 chunk
+  // 都触发 smooth scrollIntoView（会互相打断动画、画面抖动）。
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    let raf = 0
+    const scrollToEnd = () => {
+      raf = 0
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(scrollToEnd)
+    }
+    schedule()
+    return () => {
+      if (raf) cancelAnimationFrame(raf)
+    }
   }, [messages, streamingContent])
 
   // Auto-resize textarea.
@@ -589,7 +647,7 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
       label: p.name,
       prompt: p.prompt,
       icon: Zap,
-      color: '#8B5CF6',
+      color: 'var(--color-accent-purple)',
     }))
     return [...pageActions, ...presetActions]
   }, [currentView, presets])
@@ -621,7 +679,7 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
         className={cn(
           'relative w-full flex flex-col bg-[var(--color-bg-panel)] border-l border-[var(--color-border-subtle)] h-full overflow-hidden shadow-2xl shadow-black/35',
           isResizing &&
-            'border-l-[var(--color-accent-purple)] shadow-[0_0_0_1px_rgba(139,92,246,0.35),-20px_0_60px_rgba(0,0,0,0.45)]',
+            'border-l-[var(--color-accent-purple)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-accent-purple)_35%,transparent),-20px_0_60px_rgba(0,0,0,0.45)]',
         )}
       >
         <div
@@ -647,27 +705,26 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
         <div className="h-14 flex items-center justify-between px-4 border-b border-[var(--color-border-subtle)] flex-shrink-0">
           <div className="flex items-center gap-2">
             <Sparkles size={18} className="text-[var(--color-accent-purple)]" />
-            <h2 className="font-semibold text-white">AI Tutor</h2>
+            <h2 className="font-semibold text-[var(--color-text-primary)]">AI Tutor</h2>
           </div>
           <div className="flex items-center gap-1 text-[var(--color-text-muted)]">
             {/* 会话管理下拉 */}
             <div className="relative" ref={sessionMenuRef}>
-              <button
+              <IconButton
+                label="会话列表"
                 onClick={() => setSessionMenuOpen((v) => !v)}
                 className={cn(
-                  'flex items-center gap-0.5 p-1.5 rounded transition-colors hover:bg-[var(--color-bg-hover)] hover:text-white',
-                  sessionMenuOpen && 'bg-[var(--color-bg-hover)] text-white',
+                  'w-auto gap-0.5 px-1.5 [&_svg]:h-4 [&_svg]:w-4',
+                  sessionMenuOpen && 'bg-[var(--color-bg-hover)] text-[var(--color-text-primary)]',
                 )}
-                title="会话列表"
                 aria-haspopup="menu"
                 aria-expanded={sessionMenuOpen}
               >
-                <History size={16} />
+                <History />
                 <ChevronDown
-                  size={12}
-                  className={cn('transition-transform', sessionMenuOpen && 'rotate-180')}
+                  className={cn('!h-3 !w-3 transition-transform', sessionMenuOpen && 'rotate-180')}
                 />
-              </button>
+              </IconButton>
 
               <AnimatePresence>
                 {sessionMenuOpen && (
@@ -683,15 +740,17 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
                       <span className="text-xs font-medium text-[var(--color-text-secondary)]">
                         会话
                       </span>
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={handleNewSession}
                         disabled={streaming}
-                        className="flex items-center gap-1 text-xs text-[var(--color-accent-purple)] hover:text-[#A78BFA] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        className="h-7 gap-1 px-1.5 text-xs text-[var(--color-accent-purple)] hover:text-[var(--color-accent-purple)]"
                         title="新建对话"
                       >
                         <Plus size={14} />
                         新建
-                      </button>
+                      </Button>
                     </div>
 
                     <div className="flex-1 overflow-y-auto py-1 custom-scrollbar">
@@ -705,12 +764,16 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
                           return (
                             <div
                               key={session.id}
-                              onClick={() => handleSwitchSession(session.id)}
+                              onClick={() => {
+                                if (streaming) return
+                                handleSwitchSession(session.id)
+                              }}
                               className={cn(
                                 'group flex items-center gap-2 mx-1 px-2.5 py-2 rounded-lg cursor-pointer transition-colors',
+                                streaming && 'cursor-not-allowed opacity-50',
                                 isActive
-                                  ? 'bg-[var(--color-accent-purple)]/15 text-white'
-                                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-white',
+                                  ? 'bg-[var(--color-accent-purple)]/15 text-[var(--color-text-primary)]'
+                                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]',
                               )}
                               role="menuitem"
                             >
@@ -726,13 +789,14 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
                               <span className="flex-1 truncate text-sm">
                                 {session.title || '未命名会话'}
                               </span>
-                              <button
+                              <IconButton
+                                label="删除会话"
+                                size="sm"
                                 onClick={(e) => handleDeleteSession(e, session.id)}
-                                className="shrink-0 p-1 rounded text-[var(--color-text-muted)] opacity-0 group-hover:opacity-100 hover:text-[#EF4444] hover:bg-[#EF4444]/10 transition-all"
-                                title="删除会话"
+                                className="opacity-0 group-hover:opacity-100 hover:text-[var(--color-accent-danger)] hover:bg-[var(--color-accent-danger)]/10"
                               >
-                                <Trash2 size={13} />
-                              </button>
+                                <Trash2 />
+                              </IconButton>
                             </div>
                           )
                         })
@@ -743,13 +807,9 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
               </AnimatePresence>
             </div>
 
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-[var(--color-bg-hover)] hover:text-white rounded transition-colors"
-              title="关闭"
-            >
-              <X size={16} />
-            </button>
+            <IconButton label="关闭" onClick={onClose}>
+              <X />
+            </IconButton>
           </div>
         </div>
 
@@ -770,7 +830,7 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
                 <div className="min-w-0">
                   {aiContext ? (
                     <>
-                      <p className="text-sm font-medium text-white truncate">
+                      <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">
                         {KIND_LABELS[aiContext.kind]}：{aiContext.title}
                       </p>
                       <p className="text-xs text-[var(--color-text-muted)] mt-1 truncate">
@@ -781,7 +841,9 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
                     </>
                   ) : (
                     <>
-                      <p className="text-sm font-medium text-white truncate">{contextLabel}</p>
+                      <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">
+                        {contextLabel}
+                      </p>
                       <p className="text-xs text-[var(--color-text-muted)] mt-1">
                         {currentSession
                           ? `会话：${currentSession.title || '未命名会话'}`
@@ -814,8 +876,8 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
                       className={cn(
                         'h-9 rounded-lg border flex flex-col items-center justify-center gap-0.5 transition-colors',
                         active
-                          ? 'border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/15 text-white'
-                          : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] text-[var(--color-text-muted)] hover:text-white hover:border-[var(--color-border-default)]',
+                          ? 'border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/15 text-[var(--color-text-primary)]'
+                          : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-border-default)]',
                       )}
                       title={meta.label}
                     >
@@ -836,7 +898,7 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
                 'px-4 py-3 text-sm font-medium transition-colors',
                 activeTab === 'chat'
                   ? 'text-[var(--color-accent-purple)] border-b-2 border-[var(--color-accent-purple)]'
-                  : 'text-[var(--color-text-muted)] hover:text-white',
+                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]',
               )}
             >
               对话
@@ -847,7 +909,7 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
                 'px-4 py-3 text-sm font-medium transition-colors',
                 activeTab === 'actions'
                   ? 'text-[var(--color-accent-purple)] border-b-2 border-[var(--color-accent-purple)]'
-                  : 'text-[var(--color-text-muted)] hover:text-white',
+                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]',
               )}
             >
               快捷操作
@@ -860,18 +922,13 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
               {/* Loading state */}
               {loading && messages.length === 0 && (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 size={20} className="animate-spin text-[var(--color-accent-purple)]" />
+                  <Spinner size="md" className="text-[var(--color-accent-purple)]" />
                 </div>
               )}
 
               {/* Empty state */}
               {!loading && messages.length === 0 && !streamingContent && (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <Sparkles size={28} className="text-[var(--color-accent-purple)] mb-3" />
-                  <p className="text-sm text-[var(--color-text-muted)]">
-                    向 AI 导师提问，获取编程帮助
-                  </p>
-                </div>
+                <EmptyState icon={Sparkles} title="向 AI 导师提问，获取编程帮助" className="py-8" />
               )}
 
               {/* Messages（助手消息随流式 chunk 在 messages 内增长） */}
@@ -879,35 +936,12 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
                 const isLast = idx === messages.length - 1
                 const isStreamingMsg = streaming && isLast && msg.role === 'assistant'
                 return (
-                  <motion.div
+                  <MessageBubble
                     key={msg.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.05 * Math.min(idx, 5) }}
-                    className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}
-                  >
-                    {msg.role === 'user' ? (
-                      <div className="bg-[var(--color-accent-solid)] text-[var(--color-on-accent)] px-4 py-2.5 rounded-2xl rounded-tr-sm max-w-[85%] text-sm leading-relaxed shadow-sm">
-                        {msg.content}
-                      </div>
-                    ) : (
-                      <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] text-[#E5E7EB] px-4 py-3.5 rounded-2xl rounded-tl-sm max-w-[90%] text-sm leading-relaxed shadow-sm">
-                        {msg.content ? (
-                          <>
-                            <AssistantMarkdown content={msg.content} />
-                            {isStreamingMsg && (
-                              <span className="inline-block w-1.5 h-4 bg-[var(--color-accent-purple)] ml-0.5 animate-pulse rounded-sm align-text-bottom" />
-                            )}
-                          </>
-                        ) : (
-                          <Loader2
-                            size={16}
-                            className="animate-spin text-[var(--color-accent-purple)]"
-                          />
-                        )}
-                      </div>
-                    )}
-                  </motion.div>
+                    message={msg}
+                    index={idx}
+                    isStreamingMsg={isStreamingMsg}
+                  />
                 )
               })}
 
@@ -940,7 +974,7 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
 
               {/* Error display */}
               {error && (
-                <div className="text-xs text-[#EF4444] bg-[#EF4444]/10 rounded-lg px-3 py-2">
+                <div className="text-xs text-[var(--color-accent-danger)] bg-[var(--color-accent-danger)]/10 rounded-lg px-3 py-2">
                   {error}
                 </div>
               )}
@@ -981,8 +1015,8 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
                     className={cn(
                       'w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors',
                       i === 0
-                        ? 'bg-[var(--color-bg-hover)] text-white'
-                        : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-white',
+                        ? 'bg-[var(--color-bg-hover)] text-[var(--color-text-primary)]'
+                        : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]',
                     )}
                   >
                     <action.icon size={14} style={{ color: action.color }} className="shrink-0" />
@@ -991,13 +1025,13 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
                 ))}
               </div>
             )}
-            <textarea
+            <Textarea
               ref={textareaRef}
               rows={1}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               placeholder="向 AI 提问，或输入 / 选择快捷操作"
-              className="flex-1 max-h-32 min-h-[24px] bg-transparent text-sm text-white resize-none outline-none placeholder-[var(--color-text-muted)] py-1 px-1 custom-scrollbar"
+              className="flex-1 max-h-32 min-h-[24px] resize-none border-0 bg-transparent py-1 px-1 focus:border-transparent focus:ring-0 custom-scrollbar"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
@@ -1015,23 +1049,16 @@ export function AITutorPanel({ onClose }: { onClose?: () => void }) {
               disabled={streaming}
             />
             <div className="flex items-center gap-1.5 pb-1 shrink-0">
-              <button
+              <Button
                 onClick={handleSend}
                 disabled={!inputValue.trim() || streaming}
-                className={cn(
-                  'w-8 h-8 flex items-center justify-center rounded-lg transition-all shadow-sm',
-                  inputValue.trim() && !streaming
-                    ? 'bg-[var(--color-accent-solid)] hover:bg-[var(--color-accent-solid-hover)] active:scale-90 text-[var(--color-on-accent)]'
-                    : 'bg-[var(--color-bg-card)] text-[var(--color-text-muted)] cursor-not-allowed',
-                )}
+                loading={streaming}
+                size="sm"
+                className="w-8 px-0"
                 title="发送 (Enter)"
               >
-                {streaming ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Send size={14} className="ml-0.5" />
-                )}
-              </button>
+                {!streaming && <Send size={14} className="ml-0.5" />}
+              </Button>
             </div>
           </div>
         </div>

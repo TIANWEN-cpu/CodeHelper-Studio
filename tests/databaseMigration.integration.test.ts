@@ -289,4 +289,54 @@ describe('application v1 to v2 SQLite startup migration', () => {
       unchanged.close()
     }
   })
+
+  it('skips the pre-migration backup on restart when the schema fingerprint matches', () => {
+    const first = getDB()
+    expect(first.pragma('quick_check', { simple: true })).toBe('ok')
+    expect(
+      first
+        .prepare("SELECT schema_hash FROM schema_migrations WHERE component = 'application'")
+        .pluck()
+        .get(),
+    ).toEqual(expect.stringMatching(/^[a-f0-9]{64}$/))
+
+    closeDB()
+    __resetDBForTesting()
+    getDB()
+
+    // 指纹一致且版本一致：不应再次创建迁移前备份。
+    expect(getDatabaseStartupStatus().migrationBackupPath).toBeNull()
+  })
+
+  it('triggers a verified pre-migration backup when the recorded schema hash differs at the same version', () => {
+    const first = getDB()
+    first
+      .prepare("UPDATE schema_migrations SET schema_hash = ? WHERE component = 'application'")
+      .run('f'.repeat(64))
+    expect(
+      first
+        .prepare("SELECT version FROM schema_migrations WHERE component = 'application'")
+        .pluck()
+        .get(),
+    ).toBe(APPLICATION_SCHEMA_VERSION)
+
+    closeDB()
+    __resetDBForTesting()
+    getDB()
+
+    // 版本计数器未变，但指纹不同（相当于发布改了 schema 忘了递增版本号）。
+    const startup = getDatabaseStartupStatus()
+    expect(startup.initialized).toBe(true)
+    expect(startup.migrationBackupPath).toBeTruthy()
+
+    const backup = new Database(startup.migrationBackupPath!, {
+      readonly: true,
+      fileMustExist: true,
+    })
+    try {
+      expect(backup.pragma('quick_check', { simple: true })).toBe('ok')
+    } finally {
+      backup.close()
+    }
+  })
 })

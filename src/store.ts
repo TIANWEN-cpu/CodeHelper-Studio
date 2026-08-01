@@ -196,8 +196,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   setAIContext: (ctx) =>
     set((state) => {
-      if (ctx) return { aiContext: ctx }
-      if (state.currentView === 'ai-tutor' || state.showAITutor) return {}
+      if (ctx) {
+        const previous = state.aiContext
+        if (
+          previous &&
+          previous.kind === ctx.kind &&
+          previous.title === ctx.title &&
+          previous.language === ctx.language &&
+          previous.code === ctx.code &&
+          previous.detail === ctx.detail
+        ) {
+          return state
+        }
+        return { aiContext: ctx }
+      }
+      if (state.currentView === 'ai-tutor' || state.showAITutor) return state
       return { aiContext: null }
     }),
   requestAIChat: (display, send) => set({ pendingAIPrompt: { display, send }, showAITutor: true }),

@@ -21,20 +21,19 @@
 
 | 工具     | 版本要求                | 说明              |
 | -------- | ----------------------- | ----------------- |
-| Node.js  | >= 18                   | 推荐使用 LTS 版本 |
-| npm      | >= 9                    | 随 Node.js 安装   |
+| Node.js  | >= 20.19 / 22.13+ LTS   | 推荐使用 LTS 版本 |
+| npm      | >= 10                   | 随 Node.js 安装   |
 | Git      | >= 2.30                 | 版本管理          |
 | 操作系统 | Windows / macOS / Linux | 均可开发          |
 
 ### 可选依赖（代码运行器功能）
 
-| 语言       | 依赖                   | 安装说明                                                                      |
-| ---------- | ---------------------- | ----------------------------------------------------------------------------- |
-| Python     | `python` >= 3.8        | [python.org](https://www.python.org/downloads/)                               |
-| C / C++    | `gcc` / `g++`          | Windows: MinGW-w64; macOS: `xcode-select --install`; Linux: `build-essential` |
-| Java       | `javac` / `java` >= 11 | [Adoptium](https://adoptium.net/)                                             |
-| C#         | `dotnet` >= 6          | [dotnet.microsoft.com](https://dotnet.microsoft.com/download)                 |
-| JavaScript | `node`                 | 已随 Node.js 安装                                                             |
+| 语言       | 依赖            | 安装说明                                                                      |
+| ---------- | --------------- | ----------------------------------------------------------------------------- |
+| Python     | `python` >= 3.8 | [python.org](https://www.python.org/downloads/)                               |
+| C / C++    | `gcc` / `g++`   | Windows: MinGW-w64; macOS: `xcode-select --install`; Linux: `build-essential` |
+| C#         | `dotnet` >= 6   | [dotnet.microsoft.com](https://dotnet.microsoft.com/download)                 |
+| JavaScript | `node`          | 已随 Node.js 安装                                                             |
 
 > 未安装对应编译器的语言仍可正常使用其他功能，仅代码运行器会提示找不到命令。
 
@@ -53,8 +52,8 @@
 
 ```bash
 # 1. Fork 并克隆仓库
-git clone https://github.com/<你的用户名>/CodeHelper.git
-cd CodeHelper
+git clone https://github.com/TIANWEN-cpu/CodeHelper-Studio.git
+cd CodeHelper-Studio
 
 # 2. 安装依赖
 npm install
@@ -208,12 +207,14 @@ npm run format     # 手动格式化
 
 ### 覆盖率要求
 
-| 指标       | 最低阈值 |
-| ---------- | -------- |
-| Statements | 80%      |
-| Branches   | 70%      |
-| Functions  | 80%      |
-| Lines      | 80%      |
+| 指标       | CI 强制门槛 | 最近一次发布实测 |
+| ---------- | ----------- | ---------------- |
+| Statements | 57%         | 73.06%           |
+| Branches   | 57%         | 68.38%           |
+| Functions  | 57%         | 79.17%           |
+| Lines      | 57%         | 75.48%           |
+
+门槛由 `vitest.config.ts` 的 coverage.thresholds 强制执行（57/57/57/57），提交时不应低于当前实测水平。
 
 ### 测试文件约定
 
@@ -250,13 +251,12 @@ describe('myFunction', () => {
 
 ### 分支策略
 
-| 分支       | 用途         |
-| ---------- | ------------ |
-| `main`     | 稳定发布分支 |
-| `dev`      | 开发集成分支 |
-| `feat/xxx` | 功能开发     |
-| `fix/xxx`  | Bug 修复     |
-| `docs/xxx` | 文档更新     |
+| 分支       | 用途                                   |
+| ---------- | -------------------------------------- |
+| `master`   | 稳定发布分支（唯一远程分支，默认分支） |
+| `feat/xxx` | 功能开发                               |
+| `fix/xxx`  | Bug 修复                               |
+| `docs/xxx` | 文档更新                               |
 
 ### Commit 规范
 
@@ -283,7 +283,7 @@ chore(deps): 升级 electron 到 v41
 
 ## Pull Request 流程
 
-1. Fork 仓库并从 `dev` 分支创建功能分支
+1. Fork 仓库并从 `master` 分支创建功能分支
 2. 完成开发后确保所有检查通过
 3. 推送分支并创建 Pull Request
 4. 在 PR 描述中说明：
@@ -303,7 +303,7 @@ chore(deps): 升级 electron 到 v41
 
 ---
 
-如有其他问题，欢迎在 [GitHub Issues](https://github.com/TIANWEN-cpu/CodeHelper/issues) 中提问。
+如有其他问题，欢迎在 [GitHub Issues](https://github.com/TIANWEN-cpu/CodeHelper-Studio/issues) 中提问。
 
 ---
 

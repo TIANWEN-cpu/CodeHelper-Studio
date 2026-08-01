@@ -10,8 +10,8 @@
 
 ```bash
 # Fork 并克隆仓库
-git clone https://github.com/<your-username>/CodeHelper.git
-cd CodeHelper
+git clone https://github.com/TIANWEN-cpu/CodeHelper-Studio.git
+cd CodeHelper-Studio
 
 # 安装依赖
 npm install
@@ -168,8 +168,8 @@ perf(db): 优化查询性能，添加索引
 ### 发布流程
 
 1. 更新 `CHANGELOG.md`
-2. 运行 `npm run release:patch/minor/major`
-3. 推送标签触发 CI 自动发布
+2. 运行版本脚本（如 `npm run release:patch`；脚本仅执行 `scripts/version-bump.js` 提升版本并触发 Windows 构建，不会自动提交、打 tag 或发布）
+3. 手动创建与 `package.json` 完全一致的 `vMAJOR.MINOR.PATCH` tag 并推送；tag 推送触发 CI 自动构建与发布，完整门禁见[发布与回滚清单](release-checklist.md)与[构建与发布](deployment.md)
 
 ### 依赖更新
 
@@ -186,7 +186,7 @@ npm install package@latest
 
 ### 分支保护
 
-`main` 分支设置了保护规则：
+`master` 分支设置了保护规则：
 
 - 需要 PR 才能合并
 - 需要 CI 通过

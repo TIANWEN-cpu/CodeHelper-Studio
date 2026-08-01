@@ -309,6 +309,36 @@ describe('editorStore', () => {
       expect(useEditorStore.getState().restoreStatus).toBe('recovered')
     })
 
+    it('skips rewriting the recovery log when the tab content is unchanged', () => {
+      const { setItem } = installStorage()
+      const recoveryWrites = () =>
+        setItem.mock.calls.filter(([key]) => (key as string).startsWith(EDITOR_RECOVERY_KEY_PREFIX))
+          .length
+
+      useEditorStore.getState().updateContent('welcome', 'same content')
+      expect(recoveryWrites()).toBe(1)
+
+      useEditorStore.getState().updateContent('welcome', 'same content')
+      useEditorStore.getState().updateContent('welcome', 'same content')
+      expect(recoveryWrites()).toBe(1)
+
+      useEditorStore.getState().updateContent('welcome', 'changed content')
+      expect(recoveryWrites()).toBe(2)
+    })
+
+    it('notifies subscribers exactly once per cursor and scroll update', () => {
+      installStorage()
+      const listener = vi.fn()
+      const unsubscribe = useEditorStore.subscribe(listener)
+
+      useEditorStore.getState().updateCursorPosition('welcome', 3, 5)
+      expect(listener).toHaveBeenCalledTimes(1)
+      useEditorStore.getState().updateScrollTop('welcome', 120)
+      expect(listener).toHaveBeenCalledTimes(2)
+
+      unsubscribe()
+    })
+
     it('uses content-free view recovery for file, problem, and exercise tabs', () => {
       const { values } = installStorage()
       const cases = [

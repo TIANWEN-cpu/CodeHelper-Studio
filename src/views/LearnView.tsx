@@ -20,7 +20,17 @@ import { useLearnData } from '@/hooks/useLearnData'
 import { getLessonProgress } from '@/services/learnService'
 import { consumePendingDeepLink, subscribeDeepLink } from '@/lib/deepLink'
 import { recordRecent } from '@/lib/recentItems'
-import { renderMarkdown } from '@/utils/markdown'
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  IconButton,
+  Input,
+  Markdown,
+  Spinner,
+  Textarea,
+} from '@/components/ui'
 import aiTutorIcon from '@/assets/generated/course-icons/ai-tutor.webp'
 import algorithmsIcon from '@/assets/generated/course-icons/algorithms.webp'
 import cIcon from '@/assets/generated/course-icons/c.webp'
@@ -66,7 +76,7 @@ function TrackIcon({
     <div
       className={cn(
         dim,
-        'flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--color-bg-base)] ring-1 ring-[var(--color-border-default)] shadow-[0_12px_30px_rgba(0,0,0,0.22)]',
+        'flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--color-bg-base)] ring-1 ring-[var(--color-border-default)] shadow-[var(--shadow-card)]',
       )}
     >
       {imageSrc ? (
@@ -84,7 +94,7 @@ function LessonStatusIcon({ isActive, isCompleted }: { isActive: boolean; isComp
     return (
       <CheckCircle2
         size={14}
-        className="text-[#10B981] group-hover:scale-110 transition-transform"
+        className="text-[var(--color-accent-success)] group-hover:scale-110 transition-transform"
       />
     )
   }
@@ -97,14 +107,6 @@ function LessonStatusIcon({ isActive, isCompleted }: { isActive: boolean; isComp
     )
   }
   return <Circle size={14} className="text-[var(--color-text-muted)]" />
-}
-
-/** Safe markdown renderer for lesson content. */
-function MarkdownContent({ markdown }: { markdown: string }) {
-  if (!markdown) return null
-  const html = renderMarkdown(markdown)
-
-  return <div className="learn-markdown" dangerouslySetInnerHTML={{ __html: html }} />
 }
 
 export function LearnView() {
@@ -361,31 +363,7 @@ export function LearnView() {
   }, [selectedLessonId, markCompleted, activeTrack])
 
   return (
-    <div className="h-full flex flex-col bg-[var(--color-bg-base)] overflow-hidden">
-      <style>{`
-        .learn-markdown h1 { font-size: 1.875rem; font-weight: 700; color: white; margin-bottom: 1rem; }
-        .learn-markdown h2 { font-size: 1.25rem; font-weight: 700; color: white; margin-bottom: 1rem; margin-top: 2rem; }
-        .learn-markdown h3 { font-size: 1.125rem; font-weight: 600; color: white; margin-bottom: 0.75rem; margin-top: 1.5rem; }
-        .learn-markdown p { color: var(--color-text-secondary); line-height: 1.75; font-size: 15px; margin-bottom: 1rem; }
-        .learn-markdown ul, .learn-markdown ol { color: var(--color-text-secondary); padding-left: 1.5rem; margin-bottom: 1rem; }
-        .learn-markdown li { margin-bottom: 0.5rem; line-height: 1.75; font-size: 15px; }
-        .learn-markdown ul { list-style-type: disc; }
-        .learn-markdown ol { list-style-type: decimal; }
-        .learn-markdown code { color: #8B5CF6; background: rgba(139,92,246,0.1); padding: 0.125rem 0.375rem; border-radius: 0.25rem; font-size: 0.875rem; font-family: monospace; }
-        .learn-markdown pre { background: #1C2030; border: 1px solid var(--color-border-subtle); border-radius: 0.75rem; overflow: hidden; margin-bottom: 1rem; }
-        .learn-markdown pre code { color: #E5E7EB; background: transparent; padding: 1rem; display: block; overflow-x: auto; font-size: 0.875rem; line-height: 1.75; }
-        .learn-markdown blockquote { border-left: 3px solid #8B5CF6; padding: 1rem 1.25rem; margin: 1rem 0; background: rgba(139,92,246,0.05); border-radius: 0 0.5rem 0.5rem 0; }
-        .learn-markdown blockquote p { margin-bottom: 0; }
-        .learn-markdown strong { color: white; font-weight: 600; }
-        .learn-markdown a { color: #8B5CF6; text-decoration: underline; }
-        .learn-markdown hr { border: none; border-top: 1px solid var(--color-border-subtle); margin: 2rem 0; }
-        .learn-markdown table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
-        .learn-markdown th, .learn-markdown td { border: 1px solid var(--color-border-subtle); padding: 0.5rem 0.75rem; text-align: left; font-size: 14px; }
-        .learn-markdown th { background: var(--color-bg-base); color: white; font-weight: 600; }
-        .learn-markdown td { color: var(--color-text-secondary); }
-        .learn-markdown img { max-width: 100%; border-radius: 0.5rem; margin: 1rem 0; }
-      `}</style>
-
+    <div className="h-full flex flex-col overflow-hidden">
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -402,20 +380,19 @@ export function LearnView() {
               transition={{ duration: 0.3, ease: 'easeInOut' }}
               className="shrink-0 overflow-hidden"
             >
-              <div className="surface-card flex flex-col min-h-0 bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl overflow-hidden h-full w-[320px]">
+              <Card
+                padding="none"
+                className="surface-card flex flex-col min-h-0 bg-[var(--color-bg-panel)] overflow-hidden h-full w-[320px]"
+              >
                 {/* Header */}
                 <div className="p-4 border-b border-[var(--color-border-subtle)] relative">
                   <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-1 text-[var(--color-text-secondary)] text-sm">
                       <BookOpen size={16} /> 课程目录
                     </div>
-                    <button
-                      onClick={() => setNavCollapsed(true)}
-                      className="p-1 hover:bg-[var(--color-bg-hover)] rounded text-[var(--color-text-muted)] hover:text-white"
-                      title="收起目录"
-                    >
+                    <IconButton label="收起目录" size="sm" onClick={() => setNavCollapsed(true)}>
                       <PanelLeftClose size={16} />
-                    </button>
+                    </IconButton>
                   </div>
 
                   <div className="flex items-start gap-4 mb-4">
@@ -426,7 +403,7 @@ export function LearnView() {
                       size="large"
                     />
                     <div>
-                      <h2 className="font-bold text-white text-[15px]">
+                      <h2 className="font-bold text-[var(--color-text-primary)] text-[15px]">
                         {activeTrack?.title || '加载中...'}
                       </h2>
                       <div className="flex items-center gap-2 mt-1 w-[160px]">
@@ -455,8 +432,8 @@ export function LearnView() {
                           className={cn(
                             'flex min-w-0 items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-[11px] font-medium leading-snug transition-colors',
                             active
-                              ? 'border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/15 text-white'
-                              : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] text-[var(--color-text-muted)] hover:border-[var(--color-accent-purple)]/60 hover:text-white',
+                              ? 'border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/15 text-[var(--color-text-primary)]'
+                              : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] text-[var(--color-text-muted)] hover:border-[var(--color-accent-purple)]/60 hover:text-[var(--color-text-primary)]',
                           )}
                           aria-pressed={active}
                         >
@@ -478,7 +455,7 @@ export function LearnView() {
                         <Layers3 size={11} />
                         模块
                       </div>
-                      <div className="mt-1 text-sm font-semibold text-white">
+                      <div className="mt-1 text-sm font-semibold text-[var(--color-text-primary)]">
                         {activeTrack?.modules.length || 0}
                       </div>
                     </div>
@@ -487,7 +464,9 @@ export function LearnView() {
                         <Timer size={11} />
                         课时
                       </div>
-                      <div className="mt-1 text-sm font-semibold text-white">{totalLessons}</div>
+                      <div className="mt-1 text-sm font-semibold text-[var(--color-text-primary)]">
+                        {totalLessons}
+                      </div>
                     </div>
                   </div>
 
@@ -496,12 +475,12 @@ export function LearnView() {
                       size={14}
                       className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]"
                     />
-                    <input
+                    <Input
                       type="text"
                       value={lessonQuery}
                       onChange={(e) => handleLessonSearchChange(e.target.value)}
                       placeholder="搜索课程、章节、知识点..."
-                      className="w-full bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] rounded-lg pl-8 p-1.5 text-xs text-white placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent-purple)]"
+                      className="pl-8 text-xs"
                     />
                   </div>
                 </div>
@@ -516,12 +495,17 @@ export function LearnView() {
 
                   <div className="space-y-[1px]">
                     {loadingTracks && (
-                      <div className="flex items-center justify-center py-8">
-                        <div className="text-sm text-[var(--color-text-muted)]">加载中...</div>
+                      <div className="flex items-center justify-center gap-2 py-8">
+                        <Spinner size="sm" label="加载课程目录" />
+                        <span className="text-sm text-[var(--color-text-muted)]">加载中...</span>
                       </div>
                     )}
 
-                    {error && <div className="px-4 py-4 text-sm text-red-400">{error}</div>}
+                    {error && (
+                      <div className="px-4 py-4 text-sm text-[var(--color-accent-danger)]">
+                        {error}
+                      </div>
+                    )}
 
                     {activeTrack?.modules.map((mod) => {
                       const isExpanded = expandedModules.has(mod.id)
@@ -535,7 +519,7 @@ export function LearnView() {
                             onClick={() => toggleModule(mod.id)}
                             className="w-full flex items-center justify-between p-3 hover:bg-[var(--color-bg-hover)] transition-colors"
                           >
-                            <span className="text-sm font-semibold text-white flex items-center gap-2">
+                            <span className="text-sm font-semibold text-[var(--color-text-primary)] flex items-center gap-2">
                               <ChevronDown
                                 size={14}
                                 className={cn(
@@ -581,8 +565,8 @@ export function LearnView() {
                                           className={cn(
                                             'text-sm flex items-center gap-2 transition-colors',
                                             isActive
-                                              ? 'text-white font-medium'
-                                              : 'text-[var(--color-text-secondary)] group-hover:text-white',
+                                              ? 'text-[var(--color-text-primary)] font-medium'
+                                              : 'text-[var(--color-text-secondary)] group-hover:text-[var(--color-text-primary)]',
                                           )}
                                         >
                                           <LessonStatusIcon
@@ -619,20 +603,16 @@ export function LearnView() {
                     })}
                   </div>
                 </div>
-              </div>
+              </Card>
             </motion.div>
           )}
         </AnimatePresence>
 
         {navCollapsed && (
           <div className="flex flex-col shrink-0 gap-2 w-12 items-center z-10 pt-4 bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl relative overflow-hidden">
-            <button
-              onClick={() => setNavCollapsed(false)}
-              className="p-2.5 bg-[var(--color-bg-hover)] rounded-lg text-white hover:bg-white/10 transition-colors"
-              title="展开目录"
-            >
+            <IconButton label="展开目录" variant="outline" onClick={() => setNavCollapsed(false)}>
               <PanelLeft size={16} />
-            </button>
+            </IconButton>
             <div className="h-px bg-[var(--color-border-subtle)] w-8 my-1" />
             <TrackIcon
               trackId={activeTrack?.id}
@@ -644,7 +624,10 @@ export function LearnView() {
         )}
 
         {/* Main Content (Reading Area) */}
-        <div className="surface-card flex-1 min-w-0 flex flex-col bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl overflow-hidden shadow-sm relative">
+        <Card
+          padding="none"
+          className="surface-card flex-1 min-w-0 flex flex-col bg-[var(--color-bg-panel)] overflow-hidden shadow-sm relative"
+        >
           <div className="h-14 flex-shrink-0 flex items-center justify-between px-6 border-b border-[var(--color-border-subtle)]">
             <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
               <span>{breadcrumb?.track || '...'}</span>
@@ -658,38 +641,42 @@ export function LearnView() {
 
             {/* Mark complete button */}
             {currentLesson && !currentLesson.progress?.completed && (
-              <button
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={handleCompleteLesson}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-[#10B981]/10 border border-[#10B981]/30 text-[#10B981] rounded-lg hover:bg-[#10B981]/20 transition-colors"
+                className="border-[var(--color-accent-success)]/30 bg-[var(--color-accent-success)]/10 text-[var(--color-accent-success)] hover:bg-[var(--color-accent-success)]/20"
               >
                 <CheckCircle2 size={14} /> 标记完成
-              </button>
+              </Button>
             )}
             {currentLesson?.progress?.completed && (
-              <span className="flex items-center gap-1.5 text-xs px-3 py-1.5 text-[#10B981]">
+              <Badge variant="success" className="px-3 py-1.5">
                 <CheckCircle2 size={14} /> 已完成
-              </span>
+              </Badge>
             )}
           </div>
 
           <div className="flex-1 overflow-y-auto scroll-smooth p-8">
             <div className="max-w-3xl mx-auto space-y-8">
               {loadingLesson && (
-                <div className="flex items-center justify-center py-16">
-                  <div className="text-sm text-[var(--color-text-muted)]">加载课程内容中...</div>
+                <div className="flex items-center justify-center gap-2 py-16">
+                  <Spinner size="sm" label="加载课程内容" />
+                  <span className="text-sm text-[var(--color-text-muted)]">加载课程内容中...</span>
                 </div>
               )}
 
               {!loadingLesson && !currentLesson && !error && (
-                <div className="flex flex-col items-center justify-center py-16 gap-4 text-[var(--color-text-muted)]">
-                  <BookOpen size={48} className="opacity-30" />
-                  <p className="text-sm">请从左侧目录选择一个课时开始学习</p>
-                </div>
+                <EmptyState
+                  icon={BookOpen}
+                  title="请从左侧目录选择一个课时开始学习"
+                  className="py-16"
+                />
               )}
 
               {error && !loadingLesson && (
                 <div className="flex items-center justify-center py-16">
-                  <div className="text-sm text-red-400">{error}</div>
+                  <div className="text-sm text-[var(--color-accent-danger)]">{error}</div>
                 </div>
               )}
 
@@ -702,7 +689,9 @@ export function LearnView() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.28, ease: 'easeOut' }}
                   >
-                    <h1 className="text-3xl font-bold text-white mb-4">{currentLesson.title}</h1>
+                    <h1 className="text-3xl font-bold text-[var(--color-text-primary)] mb-4">
+                      {currentLesson.title}
+                    </h1>
                   </motion.div>
 
                   {/* Lesson content (Markdown rendered) */}
@@ -712,29 +701,35 @@ export function LearnView() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.34, delay: 0.04, ease: 'easeOut' }}
                   >
-                    <MarkdownContent markdown={currentLesson.markdown} />
+                    {currentLesson.markdown && (
+                      <Markdown content={currentLesson.markdown} variant="learn" />
+                    )}
                   </motion.div>
 
                   {/* Add-note callout */}
-                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 flex gap-3 text-sm text-[var(--color-text-primary)] relative mt-4">
-                    <div className="text-blue-400 mt-0.5">
+                  <div className="bg-[var(--color-accent-primary)]/10 border border-[var(--color-accent-primary)]/20 rounded-lg p-4 flex gap-3 text-sm text-[var(--color-text-primary)] relative mt-4">
+                    <div className="text-[var(--color-accent-primary)] mt-0.5">
                       <Zap size={16} />
                     </div>
                     <div className="flex-1">
-                      <p className="font-semibold text-blue-400 mb-1">学习提示</p>
+                      <p className="font-semibold text-[var(--color-accent-primary)] mb-1">
+                        学习提示
+                      </p>
                       <p className="text-[var(--color-text-secondary)] leading-relaxed">
                         你可以在底部面板的「笔记」标签页中记录学习笔记，支持随时保存和编辑。
                       </p>
                     </div>
-                    <button
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={() => {
                         setConsoleCollapsed(false)
                         setActiveConsoleTab('notes')
                       }}
-                      className="flex items-center gap-1 text-xs px-2 py-1 bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] text-[var(--color-text-muted)] hover:text-white rounded transition-colors"
+                      className="self-start"
                     >
                       <Edit3 size={12} /> 添加笔记
-                    </button>
+                    </Button>
                   </div>
                 </>
               )}
@@ -744,12 +739,14 @@ export function LearnView() {
             <AnimatePresence initial={false}>
               {consoleCollapsed ? (
                 <div className="h-10 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] flex items-center px-4 justify-between shrink-0 shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setConsoleCollapsed(false)}
-                    className="text-xs text-[var(--color-text-muted)] hover:text-white transition-colors flex items-center gap-2"
+                    className="h-7 px-2 text-xs"
                   >
                     <ChevronDown className="rotate-180" size={14} /> 展开控制台
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <motion.div
@@ -774,13 +771,14 @@ export function LearnView() {
                           笔记
                         </button>
                       </div>
-                      <button
+                      <IconButton
+                        label="收起面板"
+                        size="sm"
                         onClick={() => setConsoleCollapsed(true)}
-                        className="text-[var(--color-text-muted)] hover:text-white mb-2"
-                        title="收起面板"
+                        className="mb-2"
                       >
                         <X size={14} />
-                      </button>
+                      </IconButton>
                     </div>
 
                     <div className="p-4 flex-1 overflow-y-auto">
@@ -798,20 +796,22 @@ export function LearnView() {
                                   保存中...
                                 </span>
                               )}
-                              <button
+                              <Button
+                                variant="secondary"
+                                size="sm"
                                 onClick={handleSaveNote}
                                 disabled={!currentLesson || savingNote}
-                                className="flex items-center gap-1 text-xs px-2 py-1 bg-[var(--color-accent-purple)]/10 border border-[var(--color-accent-purple)]/30 text-[var(--color-accent-purple)] rounded hover:bg-[var(--color-accent-purple)]/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="h-7 border-[var(--color-accent-purple)]/30 bg-[var(--color-accent-purple)]/10 text-[var(--color-accent-purple)] hover:bg-[var(--color-accent-purple)]/20"
                               >
                                 <Check size={12} /> 保存笔记
-                              </button>
+                              </Button>
                             </div>
                           </div>
-                          <textarea
+                          <Textarea
                             value={noteText}
                             onChange={(e) => setNoteText(e.target.value)}
                             placeholder="在此输入你的学习笔记..."
-                            className="flex-1 bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-lg p-3 text-sm text-white placeholder-[var(--color-text-muted)] resize-none focus:outline-none focus:border-[var(--color-accent-purple)] font-mono leading-relaxed"
+                            className="min-h-0 flex-1 resize-none font-mono leading-relaxed"
                             disabled={!currentLesson}
                           />
                         </div>
@@ -822,7 +822,7 @@ export function LearnView() {
               )}
             </AnimatePresence>
           </div>
-        </div>
+        </Card>
       </motion.div>
     </div>
   )

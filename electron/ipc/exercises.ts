@@ -176,11 +176,19 @@ function problemToExercise(row: ProblemRow): Exercise {
 
 function listProblemExercises(): Exercise[] {
   const db = getDB()
-  const stats = db.prepare('SELECT COUNT(*) AS count, MAX(id) AS maxId FROM problems').get() as {
+  // problems 没有 updated_at 列。total_changes() 会在当前连接执行任何写入后递增，
+  // 因此同长度内容替换也能可靠失效；额外的无关写入最多带来一次保守重建。
+  const stats = db
+    .prepare(
+      `SELECT COUNT(*) AS count, MAX(id) AS maxId, total_changes() AS totalChanges
+       FROM problems`,
+    )
+    .get() as {
     count: number
     maxId: number | null
+    totalChanges: number
   }
-  const cacheKey = `${stats.count}:${stats.maxId ?? 0}`
+  const cacheKey = `${stats.count}:${stats.maxId ?? 0}:${stats.totalChanges}`
   if (problemExerciseCache && problemExerciseCacheKey === cacheKey) return problemExerciseCache
 
   const rows = db

@@ -74,8 +74,24 @@ function removeStaleMarker(
   path: string,
   options: Required<Pick<AcquireProcessLeaseOptions, 'now' | 'isProcessAlive' | 'staleAfterMs'>>,
 ): boolean {
-  const marker = readMarker(path)
-  if (options.isProcessAlive(marker.pid)) return false
+  // An unreadable marker (zero-byte or partially written file left by a crash
+  // between openSync and the marker write) cannot be owned by a live process;
+  // treat it as stale so the next launch self-heals instead of bricking.
+  let marker: ProcessLeaseMarker | null = null
+  try {
+    marker = readMarker(path)
+  } catch (error) {
+    // A partially written marker may belong to a process that is still
+    // between open() and fsync(). Never delete a recent unreadable marker.
+    try {
+      const ageMs = options.now() - statSync(path).mtimeMs
+      if (!Number.isFinite(ageMs) || ageMs < options.staleAfterMs) return false
+    } catch (statError) {
+      if ((statError as NodeJS.ErrnoException).code !== 'ENOENT') return false
+    }
+    console.warn(`Process lease marker is unreadable, treating it as stale: ${path}`, error)
+  }
+  if (marker !== null && options.isProcessAlive(marker.pid)) return false
 
   const cleanupPath = `${path}.cleanup`
   let cleanupDescriptor: number | null = null
@@ -112,10 +128,28 @@ function removeStaleMarker(
   let cleanupError: unknown
   try {
     closeSync(cleanupDescriptor)
-    const current = readMarker(path)
-    if (current.token === marker.token && !options.isProcessAlive(current.pid)) {
-      unlinkSync(path)
-      removed = true
+    let current: ProcessLeaseMarker | null = null
+    if (marker !== null) {
+      current = readMarker(path)
+    } else {
+      try {
+        current = readMarker(path)
+      } catch {
+        // Still unreadable (or already gone): the partial marker is removed below.
+      }
+    }
+    if (
+      marker === null
+        ? current === null
+        : current !== null && current.token === marker.token && !options.isProcessAlive(current.pid)
+    ) {
+      try {
+        unlinkSync(path)
+        removed = true
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+        removed = true
+      }
     }
   } finally {
     try {
@@ -162,6 +196,13 @@ export function acquireProcessLease(
       if (descriptor !== null) {
         closeSync(descriptor)
         descriptor = null
+        try {
+          unlinkSync(path)
+        } catch (unlinkError) {
+          if ((unlinkError as NodeJS.ErrnoException).code !== 'ENOENT') {
+            console.warn('Failed to remove partial process lease marker:', path, unlinkError)
+          }
+        }
       }
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
       if (!removeStaleMarker(path, staleOptions)) {

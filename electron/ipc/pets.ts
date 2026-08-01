@@ -225,9 +225,41 @@ async function importDirectory(directory: string): Promise<PetInstallResult> {
   }
 }
 
+export function validateZipEntries(entries: string[]): void {
+  for (const rawEntry of entries) {
+    const entry = String(rawEntry).replace(/\\/g, '/').trim()
+    if (!entry) continue
+    if (
+      /^[a-zA-Z]:/.test(entry) ||
+      entry.startsWith('/') ||
+      entry.split('/').some((segment) => segment === '..')
+    ) {
+      throw new Error('ZIP 包包含非法路径，已拒绝导入')
+    }
+  }
+}
+
+const ZIP_ENTRY_LIST_SCRIPT = [
+  'Add-Type -AssemblyName System.IO.Compression.FileSystem',
+  '$zip = [IO.Compression.ZipFile]::OpenRead($args[0])',
+  'try { $zip.Entries | ForEach-Object { $_.FullName } } finally { $zip.Dispose() }',
+].join('; ')
+
 async function extractZip(zipPath: string): Promise<string> {
   const target = await mkdtemp(path.join(tmpdir(), 'codehelper-pet-'))
   if (process.platform === 'win32') {
+    const entryList = await execFileAsync('powershell.exe', [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      ZIP_ENTRY_LIST_SCRIPT,
+      zipPath,
+    ])
+    const entries = entryList.stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+    validateZipEntries(entries)
     await execFileAsync('powershell.exe', [
       '-NoProfile',
       '-NonInteractive',

@@ -17,6 +17,20 @@ CodeHelper 采用 Electron IPC（进程间通信）机制在渲染进程和主�
 - [题目管理 (problems)](#题目管理-problems)
 - [错题本 (mistakes)](#错题本-mistakes)
 - [知识库 RAG (rag)](#知识库-rag-rag)
+- [运行器诊断 (runner)](#运行器诊断-runner)
+- [平台信息与关闭握手](#平台信息与关闭握手)
+- [聊天增强 (chat)](#聊天增强-chat)
+- [复习计划 (review)](#复习计划-review)
+- [知识库高级 (rag)](#知识库高级-rag)
+- [统计与首页 (analytics / home)](#统计与首页-analytics--home)
+- [数据导出与导入 (export / import)](#数据导出与导入-export--import)
+- [备份、恢复与系统能力](#备份恢复与系统能力)
+- [课程 (lessons)](#课程-lessons)
+- [练习 (exercises)](#练习-exercises)
+- [编辑器工作区 (editor-workspace)](#编辑器工作区-editor-workspace)
+- [桌面伙伴 (pets)](#桌面伙伴-pets)
+- [学习记录 (learning-records)](#学习记录-learning-records)
+- [事件频道 (event)](#事件频道-event)
 - [外部链接](#外部链接)
 - [错误处理](#错误处理)
 - [使用示例](#使用示例)
@@ -54,53 +68,126 @@ CodeHelper 采用 Electron IPC（进程间通信）机制在渲染进程和主�
 
 ## 频道一览
 
-| 频道名                     | 类型   | 方向     | 说明                  |
-| -------------------------- | ------ | -------- | --------------------- |
-| `run-code`                 | invoke | 渲染->主 | 运行代码片段          |
-| `db-get-setting`           | invoke | 渲染->主 | 读取设置项            |
-| `db-set-setting`           | invoke | 渲染->主 | 写入设置项            |
-| `db-get-ai-configs`        | invoke | 渲染->主 | 获取所有 AI 配置      |
-| `db-save-ai-config`        | invoke | 渲染->主 | 保存 AI 配置          |
-| `db-delete-ai-config`      | invoke | 渲染->主 | 删除 AI 配置          |
-| `db-get-default-ai-config` | invoke | 渲染->主 | 获取默认 AI 配置      |
-| `ai-fetch-models`          | invoke | 渲染->主 | 获取可用模型列表      |
-| `ai-chat`                  | invoke | 渲染->主 | 发送 AI 聊天请求      |
-| `ai-chat-cancel`           | invoke | 渲染->主 | 取消指定 AI 请求      |
-| `agent-tools-list`         | invoke | 渲染->主 | 获取 Agent 工具白名单 |
-| `agent-runs-list`          | invoke | 渲染->主 | 查询 Agent 运行历史   |
-| `agent-audit-list`         | invoke | 渲染->主 | 查询 Agent 审计事件   |
-| `agent-run-create`         | invoke | 渲染->主 | 创建并准备 Agent 运行 |
-| `agent-run-approve`        | invoke | 渲染->主 | 批准单个工具调用      |
-| `agent-run-reject`         | invoke | 渲染->主 | 拒绝单个工具调用      |
-| `agent-run-cancel`         | invoke | 渲染->主 | 取消 Agent 运行       |
-| `problems-list`            | invoke | 渲染->主 | 获取题目列表          |
-| `problems-get`             | invoke | 渲染->主 | 获取单个题目          |
-| `problems-submit`          | invoke | 渲染->主 | 提交代码              |
-| `problems-submissions`     | invoke | 渲染->主 | 获取提交记录          |
-| `mistakes-list`            | invoke | 渲染->主 | 获取错题列表          |
-| `mistakes-get`             | invoke | 渲染->主 | 获取单个错题          |
-| `mistakes-update-analysis` | invoke | 渲染->主 | 更新错题 AI 分析      |
-| `mistakes-delete`          | invoke | 渲染->主 | 删除错题              |
-| `knowledge-upload`         | invoke | 渲染->主 | 上传知识文档          |
-| `knowledge-list`           | invoke | 渲染->主 | 获取知识文档列表      |
-| `knowledge-delete`         | invoke | 渲染->主 | 删除知识文档          |
-| `knowledge-search`         | invoke | 渲染->主 | 搜索知识库            |
-| `open-external`            | invoke | 渲染->主 | 打开外部链接          |
-| `chat-sessions-list`       | invoke | 渲染->主 | 获取聊天会话列表      |
-| `chat-session-create`      | invoke | 渲染->主 | 创建聊天会话          |
-| `chat-session-update`      | invoke | 渲染->主 | 更新聊天会话          |
-| `chat-session-delete`      | invoke | 渲染->主 | 删除聊天会话          |
-| `chat-messages-load`       | invoke | 渲染->主 | 加载聊天消息          |
-| `chat-message-save`        | invoke | 渲染->主 | 保存聊天消息          |
-| `chat-presets-list`        | invoke | 渲染->主 | 获取提示词预设列表    |
-| `chat-preset-save`         | invoke | 渲染->主 | 保存提示词预设        |
-| `chat-preset-delete`       | invoke | 渲染->主 | 删除提示词预设        |
-| `chat-memories-list`       | invoke | 渲染->主 | 获取长期记忆列表      |
-| `chat-memory-save`         | invoke | 渲染->主 | 保存长期记忆          |
-| `chat-memory-delete`       | invoke | 渲染->主 | 删除长期记忆          |
-| `chat-memory-capture`      | invoke | 渲染->主 | 从消息中自动提取记忆  |
-| `ai-chat-chunk`            | event  | 主->渲染 | AI 流式响应分片       |
-| `ai-chat-done`             | event  | 主->渲染 | AI 流式响应完成       |
+| 频道名                            | 类型   | 方向     | 说明                                                                                                       |
+| --------------------------------- | ------ | -------- | ---------------------------------------------------------------------------------------------------------- |
+| `run-code`                        | invoke | 渲染->主 | 运行代码片段                                                                                               |
+| `runner-detect-toolchains`        | invoke | 渲染->主 | 探测工具链与隔离能力（{ force? } -> ToolchainReport）                                                      |
+| `runner-isolation-info`           | invoke | 渲染->主 | 获取运行隔离信息（void -> IsolationInfo）                                                                  |
+| `db-get-setting`                  | invoke | 渲染->主 | 读取设置项                                                                                                 |
+| `db-set-setting`                  | invoke | 渲染->主 | 写入设置项                                                                                                 |
+| `db-get-ai-configs`               | invoke | 渲染->主 | 获取所有 AI 配置                                                                                           |
+| `db-save-ai-config`               | invoke | 渲染->主 | 保存 AI 配置                                                                                               |
+| `db-delete-ai-config`             | invoke | 渲染->主 | 删除 AI 配置                                                                                               |
+| `db-get-default-ai-config`        | invoke | 渲染->主 | 获取默认 AI 配置                                                                                           |
+| `platform-info`                   | invoke | 渲染->主 | 获取平台信息（运行时/系统/架构/应用版本）                                                                  |
+| `app-close-flush-complete`        | invoke | 渲染->主 | 完成关闭握手（{ requestId, ok, error?, recoveryAvailable? } -> { accepted }）                              |
+| `ai-fetch-models`                 | invoke | 渲染->主 | 获取可用模型列表                                                                                           |
+| `ai-chat`                         | invoke | 渲染->主 | 发送 AI 聊天请求                                                                                           |
+| `ai-chat-cancel`                  | invoke | 渲染->主 | 取消指定 AI 请求                                                                                           |
+| `agent-tools-list`                | invoke | 渲染->主 | 获取 Agent 工具白名单                                                                                      |
+| `agent-runs-list`                 | invoke | 渲染->主 | 查询 Agent 运行历史                                                                                        |
+| `agent-audit-list`                | invoke | 渲染->主 | 查询 Agent 审计事件                                                                                        |
+| `agent-run-create`                | invoke | 渲染->主 | 创建并准备 Agent 运行                                                                                      |
+| `agent-run-approve`               | invoke | 渲染->主 | 批准单个工具调用                                                                                           |
+| `agent-run-reject`                | invoke | 渲染->主 | 拒绝单个工具调用                                                                                           |
+| `agent-run-cancel`                | invoke | 渲染->主 | 取消 Agent 运行                                                                                            |
+| `agent-run-model-started`         | invoke | 渲染->主 | 记录模型合成开始（{ runId, requestId? } -> AgentRunRecord）                                                |
+| `agent-run-complete`              | invoke | 渲染->主 | 标记 Agent 运行完成（{ runId } -> AgentRunRecord）                                                         |
+| `agent-run-fail`                  | invoke | 渲染->主 | 标记 Agent 运行失败（{ runId, note? } -> AgentRunRecord）                                                  |
+| `problems-list`                   | invoke | 渲染->主 | 获取题目列表                                                                                               |
+| `problems-get`                    | invoke | 渲染->主 | 获取单个题目                                                                                               |
+| `problems-submit`                 | invoke | 渲染->主 | 提交代码                                                                                                   |
+| `problems-submissions`            | invoke | 渲染->主 | 获取提交记录                                                                                               |
+| `mistakes-list`                   | invoke | 渲染->主 | 获取错题列表                                                                                               |
+| `mistakes-get`                    | invoke | 渲染->主 | 获取单个错题                                                                                               |
+| `mistakes-update-analysis`        | invoke | 渲染->主 | 更新错题 AI 分析                                                                                           |
+| `mistakes-delete`                 | invoke | 渲染->主 | 删除错题                                                                                                   |
+| `review-due`                      | invoke | 渲染->主 | 获取到期复习项（无 -> ReviewScheduleRow[]）                                                                |
+| `review-update`                   | invoke | 渲染->主 | 更新 SM-2 复习计划（{ exercise_id, quality } -> ReviewScheduleRow）                                        |
+| `review-stats`                    | invoke | 渲染->主 | 获取复习统计（无 -> { totalDue, completedToday, mastered }）                                               |
+| `review-schedule`                 | invoke | 渲染->主 | 获取单个复习计划（exerciseId -> ReviewScheduleRow \| undefined）                                           |
+| `knowledge-upload`                | invoke | 渲染->主 | 上传知识文档                                                                                               |
+| `knowledge-list`                  | invoke | 渲染->主 | 获取知识文档列表                                                                                           |
+| `knowledge-delete`                | invoke | 渲染->主 | 删除知识文档                                                                                               |
+| `knowledge-search`                | invoke | 渲染->主 | 搜索知识库                                                                                                 |
+| `knowledge-get`                   | invoke | 渲染->主 | 获取单个文档详情（id -> KnowledgeDocDetail \| null）                                                       |
+| `knowledge-link-audit`            | invoke | 渲染->主 | 获取文档链接审计状态（docId -> KnowledgeLinkAuditRecord[]）                                                |
+| `knowledge-retrieval-status`      | invoke | 渲染->主 | 获取检索后端状态与索引规模（无 -> KnowledgeRetrievalStatus）                                               |
+| `knowledge-semantic-search`       | invoke | 渲染->主 | 语义近似检索（query -> SemanticSearchResult[]）                                                            |
+| `knowledge-summarize`             | invoke | 渲染->主 | 生成结果摘要（query -> KnowledgeSummary { summary, keyConcepts }）                                         |
+| `knowledge-concept-graph`         | invoke | 渲染->主 | 概念图谱（占位，无 -> { nodes: [], edges: [] }）                                                           |
+| `knowledge-concept-detail`        | invoke | 渲染->主 | 概念详情（占位，conceptId -> 合成概念）                                                                    |
+| `knowledge-auto-tag`              | invoke | 渲染->主 | 自动标签建议（占位，docId -> []）                                                                          |
+| `knowledge-tags`                  | invoke | 渲染->主 | 获取标签列表（占位，无 -> []）                                                                             |
+| `knowledge-tag-documents`         | invoke | 渲染->主 | 按标签获取文档（占位，tag -> []）                                                                          |
+| `knowledge-rag-context`           | invoke | 渲染->主 | 获取 RAG 上下文（query? -> RAGContext）                                                                    |
+| `resource-pack-import`            | invoke | 渲染->主 | 导入外部学习资源包（{ rootPath? } -> ResourcePackImportResult \| null）                                    |
+| `open-external`                   | invoke | 渲染->主 | 打开外部链接                                                                                               |
+| `analytics-track`                 | invoke | 渲染->主 | 记录本地统计事件（eventType, eventData? -> void）                                                          |
+| `analytics-get-events`            | invoke | 渲染->主 | 获取统计事件（filters? -> AnalyticsEvent[]）                                                               |
+| `analytics-get-summary`           | invoke | 渲染->主 | 获取活动汇总（days? -> AnalyticsSummary）                                                                  |
+| `analytics-get-streak`            | invoke | 渲染->主 | 获取连续学习天数（无 -> 天数）                                                                             |
+| `analytics-get-weekly-report`     | invoke | 渲染->主 | 获取周报（weekOffset? -> WeeklyReport）                                                                    |
+| `analytics-clear`                 | invoke | 渲染->主 | 清空统计事件（无 -> void）                                                                                 |
+| `demo-load-data`                  | invoke | 渲染->主 | 加载演示数据（无 -> DemoLoadResult）                                                                       |
+| `home-get-overview`               | invoke | 渲染->主 | 获取首页总览（无 -> HomeOverview）                                                                         |
+| `export-data`                     | invoke | 渲染->主 | 导出数据（ExportCategory[] -> { success, filePath?, error? }）                                             |
+| `import-data`                     | invoke | 渲染->主 | 导入数据（ImportOptions? -> ImportResult）                                                                 |
+| `export-get-counts`               | invoke | 渲染->主 | 获取各分类导出数量（无 -> 各分类计数）                                                                     |
+| `database-backups-list`           | invoke | 渲染->主 | 列出数据库备份（无 -> DatabaseBackupListResult）                                                           |
+| `database-backup-create`          | invoke | 渲染->主 | 创建数据库快照备份（无 -> DatabaseBackupCreateResult）                                                     |
+| `database-backups-open-directory` | invoke | 渲染->主 | 打开备份目录（无 -> OpenBackupDirectoryResult）                                                            |
+| `recovery-layer-export`           | invoke | 渲染->主 | 导出恢复层条目（RecoveryLayerEntry[] -> RecoveryLayerExportResult）                                        |
+| `system-capabilities-get`         | invoke | 渲染->主 | 获取系统能力状态（{ force? } -> SystemCapabilityStatus）                                                   |
+| `perf-get-ipc-stats`              | invoke | 渲染->主 | 获取 IPC 性能统计（无 -> 统计信息）                                                                        |
+| `chat-sessions-list`              | invoke | 渲染->主 | 获取聊天会话列表                                                                                           |
+| `chat-session-create`             | invoke | 渲染->主 | 创建聊天会话                                                                                               |
+| `chat-session-update`             | invoke | 渲染->主 | 更新聊天会话                                                                                               |
+| `chat-session-delete`             | invoke | 渲染->主 | 删除聊天会话                                                                                               |
+| `chat-messages-load`              | invoke | 渲染->主 | 加载聊天消息                                                                                               |
+| `chat-message-save`               | invoke | 渲染->主 | 保存聊天消息                                                                                               |
+| `chat-presets-list`               | invoke | 渲染->主 | 获取提示词预设列表                                                                                         |
+| `chat-preset-save`                | invoke | 渲染->主 | 保存提示词预设                                                                                             |
+| `chat-preset-delete`              | invoke | 渲染->主 | 删除提示词预设                                                                                             |
+| `chat-memories-list`              | invoke | 渲染->主 | 获取长期记忆列表                                                                                           |
+| `chat-memory-save`                | invoke | 渲染->主 | 保存长期记忆                                                                                               |
+| `chat-memory-delete`              | invoke | 渲染->主 | 删除长期记忆                                                                                               |
+| `chat-memory-capture`             | invoke | 渲染->主 | 从消息中自动提取记忆                                                                                       |
+| `chat-context-preview`            | invoke | 渲染->主 | 预览将注入聊天的本地记忆（{ query?, includeMemories?, memoryCategories? } -> { memories }）                |
+| `chat-memories-batch`             | invoke | 渲染->主 | 批量操作记忆（{ ids, action } -> { affected }）                                                            |
+| `chat-memory-extract`             | invoke | 渲染->主 | AI 增强记忆提取（{ content, configId?, sessionId? } -> Memory[]）                                          |
+| `lessons-list`                    | invoke | 渲染->主 | 获取课程轨道列表（无 -> Track[]）                                                                          |
+| `lessons-get`                     | invoke | 渲染->主 | 获取课程内容（lessonId -> Lesson）                                                                         |
+| `lessons-progress`                | invoke | 渲染->主 | 获取轨道学习进度（trackId -> LessonProgress[]）                                                            |
+| `lessons-mark-opened`             | invoke | 渲染->主 | 标记课程已打开（lessonId, trackId -> { ok: true }）                                                        |
+| `lessons-mark-completed`          | invoke | 渲染->主 | 标记课程已完成（lessonId, trackId -> { ok: true }）                                                        |
+| `lessons-notes-get`               | invoke | 渲染->主 | 获取课程笔记（lessonId -> note 字符串）                                                                    |
+| `lessons-notes-save`              | invoke | 渲染->主 | 保存课程笔记（lessonId, content -> { ok: true }）                                                          |
+| `lessons-search`                  | invoke | 渲染->主 | 搜索课程（query -> lesson id[]）                                                                           |
+| `lesson-get-progress`             | invoke | 渲染->主 | 获取首页学习进度行（无 -> 进度行）                                                                         |
+| `exercises-list`                  | invoke | 渲染->主 | 获取练习列表（{ track_id?, difficulty? } -> Exercise[]）                                                   |
+| `exercises-get`                   | invoke | 渲染->主 | 获取单个练习（id -> Exercise）                                                                             |
+| `exercises-draft-get`             | invoke | 渲染->主 | 获取练习草稿（exerciseId -> PracticeDraft \| null）                                                        |
+| `exercises-draft-save`            | invoke | 渲染->主 | 保存练习草稿（{ exerciseId, code, language, baseRevision, title? } -> DraftMutationResult）                |
+| `exercises-draft-clear`           | invoke | 渲染->主 | 清除练习草稿（{ exerciseId, baseRevision } -> DraftMutationResult）                                        |
+| `exercises-evaluate`              | invoke | 渲染->主 | 提交练习判题（{ exerciseId, code, language? } -> { passed, score, feedback_lines, stdout, duration_sec }） |
+| `editor-workspace-load`           | invoke | 渲染->主 | 加载编辑器工作区（{ workspaceId } -> EditorWorkspaceRecord）                                               |
+| `editor-workspace-migrate-legacy` | invoke | 渲染->主 | 迁移旧版工作区（MigrateLegacyEditorWorkspaceInput -> 结果）                                                |
+| `editor-tab-save`                 | invoke | 渲染->主 | 保存编辑器标签（SaveEditorTabInput -> EditorTabMutationResult）                                            |
+| `editor-tab-update-view-state`    | invoke | 渲染->主 | 保存标签光标/滚动状态（UpdateEditorTabViewStateInput -> 结果）                                             |
+| `editor-tab-close`                | invoke | 渲染->主 | 关闭标签（VersionedEditorTabMutationInput -> EditorTabMutationResult）                                     |
+| `editor-tab-reopen`               | invoke | 渲染->主 | 重新打开标签（VersionedEditorTabMutationInput -> EditorTabMutationResult）                                 |
+| `editor-tab-delete`               | invoke | 渲染->主 | 删除标签（VersionedEditorTabMutationInput -> EditorTabMutationResult）                                     |
+| `editor-workspace-set-active`     | invoke | 渲染->主 | 设置活动标签（{ workspaceId, tabId } -> SetActiveEditorTabResult）                                         |
+| `pets-list`                       | invoke | 渲染->主 | 列出已安装伙伴（无 -> CodexPetDefinition[]）                                                               |
+| `pets-install-slug`               | invoke | 渲染->主 | 按 slug 安装伙伴（slug -> PetInstallResult）                                                               |
+| `pets-import-file`                | invoke | 渲染->主 | 从文件导入伙伴（系统对话框 -> PetInstallResult）                                                           |
+| `pets-import-directory`           | invoke | 渲染->主 | 从目录导入伙伴（系统对话框 -> PetInstallResult）                                                           |
+| `learning-records-clear`          | invoke | 渲染->主 | 清空学习记录（无 -> LearningRecordsClearResult）                                                           |
+| `ai-chat-chunk`                   | event  | 主->渲染 | AI 流式响应分片                                                                                            |
+| `ai-chat-done`                    | event  | 主->渲染 | AI 流式响应完成                                                                                            |
+| `app-before-close`                | event  | 主->渲染 | 窗口关闭前冲刷持久化（{ requestId }）                                                                      |
+| `editor-workspace-changed`        | event  | 主->渲染 | 编辑器工作区变更通知（EditorWorkspaceChangedEvent）                                                        |
 
 ---
 
@@ -780,6 +867,222 @@ interface KnowledgeSearchResult {
 **请求参数：** 无
 
 **返回类型：** `KnowledgeRetrievalStatus`
+
+---
+
+## 运行器诊断 (runner)
+
+| Channel                    | 请求         | 返回                                                                                          |
+| -------------------------- | ------------ | --------------------------------------------------------------------------------------------- |
+| `runner-detect-toolchains` | `{ force? }` | `ToolchainReport { tools, isolation, platform, detectedAt }`                                  |
+| `runner-isolation-info`    | 无           | `IsolationInfo { mode, label, description, strongIsolationAvailable, strongIsolationReason }` |
+
+`runner-detect-toolchains` 异步探测 python/node/gcc/g++/dotnet-or-csc/mcs 与 Docker 强隔离镜像（带缓存），SQL 标记为内置。`runner-isolation-info` 始终如实披露 local-controlled 的非沙箱边界；`strongIsolationAvailable` 仅在 Docker 探测通过后为真，且该调用不会阻塞 UI。
+
+**文件位置：** `electron/ipc/runner.ts`
+
+---
+
+## 平台信息与关闭握手
+
+| Channel                    | 请求                                            | 返回                    |
+| -------------------------- | ----------------------------------------------- | ----------------------- |
+| `platform-info`            | 无                                              | `PlatformInfo`          |
+| `app-close-flush-complete` | `{ requestId, ok, error?, recoveryAvailable? }` | `{ accepted: boolean }` |
+
+`platform-info` 返回运行时、操作系统、架构与应用版本。`app-close-flush-complete` 完成受控的关闭握手：`app-before-close` 事件发出后，渲染进程完成持久化再调用它确认。
+
+**文件位置：** `electron/main.ts`
+
+---
+
+## 聊天增强 (chat)
+
+| Channel                | 请求                                                 | 返回                     |
+| ---------------------- | ---------------------------------------------------- | ------------------------ |
+| `chat-context-preview` | `{ query?, includeMemories?, memoryCategories? }`    | `{ memories: Memory[] }` |
+| `chat-memories-batch`  | `{ ids, action }`（enable/disable/pin/unpin/delete） | `{ affected: number }`   |
+| `chat-memory-extract`  | `{ content, configId?, sessionId? }`                 | `Memory[]`               |
+
+`chat-context-preview` 预览将注入聊天请求的本地记忆；`chat-memory-extract` 走 AI 增强提取路径，需要已配置且可达的模型提供商。
+
+**文件位置：** `electron/ipc/chat.ts`
+
+---
+
+## 复习计划 (review)
+
+| Channel           | 请求                       | 返回                                      |
+| ----------------- | -------------------------- | ----------------------------------------- |
+| `review-due`      | 无                         | `ReviewScheduleRow[]`（到期的间隔复习项） |
+| `review-update`   | `{ exercise_id, quality }` | 更新后的 `ReviewScheduleRow`（SM-2 算法） |
+| `review-stats`    | 无                         | `{ totalDue, completedToday, mastered }`  |
+| `review-schedule` | `exerciseId: string`       | `ReviewScheduleRow \| undefined`          |
+
+**文件位置：** `electron/ipc/review.ts`
+
+---
+
+## 知识库高级 (rag)
+
+| Channel                      | 请求                | 返回                                                          |
+| ---------------------------- | ------------------- | ------------------------------------------------------------- |
+| `knowledge-get`              | `id: number`        | `KnowledgeDocDetail \| null`                                  |
+| `knowledge-link-audit`       | `docId: number`     | `KnowledgeLinkAuditRecord[]`                                  |
+| `knowledge-retrieval-status` | 无                  | `KnowledgeRetrievalStatus`                                    |
+| `knowledge-semantic-search`  | `query: string`     | `SemanticSearchResult[]`（本地语义近似，非模型嵌入）          |
+| `knowledge-summarize`        | `query: string`     | `KnowledgeSummary { summary, keyConcepts }`（确定性降级摘要） |
+| `knowledge-concept-graph`    | 无                  | `{ nodes: [], edges: [] }`（占位，始终返回空图）              |
+| `knowledge-concept-detail`   | `conceptId: string` | 占位概念详情（文档与关系列表为空）                            |
+| `knowledge-auto-tag`         | `docId: number`     | `[]`（占位，始终返回空建议列表）                              |
+| `knowledge-tags`             | 无                  | `[]`（占位，始终返回空标签列表）                              |
+| `knowledge-tag-documents`    | `tag: string`       | `[]`（占位，校验标签但始终返回空文档列表）                    |
+| `knowledge-rag-context`      | `query?: string`    | `RAGContext`（学习历史与资料部分为静态回退）                  |
+| `resource-pack-import`       | `{ rootPath? }`     | `ResourcePackImportResult \| null`                            |
+
+`knowledge-link-audit` 只返回已持久化的链接解析与 HTTP 审计状态，不发起网络请求。`knowledge-summarize` 当前是关键词兜底摘要，不是 AI 摘要。
+
+**文件位置：** `electron/ipc/rag.ts`
+
+---
+
+## 统计与首页 (analytics / home)
+
+| Channel                       | 请求                    | 返回                             |
+| ----------------------------- | ----------------------- | -------------------------------- |
+| `analytics-track`             | `eventType, eventData?` | `void`（仅本地存储，不对外上报） |
+| `analytics-get-events`        | `filters?`              | `AnalyticsEvent[]`               |
+| `analytics-get-summary`       | `days?: number`         | `AnalyticsSummary`               |
+| `analytics-get-streak`        | 无                      | 连续学习天数                     |
+| `analytics-get-weekly-report` | `weekOffset?: number`   | `WeeklyReport`                   |
+| `analytics-clear`             | 无                      | `void`（隐私清理）               |
+| `demo-load-data`              | 无                      | `DemoLoadResult`                 |
+| `home-get-overview`           | 无                      | `HomeOverview`                   |
+
+**文件位置：** `electron/ipc/analytics.ts`、`electron/ipc/home.ts`、`electron/ipc/demoData.ts`
+
+---
+
+## 数据导出与导入 (export / import)
+
+| Channel             | 请求               | 返回                             |
+| ------------------- | ------------------ | -------------------------------- |
+| `export-data`       | `ExportCategory[]` | `{ success, filePath?, error? }` |
+| `import-data`       | `ImportOptions?`   | `ImportResult`                   |
+| `export-get-counts` | 无                 | 各导出分类的记录数               |
+
+`import-data` 校验可移植 JSON 子集，导入前创建经过验证的 SQLite 备份，任一行出错则整体回滚。
+
+**文件位置：** `electron/ipc/export.ts`
+
+---
+
+## 备份、恢复与系统能力
+
+| Channel                           | 请求                   | 返回                         |
+| --------------------------------- | ---------------------- | ---------------------------- |
+| `database-backups-list`           | 无                     | `DatabaseBackupListResult`   |
+| `database-backup-create`          | 无                     | `DatabaseBackupCreateResult` |
+| `database-backups-open-directory` | 无                     | `OpenBackupDirectoryResult`  |
+| `recovery-layer-export`           | `RecoveryLayerEntry[]` | `RecoveryLayerExportResult`  |
+| `system-capabilities-get`         | `{ force? }`           | `SystemCapabilityStatus`     |
+| `perf-get-ipc-stats`              | 无                     | IPC 性能统计                 |
+
+`database-backup-create` 先冲刷所有渲染进程，再创建经 `quick_check` 与 SHA-256 验证的 VACUUM INTO 快照，任一方无法持久化则整体失败。`recovery-layer-export` 仅导出受控的迁移备份/损坏 localStorage 条目，绝不恢复或删除。
+
+**文件位置：** `electron/ipc/maintenance.ts`、`electron/ipc/capabilities.ts`、`electron/main.ts`
+
+---
+
+## 课程 (lessons)
+
+| Channel                  | 请求                | 返回               |
+| ------------------------ | ------------------- | ------------------ |
+| `lessons-list`           | 无                  | `Track[]`          |
+| `lessons-get`            | `lessonId: string`  | `Lesson`           |
+| `lessons-progress`       | `trackId: string`   | `LessonProgress[]` |
+| `lessons-mark-opened`    | `lessonId, trackId` | `{ ok: true }`     |
+| `lessons-mark-completed` | `lessonId, trackId` | `{ ok: true }`     |
+| `lessons-notes-get`      | `lessonId: string`  | 笔记字符串         |
+| `lessons-notes-save`     | `lessonId, content` | `{ ok: true }`     |
+| `lessons-search`         | `query: string`     | 匹配的课程 id 列表 |
+| `lesson-get-progress`    | 无                  | 首页进度行         |
+
+**文件位置：** `electron/ipc/lessons.ts`
+
+---
+
+## 练习 (exercises)
+
+| Channel                 | 请求                                                   | 返回                                                      |
+| ----------------------- | ------------------------------------------------------ | --------------------------------------------------------- |
+| `exercises-list`        | `{ track_id?, difficulty? }`                           | `Exercise[]`                                              |
+| `exercises-get`         | `id: string`                                           | `Exercise`                                                |
+| `exercises-draft-get`   | `exerciseId: string`                                   | `PracticeDraft \| null`                                   |
+| `exercises-draft-save`  | `{ exerciseId, code, language, baseRevision, title? }` | `DraftMutationResult`（修订 CAS，重试幂等）               |
+| `exercises-draft-clear` | `{ exerciseId, baseRevision }`                         | `DraftMutationResult`（写入版本化墓碑而非无条件删除）     |
+| `exercises-evaluate`    | `{ exerciseId, code, language? }`                      | `{ passed, score, feedback_lines, stdout, duration_sec }` |
+
+`exercises-evaluate` 依赖本地代码运行器，因此取决于所选工具链。
+
+**文件位置：** `electron/ipc/exercises.ts`
+
+---
+
+## 编辑器工作区 (editor-workspace)
+
+| Channel                           | 请求                                | 返回                                 |
+| --------------------------------- | ----------------------------------- | ------------------------------------ |
+| `editor-workspace-load`           | `{ workspaceId }`                   | `EditorWorkspaceRecord`              |
+| `editor-workspace-migrate-legacy` | `MigrateLegacyEditorWorkspaceInput` | `MigrateLegacyEditorWorkspaceResult` |
+| `editor-tab-save`                 | `SaveEditorTabInput`                | `EditorTabMutationResult`            |
+| `editor-tab-update-view-state`    | `UpdateEditorTabViewStateInput`     | `EditorTabViewStateMutationResult`   |
+| `editor-tab-close`                | `VersionedEditorTabMutationInput`   | `EditorTabMutationResult`            |
+| `editor-tab-reopen`               | `VersionedEditorTabMutationInput`   | `EditorTabMutationResult`            |
+| `editor-tab-delete`               | `VersionedEditorTabMutationInput`   | `EditorTabMutationResult`            |
+| `editor-workspace-set-active`     | `{ workspaceId, tabId }`            | `SetActiveEditorTabResult`           |
+
+工作区与标签操作均带修订号（revision CAS）与稳定变更 ID，冲突显式恢复。`editor-workspace-migrate-legacy` 以事务方式导入旧版本地标签，冲突保留为恢复副本。
+
+**文件位置：** `electron/ipc/editorWorkspace.ts`
+
+---
+
+## 桌面伙伴 (pets)
+
+| Channel                 | 请求                 | 返回                   |
+| ----------------------- | -------------------- | ---------------------- |
+| `pets-list`             | 无                   | `CodexPetDefinition[]` |
+| `pets-install-slug`     | `slug: string`       | `PetInstallResult`     |
+| `pets-import-file`      | 无（系统文件对话框） | `PetInstallResult`     |
+| `pets-import-directory` | 无（系统目录对话框） | `PetInstallResult`     |
+
+`pets-install-slug` 需要联网下载已校验的伙伴包；其余导入走本地文件/目录对话框。
+
+**文件位置：** `electron/ipc/pets.ts`
+
+---
+
+## 学习记录 (learning-records)
+
+| Channel                  | 请求 | 返回                         |
+| ------------------------ | ---- | ---------------------------- |
+| `learning-records-clear` | 无   | `LearningRecordsClearResult` |
+
+事务性清空学习记录，保留应用配置与内容数据。
+
+**文件位置：** `electron/ipc/learningRecords.ts`
+
+---
+
+## 事件频道 (event)
+
+| Channel                    | 载荷                          | 说明                                        |
+| -------------------------- | ----------------------------- | ------------------------------------------- |
+| `app-before-close`         | `{ requestId }`               | 窗口关闭前发送，让编辑器/练习数据完成持久化 |
+| `editor-workspace-changed` | `EditorWorkspaceChangedEvent` | 版本化标签或视图状态变更后通知其他消费者    |
+
+**文件位置：** `electron/main.ts`、`electron/ipc/editorWorkspace.ts`
 
 ---
 

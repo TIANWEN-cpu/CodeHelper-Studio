@@ -1,5 +1,7 @@
 # 数据库 Schema
 
+> 本文档为精简子集参考；唯一权威为 [docs/api/database-schema.md](../api/database-schema.md)，实际列、约束与迁移以 `electron/db/schema.sql` 为准。
+
 本文档详细说明 CodeHelper 的 SQLite 数据库结构。
 
 ## 概述
@@ -32,8 +34,8 @@ CREATE TABLE IF NOT EXISTS problems (
   source        TEXT DEFAULT 'custom',            -- 来源
   tracks        TEXT DEFAULT '[]',                -- 专题（JSON 数组）
   platform      TEXT DEFAULT 'internal',          -- 平台
-  mode          TEXT DEFAULT 'oj',                -- 模式（oj/exam/practice）
-  exam_style    TEXT DEFAULT 'acm',               -- 考试风格（acm/ioi）
+  mode          TEXT DEFAULT 'oj',                -- 模式（oj/simulation/data-task/case-study/report-task/practice）
+  exam_style    TEXT DEFAULT 'acm',               -- 考试风格（acm/oa/modeling/hdl）
   year          INTEGER,                          -- 年份
   official_url  TEXT,                             -- 官方链接
   estimated_time INTEGER,                         -- 预估时间（分钟）

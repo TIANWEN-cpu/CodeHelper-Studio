@@ -1023,7 +1023,22 @@ function runProcess(
       if (timers.run) clearTimeout(timers.run)
       killRequested = killProcessTree(proc)
       timers.termination = setTimeout(() => {
-        if (!rootExited) killRequested = killProcessTree(proc)
+        // Stop blocking the caller after the grace window, but do not claim
+        // the process exited or make its concurrency capacity reusable.
+        if (rootExited || settled) return
+        killRequested = killProcessTree(proc)
+        const result = terminationResult()
+        // Descendants may still hold the root pipes; drop our handles so this
+        // disposable runner is not kept alive by them (mirrors the drain path).
+        proc.stdout.destroy()
+        proc.stderr.destroy()
+        // taskkill /T /F is the authoritative Windows tree termination. On
+        // POSIX the slot remains reserved until the process group disappears.
+        if (IS_WIN && killRequested) {
+          terminationConfirmed = true
+          releaseSlot()
+        }
+        settle(result)
       }, TERMINATION_GRACE_MS)
     }
 

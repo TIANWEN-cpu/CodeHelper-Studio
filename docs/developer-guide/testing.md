@@ -75,12 +75,14 @@ npm run bench
 
 ## 覆盖率要求
 
-| 指标       | 最低阈值 |
-| ---------- | -------- |
-| Statements | 80%      |
-| Branches   | 70%      |
-| Functions  | 80%      |
-| Lines      | 80%      |
+| 指标       | CI 强制门槛 | 最近一次发布实测 |
+| ---------- | ----------- | ---------------- |
+| Statements | 57%         | 73.06%           |
+| Branches   | 57%         | 68.38%           |
+| Functions  | 57%         | 79.17%           |
+| Lines      | 57%         | 75.48%           |
+
+门槛由 `vitest.config.ts` 的 coverage.thresholds 强制执行（57/57/57/57），提交时不应低于当前实测水平。
 
 ## 编写测试
 
@@ -108,29 +110,28 @@ describe('myFunction', () => {
 
 ### 测试 IPC 处理器
 
-IPC 处理器测试使用模拟的 `better-sqlite3`（通过 `sql.js` 内存数据库）：
+IPC 处理器测试在 Node 环境下运行，通过 `vi.mock` 模拟 `electron` 与 `electron/db/index`（以 SQL 文本匹配方式打桩 SQL 调用，不使用真实数据库）：
 
 ```typescript
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import Database from 'better-sqlite3'
+import { describe, it, expect, vi } from 'vitest'
+
+vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() }, ... }))
+vi.mock('../electron/db/index', () => ({
+  query: vi.fn().mockImplementation((sql: string) => {
+    // 按 SQL 文本返回对应桩数据
+    if (sql.includes('INSERT INTO chat_sessions')) return { lastInsertRowid: 1 }
+    return []
+  }),
+}))
 
 describe('chat IPC', () => {
-  let db: Database.Database
-
-  beforeAll(() => {
-    db = new Database(':memory:')
-    // 执行 schema.sql 建表
-  })
-
-  afterAll(() => {
-    db.close()
-  })
-
   it('应该正确创建会话', () => {
     // 测试逻辑
   })
 })
 ```
+
+`sql.js` 内存数据库仅用于 `tests/dbMigration.test.ts`、`tests/dbSchema.test.ts` 与 `tests/e2e/*.spec.ts`（schema 迁移/校验与 Electron E2E），IPC 层测试不依赖它。
 
 ### 测试 Store
 

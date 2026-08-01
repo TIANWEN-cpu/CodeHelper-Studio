@@ -69,6 +69,28 @@ type WorkspaceMatrix = {
 const appRoot = resolve(__dirname, '../..')
 const applicationHarnesses = new Map<ElectronApplication, ApplicationHarness>()
 let applicationSequence = 0
+const diagnosticCaptureTimeoutMs = 5_000
+const electronCloseTimeoutMs = 8_000
+const electronExitTimeoutMs = 5_000
+const electronForcedExitTimeoutMs = 3_000
+
+async function withTimeout<T>(
+  operation: Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(() => reject(new Error(message)), timeoutMs)
+      }),
+    ])
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle)
+  }
+}
 
 async function waitForRendererReady(page: Page): Promise<void> {
   await page.waitForLoadState('domcontentloaded', { timeout: 30_000 })
@@ -139,9 +161,33 @@ async function captureApplicationDiagnostics(application: ElectronApplication): 
   }
 }
 
+async function forceKillElectronProcess(electronProcess: ChildProcess): Promise<void> {
+  if (electronProcess.pid && process.platform === 'win32') {
+    await new Promise<void>((resolveKill) => {
+      execFile(
+        'taskkill',
+        ['/PID', String(electronProcess.pid), '/T', '/F'],
+        { windowsHide: true },
+        () => resolveKill(),
+      )
+    })
+    return
+  }
+
+  try {
+    electronProcess.kill('SIGKILL')
+  } catch {
+    // The process may have exited between the timeout and the fallback kill.
+  }
+}
+
 async function closeApplication(application: ElectronApplication): Promise<void> {
   const harness = applicationHarnesses.get(application)
-  await captureApplicationDiagnostics(application).catch(() => undefined)
+  await withTimeout(
+    captureApplicationDiagnostics(application),
+    diagnosticCaptureTimeoutMs,
+    'Electron diagnostics capture timed out',
+  ).catch(() => undefined)
   let electronProcess = harness?.electronProcess
   if (!electronProcess) {
     try {
@@ -154,36 +200,23 @@ async function closeApplication(application: ElectronApplication): Promise<void>
     electronProcess.exitCode !== null
       ? Promise.resolve()
       : new Promise<void>((resolveExit) => electronProcess.once('exit', () => resolveExit()))
-  let timeoutHandle: ReturnType<typeof setTimeout> | undefined
   try {
-    await Promise.race([
-      application.close(),
-      new Promise<never>((_, reject) => {
-        timeoutHandle = setTimeout(() => reject(new Error('Electron close timed out')), 8_000)
-      }),
-    ])
+    await withTimeout(application.close(), electronCloseTimeoutMs, 'Electron close timed out')
   } catch {
-    if (electronProcess.pid && process.platform === 'win32') {
-      await new Promise<void>((resolveKill) => {
-        execFile(
-          'taskkill',
-          ['/PID', String(electronProcess.pid), '/T', '/F'],
-          { windowsHide: true },
-          () => resolveKill(),
-        )
-      })
-    } else {
-      try {
-        electronProcess.kill('SIGKILL')
-      } catch {
-        // The process may have exited between the timeout and the fallback kill.
-      }
-    }
-  } finally {
-    if (timeoutHandle) clearTimeout(timeoutHandle)
+    await forceKillElectronProcess(electronProcess)
   }
-  await processExited
-  applicationHarnesses.delete(application)
+  try {
+    await withTimeout(processExited, electronExitTimeoutMs, 'Electron process exit timed out')
+  } catch {
+    await forceKillElectronProcess(electronProcess)
+    await withTimeout(
+      processExited,
+      electronForcedExitTimeoutMs,
+      'Electron process did not exit after forced termination',
+    )
+  } finally {
+    applicationHarnesses.delete(application)
+  }
 }
 
 async function preserveFailureArtifacts(userDataDir: string, testInfo: TestInfo): Promise<void> {
@@ -1350,23 +1383,20 @@ test('a recovery-only practice draft requires explicit confirmation before close
     .toEqual({ lineNumber: currentView.lineNumber, column: currentView.column })
 
   const closeButton = page.getByRole('button', { name: `关闭 ${practiceTab!.filename}` })
-  const dismissedWarning = page.waitForEvent('dialog').then(async (dialog) => {
-    const message = dialog.message()
-    await dialog.dismiss()
-    return message
-  })
   await closeButton.click()
-  expect(await dismissedWarning).toContain('最新内容仅保存在本地恢复区')
+  const dismissedWarning = page.getByRole('dialog')
+  await expect(dismissedWarning).toBeVisible()
+  await expect(dismissedWarning).toContainText('最新内容仅保存在本地恢复区')
+  await dismissedWarning.getByRole('button', { name: '取消' }).click()
+  await expect(dismissedWarning).toHaveCount(0)
   await expect(page.getByRole('heading', { name: '实现 add 函数' })).toBeVisible()
   await expect(closeButton).toBeVisible()
 
-  const acceptedWarning = page.waitForEvent('dialog').then(async (dialog) => {
-    const message = dialog.message()
-    await dialog.accept()
-    return message
-  })
   await closeButton.click()
-  expect(await acceptedWarning).toContain('当前不是完整数据库保存')
+  const acceptedWarning = page.getByRole('dialog')
+  await expect(acceptedWarning).toBeVisible()
+  await expect(acceptedWarning).toContainText('当前不是完整数据库保存')
+  await acceptedWarning.getByRole('button', { name: '关闭标签' }).click()
   await expect(page.getByRole('heading', { name: '练习题库' })).toBeVisible()
   await expect(closeButton).toHaveCount(0)
   await expect

@@ -58,7 +58,10 @@ describe('practice editor tab kinds', () => {
       'const recoveryOnlyState = getRecoveryOnlyDraftCloseState(tab.problemId)',
     )
     expect(practiceViewSource).toContain('getPracticeDraftCloseWarning(recoveryOnlyState)')
-    expect(practiceViewSource).toContain('draftCloseWarning && !window.confirm(draftCloseWarning)')
+    expect(practiceViewSource).toContain('draftCloseWarning &&')
+    expect(practiceViewSource).toContain('!(await requestConfirm({')
+    expect(practiceViewSource).toContain('description: draftCloseWarning')
+    expect(practiceViewSource).not.toContain('window.confirm')
     expect(practiceViewSource).toContain('草稿版本冲突仍未处理')
     expect(practiceViewSource).toContain('SQLite 草稿保存不可用')
     expect(workspaceViewSource).toContain('data-testid="practice-draft-degraded"')

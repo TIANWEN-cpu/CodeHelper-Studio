@@ -2,7 +2,7 @@
 
 **发布日期**: 2026-06-02  
 **标签**: `v1.1.0`  
-**仓库**: [TIANWEN-cpu/CodeHelper](https://github.com/TIANWEN-cpu/CodeHelper)
+**仓库**: [TIANWEN-cpu/CodeHelper-Studio](https://github.com/TIANWEN-cpu/CodeHelper-Studio)
 
 ---
 
@@ -174,7 +174,7 @@ v1.1.0 是 CodeHelper 的第一个功能增强版本，涵盖 Sprint 4-8 共五�
 
 ## 安装
 
-从 [GitHub Releases](https://github.com/TIANWEN-cpu/CodeHelper/releases/tag/v1.1.0) 下载对应平台的安装包：
+从 [GitHub Releases](https://github.com/TIANWEN-cpu/CodeHelper-Studio/releases/tag/v1.1.0) 下载对应平台的安装包：
 
 | 平台    | 格式                          |
 | ------- | ----------------------------- |

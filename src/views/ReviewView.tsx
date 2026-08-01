@@ -16,10 +16,64 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { cn } from '@/lib/utils'
+import {
+  Badge,
+  Button,
+  Card,
+  ConfirmDialog,
+  EmptyState,
+  IconButton,
+  Select,
+  Skeleton,
+  Spinner,
+} from '@/components/ui'
 import { useReviewData } from '@/hooks/useReviewData'
 import { useAppStore } from '@/store'
 import { formatDate } from '@/lib/locale'
 import { quickAsk } from '@/services/aiService'
+
+/** SM-2 自评按钮内快捷键提示（1/2/3）的统一 kbd 样式，与全局快捷键提示一致。 */
+const KBD_CLASS =
+  'ml-1 rounded border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-1 py-0.5 font-mono text-[10px] leading-none text-[var(--color-text-muted)]'
+
+/** SM-2 自评按钮的视觉分级：忘记(danger) / 模糊(warning) / 掌握(success)。 */
+const QUALITY_BUTTON_TONES = {
+  danger:
+    'border-[var(--color-accent-danger)]/30 text-[var(--color-accent-danger)] hover:bg-[var(--color-accent-danger)]/10 hover:text-[var(--color-accent-danger)]',
+  warning:
+    'border-[var(--color-accent-warning)]/30 text-[var(--color-accent-warning)] hover:bg-[var(--color-accent-warning)]/10 hover:text-[var(--color-accent-warning)]',
+  success:
+    'border-[var(--color-accent-success)]/30 text-[var(--color-accent-success)] hover:bg-[var(--color-accent-success)]/10 hover:text-[var(--color-accent-success)]',
+} as const
+
+/** SM-2 自评选项：quality 直接驱动算法，hotkey 与键盘处理（1/2/3）一一对应。 */
+const REVIEW_QUALITY_OPTIONS = [
+  {
+    quality: 2,
+    label: '还不会',
+    hotkey: '1',
+    tone: 'danger',
+    title: '没掌握：缩短间隔，尽快再复习（快捷键 1）',
+  },
+  {
+    quality: 3,
+    label: '有点难',
+    hotkey: '2',
+    tone: 'warning',
+    title: '有点难：按正常节奏推进间隔（快捷键 2）',
+  },
+  {
+    quality: 5,
+    label: '已掌握',
+    hotkey: '3',
+    tone: 'success',
+    title: '已掌握：大幅延长下次复习间隔（快捷键 3）',
+  },
+] as const
+
+/** 知识点标签筛选 chip：点击后把左侧错题列表筛选到同一知识点。 */
+const TAG_CHIP_CLASS =
+  'cursor-pointer rounded-md border border-[var(--color-accent-purple)]/20 bg-[var(--color-accent-purple)]/10 px-2.5 py-1 text-[11px] text-[var(--color-accent-purple)] outline-none transition-colors hover:bg-[var(--color-accent-purple)]/20 focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)]'
 
 export function ReviewView() {
   const setCurrentView = useAppStore((s) => s.setCurrentView)
@@ -52,6 +106,10 @@ export function ReviewView() {
   const [showCorrectCode, setShowCorrectCode] = React.useState(false)
   const [sortMode, setSortMode] = React.useState<'recent' | 'oldest' | 'errors'>('recent')
   const [aiAnalyzing, setAiAnalyzing] = React.useState(false)
+  const [pendingDelete, setPendingDelete] = React.useState<{
+    id: number
+    title: string
+  } | null>(null)
   const setAIContext = useAppStore((s) => s.setAIContext)
 
   // Auto-select first item when list loads
@@ -229,10 +287,16 @@ export function ReviewView() {
     }
   }
 
-  const handleDeleteSelected = async () => {
+  const handleDeleteSelected = () => {
     if (!selected) return
-    if (!window.confirm(`确定删除错题「${selected.problem_title}」？`)) return
-    await deleteMistake(selected.id)
+    setPendingDelete({ id: selected.id, title: selected.problem_title })
+  }
+
+  const confirmDeleteSelected = async () => {
+    if (!pendingDelete) return
+    const id = pendingDelete.id
+    setPendingDelete(null)
+    await deleteMistake(id)
   }
 
   const handleRedoPractice = () => {
@@ -241,32 +305,31 @@ export function ReviewView() {
 
   const renderTabContent = () => {
     if (isLoadingDetail) {
-      return <div className="h-40 bg-[var(--color-bg-card)] rounded-xl animate-pulse" />
+      return <Skeleton className="h-40 rounded-xl" />
     }
 
     if (!selected) {
-      return (
-        <div className="flex flex-col items-center justify-center py-16 text-sm text-[var(--color-text-muted)]">
-          <RotateCcw size={32} className="mb-3 opacity-40" />
-          请从左侧选择一道错题
-        </div>
-      )
+      return <EmptyState icon={RotateCcw} title="请从左侧选择一道错题" className="py-16" />
     }
 
     if (activeTab === '题目详情') {
       return (
         <div className="space-y-6">
           <div>
-            <h3 className="font-semibold text-white text-[15px] mb-3">题目描述</h3>
+            <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px] mb-3">
+              题目描述
+            </h3>
             <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed whitespace-pre-wrap">
               {selected.description || '暂无题目描述'}
             </p>
           </div>
-          <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4 flex items-center justify-between shadow-sm">
+          <div className="bg-[var(--color-accent-danger)]/5 border border-[var(--color-accent-danger)]/20 rounded-xl p-4 flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-3">
-              <XCircle size={18} className="text-[#EF4444]" />
-              <span className="text-[14px] font-medium text-[#EF4444]">错误类型</span>
-              <span className="text-[13px] text-[var(--color-text-secondary)] border-l border-red-500/20 pl-3 ml-1">
+              <XCircle size={18} className="text-[var(--color-accent-danger)]" />
+              <span className="text-[14px] font-medium text-[var(--color-accent-danger)]">
+                错误类型
+              </span>
+              <span className="text-[13px] text-[var(--color-text-secondary)] border-l border-[var(--color-accent-danger)]/20 pl-3 ml-1">
                 {selected.error_types.length > 0 ? selected.error_types.join(', ') : '未分类'}
               </span>
             </div>
@@ -279,24 +342,28 @@ export function ReviewView() {
       return (
         <div className="space-y-5">
           <div>
-            <h3 className="font-semibold text-white text-[15px] mb-3">我的错误代码</h3>
-            <div className="rounded-xl border border-red-500/30 overflow-hidden relative shadow-sm">
-              <div className="absolute right-3 top-3 text-[11px] font-mono text-[var(--color-text-muted)] bg-[var(--color-bg-base)] px-2 py-0.5 rounded border border-[var(--color-border-subtle)]">
+            <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px] mb-3">
+              我的错误代码
+            </h3>
+            <div className="rounded-xl border border-[var(--color-accent-danger)]/30 overflow-hidden relative shadow-sm">
+              <div className="absolute right-3 top-3 text-[11px] font-mono text-[var(--color-text-muted)] bg-[var(--color-bg-panel)] px-2 py-0.5 rounded border border-[var(--color-border-subtle)]">
                 wrong
               </div>
-              <pre className="bg-[#1C2030]/80 p-5 text-[13px] font-mono leading-relaxed text-[#E5E7EB] overflow-x-auto whitespace-pre-wrap">
+              <pre className="bg-[var(--color-bg-base)] p-5 text-[13px] font-mono leading-relaxed text-[var(--color-text-primary)] overflow-x-auto whitespace-pre-wrap">
                 {selected.last_wrong_code || '暂无代码记录'}
               </pre>
             </div>
           </div>
           {showCorrectCode && selected.correct_code && (
             <div>
-              <h3 className="font-semibold text-white text-[15px] mb-3">参考正确代码</h3>
-              <div className="rounded-xl border border-[#10B981]/30 overflow-hidden relative shadow-sm">
-                <div className="absolute right-3 top-3 text-[11px] font-mono text-[#10B981] bg-[var(--color-bg-base)] px-2 py-0.5 rounded border border-[#10B981]/20">
+              <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px] mb-3">
+                参考正确代码
+              </h3>
+              <div className="rounded-xl border border-[var(--color-accent-success)]/30 overflow-hidden relative shadow-sm">
+                <div className="absolute right-3 top-3 text-[11px] font-mono text-[var(--color-accent-success)] bg-[var(--color-bg-panel)] px-2 py-0.5 rounded border border-[var(--color-accent-success)]/20">
                   accepted
                 </div>
-                <pre className="bg-[#102018]/80 p-5 text-[13px] font-mono leading-relaxed text-[#D1FAE5] overflow-x-auto whitespace-pre-wrap">
+                <pre className="bg-[var(--color-bg-base)] p-5 text-[13px] font-mono leading-relaxed text-[var(--color-text-primary)] overflow-x-auto whitespace-pre-wrap">
                   {selected.correct_code}
                 </pre>
               </div>
@@ -309,7 +376,7 @@ export function ReviewView() {
     if (activeTab === '错误分析') {
       return (
         <div className="space-y-4">
-          <h3 className="font-semibold text-white text-[15px]">复盘分析</h3>
+          <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px]">复盘分析</h3>
           {selected.ai_analysis ? (
             <pre className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-4 text-sm text-[var(--color-text-secondary)] leading-relaxed whitespace-pre-wrap">
               {selected.ai_analysis}
@@ -326,14 +393,14 @@ export function ReviewView() {
     if (activeTab === '知识点') {
       return (
         <div className="space-y-4">
-          <h3 className="font-semibold text-white text-[15px]">相关知识点</h3>
+          <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px]">相关知识点</h3>
           <div className="flex flex-wrap gap-2">
             {selected.tags.length > 0 ? (
               selected.tags.map((tag) => (
                 <button
                   key={tag}
                   onClick={() => setFilters({ ...filters, tag })}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-[var(--color-accent-purple)]/10 text-[var(--color-accent-purple)] border border-[var(--color-accent-purple)]/20 hover:bg-[var(--color-accent-purple)]/20 transition-colors"
+                  className={TAG_CHIP_CLASS}
                 >
                   {tag}
                 </button>
@@ -352,7 +419,7 @@ export function ReviewView() {
     if (activeTab === '复习笔记') {
       return (
         <div className="space-y-4">
-          <h3 className="font-semibold text-white text-[15px]">复习建议</h3>
+          <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px]">复习建议</h3>
           <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-4 text-sm text-[var(--color-text-secondary)] leading-relaxed space-y-2">
             <p>1. 先遮住正确答案，独立复现思路。</p>
             <p>2. 针对错误类型写一个最小反例。</p>
@@ -364,7 +431,7 @@ export function ReviewView() {
 
     return (
       <div className="space-y-4">
-        <h3 className="font-semibold text-white text-[15px]">历史记录</h3>
+        <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px]">历史记录</h3>
         <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-4 text-sm text-[var(--color-text-secondary)]">
           <p>
             创建时间：
@@ -386,7 +453,7 @@ export function ReviewView() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-[var(--color-bg-base)] overflow-hidden">
+    <div className="review-view h-full flex flex-col overflow-hidden">
       <div
         className={cn(
           'max-w-[1400px] w-full mx-auto flex flex-col h-full transition-all duration-300',
@@ -400,13 +467,18 @@ export function ReviewView() {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2 flex items-center gap-2 text-sm text-red-400"
+              className="bg-[var(--color-accent-danger)]/10 border border-[var(--color-accent-danger)]/20 rounded-lg px-4 py-2 flex items-center gap-2 text-sm text-[var(--color-accent-danger)]"
             >
               <AlertCircle size={14} />
               <span className="flex-1">{error}</span>
-              <button onClick={clearError} className="text-xs text-red-400 hover:text-red-300 ml-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearError}
+                className="ml-2 h-7 text-[var(--color-accent-danger)] hover:text-[var(--color-accent-danger)] hover:bg-[var(--color-accent-danger)]/10"
+              >
                 关闭
-              </button>
+              </Button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -423,20 +495,22 @@ export function ReviewView() {
             >
               <div className="flex items-center gap-2 pr-4 border-r border-[var(--color-border-subtle)] shrink-0">
                 <RotateCcw size={14} className="text-[var(--color-accent-primary)]" />
-                <span className="text-sm font-bold text-white">错题复习</span>
+                <span className="text-sm font-bold text-[var(--color-text-primary)]">错题复习</span>
               </div>
               <div className="flex flex-wrap items-center gap-4 text-xs flex-1">
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-[var(--color-text-muted)]">总数</span>
-                  <span className="text-white font-medium">{totalCount}</span>
+                  <span className="text-[var(--color-text-primary)] font-medium">{totalCount}</span>
                 </div>
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-[var(--color-text-muted)]">待复习</span>
-                  <span className="text-[#3B82F6] font-medium">{dueCount}</span>
+                  <span className="text-[var(--color-accent-primary)] font-medium">{dueCount}</span>
                 </div>
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-[var(--color-text-muted)]">已掌握</span>
-                  <span className="text-[#10B981] font-medium">{masteredCount}</span>
+                  <span className="text-[var(--color-accent-success)] font-medium">
+                    {masteredCount}
+                  </span>
                 </div>
                 <div className="flex items-baseline gap-1.5 ml-auto">
                   <span className="text-[var(--color-text-muted)]">复习率</span>
@@ -463,30 +537,35 @@ export function ReviewView() {
               >
                 <div className="flex flex-col min-h-0 h-full w-[256px] pr-4">
                   <div className="flex items-center justify-between mb-2 px-1">
-                    <span className="text-xs font-semibold text-white">筛选</span>
+                    <span className="text-xs font-semibold text-[var(--color-text-primary)]">
+                      筛选
+                    </span>
                     <div className="flex items-center gap-2 relative">
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setFilters({})}
-                        className="text-xs text-[var(--color-accent-primary)] hover:text-[#4F46E5]"
+                        className="h-7 px-2 text-[var(--color-accent-primary)] hover:text-[var(--color-accent-hover)]"
                       >
                         重置
-                      </button>
-                      <button
+                      </Button>
+                      <IconButton
+                        label="收起侧边栏"
+                        size="sm"
                         onClick={() => setLeftPanelCollapsed(true)}
-                        className="text-[var(--color-text-muted)] hover:text-white p-1 rounded-md hover:bg-[var(--color-bg-hover)] transition-colors absolute -right-3"
-                        title="收起侧边栏"
+                        className="absolute -right-3"
                       >
-                        <PanelLeftClose size={14} />
-                      </button>
+                        <PanelLeftClose />
+                      </IconButton>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 mb-4 shrink-0">
-                    <select
+                    <Select
                       value={filters.difficulty ?? ''}
                       onChange={(e) =>
                         setFilters({ ...filters, difficulty: e.target.value || undefined })
                       }
-                      className="bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded py-1 px-2 text-[11px] text-white focus:outline-none appearance-none"
+                      className="[&>select]:h-8 [&>select]:text-xs"
                     >
                       <option value="">全部难度</option>
                       {difficultyOptions.map((d) => (
@@ -494,11 +573,11 @@ export function ReviewView() {
                           {d}
                         </option>
                       ))}
-                    </select>
-                    <select
+                    </Select>
+                    <Select
                       value={filters.tag ?? ''}
                       onChange={(e) => setFilters({ ...filters, tag: e.target.value || undefined })}
-                      className="bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded py-1 px-2 text-[11px] text-white focus:outline-none appearance-none"
+                      className="[&>select]:h-8 [&>select]:text-xs"
                     >
                       <option value="">全部标签</option>
                       {tagOptions.map((tag) => (
@@ -506,13 +585,13 @@ export function ReviewView() {
                           {tag}
                         </option>
                       ))}
-                    </select>
-                    <select
+                    </Select>
+                    <Select
                       value={filters.errorType ?? ''}
                       onChange={(e) =>
                         setFilters({ ...filters, errorType: e.target.value || undefined })
                       }
-                      className="col-span-2 bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded py-1 px-2 text-[11px] text-white focus:outline-none appearance-none"
+                      className="col-span-2 [&>select]:h-8 [&>select]:text-xs"
                     >
                       <option value="">全部错误类型</option>
                       {errorTypeOptions.map((type) => (
@@ -520,41 +599,39 @@ export function ReviewView() {
                           {type}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
 
                   <div className="flex items-center justify-between mb-2 mt-2 px-1">
-                    <span className="text-xs font-semibold text-white">
+                    <span className="text-xs font-semibold text-[var(--color-text-primary)]">
                       错题列表 ({totalCount})
                     </span>
-                    <select
+                    <Select
                       value={sortMode}
                       onChange={(e) =>
                         setSortMode(e.target.value as 'recent' | 'oldest' | 'errors')
                       }
-                      className="text-[10px] text-[var(--color-text-muted)] bg-transparent border-none outline-none cursor-pointer hover:text-white focus-visible:text-white"
+                      className="w-28 [&>select]:h-7 [&>select]:text-[11px] [&>select]:border-transparent [&>select]:bg-transparent"
                       title="排序方式"
                     >
                       <option value="recent">最近添加</option>
                       <option value="oldest">最早添加</option>
                       <option value="errors">错误类型多</option>
-                    </select>
+                    </Select>
                   </div>
 
                   <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
                     {isLoadingMistakes && filteredMistakes.length === 0 && (
-                      <div className="flex items-center justify-center py-8 text-xs text-[var(--color-text-muted)]">
-                        加载中...
+                      <div className="flex items-center justify-center py-8">
+                        <Spinner size="sm" label="加载错题" />
                       </div>
                     )}
                     {!isLoadingMistakes && filteredMistakes.length === 0 && (
-                      <div className="flex flex-col items-center justify-center py-8 text-xs text-[var(--color-text-muted)]">
-                        <RotateCcw
-                          size={24}
-                          className="mb-2 opacity-30 text-[var(--color-accent-purple)]"
-                        />
-                        暂无错题记录
-                      </div>
+                      <EmptyState
+                        icon={RotateCcw}
+                        title="暂无错题记录"
+                        className="gap-2 py-8 [&_p]:text-xs"
+                      />
                     )}
                     {sortedMistakes.map((item, index) => {
                       const isActive = currentMistake?.id === item.id
@@ -568,14 +645,15 @@ export function ReviewView() {
                       })
 
                       return (
-                        <div
+                        <Card
                           key={item.id}
+                          interactive={!isActive}
+                          padding="none"
                           onClick={() => selectMistake(item.id)}
                           className={cn(
-                            'p-3 rounded-lg border cursor-pointer transition-colors flex gap-2.5',
-                            isActive
-                              ? 'bg-[var(--color-accent-purple)]/10 border-[var(--color-accent-purple)]/30'
-                              : 'bg-[var(--color-bg-panel)] border-[var(--color-border-subtle)] hover:bg-[var(--color-bg-hover)]',
+                            'flex cursor-pointer gap-2.5 p-3 transition-colors',
+                            isActive &&
+                              'border-[var(--color-accent-purple)]/30 bg-[var(--color-accent-purple)]/10',
                           )}
                         >
                           <span
@@ -589,40 +667,34 @@ export function ReviewView() {
                             {index + 1}
                           </span>
                           <div className="flex-1 min-w-0">
-                            <h4
-                              className={cn(
-                                'text-sm font-medium truncate mb-1.5',
-                                isActive ? 'text-white' : 'text-white',
-                              )}
-                            >
+                            <h4 className="text-sm font-medium truncate mb-1.5 text-[var(--color-text-primary)]">
                               {item.problem_title}
                             </h4>
                             <div className="flex items-center gap-1.5 flex-wrap">
                               {item.error_types.map((t) => (
-                                <span
+                                <Badge
                                   key={t}
-                                  className="text-[9px] bg-[var(--color-bg-base)] text-[var(--color-text-secondary)] px-1 py-0.5 rounded border border-[var(--color-border-subtle)]"
+                                  variant="neutral"
+                                  className="px-1 py-0 text-[9px] font-normal"
                                 >
                                   {t}
-                                </span>
+                                </Badge>
                               ))}
-                              <span className="text-[9px] text-[#F59E0B]">{item.difficulty}</span>
+                              <Badge variant="warning" className="px-1 py-0 text-[9px]">
+                                {item.difficulty}
+                              </Badge>
                               <span className="text-[9px] text-[var(--color-text-muted)] ml-auto">
                                 {formattedDate}
                               </span>
-                              <span
-                                className={cn(
-                                  'text-[9px] px-1 rounded-sm',
-                                  isDue
-                                    ? 'bg-[#F59E0B]/20 text-[#F59E0B]'
-                                    : 'bg-[#10B981]/20 text-[#10B981]',
-                                )}
+                              <Badge
+                                variant={isDue ? 'warning' : 'success'}
+                                className="px-1 py-0 text-[9px] rounded-sm"
                               >
                                 {statusLabel}
-                              </span>
+                              </Badge>
                             </div>
                           </div>
-                        </div>
+                        </Card>
                       )
                     })}
                   </div>
@@ -632,45 +704,35 @@ export function ReviewView() {
           </AnimatePresence>
 
           {/* Middle Column (Main Content) */}
-          <div className="flex-1 flex flex-col min-h-0 bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl overflow-hidden shadow-sm">
+          <Card padding="none" className="flex min-h-0 flex-1 flex-col overflow-hidden shadow-sm">
             <div className="p-5 border-b border-[var(--color-border-subtle)] shrink-0 bg-[var(--color-bg-card)]">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
                   {(leftPanelCollapsed || isMaximized) && (
-                    <button
+                    <IconButton
+                      label="展开题目列表"
                       onClick={() => {
                         if (isMaximized) setIsMaximized(false)
                         setLeftPanelCollapsed(false)
                       }}
-                      className="p-1.5 -ml-1.5 rounded-md hover:bg-[var(--color-bg-hover)] text-[var(--color-text-muted)] hover:text-white transition-colors"
-                      title="展开题目列表"
+                      className="-ml-1.5"
                     >
-                      <PanelLeft size={16} />
-                    </button>
+                      <PanelLeft />
+                    </IconButton>
                   )}
-                  <h2 className="text-lg font-bold text-white">{displayTitle}</h2>
-                  <span
-                    className={cn(
-                      'px-2 py-0.5 text-xs font-medium rounded-md',
-                      isDue ? 'bg-[#F59E0B]/20 text-[#F59E0B]' : 'bg-[#10B981]/20 text-[#10B981]',
-                    )}
-                  >
-                    {displayStatus}
-                  </span>
+                  <h2 className="text-lg font-bold text-[var(--color-text-primary)]">
+                    {displayTitle}
+                  </h2>
+                  <Badge variant={isDue ? 'warning' : 'success'}>{displayStatus}</Badge>
                 </div>
               </div>
 
               <div className="flex items-center gap-4 text-xs text-[var(--color-text-muted)]">
-                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] text-[#F59E0B] font-medium">
-                  {selected?.difficulty ?? '--'}
-                </span>
+                <Badge variant="warning">{selected?.difficulty ?? '--'}</Badge>
                 {selected?.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="flex items-center gap-1.5 px-2 py-0.5 rounded border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]"
-                  >
+                  <Badge key={tag} variant="neutral">
                     {tag}
-                  </span>
+                  </Badge>
                 ))}
                 <span className="ml-2 flex items-center gap-1">
                   <Clock size={12} />{' '}
@@ -682,13 +744,12 @@ export function ReviewView() {
                   <RotateCcw size={12} /> 错误类型: {selected?.error_types.length ?? 0}
                 </span>
                 <div className="w-px h-4 bg-[var(--color-border-subtle)] mx-2"></div>
-                <button
+                <IconButton
+                  label={isMaximized ? '还原' : '最大化'}
                   onClick={() => setIsMaximized(!isMaximized)}
-                  className="p-1 hover:bg-[var(--color-bg-hover)] text-[var(--color-text-secondary)] hover:text-white rounded transition-colors"
-                  title={isMaximized ? '还原' : '最大化'}
                 >
-                  {isMaximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-                </button>
+                  {isMaximized ? <Minimize2 /> : <Maximize2 />}
+                </IconButton>
               </div>
             </div>
 
@@ -698,7 +759,7 @@ export function ReviewView() {
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className={cn(
-                    'px-4 py-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap',
+                    'border-b-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)]',
                     activeTab === tab
                       ? 'text-[var(--color-accent-purple)] border-[var(--color-accent-purple)]'
                       : 'text-[var(--color-text-secondary)] border-transparent hover:text-[var(--color-text-primary)]',
@@ -716,31 +777,29 @@ export function ReviewView() {
             {/* Action Bar */}
             <div className="p-4 border-t border-[var(--color-border-subtle)] shrink-0 flex items-center justify-between bg-[var(--color-bg-card)]">
               <div className="flex items-center gap-2">
-                <button
-                  onClick={handleRedoPractice}
-                  disabled={!selected}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-[var(--color-accent-secondary-solid)] hover:bg-[var(--color-accent-secondary-solid-hover)] text-[var(--color-on-accent)] rounded-lg text-sm font-medium transition-colors disabled:opacity-40"
-                >
+                <Button onClick={handleRedoPractice} disabled={!selected}>
                   <Play size={14} /> 重新练习
-                </button>
+                </Button>
                 {selected?.correct_code && (
-                  <button
+                  <Button
+                    variant="secondary"
                     onClick={() => {
                       setShowCorrectCode(true)
                       setActiveTab('我的代码')
                     }}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] hover:border-[var(--color-accent-primary)] text-[var(--color-text-secondary)] hover:text-[var(--color-accent-primary)] rounded-lg text-sm font-medium transition-colors"
+                    className="hover:border-[var(--color-accent-primary)] hover:text-[var(--color-accent-primary)]"
                   >
                     <FileCode size={14} /> 查看正确代码
-                  </button>
+                  </Button>
                 )}
                 {selected && (
-                  <button
+                  <Button
+                    variant="secondary"
                     onClick={handleDeleteSelected}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-[#EF4444]/10 border border-[#EF4444]/20 text-[#EF4444] hover:bg-[#EF4444]/15 rounded-lg text-sm font-medium transition-colors"
+                    className="border-[var(--color-accent-danger)]/30 text-[var(--color-accent-danger)] hover:bg-[var(--color-accent-danger)]/10 hover:text-[var(--color-accent-danger)]"
                   >
                     <XCircle size={14} /> 删除错题
-                  </button>
+                  </Button>
                 )}
               </div>
               <div className="flex items-center gap-2">
@@ -748,59 +807,50 @@ export function ReviewView() {
                   <span className="text-xs text-[var(--color-text-muted)] flex items-center gap-1">
                     <Clock size={13} /> 复习自评:
                   </span>
-                  <button
-                    onClick={() => handleReview(2)}
-                    disabled={!selected}
-                    className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium border border-[#EF4444]/30 text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors disabled:opacity-40"
-                    title="没掌握：缩短间隔，尽快再复习（快捷键 1）"
-                  >
-                    还不会
-                    <kbd className="rounded px-1 text-[10px] leading-none opacity-60">1</kbd>
-                  </button>
-                  <button
-                    onClick={() => handleReview(3)}
-                    disabled={!selected}
-                    className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium border border-[#F59E0B]/30 text-[#F59E0B] hover:bg-[#F59E0B]/10 transition-colors disabled:opacity-40"
-                    title="有点难：按正常节奏推进间隔（快捷键 2）"
-                  >
-                    有点难
-                    <kbd className="rounded px-1 text-[10px] leading-none opacity-60">2</kbd>
-                  </button>
-                  <button
-                    onClick={() => handleReview(5)}
-                    disabled={!selected}
-                    className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium border border-[#10B981]/30 text-[#10B981] hover:bg-[#10B981]/10 transition-colors disabled:opacity-40"
-                    title="已掌握：大幅延长下次复习间隔（快捷键 3）"
-                  >
-                    已掌握
-                    <kbd className="rounded px-1 text-[10px] leading-none opacity-60">3</kbd>
-                  </button>
+                  {REVIEW_QUALITY_OPTIONS.map((option) => (
+                    <Button
+                      key={option.quality}
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleReview(option.quality)}
+                      disabled={!selected}
+                      className={QUALITY_BUTTON_TONES[option.tone]}
+                      title={option.title}
+                    >
+                      {option.label}
+                      <kbd className={KBD_CLASS}>{option.hotkey}</kbd>
+                    </Button>
+                  ))}
                 </div>
-                <button
+                <Button
+                  variant="secondary"
                   onClick={handleAiAnalysis}
                   disabled={!selected || aiAnalyzing}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-[var(--color-accent-primary)]/10 to-[var(--color-accent-purple)]/10 border border-[var(--color-accent-purple)]/30 text-[var(--color-accent-purple)] hover:bg-[var(--color-accent-purple)]/20 rounded-lg text-sm font-medium transition-colors disabled:opacity-40"
+                  loading={aiAnalyzing}
+                  className="border-[var(--color-accent-purple)]/30 text-[var(--color-accent-purple)] hover:bg-[var(--color-accent-purple)]/15 hover:text-[var(--color-accent-purple)]"
                 >
-                  <Sparkles size={14} /> {aiAnalyzing ? '分析中…' : '生成复盘建议'}
-                </button>
-                <button
+                  {!aiAnalyzing && <Sparkles size={14} />}
+                  {aiAnalyzing ? '分析中…' : '生成复盘建议'}
+                </Button>
+                <IconButton
+                  label="展开信息面板"
+                  variant="outline"
                   onClick={() => {
                     if (isMaximized) setIsMaximized(false)
                     setRightPanelCollapsed(false)
                   }}
                   className={cn(
-                    'ml-2 p-2 rounded-lg transition-colors border border-[var(--color-border-subtle)]',
+                    'ml-2',
                     rightPanelCollapsed || isMaximized
-                      ? 'text-white bg-[var(--color-bg-hover)]'
-                      : 'text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-bg-hover)] hidden',
+                      ? 'text-[var(--color-text-primary)] bg-[var(--color-bg-hover)]'
+                      : 'hidden',
                   )}
-                  title="展开信息面板"
                 >
-                  <PanelRight size={16} />
-                </button>
+                  <PanelRight />
+                </IconButton>
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* Right Column (Info) */}
           <AnimatePresence initial={false}>
@@ -814,24 +864,27 @@ export function ReviewView() {
               >
                 <div className="flex flex-col gap-4 min-h-0 h-full w-[300px] pl-4 overflow-y-auto hide-scrollbar">
                   {/* Error Analysis */}
-                  <div className="bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl p-4 shadow-sm relative group overflow-hidden shrink-0">
+                  <Card className="group relative shrink-0 overflow-hidden shadow-sm">
                     <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
+                      <IconButton
+                        label="收起信息面板"
+                        size="sm"
                         onClick={() => setRightPanelCollapsed(true)}
-                        className="text-[var(--color-text-muted)] hover:text-white p-1 rounded-md hover:bg-[var(--color-bg-hover)] transition-colors"
                       >
-                        <PanelRightClose size={14} />
-                      </button>
+                        <PanelRightClose />
+                      </IconButton>
                     </div>
-                    <h3 className="text-sm font-semibold text-white mb-2 pr-6">错误原因</h3>
+                    <h3 className="text-sm font-semibold text-[var(--color-text-primary)] mb-2 pr-6">
+                      错误原因
+                    </h3>
                     {isLoadingDetail ? (
                       <div className="space-y-2">
-                        <div className="h-4 bg-[var(--color-bg-card)] rounded animate-pulse" />
-                        <div className="h-12 bg-[var(--color-bg-card)] rounded animate-pulse" />
+                        <Skeleton className="h-4" />
+                        <Skeleton className="h-12" />
                       </div>
                     ) : selected?.ai_analysis ? (
-                      <div className="bg-red-500/5 rounded p-2 border border-red-500/10 mb-2">
-                        <p className="text-xs font-semibold text-[#EF4444] mb-1">
+                      <div className="bg-[var(--color-accent-danger)]/5 rounded p-2 border border-[var(--color-accent-danger)]/10 mb-2">
+                        <p className="text-xs font-semibold text-[var(--color-accent-danger)] mb-1">
                           {selected.error_types[0] ?? '错误分析'}
                         </p>
                         <p className="text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
@@ -845,17 +898,19 @@ export function ReviewView() {
                         </p>
                       </div>
                     )}
-                  </div>
+                  </Card>
 
                   {/* Knowledge Points */}
-                  <div className="bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl p-4 shadow-sm shrink-0">
-                    <h3 className="text-sm font-semibold text-white mb-3">相关知识点</h3>
+                  <Card className="shrink-0 shadow-sm">
+                    <h3 className="mb-3 text-sm font-semibold text-[var(--color-text-primary)]">
+                      相关知识点
+                    </h3>
                     <div className="flex flex-wrap gap-2">
                       {selected?.tags.map((tag) => (
                         <button
                           key={tag}
                           onClick={() => setFilters({ ...filters, tag })}
-                          className="text-[11px] px-2 py-1 rounded-md cursor-pointer transition-colors bg-[var(--color-accent-purple)]/10 text-[var(--color-accent-purple)] border border-[var(--color-accent-purple)]/20 hover:bg-[var(--color-accent-purple)]/20"
+                          className={TAG_CHIP_CLASS}
                         >
                           {tag}
                         </button>
@@ -866,12 +921,14 @@ export function ReviewView() {
                         </span>
                       )}
                     </div>
-                  </div>
+                  </Card>
 
                   {/* Review Schedule (Spaced Repetition Timeline) */}
-                  <div className="bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl p-4 shadow-sm shrink-0">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-semibold text-white">复习计划</h3>
+                  <Card className="shrink-0 shadow-sm">
+                    <div className="mb-3 flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                        复习计划
+                      </h3>
                     </div>
                     <p className="text-[11px] text-[var(--color-text-muted)] mb-3 flex items-center gap-1">
                       <Sparkles size={12} className="text-[var(--color-accent-purple)]" />{' '}
@@ -899,16 +956,18 @@ export function ReviewView() {
                         ))}
                       </div>
                     ) : (
-                      <div className="text-[11px] text-[var(--color-text-muted)] py-2">
+                      <div className="py-2 text-[11px] text-[var(--color-text-muted)]">
                         暂无复习计划
                       </div>
                     )}
-                  </div>
+                  </Card>
 
                   {/* Recommended Practice */}
-                  <div className="bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl p-4 shadow-sm flex-1 min-h-0 mb-4 shrink-0">
+                  <Card className="mb-4 min-h-0 flex-1 shrink-0 shadow-sm">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-semibold text-white">同类推荐练习</h3>
+                      <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                        同类推荐练习
+                      </h3>
                     </div>
                     {dueReviews.length > 0 ? (
                       <div className="space-y-2 overflow-y-auto pr-1">
@@ -916,7 +975,7 @@ export function ReviewView() {
                           <button
                             key={review.exercise_id}
                             onClick={handleRedoPractice}
-                            className="w-full flex items-center justify-between p-2 rounded hover:bg-[var(--color-bg-card)] transition-colors text-xs text-left"
+                            className="flex w-full items-center justify-between rounded p-2 text-left text-xs outline-none transition-colors hover:bg-[var(--color-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)]"
                           >
                             <span className="text-[var(--color-text-secondary)] flex items-center gap-2">
                               <span className="text-[var(--color-text-muted)] font-mono">
@@ -924,22 +983,33 @@ export function ReviewView() {
                               </span>{' '}
                               {review.title}
                             </span>
-                            <span className="text-[#F59E0B] scale-90">{review.difficulty}</span>
+                            <span className="text-[var(--color-accent-warning)] scale-90">
+                              {review.difficulty}
+                            </span>
                           </button>
                         ))}
                       </div>
                     ) : (
-                      <div className="text-[11px] text-[var(--color-text-muted)] py-2">
+                      <div className="py-2 text-[11px] text-[var(--color-text-muted)]">
                         暂无推荐
                       </div>
                     )}
-                  </div>
+                  </Card>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
       </div>
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="删除错题"
+        description={pendingDelete ? `确定删除错题「${pendingDelete.title}」？` : undefined}
+        confirmText="删除"
+        danger
+        onConfirm={confirmDeleteSelected}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   )
 }

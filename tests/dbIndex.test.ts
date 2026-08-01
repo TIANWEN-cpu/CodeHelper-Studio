@@ -55,15 +55,23 @@ vi.mock('../electron/db/exerciseDraftRepository', () => ({
 }))
 vi.mock('../electron/db/editorWorkspaceRepository', () => ({
   ensureEditorWorkspaceSchema: schemaMocks.ensureEditorWorkspaceSchema,
+  EDITOR_WORKSPACE_SCHEMA_VERSION: 3,
 }))
 vi.mock('../electron/db/knowledgeRetrievalRepository', () => ({
   ensureKnowledgeRetrievalSchema: schemaMocks.ensureKnowledgeRetrievalSchema,
+  KEYWORD_SCHEMA_VERSION: 1,
+  TRIGRAM_SCHEMA_VERSION: 2,
 }))
-vi.mock('../electron/db/knowledgeMetadataRepository', () => ({
-  ensureKnowledgeMetadataSchema: schemaMocks.ensureKnowledgeMetadataSchema,
-}))
+vi.mock('../electron/db/knowledgeMetadataRepository', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../electron/db/knowledgeMetadataRepository')>()
+  return {
+    ...actual,
+    ensureKnowledgeMetadataSchema: schemaMocks.ensureKnowledgeMetadataSchema,
+  }
+})
 vi.mock('../electron/db/agentRepository', () => ({
   ensureAgentSchema: schemaMocks.ensureAgentSchema,
+  AGENT_SCHEMA_VERSION: 1,
 }))
 
 // Mock fs

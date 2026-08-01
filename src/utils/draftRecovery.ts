@@ -462,6 +462,16 @@ export class DraftRecoveryStore {
     try {
       const own = readMap(target, this.sessionKey)
       if (own.error) return own.error
+      const previous = own.drafts[exerciseId]
+      if (
+        previous &&
+        previous.code === snapshot.code &&
+        previous.language === snapshot.language &&
+        previous.baseRevision === baseRevision &&
+        previous.localVersion === localVersion
+      ) {
+        return null
+      }
       const projected: StoredDraftRecoveryEntry[] = []
       for (const key of listSessionKeys(target)) {
         const result = key === this.sessionKey ? own : readMap(target, key)

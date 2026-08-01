@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion } from 'motion/react'
+import { Badge, Button, Card, EmptyState, Tabs, type BadgeVariant } from '@/components/ui'
 import { useHomeData } from '../hooks/useHomeData'
 import { useAppStore } from '../store'
 import type { WeekStart } from '../store'
@@ -82,13 +83,13 @@ function buildHeatmapWeeks(
   return cols
 }
 
-/** 根据当日次数与最大值映射到绿色梯度。 */
+/** 根据当日次数与最大值映射到 success 语义色梯度。 */
 function heatColor(count: number, max: number): string {
-  if (count <= 0) return 'bg-[#2A2F45]'
+  if (count <= 0) return 'bg-[var(--color-bg-active)]'
   const ratio = max > 0 ? count / max : 0
-  if (ratio > 0.66) return 'bg-[#10B981]'
-  if (ratio > 0.33) return 'bg-[#10B981]/70'
-  return 'bg-[#10B981]/40'
+  if (ratio > 0.66) return 'bg-[var(--color-accent-success)]'
+  if (ratio > 0.33) return 'bg-[var(--color-accent-success)]/70'
+  return 'bg-[var(--color-accent-success)]/40'
 }
 
 /** 行索引 → 星期标签（按 weekStart）。 */
@@ -106,27 +107,24 @@ const ACTIVITY_ICON_MAP: Record<string, typeof BookOpen> = {
 }
 
 const ACTIVITY_ICON_COLOR: Record<string, string> = {
-  problem_solved: 'text-[#10B981]',
+  problem_solved: 'text-[var(--color-accent-success)]',
   lesson_completed: 'text-[var(--color-accent-purple)]',
-  code_run: 'text-[#3B82F6]',
-  ai_chat_sent: 'text-[#F59E0B]',
+  code_run: 'text-[var(--color-accent-primary)]',
+  ai_chat_sent: 'text-[var(--color-accent-warning)]',
 }
 
 const ACTIVITY_ICON_BG: Record<string, string> = {
-  problem_solved: 'bg-[#10B981]/10',
+  problem_solved: 'bg-[var(--color-accent-success)]/10',
   lesson_completed: 'bg-[var(--color-accent-purple)]/10',
-  code_run: 'bg-[#3B82F6]/10',
-  ai_chat_sent: 'bg-[#F59E0B]/10',
+  code_run: 'bg-[var(--color-accent-primary)]/10',
+  ai_chat_sent: 'bg-[var(--color-accent-warning)]/10',
 }
 
-const ACTIVITY_STATUS: Record<string, { label: string; bg: string }> = {
-  problem_solved: { label: '解答通过', bg: 'bg-[#10B981]/20 text-[#10B981]' },
-  lesson_completed: {
-    label: '课程',
-    bg: 'bg-[var(--color-accent-purple)]/20 text-[var(--color-accent-purple)]',
-  },
-  code_run: { label: '运行', bg: 'bg-[#3B82F6]/20 text-[#3B82F6]' },
-  ai_chat_sent: { label: 'AI', bg: 'bg-[#F59E0B]/20 text-[#F59E0B]' },
+const ACTIVITY_STATUS: Record<string, { label: string; variant: BadgeVariant }> = {
+  problem_solved: { label: '解答通过', variant: 'success' },
+  lesson_completed: { label: '课程', variant: 'purple' },
+  code_run: { label: '运行', variant: 'accent' },
+  ai_chat_sent: { label: 'AI', variant: 'warning' },
 }
 
 // 活动项点击跳转的目标视图。
@@ -149,9 +147,9 @@ function getTimeAgo(timestamp: string): string {
 }
 
 const REVIEW_PRIORITY: Record<string, { label: string; bar: string }> = {
-  high: { label: '高优先级', bar: 'bg-[#EF4444]' },
-  medium: { label: '中优先级', bar: 'bg-[#F59E0B]' },
-  low: { label: '低优先级', bar: 'bg-[#10B981]' },
+  high: { label: '高优先级', bar: 'bg-[var(--color-accent-danger)]' },
+  medium: { label: '中优先级', bar: 'bg-[var(--color-accent-warning)]' },
+  low: { label: '低优先级', bar: 'bg-[var(--color-accent-success)]' },
 }
 
 /** 把 SM-2 的 next_review 时间转成到期描述（过去=已到期，未来=N 天后）。 */
@@ -208,6 +206,9 @@ const cardMotion = {
   animate: { opacity: 1, y: 0 },
   transition: { duration: 0.3, ease: [0.22, 0.61, 0.36, 1] as const },
 }
+
+/** Card 的 motion 包装：让卡片容器本身承担入场动画，避免多套一层栅格 div。 */
+const MotionCard = motion.create(Card)
 
 /** 能力成长面积图：先用 ResizeObserver 测得容器宽度，再以固定像素尺寸渲染。
  *  仅在测得宽度 > 0 时才挂载 AreaChart，从根本上规避 ResponsiveContainer 在
@@ -366,7 +367,7 @@ export function HomeView() {
       view: 'review',
       icon: RotateCcw,
       done: reviewReminders.length === 0,
-      tone: 'text-[#F59E0B] bg-[#F59E0B]/10 border-[#F59E0B]/20',
+      tone: 'text-[var(--color-accent-warning)] bg-[var(--color-accent-warning)]/10 border-[var(--color-accent-warning)]/20',
     },
     {
       title: '学新课',
@@ -393,7 +394,7 @@ export function HomeView() {
       view: 'practice',
       icon: FileCode,
       done: hasTodayPractice,
-      tone: 'text-[#10B981] bg-[#10B981]/10 border-[#10B981]/20',
+      tone: 'text-[var(--color-accent-success)] bg-[var(--color-accent-success)]/10 border-[var(--color-accent-success)]/20',
     },
     {
       title: '总结知识点',
@@ -401,7 +402,7 @@ export function HomeView() {
       view: 'knowledge',
       icon: BrainCircuit,
       done: hasTodayAi,
-      tone: 'text-[#3B82F6] bg-[#3B82F6]/10 border-[#3B82F6]/20',
+      tone: 'text-[var(--color-accent-primary)] bg-[var(--color-accent-primary)]/10 border-[var(--color-accent-primary)]/20',
     },
   ]
 
@@ -503,7 +504,7 @@ export function HomeView() {
 
   if (loading) {
     return (
-      <div className="home-view h-full flex flex-col bg-[var(--color-bg-base)] overflow-y-auto">
+      <div className="home-view h-full flex flex-col overflow-y-auto">
         <div className="max-w-[1200px] w-full mx-auto p-6 lg:p-8 space-y-6">
           <div className="flex items-center justify-center py-20">
             <Loader2 size={32} className="animate-spin text-[var(--color-accent-primary)]" />
@@ -515,11 +516,11 @@ export function HomeView() {
 
   if (error) {
     return (
-      <div className="home-view h-full flex flex-col bg-[var(--color-bg-base)] overflow-y-auto">
+      <div className="home-view h-full flex flex-col overflow-y-auto">
         <div className="max-w-[1200px] w-full mx-auto p-6 lg:p-8 space-y-6">
           <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <div className="w-16 h-16 rounded-full bg-[#EF4444]/10 flex items-center justify-center">
-              <span className="text-2xl">!</span>
+            <div className="w-16 h-16 rounded-full bg-[var(--color-accent-danger)]/10 flex items-center justify-center">
+              <span className="text-2xl font-bold text-[var(--color-accent-danger)]">!</span>
             </div>
             <p className="text-[var(--color-text-secondary)] text-sm">{error}</p>
           </div>
@@ -529,7 +530,7 @@ export function HomeView() {
   }
 
   return (
-    <div className="home-view h-full flex flex-col bg-[var(--color-bg-base)] overflow-y-auto">
+    <div className="home-view h-full flex flex-col overflow-y-auto">
       <motion.div
         {...pageMotion}
         className="max-w-[1320px] w-full mx-auto p-5 md:p-6 lg:p-8 space-y-6"
@@ -537,7 +538,7 @@ export function HomeView() {
         {/* Greeting Section */}
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight flex items-center gap-2">
+            <h1 className="text-2xl md:text-3xl font-bold text-[var(--color-text-primary)] tracking-tight flex items-center gap-2">
               {getGreeting()}，{overview?.greetingName || '同学'} 👋
             </h1>
             <p className="text-[var(--color-text-muted)] mt-1.5 flex items-center gap-2 text-sm">
@@ -554,7 +555,7 @@ export function HomeView() {
               })}
             </span>
             <span className="hidden items-center gap-1.5 rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-2.5 py-1.5 sm:inline-flex">
-              <Flame size={13} className="text-[#F59E0B]" />
+              <Flame size={13} className="text-[var(--color-accent-warning)]" />
               {streak > 0 ? `连续学习 ${streak} 天` : `今日 ${todayActivities.length} 条记录`}
             </span>
           </div>
@@ -568,19 +569,22 @@ export function HomeView() {
             data-active-mode={activeHeroMode}
             data-active-view={activeHeroPanel.view}
             data-has-review={reviewReminders.length > 0}
-            className="home-hero-card lg:col-span-2 xl:col-span-4 min-h-[340px] rounded-xl border border-[var(--color-border-subtle)] hover:border-[var(--color-accent-primary)]/40 p-5 md:p-6 relative overflow-hidden shadow-sm transition-all group"
+            className="home-hero-card lg:col-span-2 xl:col-span-4 min-h-[340px] rounded-xl border border-[var(--color-border-subtle)] hover:border-[var(--color-accent-primary)]/40 p-5 md:p-6 relative overflow-hidden transition-colors group"
           >
-            <div className="absolute inset-0 opacity-[0.1] bg-[linear-gradient(135deg,transparent_0,transparent_24px,rgba(255,255,255,0.8)_25px,transparent_26px)] bg-[length:36px_36px] pointer-events-none"></div>
-            <div className="home-hero-scanline pointer-events-none"></div>
+            <div className="home-hero-grid-overlay" aria-hidden="true"></div>
+            <div className="home-hero-scanline pointer-events-none" aria-hidden="true"></div>
             <div className="home-hero-layout relative z-10">
               <div className="home-hero-copy flex flex-col min-w-0">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F59E0B]/10 text-[#F59E0B] text-xs font-medium mb-3 border border-[#F59E0B]/20">
+                    <Badge
+                      variant="warning"
+                      className="mb-3 rounded-full border border-[var(--color-accent-warning)]/20 px-2.5 py-1"
+                    >
                       <Target size={12} />
-                      <span>今日优先行动</span>
-                    </div>
-                    <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">
+                      今日优先行动
+                    </Badge>
+                    <h2 className="text-[26px] leading-[1.2] font-bold text-[var(--color-text-primary)] mb-2 tracking-tight">
                       {nextActionTitle}
                     </h2>
                     <p className="text-[var(--color-text-secondary)] text-sm leading-relaxed max-w-xl">
@@ -590,7 +594,7 @@ export function HomeView() {
                   <div className="hidden sm:flex w-14 h-14 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]/70 items-center justify-center shrink-0">
                     <Route
                       size={34}
-                      className="text-[var(--color-accent-purple)] drop-shadow-[0_0_14px_rgba(139,92,246,0.35)]"
+                      className="text-[var(--color-accent-purple)] drop-shadow-[0_0_14px_color-mix(in_srgb,var(--color-accent-purple)_35%,transparent)]"
                       strokeWidth={1.5}
                     />
                   </div>
@@ -631,10 +635,15 @@ export function HomeView() {
                             <span className="text-[11px] font-mono text-[var(--color-text-muted)]">
                               {index + 1}
                             </span>
-                            <span className="text-sm font-semibold text-white truncate">
+                            <span className="text-sm font-semibold text-[var(--color-text-primary)] truncate">
                               {step.title}
                             </span>
-                            {step.done && <CheckCircle2 size={13} className="text-[#10B981]" />}
+                            {step.done && (
+                              <CheckCircle2
+                                size={13}
+                                className="text-[var(--color-accent-success)]"
+                              />
+                            )}
                           </div>
                           <p className="text-[11px] text-[var(--color-text-muted)] truncate mt-0.5">
                             {step.subtitle}
@@ -646,17 +655,10 @@ export function HomeView() {
                 </div>
 
                 <div className="home-hero-footer flex items-center justify-between mt-auto pt-6">
-                  <button
-                    onClick={() => setCurrentView(nextActionView)}
-                    className="relative overflow-hidden bg-[var(--color-accent-solid)] hover:bg-[var(--color-accent-solid-hover)] text-[var(--color-on-accent)] px-5 py-2.5 rounded-lg text-sm font-medium transition-all shadow-md flex items-center gap-2 hover:gap-3 group/btn hover:shadow-[0_10px_24px_color-mix(in_srgb,var(--color-accent-primary)_24%,transparent)] active:scale-[0.98]"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:animate-shimmer z-0 pointer-events-none"></div>
-                    <span className="relative z-10">{nextActionLabel}</span>
-                    <ChevronRight
-                      size={16}
-                      className="relative z-10 text-white/70 group-hover/btn:text-white transition-colors"
-                    />
-                  </button>
+                  <Button size="lg" onClick={() => setCurrentView(nextActionView)}>
+                    <span>{nextActionLabel}</span>
+                    <ChevronRight size={16} className="opacity-80" />
+                  </Button>
 
                   <span className="text-xs text-[var(--color-text-muted)]">
                     {todayActivities.length > 0
@@ -765,24 +767,25 @@ export function HomeView() {
           </motion.div>
 
           {/* Progress Card */}
-          <motion.div
+          <MotionCard
             {...cardMotion}
             transition={{ ...cardMotion.transition, delay: 0.08 }}
-            className="surface-card xl:col-span-2 bg-[var(--color-bg-card)] rounded-2xl border border-[var(--color-border-subtle)] p-6 flex flex-col min-h-[320px] shadow-sm"
+            padding="lg"
+            className="surface-card xl:col-span-2 flex flex-col min-h-[320px] shadow-sm"
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-white text-[15px] flex items-center gap-2">
+              <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px] flex items-center gap-2">
                 能力成长轨迹
                 {overview && (
-                  <span className="text-[10px] font-semibold text-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/10 px-1.5 py-0.5 rounded-md border border-[var(--color-accent-purple)]/20">
+                  <Badge variant="purple" className="px-1.5 text-[10px] font-semibold">
                     Lv.{overview.level}
-                  </span>
+                  </Badge>
                 )}
               </h3>
-              <span className="text-xs font-semibold text-[#10B981] bg-[#10B981]/10 px-2 py-0.5 rounded-md flex items-center gap-1">
+              <Badge variant="success" className="font-semibold">
                 <Flame size={12} />
                 {Math.max(0, streak)} 天连续学习
-              </span>
+              </Badge>
             </div>
 
             <div className="flex-1 flex items-center">
@@ -795,51 +798,55 @@ export function HomeView() {
                   <BookOpen size={12} className="text-[var(--color-accent-primary)]" />
                   <span className="text-xs text-[var(--color-text-secondary)]">已完成课程</span>
                 </div>
-                <span className="text-sm font-semibold text-white">
+                <span className="text-sm font-semibold text-[var(--color-text-primary)]">
                   {overview ? `${overview.completedLessons} / ${overview.totalLessons}` : '-- / --'}
                 </span>
               </div>
               <div>
                 <div className="flex items-center gap-1.5 mb-1">
-                  <CheckCircle2 size={12} className="text-[#10B981]" />
+                  <CheckCircle2 size={12} className="text-[var(--color-accent-success)]" />
                   <span className="text-xs text-[var(--color-text-secondary)]">已解决题目</span>
                 </div>
-                <span className="text-sm font-semibold text-white">
+                <span className="text-sm font-semibold text-[var(--color-text-primary)]">
                   {overview ? `${overview.solvedProblems} / ${overview.totalProblems}` : '-- / --'}
                 </span>
               </div>
             </div>
-          </motion.div>
+          </MotionCard>
 
           {/* AI Suggestion / Goals */}
-          <motion.div
+          <MotionCard
             {...cardMotion}
             transition={{ ...cardMotion.transition, delay: 0.14 }}
-            className="surface-card xl:col-span-2 bg-[var(--color-bg-card)] rounded-2xl border border-[var(--color-border-subtle)] p-6 min-h-[320px] shadow-sm flex flex-col"
+            padding="lg"
+            className="surface-card xl:col-span-2 min-h-[320px] shadow-sm flex flex-col"
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-white text-[15px] flex items-center gap-2">
+              <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px] flex items-center gap-2">
                 <Sparkles size={15} className="text-[var(--color-accent-purple)]" />
                 AI 今日建议
               </h3>
-              <span className="text-[10px] text-[var(--color-text-muted)] border border-[var(--color-border-subtle)] rounded-md px-1.5 py-0.5">
+              <Badge variant="neutral" className="text-[10px]">
                 进度驱动
-              </span>
+              </Badge>
             </div>
 
             <div className="rounded-xl border border-[var(--color-accent-purple)]/20 bg-[var(--color-accent-purple)]/10 p-3 mb-4">
-              <p className="text-sm text-white leading-relaxed">{aiAdvice}</p>
+              <p className="text-sm text-[var(--color-text-primary)] leading-relaxed">{aiAdvice}</p>
             </div>
 
             <div className="mb-4">
               <div className="text-xs font-semibold text-[var(--color-text-secondary)] mb-2 flex items-center gap-1.5">
-                <BrainCircuit size={13} className="text-[#3B82F6]" />
+                <BrainCircuit size={13} className="text-[var(--color-accent-primary)]" />
                 学习状态判断
               </div>
               <div className="space-y-2">
                 {weakSignals.length === 0 ? (
                   <div className="flex items-start gap-2 text-xs text-[var(--color-text-muted)] leading-relaxed">
-                    <CheckCircle2 size={14} className="text-[#10B981] mt-0.5 shrink-0" />
+                    <CheckCircle2
+                      size={14}
+                      className="text-[var(--color-accent-success)] mt-0.5 shrink-0"
+                    />
                     当前没有明显阻塞点，可以继续推进新课并做一次总结。
                   </div>
                 ) : (
@@ -848,7 +855,10 @@ export function HomeView() {
                       key={signal}
                       className="flex items-start gap-2 text-xs text-[var(--color-text-muted)] leading-relaxed"
                     >
-                      <Circle size={12} className="text-[#F59E0B] mt-0.5 shrink-0" />
+                      <Circle
+                        size={12}
+                        className="text-[var(--color-accent-warning)] mt-0.5 shrink-0"
+                      />
                       <span>{signal}</span>
                     </div>
                   ))
@@ -872,14 +882,20 @@ export function HomeView() {
                   dailyTasks.slice(0, 3).map((task) => (
                     <div key={task.id} className="flex items-center gap-2">
                       <div
-                        className={task.done ? 'text-[#10B981]' : 'text-[var(--color-text-muted)]'}
+                        className={
+                          task.done
+                            ? 'text-[var(--color-accent-success)]'
+                            : 'text-[var(--color-text-muted)]'
+                        }
                       >
                         {task.done ? <CheckCircle2 size={14} /> : <Circle size={14} />}
                       </div>
                       <span
                         className={cn(
                           'flex-1 truncate text-xs',
-                          task.done ? 'text-white' : 'text-[var(--color-text-secondary)]',
+                          task.done
+                            ? 'text-[var(--color-text-primary)]'
+                            : 'text-[var(--color-text-secondary)]',
                         )}
                       >
                         {task.title}
@@ -888,14 +904,16 @@ export function HomeView() {
                   ))
                 )}
               </div>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setCurrentView(nextActionView)}
-                className="w-full mt-4 text-xs text-[var(--color-accent-primary)] hover:text-[#4F46E5] font-medium transition-colors text-left flex items-center gap-1"
+                className="mt-4 -ml-3 text-[var(--color-accent-primary)] hover:text-[var(--color-accent-hover)]"
               >
                 执行建议动作 <ChevronRight size={12} />
-              </button>
+              </Button>
             </div>
-          </motion.div>
+          </MotionCard>
         </div>
 
         {/* Quick Links Grid */}
@@ -919,24 +937,27 @@ export function HomeView() {
                 title: '继续刷题',
                 subtitle: '从未完成题目',
                 icon: FileCode,
-                iconClass: 'text-[#10B981] border-[#10B981]/25 bg-[#10B981]/10',
-                accentClass: 'text-[#10B981]',
+                iconClass:
+                  'text-[var(--color-accent-success)] border-[var(--color-accent-success)]/25 bg-[var(--color-accent-success)]/10',
+                accentClass: 'text-[var(--color-accent-success)]',
                 view: 'practice',
               },
               {
                 title: '打开工作区',
                 subtitle: '编写代码',
                 icon: FolderCode,
-                iconClass: 'text-[#3B82F6] border-[#3B82F6]/25 bg-[#3B82F6]/10',
-                accentClass: 'text-[#3B82F6]',
+                iconClass:
+                  'text-[var(--color-accent-purple)] border-[var(--color-accent-purple)]/25 bg-[var(--color-accent-purple)]/10',
+                accentClass: 'text-[var(--color-accent-purple)]',
                 view: 'workspace',
               },
               {
                 title: '错题本',
                 subtitle: '复习薄弱点',
                 icon: RotateCcw,
-                iconClass: 'text-[#F59E0B] border-[#F59E0B]/25 bg-[#F59E0B]/10',
-                accentClass: 'text-[#F59E0B]',
+                iconClass:
+                  'text-[var(--color-accent-warning)] border-[var(--color-accent-warning)]/25 bg-[var(--color-accent-warning)]/10',
+                accentClass: 'text-[var(--color-accent-warning)]',
                 view: 'review',
               },
             ] as const
@@ -981,77 +1002,40 @@ export function HomeView() {
           className="grid grid-cols-1 lg:grid-cols-3 gap-6"
         >
           {/* Recent Activity */}
-          <div className="surface-card lg:col-span-2 bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-2xl p-6 shadow-sm">
+          <Card padding="lg" className="surface-card lg:col-span-2 shadow-sm">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-4">
-                <h3 className="font-semibold text-white text-[15px]">最近活动</h3>
-                <div className="flex items-center gap-2 text-xs font-medium">
-                  <button
-                    onClick={() => setActivityFilter('all')}
-                    className={cn(
-                      'px-2 py-1 rounded-md transition-colors',
-                      activityFilter === 'all'
-                        ? 'bg-[var(--color-bg-hover)] text-white'
-                        : 'text-[var(--color-text-secondary)] hover:text-white',
-                    )}
-                  >
-                    全部
-                  </button>
-                  <button
-                    onClick={() => setActivityFilter('lesson')}
-                    className={cn(
-                      'px-2 py-1 rounded-md transition-colors',
-                      activityFilter === 'lesson'
-                        ? 'bg-[var(--color-bg-hover)] text-white'
-                        : 'text-[var(--color-text-secondary)] hover:text-white',
-                    )}
-                  >
-                    课程
-                  </button>
-                  <button
-                    onClick={() => setActivityFilter('problem')}
-                    className={cn(
-                      'px-2 py-1 rounded-md transition-colors',
-                      activityFilter === 'problem'
-                        ? 'bg-[var(--color-bg-hover)] text-white'
-                        : 'text-[var(--color-text-secondary)] hover:text-white',
-                    )}
-                  >
-                    题目
-                  </button>
-                </div>
+                <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px]">
+                  最近活动
+                </h3>
+                <Tabs
+                  ariaLabel="活动筛选"
+                  items={[
+                    { value: 'all', label: '全部' },
+                    { value: 'lesson', label: '课程' },
+                    { value: 'problem', label: '题目' },
+                  ]}
+                  value={activityFilter}
+                  onChange={(value) => setActivityFilter(value as 'all' | 'lesson' | 'problem')}
+                />
               </div>
             </div>
 
             {recentActivity.length === 0 ? (
-              <div className="space-y-4 relative w-full flex flex-col items-center justify-center py-10 min-h-[300px]">
-                <div className="relative w-40 h-40 mb-2 opacity-80">
-                  <div className="absolute inset-0 bg-[var(--color-accent-primary)]/10 rounded-full blur-3xl animate-pulse"></div>
-                  <div className="relative w-full h-full bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] rounded-full flex flex-col items-center justify-center shadow-inner overflow-hidden top-0 hover:-translate-y-2 transition-transform duration-500">
-                    <Rocket
-                      size={48}
-                      className="text-[var(--color-accent-primary)] opacity-70 mb-2 transition-transform duration-700 ease-in-out hover:-translate-y-4 hover:translate-x-4"
-                    />
-                  </div>
-                </div>
-                <h4 className="text-base font-semibold text-white">今天还没有学习记录</h4>
-                <p className="text-[13px] text-[var(--color-text-muted)] max-w-xs text-center leading-relaxed mt-1 mb-2">
-                  休整之后，开启新的编程探索之旅吧！你的每一次提交都值得记录。
-                </p>
-                <button
-                  onClick={() => setCurrentView('learn')}
-                  className="mt-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-white to-gray-200 text-black font-semibold hover:opacity-90 active:scale-95 transition-all text-sm flex items-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.15)] group focus-visible:ring-offset-2 focus-visible:ring-white"
-                >
-                  <Sparkles size={16} className="text-[var(--color-accent-purple)]" />
-                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-black to-gray-800">
+              <EmptyState
+                icon={Rocket}
+                title="今天还没有学习记录"
+                description="休整之后，开启新的编程探索之旅吧！你的每一次提交都值得记录。"
+                className="min-h-[300px]"
+                action={
+                  <Button onClick={() => setCurrentView('learn')}>
+                    <Sparkles size={15} />
                     开启新的一天
-                  </span>
-                </button>
-              </div>
+                  </Button>
+                }
+              />
             ) : filteredActivity.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 min-h-[200px]">
-                <p className="text-sm text-[var(--color-text-muted)]">该分类下暂无记录</p>
-              </div>
+              <EmptyState icon={MessageSquare} title="该分类下暂无记录" className="min-h-[200px]" />
             ) : (
               <div className="space-y-4 relative">
                 <div className="absolute left-[2.25rem] top-6 bottom-6 w-px bg-gradient-to-b from-transparent via-[var(--color-border-subtle)] to-transparent hidden md:block z-0 pointer-events-none"></div>
@@ -1063,7 +1047,7 @@ export function HomeView() {
                   const iconBg = ACTIVITY_ICON_BG[item.type] || 'bg-[var(--color-bg-hover)]'
                   const status = ACTIVITY_STATUS[item.type] || {
                     label: item.type,
-                    bg: 'bg-[var(--color-bg-hover)] text-[var(--color-text-secondary)]',
+                    variant: 'neutral' as BadgeVariant,
                   }
                   const timeAgo = getTimeAgo(item.timestamp)
                   const activityView: ViewType = ACTIVITY_VIEW[item.type] ?? 'home'
@@ -1071,9 +1055,9 @@ export function HomeView() {
                     <div
                       key={item.id}
                       onClick={() => setCurrentView(activityView)}
-                      className="flex items-center gap-4 p-3 rounded-2xl bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] hover:border-[var(--color-border-default)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.1)] transition-all cursor-pointer group relative z-10"
+                      className="flex items-center gap-4 p-3 rounded-2xl bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] hover:border-[var(--color-border-default)] hover:shadow-[var(--shadow-card)] transition-all cursor-pointer group relative z-10"
                     >
-                      <div className="absolute inset-0 bg-gradient-to-r from-white/[0.01] to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl pointer-events-none"></div>
+                      <div className="absolute inset-0 bg-gradient-to-r from-[var(--color-text-primary)]/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl pointer-events-none"></div>
                       <div
                         className={cn(
                           'w-11 h-11 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300 shadow-sm',
@@ -1084,17 +1068,12 @@ export function HomeView() {
                       </div>
                       <div className="flex-1 min-w-0 flex flex-col justify-center">
                         <div className="flex items-center gap-2 mb-1">
-                          <h4 className="text-[14px] font-semibold text-white truncate group-hover:text-[var(--color-accent-primary)] transition-colors">
+                          <h4 className="text-[14px] font-semibold text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors">
                             {item.description.split(':')[0] || item.description}
                           </h4>
-                          <span
-                            className={cn(
-                              'text-[10px] px-1.5 py-0.5 rounded-md font-medium',
-                              status.bg,
-                            )}
-                          >
+                          <Badge variant={status.variant} className="px-1.5 py-0.5 text-[10px]">
                             {status.label}
-                          </span>
+                          </Badge>
                         </div>
                         {item.description.includes(':') && (
                           <p className="text-[12px] text-[var(--color-text-muted)] truncate">
@@ -1103,7 +1082,7 @@ export function HomeView() {
                         )}
                       </div>
                       <div className="flex flex-col items-end gap-1">
-                        <span className="text-[11px] font-medium text-[var(--color-text-secondary)] whitespace-nowrap group-hover:text-white transition-colors">
+                        <span className="text-[11px] font-medium text-[var(--color-text-secondary)] whitespace-nowrap group-hover:text-[var(--color-text-primary)] transition-colors">
                           {timeAgo}
                         </span>
                         <button
@@ -1118,42 +1097,34 @@ export function HomeView() {
                 })}
               </div>
             )}
-          </div>
+          </Card>
 
           {/* Heatmap & Review Reminders */}
           <div className="space-y-6">
             {/* Review Reminders */}
-            <div className="surface-card bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-2xl p-6 shadow-sm">
-              <h3 className="font-semibold text-white text-[15px] mb-4 flex items-center justify-between">
+            <Card padding="lg" className="surface-card shadow-sm">
+              <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px] mb-4 flex items-center justify-between">
                 错题复习提醒{' '}
                 <span className="text-xs font-normal text-[var(--color-text-muted)]">
                   {reviewReminders.length} 道待复习
                 </span>
               </h3>
               {reviewReminders.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-6">
-                  <div className="w-24 h-24 mb-4 relative opacity-80">
-                    <div className="absolute inset-0 bg-[var(--color-accent-primary)]/20 rounded-full blur-xl animate-pulse"></div>
-                    <div className="relative w-full h-full bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] rounded-full flex items-center justify-center shadow-inner">
-                      <Sparkles
-                        size={32}
-                        className="text-[var(--color-accent-primary)] opacity-80"
-                      />
-                    </div>
-                  </div>
-                  <p className="text-sm font-medium text-white mb-1">暂无待复习错题</p>
-                  <p className="text-[12px] text-[var(--color-text-muted)] text-center max-w-[200px]">
-                    继续保持良好的学习状态，遇到难题随时记录。
-                  </p>
-                  <button
-                    onClick={() => setCurrentView('practice')}
-                    className="mt-4 px-4 py-1.5 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] hover:bg-[var(--color-bg-hover)] text-xs text-[var(--color-text-primary)] font-medium transition-colors cursor-pointer group"
-                  >
-                    <span className="group-hover:text-[var(--color-accent-primary)] transition-colors">
+                <EmptyState
+                  icon={Sparkles}
+                  title="暂无待复习错题"
+                  description="继续保持良好的学习状态，遇到难题随时记录。"
+                  className="px-2 py-6"
+                  action={
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setCurrentView('practice')}
+                    >
                       去刷几道新题
-                    </span>
-                  </button>
-                </div>
+                    </Button>
+                  }
+                />
               ) : (
                 <div className="space-y-2">
                   {reviewReminders.slice(0, 5).map((item) => {
@@ -1166,7 +1137,7 @@ export function HomeView() {
                       >
                         <span className={cn('w-1.5 h-8 rounded-full shrink-0', pr.bar)} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-white truncate group-hover:text-[var(--color-accent-primary)] transition-colors">
+                          <p className="text-sm text-[var(--color-text-primary)] truncate group-hover:text-[var(--color-accent-primary)] transition-colors">
                             {item.title}
                           </p>
                           <p className="text-[11px] text-[var(--color-text-muted)]">
@@ -1182,21 +1153,25 @@ export function HomeView() {
                     )
                   })}
                   {reviewReminders.length > 5 && (
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => setCurrentView('review')}
-                      className="w-full text-xs text-[var(--color-accent-primary)] hover:text-[#4F46E5] font-medium transition-colors py-1 flex items-center justify-center gap-1"
+                      className="w-full text-[var(--color-accent-primary)] hover:text-[var(--color-accent-hover)]"
                     >
                       查看全部 {reviewReminders.length} 道 <ChevronRight size={12} />
-                    </button>
+                    </Button>
                   )}
                 </div>
               )}
-            </div>
+            </Card>
 
             {/* 学习热力图：真实日期零填充 + 按星期对齐（首行由"每周起始日"决定） */}
-            <div className="surface-card bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-2xl p-6 shadow-sm">
+            <Card padding="lg" className="surface-card shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-white text-[15px]">学习热力图</h3>
+                <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px]">
+                  学习热力图
+                </h3>
                 <span className="text-xs text-[var(--color-text-muted)]">
                   最近 {HEATMAP_WEEKS} 周
                 </span>
@@ -1223,12 +1198,12 @@ export function HomeView() {
                         <div
                           key={cell.key}
                           className={cn(
-                            'w-2.5 h-2.5 rounded-[2px] relative group cursor-pointer hover:ring-2 hover:ring-white/50 transition-all',
+                            'w-2.5 h-2.5 rounded-[2px] relative group cursor-pointer hover:ring-2 hover:ring-[var(--ring-focus)] transition-all',
                             heatColor(cell.count, maxHeatmapCount),
                           )}
                         >
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-[var(--color-bg-panel)] text-white text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 flex flex-col items-center border border-[var(--color-border-subtle)]">
-                            <span className="font-semibold text-white/90">
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-[var(--color-bg-panel)] text-[var(--color-text-primary)] text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 flex flex-col items-center border border-[var(--color-border-subtle)]">
+                            <span className="font-semibold">
                               {cell.count === 0 ? '未学习' : `学习了 ${cell.count} 次`}
                             </span>
                             <span className="text-[var(--color-text-muted)] mt-0.5">
@@ -1246,17 +1221,17 @@ export function HomeView() {
               </div>
               <div className="flex items-center justify-between mt-4 text-xs">
                 <span className="text-[var(--color-text-muted)] flex items-center gap-1">
-                  <Flame size={14} className="text-[#F59E0B]" /> 持续学习很棒！
+                  <Flame size={14} className="text-[var(--color-accent-warning)]" /> 持续学习很棒！
                 </span>
                 <div className="flex items-center gap-1 text-[10px] text-[var(--color-text-muted)]">
                   少
-                  <span className="w-2.5 h-2.5 rounded-[2px] bg-[#2A2F45]" />
-                  <span className="w-2.5 h-2.5 rounded-[2px] bg-[#10B981]/40" />
-                  <span className="w-2.5 h-2.5 rounded-[2px] bg-[#10B981]/70" />
-                  <span className="w-2.5 h-2.5 rounded-[2px] bg-[#10B981]" />多
+                  <span className="w-2.5 h-2.5 rounded-[2px] bg-[var(--color-bg-active)]" />
+                  <span className="w-2.5 h-2.5 rounded-[2px] bg-[var(--color-accent-success)]/40" />
+                  <span className="w-2.5 h-2.5 rounded-[2px] bg-[var(--color-accent-success)]/70" />
+                  <span className="w-2.5 h-2.5 rounded-[2px] bg-[var(--color-accent-success)]" />多
                 </div>
               </div>
-            </div>
+            </Card>
           </div>
         </motion.div>
       </motion.div>

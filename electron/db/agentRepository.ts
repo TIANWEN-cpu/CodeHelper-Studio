@@ -12,7 +12,7 @@ import type {
 } from '../../src/shared/agentContract'
 
 const AGENT_SCHEMA_COMPONENT = 'agent-tools'
-const AGENT_SCHEMA_VERSION = 1
+export const AGENT_SCHEMA_VERSION = 1
 const AGENT_RESTART_ERROR = 'Agent 运行在上次应用会话中断，已安全终止。'
 
 type RunRow = {

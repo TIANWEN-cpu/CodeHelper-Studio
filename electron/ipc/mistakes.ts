@@ -36,7 +36,8 @@ export function registerMistakesIPC(): void {
     return getDB()
       .prepare(
         `
-      SELECT m.*, p.title AS problem_title, p.difficulty, p.tags
+      SELECT m.id, m.problem_id, m.error_types, m.created_at,
+             p.title AS problem_title, p.difficulty, p.tags
       FROM mistakes m
       JOIN problems p ON m.problem_id = p.id
       ORDER BY m.updated_at DESC

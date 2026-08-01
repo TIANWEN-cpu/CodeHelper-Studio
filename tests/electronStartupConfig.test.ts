@@ -7,6 +7,10 @@ import { getPreloadScriptPath } from '../electron/utils/runtimePaths'
 describe('Electron startup configuration', () => {
   const mainSource = readFileSync(new URL('../electron/main.ts', import.meta.url), 'utf8')
   const ragSource = readFileSync(new URL('../electron/ipc/rag.ts', import.meta.url), 'utf8')
+  const resourcePackSource = readFileSync(
+    new URL('../electron/ipc/resourcePack.ts', import.meta.url),
+    'utf8',
+  )
 
   it('points BrowserWindow preload at the JavaScript file emitted by electron-vite', () => {
     const preloadPath = getPreloadScriptPath('D:/codehelper/out/main')
@@ -68,6 +72,13 @@ describe('Electron startup configuration', () => {
     )
     expect(mainSource).toMatch(
       /app\.on\('will-quit',[\s\S]*?closeDB\(\)[\s\S]*?appProcessLease\?\.release\(\)/,
+    )
+  })
+
+  it('keeps E2E approval hooks out of packaged launches', () => {
+    expect(mainSource).toContain('if (!app.isPackaged && process.env[E2E_USER_DATA_ENV])')
+    expect(resourcePackSource).toContain(
+      '(!app.isPackaged && Boolean(process.env[E2E_USER_DATA_ENV]))',
     )
   })
 

@@ -133,7 +133,7 @@ export type RAGContext = {
     difficultyLevel: string
     strongTopics: string[]
     weakTopics: string[]
-  }
+  } | null
 }
 
 export async function getRAGContext(query: string): Promise<RAGContext> {

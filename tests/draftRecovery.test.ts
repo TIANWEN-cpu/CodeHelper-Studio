@@ -75,6 +75,21 @@ describe('practice draft recovery', () => {
     expect(storage.values.has(PRACTICE_DRAFT_RECOVERY_KEY)).toBe(false)
   })
 
+  it('does not rewrite the session recovery map when nothing changed', () => {
+    writeDraftRecovery('exercise-a', { code: 'same code', language: 'python' }, 4, 7)
+    const sessionKey = getPracticeDraftRecoverySessionKey()
+    const firstWrite = storage.getItem(sessionKey)
+    const getItem = vi.spyOn(storage, 'getItem')
+
+    writeDraftRecovery('exercise-a', { code: 'same code', language: 'python' }, 4, 7)
+
+    expect(storage.getItem(sessionKey)).toBe(firstWrite)
+    expect(getItem).not.toHaveBeenCalledWith(PRACTICE_DRAFT_RECOVERY_KEY)
+
+    writeDraftRecovery('exercise-a', { code: 'same code', language: 'python' }, 4, 8)
+    expect(storage.getItem(sessionKey)).not.toBe(firstWrite)
+  })
+
   it('does not clear a newer recovery entry with the same code but another language', () => {
     writeDraftRecovery('exercise-a', { code: 'same', language: 'javascript' }, 4, 8)
 

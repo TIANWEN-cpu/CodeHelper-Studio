@@ -6,13 +6,15 @@ These settings should be applied via **GitHub Settings > Branches > Branch prote
 
 ---
 
-## `main` Branch (Production)
+## `master` Branch (Default / Production)
+
+The repository has a single long-lived branch: `master` (the default branch). There is no `dev` branch; CI triggers on `[main, master]`, and all work merges into `master` via PR.
 
 ### Settings to Enable
 
 | Setting                              | Value                  | Rationale                            |
 | ------------------------------------ | ---------------------- | ------------------------------------ |
-| Require pull request before merging  | Yes                    | Prevent direct pushes to main        |
+| Require pull request before merging  | Yes                    | Prevent direct pushes to master      |
 | Required approving reviews           | 1                      | Minimum code review                  |
 | Dismiss stale reviews on new commits | Yes                    | Force re-review after changes        |
 | Require review from code owners      | No (single maintainer) | Avoid self-review deadlock           |
@@ -27,11 +29,10 @@ These settings should be applied via **GitHub Settings > Branches > Branch prote
 
 ### Required Status Checks
 
-The following CI jobs must pass before a PR can merge to `main`:
+The following CI jobs must pass before a PR can merge to `master`:
 
 ```
 Lint / Format / Typecheck
-Test (Node 18)
 Test (Node 20)
 Test (Node 22)
 Bundle Size Check
@@ -40,33 +41,18 @@ PR Title Validation
 
 ### How to Apply
 
-1. Go to `https://github.com/TIANWEN-cpu/CodeHelper/settings/branches`
+1. Go to `https://github.com/TIANWEN-cpu/CodeHelper-Studio/settings/branches`
 2. Click **Add rule**
-3. Branch name pattern: `main`
+3. Branch name pattern: `master`
 4. Enable all settings listed above
 5. Under "Require status checks to pass before merging", search and add each required check
 6. Click **Save changes**
 
 ---
 
-## `dev` Branch (Development Integration)
-
-### Settings to Enable
-
-| Setting                              | Value                                         | Rationale                    |
-| ------------------------------------ | --------------------------------------------- | ---------------------------- |
-| Require pull request before merging  | Yes                                           | Ensure code review           |
-| Required approving reviews           | 1                                             | Minimum review               |
-| Require status checks before merging | Yes                                           | Gate on CI                   |
-| Required status checks               | `Lint / Format / Typecheck`, `Test (Node 20)` | Lighter gates for dev speed  |
-| Require linear history               | Yes                                           | Clean git history            |
-| Include administrators               | No                                            | Allow fast-track when needed |
-
----
-
 ## Feature Branches (`feat/*`, `fix/*`, `docs/*`)
 
-No branch protection rules needed. These branches are short-lived and merge via PR into `dev` or `main`.
+No branch protection rules needed. These branches are short-lived and merge via PR into `master`.
 
 ---
 
@@ -82,12 +68,12 @@ PR Opened --> pr-check.yml (title, size, reviewers)
 ci.yml (parallel):
     +-- Security Audit
     +-- Lint / Format / Typecheck
-    +-- Test (Node 18 / 20 / 22)     [needs: lint]
+    +-- Test (Node 20 / 22)          [needs: lint]
     +-- Bundle Size Check             [needs: lint]
     +-- Build Smoke (Win/Mac/Linux)   [needs: lint]
     |
     v
-Merge to main
+Merge to master
     |
     v
 Tag v*.*.* --> release.yml:
@@ -103,7 +89,7 @@ Tag v*.*.* --> release.yml:
 
 To enable auto-merge for minor/patch dependency updates:
 
-1. Go to `https://github.com/TIANWEN-cpu/CodeHelper/settings/branches` and ensure branch protection exists for `main`
+1. Go to `https://github.com/TIANWEN-cpu/CodeHelper-Studio/settings/branches` and ensure branch protection exists for `master`
 2. Install the [Dependabot Auto-merge GitHub App](https://github.com/apps/dependabot) or create a workflow:
 
 ```yaml
@@ -144,7 +130,7 @@ jobs:
 
 After first CI run, status check names become available in the branch protection dropdown. If they don't appear:
 
-1. Ensure the workflow has run at least once on a PR targeting `main`
+1. Ensure the workflow has run at least once on a PR targeting `master`
 2. Check the exact job name in the workflow YAML (the `name:` field, not the key)
 3. Wait a few minutes for GitHub to index the checks
 

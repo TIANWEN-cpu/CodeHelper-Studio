@@ -38,7 +38,7 @@
 ```typescript
 {
   code: string      // 代码内容（最大 100,000 字符）
-  language: string  // 编程语言：python / c / cpp / csharp / sql
+  language: string  // 编程语言：python / c / cpp / csharp / javascript / node / sql
   stdin?: string    // 标准输入（最大 100,000 字符）
 }
 ```
@@ -58,13 +58,14 @@
 
 **语言支持详情**:
 
-| 语言     | 编译器/运行时  | 编译阶段 | 执行超时            |
-| -------- | -------------- | -------- | ------------------- |
-| `python` | python         | 无       | 10s                 |
-| `c`      | gcc            | 有       | 10s 编译 + 10s 运行 |
-| `cpp`    | g++            | 有       | 10s 编译 + 10s 运行 |
-| `csharp` | csc            | 有       | 10s 编译 + 10s 运行 |
-| `sql`    | better-sqlite3 | 无       | 内存数据库          |
+| 语言                  | 编译器/运行时  | 编译阶段 | 执行超时            |
+| --------------------- | -------------- | -------- | ------------------- |
+| `python`              | python         | 无       | 10s                 |
+| `c`                   | gcc            | 有       | 10s 编译 + 10s 运行 |
+| `cpp`                 | g++            | 有       | 10s 编译 + 10s 运行 |
+| `csharp`              | csc            | 有       | 10s 编译 + 10s 运行 |
+| `javascript` / `node` | node           | 无       | 10s 运行            |
+| `sql`                 | better-sqlite3 | 无       | 内存数据库          |
 
 ---
 

@@ -18,7 +18,7 @@ import { registerPetsIPC } from './ipc/pets'
 import { registerResourcePackIPC } from './ipc/resourcePack'
 import { registerLearningRecordsIPC } from './ipc/learningRecords'
 import { registerEditorWorkspaceIPC } from './ipc/editorWorkspace'
-import { registerAgentIPC } from './ipc/agent'
+import { registerAgentIPC, __setApprovalDialogForTest } from './ipc/agent'
 import { registerMaintenanceIPC } from './ipc/maintenance'
 import { registerCapabilitiesIPC } from './ipc/capabilities'
 import { closeDB, getDatabasePath } from './db/index'
@@ -26,7 +26,7 @@ import { logIpcStatsSummary, getIpcStats } from './utils/perfMonitor'
 import { registerIpcHandler, rateLimitMiddleware } from './utils/middleware'
 import { buildContentSecurityPolicy } from './utils/contentSecurityPolicy'
 import { getPreloadScriptPath } from './utils/runtimePaths'
-import { configureTestUserData } from './utils/testUserData'
+import { configureTestUserData, E2E_USER_DATA_ENV } from './utils/testUserData'
 import { WindowCloseFlushBroker } from './utils/windowCloseHandshake'
 import { shouldShowBrowserWindow } from './utils/testWindowVisibility'
 import { createMainWindowNavigationGuard } from './utils/navigationGuard'
@@ -39,6 +39,7 @@ import { join } from 'path'
 import { pathToFileURL } from 'url'
 import { randomUUID } from 'crypto'
 import { acquireProcessLease, type ProcessLease } from './utils/processLease'
+import { shouldRetryLoad, INITIAL_LOAD_RETRY_DELAY_MS } from './utils/loadRetry'
 
 process.env.CODEHELPER_RECOVERY_BOOT_ID = randomUUID()
 
@@ -78,6 +79,11 @@ if (packagedSmokeUserDataPath && configuredTestUserDataPath !== packagedSmokeUse
   throw new Error('Packaged smoke failed to configure its isolated userData directory')
 }
 const closeFlushBroker = new WindowCloseFlushBroker()
+
+if (!app.isPackaged && process.env[E2E_USER_DATA_ENV]) {
+  ;(globalThis as Record<string, unknown>)['__codehelperAgentApprovalDialogForTest'] =
+    __setApprovalDialogForTest
+}
 
 async function flushAllRendererWindows() {
   const windows = BrowserWindow.getAllWindows().filter((window) => !window.isDestroyed())
@@ -395,6 +401,10 @@ function createWindow(options: CreateWindowOptions = {}): BrowserWindow {
   let rendererReplacementStarted = false
   let rendererRecoveryAttempts = options.rendererRecoveryAttempts ?? 0
   let rendererStableTimer: ReturnType<typeof setTimeout> | null = null
+  let didLoadSuccessfully = false
+  let initialLoadFailureCount = 0
+  let initialLoadRetryTimer: ReturnType<typeof setTimeout> | null = null
+  let initialLoadFailurePromptOpen = false
   const rendererId = mainWindow.webContents.id
   mainWindow.on('close', (event) => {
     if (allowClose) return
@@ -433,6 +443,10 @@ function createWindow(options: CreateWindowOptions = {}): BrowserWindow {
   mainWindow.on('closed', () => {
     closeFlushBroker.cancelSender(rendererId)
     if (rendererStableTimer) clearTimeout(rendererStableTimer)
+    if (initialLoadRetryTimer) {
+      clearTimeout(initialLoadRetryTimer)
+      initialLoadRetryTimer = null
+    }
   })
 
   // Content-Security-Policy: prevent XSS via inline script execution
@@ -460,6 +474,8 @@ function createWindow(options: CreateWindowOptions = {}): BrowserWindow {
 
   mainWindow.webContents.on('did-finish-load', () => {
     startupLog('Renderer did-finish-load')
+    didLoadSuccessfully = true
+    initialLoadFailureCount = 0
     if (rendererStableTimer) clearTimeout(rendererStableTimer)
     if (rendererRecoveryAttempts > 0) {
       rendererStableTimer = setTimeout(() => {
@@ -490,15 +506,63 @@ function createWindow(options: CreateWindowOptions = {}): BrowserWindow {
   })
 
   // Forward renderer console to main process
-  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
-    const prefix = ['VERBOSE', 'INFO', 'WARNING', 'ERROR'][level] || 'LOG'
-    console.log(`[RENDERER ${prefix}] ${message} (${sourceId}:${line})`)
+  mainWindow.webContents.on('console-message', (event) => {
+    const prefix =
+      {
+        verbose: 'VERBOSE',
+        info: 'INFO',
+        warning: 'WARNING',
+        error: 'ERROR',
+        debug: 'DEBUG',
+      }[event.level] ?? 'LOG'
+    console.log(`[RENDERER ${prefix}] ${event.message} (${event.sourceId}:${event.lineNumber})`)
   })
 
   mainWindow.webContents.on(
     'did-fail-load',
-    (_event, errorCode, errorDescription, validatedURL) => {
+    (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
       startupError('Renderer did-fail-load', { errorCode, errorDescription, validatedURL })
+      // Retry only the main frame's initial load; never after a successful load
+      // and never while a retry or the failure dialog is already in flight.
+      if (didLoadSuccessfully || !isMainFrame || mainWindow.isDestroyed()) return
+      if (initialLoadRetryTimer !== null || initialLoadFailurePromptOpen) return
+
+      if (shouldRetryLoad(initialLoadFailureCount)) {
+        initialLoadFailureCount += 1
+        initialLoadRetryTimer = setTimeout(() => {
+          initialLoadRetryTimer = null
+          if (mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return
+          void loadRenderer(mainWindow, options.rendererRecoveryReason).catch((error) =>
+            startupError('Initial renderer load failed', error),
+          )
+        }, INITIAL_LOAD_RETRY_DELAY_MS)
+        return
+      }
+
+      initialLoadFailurePromptOpen = true
+      void dialog
+        .showMessageBox(mainWindow, {
+          type: 'error',
+          title: '界面加载失败',
+          message: 'CodeHelper 界面加载失败。',
+          detail: '可以再重试加载一次，或退出后重新启动 CodeHelper。',
+          buttons: ['重试', '退出'],
+          defaultId: 0,
+          cancelId: 1,
+          noLink: true,
+        })
+        .then(({ response }) => {
+          initialLoadFailurePromptOpen = false
+          if (mainWindow.isDestroyed()) return
+          if (response === 0) {
+            initialLoadFailureCount = 0
+            void loadRenderer(mainWindow, options.rendererRecoveryReason).catch((error) =>
+              startupError('Initial renderer load failed', error),
+            )
+          } else {
+            app.quit()
+          }
+        })
     },
   )
 

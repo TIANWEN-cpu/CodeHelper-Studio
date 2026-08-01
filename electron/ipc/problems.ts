@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { getDB } from '../db/index'
 import { existsSync, readdirSync, readFileSync } from 'fs'
+import { createHash } from 'crypto'
 import { join } from 'path'
 import { runCodeSnippet } from '../utils/codeRunner'
 import { trackPerformance } from '../utils/perfMonitor'
@@ -19,7 +20,7 @@ export function registerProblemsIPC(): void {
   console.log('[IPC] registerProblemsIPC: starting problem sync...')
   setTimeout(() => {
     try {
-      syncProblems()
+      maybeSyncProblems()
       console.log('[IPC] Problem sync completed')
     } catch (err) {
       console.error('[ERROR] Failed to sync problems:', err)
@@ -68,7 +69,8 @@ export function registerProblemsIPC(): void {
           }
         }
         let query =
-          "SELECT p.*, (SELECT COUNT(*) FROM submissions s WHERE s.problem_id = p.id AND s.status = 'accepted') as solved FROM problems p WHERE 1=1"
+          'SELECT p.id, p.title, p.difficulty, p.tags, p.source, p.tracks, p.platform, p.mode, p.starter_code, ' +
+          "(SELECT COUNT(*) FROM submissions s WHERE s.problem_id = p.id AND s.status = 'accepted') as solved FROM problems p WHERE 1=1"
         const params: string[] = []
 
         if (filters?.difficulty) {
@@ -256,13 +258,66 @@ export function registerProblemsIPC(): void {
   )
 }
 
-function syncProblems(): void {
+const PROBLEM_SEED_HASH_KEY = 'problem_seed_hash'
+const FORCE_SYNC_ENV = 'CODEHELPER_FORCE_SYNC'
+
+/** 决策点：种子内容未变（且未强制）时跳过全量重同步，避免每次启动的 ~4000 条 SQL 全量写入。 */
+export function shouldSyncProblems(
+  storedHash: string | null | undefined,
+  currentHash: string,
+  force: boolean,
+): boolean {
+  return force || storedHash !== currentHash
+}
+
+/** 对所有种子 JSON 文件（文件名 + 内容）计算 sha256，作为种子内容指纹。 */
+export function computeSeedHash(problemDir: string): string {
+  const hash = createHash('sha256')
+  const files = readdirSync(problemDir)
+    .filter((file) => file.endsWith('.json'))
+    .sort()
+  for (const file of files) {
+    hash.update(file)
+    hash.update('\u0000')
+    hash.update(readFileSync(join(problemDir, file), 'utf-8'))
+    hash.update('\u0000')
+  }
+  return hash.digest('hex')
+}
+
+function maybeSyncProblems(): void {
   const db = getDB()
   const problemDir = resolveProblemDirectory()
   if (!problemDir) {
     return
   }
+  const currentHash = computeSeedHash(problemDir)
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(PROBLEM_SEED_HASH_KEY) as
+    | { value: string }
+    | undefined
+  const force = process.env[FORCE_SYNC_ENV] === '1'
+  if (!shouldSyncProblems(row?.value ?? null, currentHash, force)) {
+    console.log('[IPC] Problem seed unchanged, skipping sync')
+    return
+  }
+  if (!syncProblems()) {
+    console.warn('[IPC] Problem seed sync incomplete; keeping previous seed hash')
+    return
+  }
+  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(
+    PROBLEM_SEED_HASH_KEY,
+    currentHash,
+  )
+}
 
+function syncProblems(): boolean {
+  const db = getDB()
+  const problemDir = resolveProblemDirectory()
+  if (!problemDir) {
+    return false
+  }
+
+  let complete = true
   const files = readdirSync(problemDir)
     .filter((file) => file.endsWith('.json'))
     .sort()
@@ -334,8 +389,10 @@ function syncProblems(): void {
       }
     } catch (err) {
       console.error(`Failed to sync problems from ${file}:`, err)
+      complete = false
     }
   }
+  return complete
 }
 
 function resolveProblemDirectory(): string | null {

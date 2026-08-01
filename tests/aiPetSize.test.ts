@@ -65,7 +65,7 @@ describe('AI pet size appearance setting', () => {
     expect(source).toContain('max={AI_PET_SIZE_MAX}')
     expect(source).toContain('setAIPetSize(Number(event.target.value))')
     expect(source).toContain('`${selectedPet.displayName} 大小预览`')
-    expect(source).toContain('ariaLabel="AI 桌宠"')
+    expect(source).toContain('label="AI 桌宠"')
     expect(source).toContain('var(--color-border-subtle) 100%')
   })
 

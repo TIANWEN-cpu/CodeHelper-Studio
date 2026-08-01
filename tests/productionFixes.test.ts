@@ -67,6 +67,19 @@ describe('production fix coverage', () => {
     expect(useAppStore.getState().aiContext).toBeNull()
   })
 
+  it('does not notify subscribers when AI context is set to identical values', () => {
+    const ctx = { kind: 'problem' as const, title: 'Two Sum', language: 'ts', code: 'return 1' }
+    const listener = vi.fn()
+    const unsubscribe = useAppStore.subscribe(listener)
+
+    useAppStore.getState().setAIContext(ctx)
+    useAppStore.getState().setAIContext(ctx)
+    useAppStore.getState().setAIContext({ ...ctx, code: 'return 2' })
+
+    unsubscribe()
+    expect(listener).toHaveBeenCalledTimes(2)
+  })
+
   it('updates AI panel width transiently during drag and persists on commit', () => {
     useAppStore.getState().setAIPanelWidth(610, { persist: false })
 
@@ -399,7 +412,7 @@ describe('production fix coverage', () => {
     expect(settingsSource).toContain('视觉体验中心')
     expect(settingsSource).toContain('data-visual-theme-option')
     expect(settingsSource).toContain('data-background-style-option')
-    expect(settingsSource).toContain('data-animation-level-option')
+    expect(settingsSource).toContain('itemDataAttribute="animation-level-option"')
     expect(settingsSource).toContain('ai_pet_enabled')
     expect(appearanceSource).toContain("visualTheme: 'codex'")
     expect(appearanceSource).toContain("backgroundStyle: 'soft'")
@@ -566,8 +579,8 @@ describe('production fix coverage', () => {
     expect(stylesSource).toContain(":root[data-theme='light'] .home-hero-workbench-tab")
     expect(stylesSource).toContain(":root[data-theme='light'] .home-hero-workbench-line")
     expect(stylesSource).toContain(":root[data-theme='light'] .home-hero-workbench-action")
-    expect(stylesSource).toContain('.home-hero-icon-badge')
-    expect(stylesSource).toContain('@keyframes hero-pet-float')
+    expect(stylesSource).toContain('.home-hero-grid-overlay')
+    expect(stylesSource).toContain('@keyframes home-hero-scan')
     expect(stylesSource).toContain(':root[data-reduce-motion')
     expect(browserMockSource).toContain(
       "import courseMapData from '../content/metadata/course_map.json'",

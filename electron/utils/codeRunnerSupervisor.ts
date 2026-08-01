@@ -31,12 +31,45 @@ function failure(message: string): CodeRunResult {
   return { stdout: '', stderr: message, exitCode: 1, stage: 'run' }
 }
 
+/**
+ * Environment whitelist for the disposable code-runner utility process.
+ *
+ * The utility executes untrusted user code; inheriting the full parent
+ * environment would expose user secrets (GITHUB_TOKEN etc.) to it. Mirror
+ * buildChildEnv in codeRunner.ts: only toolchain/system variables needed for
+ * locating compilers and runtimes plus the temp/home locations the utility
+ * itself uses. CODEHELPER_INTERNAL_RUN_ROOT is injected explicitly by the
+ * caller, and CODEHELPER_JOB_HOST_PATH is consumed only in the main process.
+ */
+const UTILITY_ENV_WHITELIST = [
+  'PATH',
+  'Path',
+  'PATHEXT',
+  'SystemRoot',
+  'SYSTEMROOT',
+  'SystemDrive',
+  'WINDIR',
+  'ComSpec',
+  'COMSPEC',
+  'LANG',
+  'LC_ALL',
+  'LC_CTYPE',
+  'TZ',
+  'DOTNET_ROOT',
+  'HOME',
+  'USERPROFILE',
+  'TMPDIR',
+  'TMP',
+  'TEMP',
+]
+
 function inheritedUtilityEnvironment(): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(process.env).filter(
-      (entry): entry is [string, string] => entry[1] !== undefined,
-    ),
-  )
+  const env: Record<string, string> = {}
+  for (const key of UTILITY_ENV_WHITELIST) {
+    const value = process.env[key]
+    if (value !== undefined) env[key] = value
+  }
+  return env
 }
 
 function createUtilityRunRoot(): string {
@@ -151,6 +184,19 @@ function terminateUtility(child: UtilityProcess): void {
   }
 }
 
+function forceKillUtility(child: UtilityProcess): void {
+  const pid = child.pid
+  if (pid !== undefined) {
+    try {
+      process.kill(pid, 'SIGKILL')
+      return
+    } catch {
+      // Fall through to the graceful kill so the shutdown is not abandoned.
+    }
+  }
+  terminateUtility(child)
+}
+
 function terminateJob(job: WindowsJobController | null): void {
   if (!job) return
   try {
@@ -169,20 +215,40 @@ async function shutdownRunner(
   if (!allowGracefulExit) {
     terminateJob(job)
     terminateUtility(child)
-    await Promise.all([utilityExited, ...(job ? [job.exited] : [])])
-    return job ? await job.completion : null
+    // A utility or job host that ignores termination (D-state,
+    // antivirus-instrumented processes) must not block shutdown forever:
+    // wait a bounded grace for exit confirmation, then force-kill and
+    // proceed without awaiting events that may never arrive.
+    if (!(await waitWithin(utilityExited, EXIT_GRACE_MS))) {
+      forceKillUtility(child)
+      if (job) terminateJob(job)
+    }
+    if (job) {
+      await waitWithin(job.exited, JOB_EXIT_GRACE_MS)
+      // job.completion only ever resolves (never rejects); race it against a
+      // no-op so a host that never closes cannot hang the shutdown path.
+      return await Promise.race([job.completion, Promise.resolve(null)])
+    }
+    return null
   }
 
   if (!(await waitWithin(utilityExited, EXIT_GRACE_MS))) {
     terminateJob(job)
-    terminateUtility(child)
-    await Promise.all([utilityExited, ...(job ? [job.exited] : [])])
-    return job ? await job.completion : null
+    forceKillUtility(child)
+    if (job) {
+      await waitWithin(job.exited, JOB_EXIT_GRACE_MS)
+      // Cleanup is best effort after the bounded shutdown window; the caller
+      // already has a validated result and must not hang forever on exit IPC.
+      return null
+    }
+    return null
   }
 
   if (job) {
-    if (!(await waitWithin(job.exited, JOB_EXIT_GRACE_MS))) terminateJob(job)
-    await job.exited
+    if (!(await waitWithin(job.exited, JOB_EXIT_GRACE_MS))) {
+      terminateJob(job)
+      if (!(await waitWithin(job.exited, EXIT_GRACE_MS))) return null
+    }
     return job.completion
   }
   return null

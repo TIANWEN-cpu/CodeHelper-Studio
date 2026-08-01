@@ -1016,11 +1016,20 @@ function writeTabRecovery(id: string): void {
   const entries = Object.fromEntries(
     readRecoveryEntries([], [editorRecoverySessionKey]).map((entry) => [entry.tab.id, entry]),
   )
-  entries[tab.id] = {
+  const nextEntry: EditorRecoveryEntry = {
     tab,
     activeTabId: state.activeTabId,
     updatedAt: Math.max(Date.now(), (state.lastPersistedAt ?? 0) + 1),
   }
+  const existingEntry = entries[tab.id]
+  if (
+    existingEntry &&
+    existingEntry.activeTabId === nextEntry.activeTabId &&
+    recoveryCandidateFingerprint(existingEntry) === recoveryCandidateFingerprint(nextEntry)
+  ) {
+    return
+  }
+  entries[tab.id] = nextEntry
   const recovery: EditorRecoverySnapshot = {
     version: EDITOR_RECOVERY_STORAGE_VERSION,
     entries,
@@ -1507,24 +1516,22 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     ) {
       return
     }
-    set((state) => ({
-      tabs: state.tabs.map((tab) => (tab.id === id ? { ...tab, cursorPosition } : tab)),
-      dirty: true,
-    }))
-    const recoveredAt = writeTabViewRecovery(id)
-    const previousViewUpdatedAt = currentTab.viewUpdatedAt
-    const previousTimestamp = previousViewUpdatedAt ? Date.parse(previousViewUpdatedAt) : Number.NaN
-    const viewUpdatedAt =
-      recoveredAt ??
-      Math.min(
-        MAX_DATE_TIMESTAMP,
-        Math.max(Date.now(), Number.isFinite(previousTimestamp) ? previousTimestamp + 1 : 0),
-      )
+    const previousTimestamp = currentTab.viewUpdatedAt
+      ? Date.parse(currentTab.viewUpdatedAt)
+      : Number.NaN
+    const viewUpdatedAt = Math.min(
+      MAX_DATE_TIMESTAMP,
+      Math.max(Date.now(), Number.isFinite(previousTimestamp) ? previousTimestamp + 1 : 0),
+    )
     set((state) => ({
       tabs: state.tabs.map((tab) =>
-        tab.id === id ? { ...tab, viewUpdatedAt: new Date(viewUpdatedAt).toISOString() } : tab,
+        tab.id === id
+          ? { ...tab, cursorPosition, viewUpdatedAt: new Date(viewUpdatedAt).toISOString() }
+          : tab,
       ),
+      dirty: true,
     }))
+    writeTabViewRecovery(id)
     schedulePersistTabs()
   },
   updateScrollTop: (id, scrollTop) => {
@@ -1532,25 +1539,24 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     const normalizedScrollTop = Math.max(0, scrollTop)
     const current = get().tabs.find((tab) => tab.id === id)
     if (!current || current.scrollTop === normalizedScrollTop) return
+    const previousTimestamp = current.viewUpdatedAt ? Date.parse(current.viewUpdatedAt) : Number.NaN
+    const viewUpdatedAt = Math.min(
+      MAX_DATE_TIMESTAMP,
+      Math.max(Date.now(), Number.isFinite(previousTimestamp) ? previousTimestamp + 1 : 0),
+    )
     set((state) => ({
       tabs: state.tabs.map((tab) =>
-        tab.id === id ? { ...tab, scrollTop: normalizedScrollTop } : tab,
+        tab.id === id
+          ? {
+              ...tab,
+              scrollTop: normalizedScrollTop,
+              viewUpdatedAt: new Date(viewUpdatedAt).toISOString(),
+            }
+          : tab,
       ),
       dirty: true,
     }))
-    const recoveredAt = writeTabViewRecovery(id)
-    const previousTimestamp = current.viewUpdatedAt ? Date.parse(current.viewUpdatedAt) : Number.NaN
-    const viewUpdatedAt =
-      recoveredAt ??
-      Math.min(
-        MAX_DATE_TIMESTAMP,
-        Math.max(Date.now(), Number.isFinite(previousTimestamp) ? previousTimestamp + 1 : 0),
-      )
-    set((state) => ({
-      tabs: state.tabs.map((tab) =>
-        tab.id === id ? { ...tab, viewUpdatedAt: new Date(viewUpdatedAt).toISOString() } : tab,
-      ),
-    }))
+    writeTabViewRecovery(id)
     schedulePersistTabs()
   },
   restoreTabs: (tabs, activeTabId) => {

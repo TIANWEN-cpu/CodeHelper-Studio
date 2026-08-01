@@ -7,7 +7,6 @@ import {
   FileCode,
   GraduationCap,
   History,
-  Loader2,
   MessageSquare,
   Plus,
   RotateCcw,
@@ -21,11 +20,20 @@ import {
 } from 'lucide-react'
 import { motion } from 'motion/react'
 import { cn } from '@/lib/utils'
+import {
+  Badge,
+  Button,
+  EmptyState,
+  IconButton,
+  Markdown,
+  Spinner,
+  Switch,
+  Textarea,
+} from '@/components/ui'
 import { useChatStore, initChatStreaming } from '@/stores/chatStore'
 import { getSendCategories, getLlmExtractEnabled } from '@/services/memoryService'
 import { SendPreview } from '@/components/SendPreview'
 import { useAppStore, type AIContextSnapshot } from '@/store'
-import { renderMarkdown } from '@/utils/markdown'
 import {
   AGENT_WORKFLOW_STEPS,
   buildAgentWorkflowPrompt,
@@ -151,11 +159,43 @@ const QUICK_PROMPTS = [
   },
 ]
 
+// 助手消息 Markdown 统一走 ui Markdown（variant="ai" 自动挂 ai-markdown 钩子类）。
 function AssistantMarkdown({ content }: { content: string }) {
-  return (
-    <div className="ai-markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }} />
-  )
+  return <Markdown content={content} variant="ai" />
 }
+
+interface MessageBubbleProps {
+  message: { id: string; role: 'user' | 'assistant' | 'system'; content: string }
+}
+
+// 气泡级 memo：流式 chunk 只更新最后一条消息，未变化的历史气泡整体跳过重渲染
+// （Markdown 内部还带 60ms 防抖，进一步收敛昂贵的 markdown 重算）。
+const MessageBubble = React.memo(function MessageBubble({ message }: MessageBubbleProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={cn('flex', message.role === 'user' ? 'justify-end' : 'justify-start')}
+    >
+      <div
+        className={cn(
+          'max-w-[86%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm',
+          message.role === 'user'
+            ? 'rounded-tr-sm bg-[var(--color-accent-solid)] text-[var(--color-on-accent)]'
+            : 'rounded-tl-sm border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] text-[var(--color-text-primary)]',
+        )}
+      >
+        {message.role === 'user' ? (
+          message.content
+        ) : message.content ? (
+          <AssistantMarkdown content={message.content} />
+        ) : (
+          <Spinner size="sm" className="text-[var(--color-accent-purple)]" />
+        )}
+      </div>
+    </motion.div>
+  )
+})
 
 function buildContextPrefix(
   ctx: AIContextSnapshot | null,
@@ -194,7 +234,7 @@ function ContextSummary({
         <FileCode size={14} />
         <span>{VIEW_LABELS[currentView] ?? 'CodeHelper'}</span>
       </div>
-      <p className="mt-2 text-sm font-medium text-white">
+      <p className="mt-2 text-sm font-medium text-[var(--color-text-primary)]">
         {aiContext ? `${KIND_LABELS[aiContext.kind]}：${aiContext.title}` : '当前没有绑定学习对象'}
       </p>
       <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[var(--color-text-secondary)]">
@@ -216,15 +256,10 @@ function ToggleRow({
   onChange: () => void
 }) {
   return (
-    <label className="flex items-center justify-between rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-3 py-2.5">
+    <div className="flex items-center justify-between rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-3 py-2.5">
       <span className="text-sm text-[var(--color-text-secondary)]">{label}</span>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={onChange}
-        className="h-4 w-4 accent-[var(--color-accent-purple)]"
-      />
-    </label>
+      <Switch checked={checked} onChange={onChange} label={label} />
+    </div>
   )
 }
 
@@ -245,8 +280,8 @@ function SendOptionChip({
       className={cn(
         'min-h-9 rounded-lg border px-3 text-xs font-medium transition-colors',
         active
-          ? 'border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/15 text-white'
-          : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] text-[var(--color-text-muted)] hover:text-white',
+          ? 'border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/15 text-[var(--color-text-primary)]'
+          : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]',
       )}
     >
       {label}
@@ -256,16 +291,16 @@ function SendOptionChip({
 
 function AgentStepStatusIcon({ status }: { status: AgentWorkflowStepStatus }) {
   if (status === 'needsApproval') {
-    return <ShieldCheck size={16} className="text-[#F59E0B]" />
+    return <ShieldCheck size={16} className="text-[var(--color-accent-warning)]" />
   }
   if (status === 'running') {
-    return <Loader2 size={16} className="animate-spin text-[var(--color-accent-purple)]" />
+    return <Spinner size="sm" className="text-[var(--color-accent-purple)]" />
   }
   if (status === 'completed') {
     return <CheckCircle2 size={16} className="text-[var(--color-accent-success)]" />
   }
   if (status === 'failed') {
-    return <ShieldCheck size={16} className="text-[#EF4444]" />
+    return <ShieldCheck size={16} className="text-[var(--color-accent-danger)]" />
   }
   return <Clock3 size={16} className="text-[var(--color-text-muted)]" />
 }
@@ -285,11 +320,10 @@ function getAgentApprovalStatusLabel(status: AgentApprovalStatus) {
   return '待确认'
 }
 
-function getAgentApprovalStatusClass(status: AgentApprovalStatus) {
-  if (status === 'approved')
-    return 'border-[var(--color-accent-success)]/40 text-[var(--color-accent-success)]'
-  if (status === 'rejected') return 'border-[#EF4444]/50 text-[#EF4444]'
-  return 'border-[#F59E0B]/50 text-[#F59E0B]'
+function getAgentApprovalStatusVariant(status: AgentApprovalStatus) {
+  if (status === 'approved') return 'success' as const
+  if (status === 'rejected') return 'danger' as const
+  return 'warning' as const
 }
 
 function getAgentToolAvailabilityLabel(availability: AgentToolDefinition['availability']) {
@@ -298,11 +332,10 @@ function getAgentToolAvailabilityLabel(availability: AgentToolDefinition['availa
   return '不可用'
 }
 
-function getAgentToolAvailabilityClass(availability: AgentToolDefinition['availability']) {
-  if (availability === 'available')
-    return 'border-[var(--color-accent-success)]/40 text-[var(--color-accent-success)]'
-  if (availability === 'requiresApproval') return 'border-[#F59E0B]/40 text-[#F59E0B]'
-  return 'border-[var(--color-border-subtle)] text-[var(--color-text-muted)]'
+function getAgentToolAvailabilityVariant(availability: AgentToolDefinition['availability']) {
+  if (availability === 'available') return 'success' as const
+  if (availability === 'requiresApproval') return 'warning' as const
+  return 'neutral' as const
 }
 
 export function AITutorView() {
@@ -352,8 +385,21 @@ export function AITutorView() {
   const [includeMemory, setIncludeMemory] = useState(true)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
+  // rAF 节流的自动滚动：chunk 期间每秒 ~60 帧结算一次，避免每次 chunk 都触发
+  // 一次 smooth scrollIntoView（流式时会导致滚动动画互相打断、画面抖动）。
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    let raf = 0
+    const scrollToEnd = () => {
+      raf = 0
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(scrollToEnd)
+    }
+    schedule()
+    return () => {
+      if (raf) cancelAnimationFrame(raf)
+    }
   }, [messages, streamingContent, assistantView])
 
   const replaceAgentRun = useCallback((run: AgentWorkflowRun) => {
@@ -640,7 +686,7 @@ export function AITutorView() {
               <Sparkles size={14} />
               <span>{contextLabel}</span>
             </div>
-            <h1 className="mt-1 text-xl font-semibold text-white">AI 助手</h1>
+            <h1 className="mt-1 text-xl font-semibold text-[var(--color-text-primary)]">AI 助手</h1>
           </div>
           <div className="flex flex-wrap gap-2" role="tablist" aria-label="AI 助手视图">
             {ASSISTANT_VIEWS.map((item) => {
@@ -654,8 +700,8 @@ export function AITutorView() {
                   className={cn(
                     'flex h-9 items-center gap-2 rounded-lg border px-3 text-sm transition-colors',
                     active
-                      ? 'border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/15 text-white'
-                      : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] text-[var(--color-text-secondary)] hover:text-white',
+                      ? 'border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/15 text-[var(--color-text-primary)]'
+                      : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
                   )}
                   role="tab"
                   aria-selected={active}
@@ -703,15 +749,14 @@ export function AITutorView() {
             <div className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] p-3">
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-xs font-medium text-[var(--color-text-secondary)]">最近会话</p>
-                <button
-                  type="button"
+                <IconButton
+                  label="新建会话"
+                  size="sm"
                   onClick={() => createSession(undefined, '新对话')}
                   disabled={streaming}
-                  className="rounded-md p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] hover:text-white disabled:opacity-50"
-                  title="新建会话"
                 >
-                  <Plus size={15} />
-                </button>
+                  <Plus />
+                </IconButton>
               </div>
               <div className="space-y-1">
                 {sessions.slice(0, 8).map((session) => (
@@ -722,11 +767,13 @@ export function AITutorView() {
                       setAssistantView('chat')
                       switchSession(session.id)
                     }}
+                    disabled={streaming}
                     className={cn(
                       'w-full truncate rounded-md px-2 py-2 text-left text-xs transition-colors',
+                      'disabled:cursor-not-allowed disabled:opacity-50',
                       session.id === currentSession?.id
-                        ? 'bg-[var(--color-accent-purple)]/15 text-white'
-                        : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-white',
+                        ? 'bg-[var(--color-accent-purple)]/15 text-[var(--color-text-primary)]'
+                        : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]',
                     )}
                   >
                     {session.title || '未命名会话'}
@@ -747,54 +794,22 @@ export function AITutorView() {
                 <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                   {loading && messages.length === 0 && (
                     <div className="flex h-full items-center justify-center">
-                      <Loader2
-                        size={22}
-                        className="animate-spin text-[var(--color-accent-purple)]"
-                      />
+                      <Spinner size="lg" className="text-[var(--color-accent-purple)]" />
                     </div>
                   )}
                   {!loading && messages.length === 0 && !streamingContent && (
-                    <div className="flex h-full flex-col items-center justify-center text-center">
-                      <Sparkles size={34} className="mb-3 text-[var(--color-accent-purple)]" />
-                      <p className="text-sm text-[var(--color-text-secondary)]">
-                        输入问题，或从 Tutor / Agent 发起一次任务。
-                      </p>
-                    </div>
+                    <EmptyState
+                      icon={Sparkles}
+                      title="输入问题，或从 Tutor / Agent 发起一次任务。"
+                      className="h-full"
+                    />
                   )}
                   <div className="space-y-4">
                     {messages.map((message) => (
-                      <motion.div
-                        key={message.id}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={cn(
-                          'flex',
-                          message.role === 'user' ? 'justify-end' : 'justify-start',
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            'max-w-[86%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm',
-                            message.role === 'user'
-                              ? 'rounded-tr-sm bg-[var(--color-accent-solid)] text-[var(--color-on-accent)]'
-                              : 'rounded-tl-sm border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] text-[#E5E7EB]',
-                          )}
-                        >
-                          {message.role === 'user' ? (
-                            message.content
-                          ) : message.content ? (
-                            <AssistantMarkdown content={message.content} />
-                          ) : (
-                            <Loader2
-                              size={16}
-                              className="animate-spin text-[var(--color-accent-purple)]"
-                            />
-                          )}
-                        </div>
-                      </motion.div>
+                      <MessageBubble key={message.id} message={message} />
                     ))}
                     {error && (
-                      <div className="rounded-lg bg-[#EF4444]/10 px-3 py-2 text-xs text-[#EF4444]">
+                      <div className="rounded-lg bg-[var(--color-accent-danger)]/10 px-3 py-2 text-xs text-[var(--color-accent-danger)]">
                         {error}
                       </div>
                     )}
@@ -811,7 +826,7 @@ export function AITutorView() {
                           type="button"
                           onClick={() => handleSend(item.prompt)}
                           disabled={streaming}
-                          className="flex items-center gap-2 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] px-2.5 py-1.5 text-xs text-[var(--color-text-secondary)] transition-colors hover:text-white disabled:opacity-50"
+                          className="flex items-center gap-2 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] px-2.5 py-1.5 text-xs text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)] disabled:opacity-50"
                         >
                           <Icon size={13} />
                           {item.label}
@@ -821,7 +836,7 @@ export function AITutorView() {
                   </div>
                   <SendPreview query={inputValue} includeMemory={includeMemory} />
                   <div className="flex items-end gap-2 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] p-2 focus-within:border-[var(--color-accent-purple)]">
-                    <textarea
+                    <Textarea
                       value={inputValue}
                       onChange={(event) => setInputValue(event.target.value)}
                       onKeyDown={(event) => {
@@ -833,21 +848,19 @@ export function AITutorView() {
                       rows={2}
                       disabled={streaming}
                       placeholder="向 AI 助手提问"
-                      className="min-h-[48px] flex-1 resize-none bg-transparent px-2 py-1 text-sm text-white outline-none placeholder-[var(--color-text-muted)]"
+                      className="min-h-[48px] flex-1 resize-none border-0 bg-transparent px-2 py-1 focus:border-transparent focus:ring-0"
                     />
-                    <button
+                    <Button
                       type="button"
                       onClick={() => handleSend()}
                       disabled={!inputValue.trim() || streaming}
-                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-accent-solid)] text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-solid-hover)] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-card)] disabled:text-[var(--color-text-muted)]"
+                      loading={streaming}
+                      size="sm"
+                      className="h-9 w-9 px-0"
                       title="发送"
                     >
-                      {streaming ? (
-                        <Loader2 size={15} className="animate-spin" />
-                      ) : (
-                        <Send size={15} />
-                      )}
-                    </button>
+                      {!streaming && <Send size={15} />}
+                    </Button>
                   </div>
                 </div>
               </section>
@@ -875,7 +888,7 @@ export function AITutorView() {
                             : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] hover:border-[var(--color-border-default)]',
                         )}
                       >
-                        <div className="flex items-center gap-2 text-white">
+                        <div className="flex items-center gap-2 text-[var(--color-text-primary)]">
                           <Icon size={18} className="text-[var(--color-accent-purple)]" />
                           <span className="font-medium">{meta.label}</span>
                         </div>
@@ -887,23 +900,25 @@ export function AITutorView() {
                   })}
                 </div>
                 <div className="mt-4 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] p-4">
-                  <p className="text-sm font-medium text-white">Tutor prompt</p>
-                  <textarea
+                  <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                    Tutor prompt
+                  </p>
+                  <Textarea
                     value={inputValue}
                     onChange={(event) => setInputValue(event.target.value)}
                     rows={5}
                     placeholder="输入要辅导的问题、代码片段或学习卡点"
-                    className="mt-3 w-full resize-none rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] p-3 text-sm text-white outline-none placeholder-[var(--color-text-muted)] focus:border-[var(--color-accent-purple)]"
+                    className="mt-3 resize-none bg-[var(--color-bg-base)] focus:border-[var(--color-accent-purple)]"
                   />
-                  <button
+                  <Button
                     type="button"
                     onClick={() => handleSend()}
                     disabled={!inputValue.trim() || streaming}
-                    className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-solid)] px-4 py-2 text-sm font-medium text-[var(--color-on-accent)] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-hover)] disabled:text-[var(--color-text-muted)]"
+                    className="mt-3"
                   >
                     <GraduationCap size={16} />
                     开始辅导
-                  </button>
+                  </Button>
                 </div>
               </section>
             )}
@@ -932,13 +947,13 @@ export function AITutorView() {
                         step.status === 'running'
                           ? 'border-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/10'
                           : step.status === 'needsApproval'
-                            ? 'border-[#F59E0B]/60 bg-[#F59E0B]/10'
+                            ? 'border-[var(--color-accent-warning)]/60 bg-[var(--color-accent-warning)]/10'
                             : step.status === 'failed'
-                              ? 'border-[#EF4444]/60 bg-[#EF4444]/10'
+                              ? 'border-[var(--color-accent-danger)]/60 bg-[var(--color-accent-danger)]/10'
                               : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-card)]',
                       )}
                     >
-                      <div className="flex items-center gap-2 text-sm font-medium text-white">
+                      <div className="flex items-center gap-2 text-sm font-medium text-[var(--color-text-primary)]">
                         <AgentStepStatusIcon status={step.status} />
                         {index + 1}. {step.label}
                       </div>
@@ -955,7 +970,9 @@ export function AITutorView() {
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-medium text-white">Agent 工具与边界</p>
+                      <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                        Agent 工具与边界
+                      </p>
                       <p className="mt-1 text-xs text-[var(--color-text-muted)]">
                         工具白名单来自 Electron 主进程；强隔离运行必须逐次审批并写入审计日志。
                       </p>
@@ -993,16 +1010,16 @@ export function AITutorView() {
                                 }
                                 className="h-4 w-4 accent-[var(--color-accent-purple)]"
                               />
-                              <p className="text-sm font-medium text-white">{tool.label}</p>
+                              <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                                {tool.label}
+                              </p>
                             </div>
-                            <span
-                              className={cn(
-                                'shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium',
-                                getAgentToolAvailabilityClass(tool.availability),
-                              )}
+                            <Badge
+                              variant={getAgentToolAvailabilityVariant(tool.availability)}
+                              className="shrink-0"
                             >
                               {getAgentToolAvailabilityLabel(tool.availability)}
-                            </span>
+                            </Badge>
                           </div>
                           <p className="mt-2 text-xs leading-relaxed text-[var(--color-text-secondary)]">
                             {tool.description}
@@ -1025,7 +1042,7 @@ export function AITutorView() {
                 </div>
 
                 {agentError && (
-                  <div className="mt-4 rounded-lg border border-[#EF4444]/30 bg-[#EF4444]/10 px-3 py-2 text-xs text-[#EF4444]">
+                  <div className="mt-4 rounded-lg border border-[var(--color-accent-danger)]/30 bg-[var(--color-accent-danger)]/10 px-3 py-2 text-xs text-[var(--color-accent-danger)]">
                     {agentError}
                   </div>
                 )}
@@ -1038,65 +1055,74 @@ export function AITutorView() {
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
                         <p className="text-xs text-[var(--color-text-muted)]">当前任务</p>
-                        <p className="mt-1 truncate text-sm font-medium text-white">
+                        <p className="mt-1 truncate text-sm font-medium text-[var(--color-text-primary)]">
                           {latestAgentRun.goal}
                         </p>
                         <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
                           {latestAgentRun.id} · {latestAgentRun.status}
                         </p>
                       </div>
-                      <button
+                      <Button
                         type="button"
+                        variant="secondary"
+                        size="sm"
                         onClick={() => setAssistantView('chat')}
-                        className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)] hover:text-white"
                       >
                         <MessageSquare size={14} />
                         查看对话
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
+                        variant="secondary"
+                        size="sm"
                         data-agent-refresh-runs
                         onClick={() => void refreshAgentState()}
                         disabled={agentActionPending}
-                        className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <RotateCcw size={14} />
                         刷新审计
-                      </button>
+                      </Button>
                       {activeAgentRun?.id === latestAgentRun.id && (
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="sm"
                           data-agent-cancel-run
                           onClick={() => void handleCancelAgentRun()}
                           disabled={agentCancelling}
-                          className="inline-flex items-center gap-2 rounded-lg border border-[#EF4444]/40 px-3 py-2 text-xs text-[#EF4444] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="border border-[var(--color-accent-danger)]/40 text-[var(--color-accent-danger)] hover:bg-[var(--color-accent-danger)]/10 hover:text-[var(--color-accent-danger)]"
                         >
                           <ShieldCheck size={14} />
                           {agentCancelling ? '取消中' : '取消任务'}
-                        </button>
+                        </Button>
                       )}
                     </div>
 
                     {latestAgentRun.error && (
-                      <div className="mt-3 rounded-lg bg-[#EF4444]/10 px-3 py-2 text-xs text-[#EF4444]">
+                      <div className="mt-3 rounded-lg bg-[var(--color-accent-danger)]/10 px-3 py-2 text-xs text-[var(--color-accent-danger)]">
                         {latestAgentRun.error}
                       </div>
                     )}
 
                     {latestAgentRun.approvals.length > 0 && (
                       <div
-                        className="mt-3 rounded-lg border border-[#F59E0B]/30 bg-[#F59E0B]/10 p-3"
+                        className="mt-3 rounded-lg border border-[var(--color-accent-warning)]/30 bg-[var(--color-accent-warning)]/10 p-3"
                         data-agent-approval-panel
                         data-agent-approval-state={latestAgentRun.status}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="text-xs font-medium text-white">外部工具确认</p>
+                            <p className="text-xs font-medium text-[var(--color-text-primary)]">
+                              外部工具确认
+                            </p>
                             <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-text-muted)]">
                               需要用户确认后，Agent 才会把这些能力写入执行上下文；拒绝后任务会停止。
                             </p>
                           </div>
-                          <ShieldCheck size={16} className="shrink-0 text-[#F59E0B]" />
+                          <ShieldCheck
+                            size={16}
+                            className="shrink-0 text-[var(--color-accent-warning)]"
+                          />
                         </div>
                         <div className="mt-3 space-y-2">
                           {latestAgentRun.approvals.map((approval) => (
@@ -1109,18 +1135,13 @@ export function AITutorView() {
                               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2">
-                                    <p className="text-sm font-medium text-white">
+                                    <p className="text-sm font-medium text-[var(--color-text-primary)]">
                                       {agentTools.find((tool) => tool.id === approval.toolId)
                                         ?.label ?? approval.toolId}
                                     </p>
-                                    <span
-                                      className={cn(
-                                        'rounded-full border px-2 py-0.5 text-[10px] font-medium',
-                                        getAgentApprovalStatusClass(approval.status),
-                                      )}
-                                    >
+                                    <Badge variant={getAgentApprovalStatusVariant(approval.status)}>
                                       {getAgentApprovalStatusLabel(approval.status)}
-                                    </span>
+                                    </Badge>
                                   </div>
                                   <p className="mt-2 text-xs leading-relaxed text-[var(--color-text-secondary)]">
                                     {approval.boundary}
@@ -1129,8 +1150,9 @@ export function AITutorView() {
                                 {latestAgentRun.status === 'needsApproval' &&
                                   approval.status === 'pending' && (
                                     <div className="flex shrink-0 gap-2">
-                                      <button
+                                      <Button
                                         type="button"
+                                        size="sm"
                                         data-agent-approve-tool={approval.toolId}
                                         onClick={() =>
                                           void handleApproveAgentRun(
@@ -1139,12 +1161,13 @@ export function AITutorView() {
                                           )
                                         }
                                         disabled={streaming || agentActionPending}
-                                        className="rounded-lg bg-[var(--color-accent-solid)] px-3 py-1.5 text-xs font-medium text-[var(--color-on-accent)] disabled:cursor-not-allowed disabled:opacity-50"
                                       >
                                         批准并继续
-                                      </button>
-                                      <button
+                                      </Button>
+                                      <Button
                                         type="button"
+                                        variant="secondary"
+                                        size="sm"
                                         data-agent-reject-tool={approval.toolId}
                                         onClick={() =>
                                           void handleRejectAgentRun(
@@ -1153,10 +1176,9 @@ export function AITutorView() {
                                           )
                                         }
                                         disabled={agentActionPending}
-                                        className="rounded-lg border border-[var(--color-border-subtle)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] hover:text-white"
                                       >
                                         拒绝
-                                      </button>
+                                      </Button>
                                     </div>
                                   )}
                               </div>
@@ -1180,7 +1202,7 @@ export function AITutorView() {
                               className="rounded-md border border-[var(--color-border-subtle)] px-3 py-2"
                             >
                               <div className="flex items-center justify-between gap-2 text-xs">
-                                <span className="font-medium text-white">
+                                <span className="font-medium text-[var(--color-text-primary)]">
                                   {agentTools.find((tool) => tool.id === call.toolId)?.label ??
                                     call.toolId}
                                 </span>
@@ -1189,7 +1211,9 @@ export function AITutorView() {
                                 </span>
                               </div>
                               {call.error && (
-                                <p className="mt-1 text-[11px] text-[#EF4444]">{call.error}</p>
+                                <p className="mt-1 text-[11px] text-[var(--color-accent-danger)]">
+                                  {call.error}
+                                </p>
                               )}
                               {call.result && (
                                 <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-relaxed text-[var(--color-text-secondary)]">
@@ -1235,7 +1259,7 @@ export function AITutorView() {
                           <AssistantMarkdown content={streamingContent} />
                         ) : (
                           <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
-                            <Loader2 size={14} className="animate-spin" />
+                            <Spinner size="sm" />
                             正在等待模型响应
                           </div>
                         )}
@@ -1245,15 +1269,15 @@ export function AITutorView() {
                 )}
 
                 <div className="mt-4 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] p-4">
-                  <p className="text-sm font-medium text-white">任务目标</p>
-                  <textarea
+                  <p className="text-sm font-medium text-[var(--color-text-primary)]">任务目标</p>
+                  <Textarea
                     value={agentGoal}
                     onChange={(event) => setAgentGoal(event.target.value)}
                     rows={7}
                     placeholder="例如：分析这道题的失败原因，并给出下一步调试计划"
-                    className="mt-3 w-full resize-none rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] p-3 text-sm text-white outline-none placeholder-[var(--color-text-muted)] focus:border-[var(--color-accent-purple)]"
+                    className="mt-3 resize-none bg-[var(--color-bg-base)] focus:border-[var(--color-accent-purple)]"
                   />
-                  <button
+                  <Button
                     type="button"
                     onClick={handleAgentRun}
                     disabled={
@@ -1262,17 +1286,18 @@ export function AITutorView() {
                       Boolean(activeAgentRun) ||
                       agentActionPending
                     }
-                    className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-solid)] px-4 py-2 text-sm font-medium text-[var(--color-on-accent)] disabled:cursor-not-allowed disabled:bg-[var(--color-bg-hover)] disabled:text-[var(--color-text-muted)]"
+                    loading={
+                      agentActionPending ||
+                      (Boolean(activeAgentRun) && activeAgentRun?.status !== 'needsApproval')
+                    }
+                    className="mt-3"
                   >
-                    {agentActionPending ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : activeAgentRun?.status === 'needsApproval' ? (
-                      <ShieldCheck size={16} />
-                    ) : activeAgentRun ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <Bot size={16} />
-                    )}
+                    {!agentActionPending &&
+                      (activeAgentRun?.status === 'needsApproval' ? (
+                        <ShieldCheck size={16} />
+                      ) : !activeAgentRun ? (
+                        <Bot size={16} />
+                      ) : null)}
                     {agentActionPending
                       ? '处理中'
                       : activeAgentRun?.status === 'needsApproval'
@@ -1280,12 +1305,14 @@ export function AITutorView() {
                         : activeAgentRun
                           ? '任务运行中'
                           : '创建并执行任务'}
-                  </button>
+                  </Button>
                 </div>
 
                 {agentRuns.length > 1 && (
                   <div className="mt-4 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] p-4">
-                    <p className="mb-3 text-sm font-medium text-white">最近 Agent 运行</p>
+                    <p className="mb-3 text-sm font-medium text-[var(--color-text-primary)]">
+                      最近 Agent 运行
+                    </p>
                     <div className="space-y-2">
                       {agentRuns.slice(1).map((run) => (
                         <button
@@ -1314,16 +1341,16 @@ export function AITutorView() {
                 data-ai-view="history"
               >
                 <div className="mb-3 flex items-center justify-between">
-                  <p className="text-sm font-medium text-white">历史记录</p>
-                  <button
+                  <p className="text-sm font-medium text-[var(--color-text-primary)]">历史记录</p>
+                  <Button
                     type="button"
+                    size="sm"
                     onClick={() => createSession(undefined, '新对话')}
                     disabled={streaming}
-                    className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-solid)] px-3 py-2 text-xs font-medium text-[var(--color-on-accent)] disabled:opacity-50"
                   >
                     <Plus size={14} />
                     新建
-                  </button>
+                  </Button>
                 </div>
                 <div className="space-y-2">
                   {sessions.map((session) => (
@@ -1338,24 +1365,22 @@ export function AITutorView() {
                           setAssistantView('chat')
                           switchSession(session.id)
                         }}
-                        className="min-w-0 flex-1 truncate text-left text-sm text-white"
+                        className="min-w-0 flex-1 truncate text-left text-sm text-[var(--color-text-primary)]"
                       >
                         {session.title || '未命名会话'}
                       </button>
-                      <button
-                        type="button"
+                      <IconButton
+                        label="删除会话"
+                        size="sm"
                         onClick={() => deleteSession(session.id)}
-                        className="rounded-md p-1.5 text-[var(--color-text-muted)] hover:bg-[#EF4444]/10 hover:text-[#EF4444]"
-                        title="删除"
+                        className="hover:bg-[var(--color-accent-danger)]/10 hover:text-[var(--color-accent-danger)]"
                       >
-                        <Trash2 size={15} />
-                      </button>
+                        <Trash2 />
+                      </IconButton>
                     </div>
                   ))}
                   {sessions.length === 0 && (
-                    <div className="rounded-lg border border-dashed border-[var(--color-border-subtle)] p-8 text-center text-sm text-[var(--color-text-muted)]">
-                      暂无历史记录
-                    </div>
+                    <EmptyState icon={History} title="暂无历史记录" className="py-8" />
                   )}
                 </div>
               </section>
@@ -1386,14 +1411,15 @@ export function AITutorView() {
                 <div className="mt-4">
                   <ContextSummary aiContext={aiContext} currentView={currentView} />
                 </div>
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={() => setCurrentView('settings')}
-                  className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] px-4 py-2 text-sm text-white hover:border-[var(--color-border-default)]"
+                  className="mt-4"
                 >
                   <Settings size={16} />
                   打开模型设置
-                </button>
+                </Button>
               </section>
             )}
           </main>
@@ -1421,7 +1447,9 @@ export function AITutorView() {
             </div>
             <div className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] p-3">
               <p className="text-xs font-medium text-[var(--color-text-secondary)]">当前 Tutor</p>
-              <p className="mt-2 text-sm font-medium text-white">{TUTOR_MODES[tutorMode].label}</p>
+              <p className="mt-2 text-sm font-medium text-[var(--color-text-primary)]">
+                {TUTOR_MODES[tutorMode].label}
+              </p>
               <p className="mt-1 text-xs leading-relaxed text-[var(--color-text-muted)]">
                 {TUTOR_MODES[tutorMode].description}
               </p>

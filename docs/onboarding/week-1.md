@@ -35,7 +35,7 @@
 ### 3. 克隆仓库并安装依赖
 
 ```bash
-git clone https://github.com/TIANWEN-cpu/CodeHelper.git
+git clone https://github.com/TIANWEN-cpu/CodeHelper-Studio.git
 cd CodeHelper
 npm install
 ```
@@ -214,7 +214,7 @@ src/modules/problems/
 
 ### 选项 B：修复一个简单的 Bug
 
-从 [Issues](https://github.com/TIANWEN-cpu/CodeHelper/issues) 中选择标记为 `good first issue` 的任务。
+从 [Issues](https://github.com/TIANWEN-cpu/CodeHelper-Studio/issues) 中选择标记为 `good first issue` 的任务。
 
 ### 选项 C：为现有函数添加测试
 
@@ -230,8 +230,8 @@ npm run test:coverage
 ### PR 完整流程
 
 ```bash
-# 1. 从 dev 分支创建功能分支
-git checkout dev
+# 1. 从 master 分支创建功能分支
+git checkout master
 git pull
 git checkout -b feat/你的功能名
 
@@ -349,7 +349,7 @@ npm run test:coverage
 - 查看 [CONTRIBUTING.md](../../CONTRIBUTING.md) 了解详细贡献流程
 - 查看 [docs/architecture.md](../architecture.md) 了解系统架构
 - 查看 [docs/api.md](../api.md) 了解 IPC 通道参考
-- 在 [GitHub Issues](https://github.com/TIANWEN-cpu/CodeHelper/issues) 提问
+- 在 [GitHub Issues](https://github.com/TIANWEN-cpu/CodeHelper-Studio/issues) 提问
 
 ---
 

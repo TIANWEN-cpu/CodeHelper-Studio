@@ -12,9 +12,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/TIANWEN-cpu/CodeHelper"><img src="https://img.shields.io/github/stars/TIANWEN-cpu/CodeHelper?style=social" alt="Stars"></a>
-  <a href="https://github.com/TIANWEN-cpu/CodeHelper/releases"><img src="https://img.shields.io/github/v/release/TIANWEN-cpu/CodeHelper" alt="Release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/TIANWEN-cpu/CodeHelper" alt="License"></a>
+  <a href="https://github.com/TIANWEN-cpu/CodeHelper-Studio"><img src="https://img.shields.io/github/stars/TIANWEN-cpu/CodeHelper-Studio?style=social" alt="Stars"></a>
+  <a href="https://github.com/TIANWEN-cpu/CodeHelper-Studio/releases"><img src="https://img.shields.io/github/v/release/TIANWEN-cpu/CodeHelper-Studio" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/TIANWEN-cpu/CodeHelper-Studio" alt="License"></a>
 </p>
 
 ---
@@ -83,13 +83,13 @@
 ### :rocket: Get Started
 
 ```bash
-git clone https://github.com/TIANWEN-cpu/CodeHelper.git
-cd CodeHelper
+git clone https://github.com/TIANWEN-cpu/CodeHelper-Studio.git
+cd CodeHelper-Studio
 npm install
 npm run dev
 ```
 
-3 分钟，从零到运行。 [Read the full quickstart guide :arrow_right:](https://github.com/TIANWEN-cpu/CodeHelper/blob/main/docs/quickstart.md)
+3 分钟，从零到运行。 [Read the full quickstart guide :arrow_right:](https://github.com/TIANWEN-cpu/CodeHelper-Studio/blob/master/docs/quickstart.md)
 
 ---
 
@@ -97,19 +97,19 @@ npm run dev
 
 We welcome contributions of all kinds!
 
-- :bug: [Report a bug](https://github.com/TIANWEN-cpu/CodeHelper/issues/new?template=bug_report.md)
-- :bulb: [Request a feature](https://github.com/TIANWEN-cpu/CodeHelper/issues/new?template=feature_request.md)
-- :hammer_and_wrench: [Submit a PR](https://github.com/TIANWEN-cpu/CodeHelper/pulls)
-- :book: [Improve documentation](https://github.com/TIANWEN-cpu/CodeHelper/blob/main/CONTRIBUTING.md)
+- :bug: [Report a bug](https://github.com/TIANWEN-cpu/CodeHelper-Studio/issues/new?template=bug_report.md)
+- :bulb: [Request a feature](https://github.com/TIANWEN-cpu/CodeHelper-Studio/issues/new?template=feature_request.md)
+- :hammer_and_wrench: [Submit a PR](https://github.com/TIANWEN-cpu/CodeHelper-Studio/pulls)
+- :book: [Improve documentation](https://github.com/TIANWEN-cpu/CodeHelper-Studio/blob/master/CONTRIBUTING.md)
 
 ---
 
 ### :link: Links
 
-- [:package: Releases](https://github.com/TIANWEN-cpu/CodeHelper/releases)
-- [:book: Documentation](https://github.com/TIANWEN-cpu/CodeHelper/tree/main/docs)
-- [:scroll: Changelog](https://github.com/TIANWEN-cpu/CodeHelper/blob/main/CHANGELOG.md)
-- [:question: FAQ](https://github.com/TIANWEN-cpu/CodeHelper/blob/main/FAQ.md)
+- [:package: Releases](https://github.com/TIANWEN-cpu/CodeHelper-Studio/releases)
+- [:book: Documentation](https://github.com/TIANWEN-cpu/CodeHelper-Studio/tree/master/docs)
+- [:scroll: Changelog](https://github.com/TIANWEN-cpu/CodeHelper-Studio/blob/master/CHANGELOG.md)
+- [:question: FAQ](https://github.com/TIANWEN-cpu/CodeHelper-Studio/blob/master/FAQ.md)
 
 ---
 

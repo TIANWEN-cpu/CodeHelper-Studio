@@ -14,9 +14,10 @@ import {
   Lock,
   Settings,
   ChevronRight,
-  Loader2,
+  AlertTriangle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Badge, Button, Card, EmptyState, Spinner } from '@/components/ui'
 import { useAppStore } from '../store'
 import { toast } from '@/stores/toastStore'
 import { WeeklyReportCard } from '@/components/WeeklyReportCard'
@@ -30,6 +31,9 @@ import {
 } from '@/services/settingsService'
 
 const PENDING_SETTINGS_TAB_KEY = 'codehelper.pendingSettingsTab'
+
+/** 与 HomeView 一致：带入场动效的卡片。 */
+const MotionCard = motion.create(Card)
 
 /** 事件类型 → 中文标签（未知类型回退原始 key）。 */
 const EVENT_LABELS: Record<string, string> = {
@@ -125,6 +129,7 @@ function StatTile({
   label,
   value,
   sub,
+  index = 0,
 }: {
   icon: typeof BookOpen
   iconColor: string
@@ -132,16 +137,25 @@ function StatTile({
   label: string
   value: string
   sub?: string
+  index?: number
 }) {
   return (
-    <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-2xl p-5 shadow-sm">
+    <MotionCard
+      padding="none"
+      className="p-5 shadow-sm"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: index * 0.06, ease: 'easeOut' }}
+    >
       <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center mb-3', iconBg)}>
         <Icon size={20} className={iconColor} />
       </div>
-      <div className="text-2xl font-bold text-white tracking-tight">{value}</div>
+      <div className="text-2xl font-bold text-[var(--color-text-primary)] tracking-tight">
+        {value}
+      </div>
       <div className="text-xs text-[var(--color-text-muted)] mt-0.5">{label}</div>
       {sub && <div className="text-[11px] text-[var(--color-text-secondary)] mt-1">{sub}</div>}
-    </div>
+    </MotionCard>
   )
 }
 
@@ -290,19 +304,20 @@ export function ProfileView() {
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center bg-[var(--color-bg-base)]">
-        <Loader2 size={32} className="animate-spin text-[var(--color-accent-primary)]" />
+      <div className="h-full flex items-center justify-center">
+        <Spinner size="lg" label="加载个人数据" className="text-[var(--color-accent-primary)]" />
       </div>
     )
   }
 
   if (error || !overview) {
     return (
-      <div className="h-full flex flex-col items-center justify-center gap-3 bg-[var(--color-bg-base)]">
-        <div className="w-14 h-14 rounded-full bg-[#EF4444]/10 flex items-center justify-center text-2xl">
-          !
-        </div>
-        <p className="text-sm text-[var(--color-text-secondary)]">{error || '暂无个人数据'}</p>
+      <div className="h-full flex items-center justify-center">
+        <EmptyState
+          icon={AlertTriangle}
+          title={error ? '加载个人数据失败' : '暂无个人数据'}
+          description={error ?? undefined}
+        />
       </div>
     )
   }
@@ -338,28 +353,38 @@ export function ProfileView() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-[var(--color-bg-base)] overflow-y-auto">
+    <div className="h-full flex flex-col overflow-y-auto">
       <div className="max-w-[1000px] w-full mx-auto p-6 lg:p-8 space-y-6">
-        {/* Hero */}
-        <div className="profile-hero relative overflow-hidden rounded-2xl border border-[var(--color-border-subtle)] p-6 lg:p-8 shadow-sm">
+        {/* Hero（渐变背景由 .profile-hero 提供，随主题变量自适应） */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: 'easeOut' }}
+          className="profile-hero relative overflow-hidden rounded-2xl border border-[var(--color-border-subtle)] p-6 lg:p-8 shadow-sm"
+        >
           <div className="absolute top-0 right-0 w-72 h-72 bg-[var(--color-accent-primary)] rounded-full blur-[120px] opacity-20 -translate-y-1/2 translate-x-1/4 pointer-events-none" />
           <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-6">
             <div className="relative shrink-0">
               <div className="profile-hero-avatar w-24 h-24 rounded-full flex items-center justify-center overflow-hidden ring-4 ring-[var(--color-accent-primary)]/20">
                 {renderProfileAvatar(profile.avatar, displayName)}
               </div>
-              <div className="profile-hero-status absolute -bottom-1 -right-1 bg-[#10B981] w-6 h-6 rounded-full border-4" />
+              <div className="profile-hero-status absolute -bottom-1 -right-1 bg-[var(--color-accent-success)] w-6 h-6 rounded-full border-4" />
             </div>
 
             <div className="flex-1 min-w-0 text-center sm:text-left w-full">
               <div className="flex items-center justify-center sm:justify-start gap-3 flex-wrap">
-                <h1 className="text-2xl font-bold text-white tracking-tight">{displayName}</h1>
-                <span className="text-[11px] font-bold bg-[var(--color-accent-purple)]/20 text-[var(--color-accent-purple)] px-2 py-0.5 rounded-md border border-[var(--color-accent-purple)]/30">
+                <h1 className="text-2xl font-bold text-[var(--color-text-primary)] tracking-tight">
+                  {displayName}
+                </h1>
+                <Badge
+                  variant="purple"
+                  className="text-[11px] font-bold border border-[var(--color-accent-purple)]/30"
+                >
                   {levelTitle(overview.level)}
-                </span>
+                </Badge>
               </div>
               <p className="text-sm text-[var(--color-text-secondary)] mt-1 flex items-center justify-center sm:justify-start gap-2">
-                <Sparkles size={14} className="text-[#F59E0B]" />
+                <Sparkles size={14} className="text-[var(--color-accent-warning)]" />
                 Lv.{overview.level} · 累计 {overview.xp} XP
               </p>
 
@@ -382,20 +407,22 @@ export function ProfileView() {
               </div>
             </div>
 
-            <button
+            <Button
+              variant="secondary"
               onClick={openAccountSettings}
-              className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-base)]/40 text-sm text-[var(--color-text-secondary)] hover:text-white hover:border-[var(--color-accent-primary)] transition-colors"
+              className="shrink-0"
               data-open-account-settings
             >
               <Settings size={15} />
               账户设置
-            </button>
+            </Button>
           </div>
-        </div>
+        </motion.div>
 
         {/* 统计磁贴 */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatTile
+            index={0}
             icon={BookOpen}
             iconColor="text-[var(--color-accent-primary)]"
             iconBg="bg-[var(--color-accent-primary)]/10"
@@ -403,20 +430,23 @@ export function ProfileView() {
             value={`${overview.completedLessons}/${overview.totalLessons}`}
           />
           <StatTile
+            index={1}
             icon={CheckCircle2}
-            iconColor="text-[#10B981]"
-            iconBg="bg-[#10B981]/10"
+            iconColor="text-[var(--color-accent-success)]"
+            iconBg="bg-[var(--color-accent-success)]/10"
             label="已解决题目"
             value={`${overview.solvedProblems}/${overview.totalProblems}`}
           />
           <StatTile
+            index={2}
             icon={Flame}
-            iconColor="text-[#F59E0B]"
-            iconBg="bg-[#F59E0B]/10"
+            iconColor="text-[var(--color-accent-warning)]"
+            iconBg="bg-[var(--color-accent-warning)]/10"
             label="连续学习"
             value={`${Math.max(0, overview.streak)} 天`}
           />
           <StatTile
+            index={3}
             icon={Zap}
             iconColor="text-[var(--color-accent-purple)]"
             iconBg="bg-[var(--color-accent-purple)]/10"
@@ -428,20 +458,19 @@ export function ProfileView() {
         {/* 活跃度 + 活动构成 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* 30 天活跃度 */}
-          <div className="lg:col-span-2 bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-2xl p-6 shadow-sm">
+          <Card padding="lg" className="lg:col-span-2 shadow-sm">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="font-semibold text-white text-[15px]">最近 30 天活跃度</h3>
-              <span className="text-xs text-[var(--color-text-muted)]">
-                共 {summary?.totalEvents ?? 0} 次活动
-              </span>
+              <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px]">
+                最近 30 天活跃度
+              </h3>
+              <Badge variant="neutral">共 {summary?.totalEvents ?? 0} 次活动</Badge>
             </div>
             {days.length === 0 || maxCount === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <TrendingUp size={32} className="text-[var(--color-text-muted)] opacity-50 mb-2" />
-                <p className="text-sm text-[var(--color-text-muted)]">
-                  暂无活动数据，去学习/刷题积累记录吧
-                </p>
-              </div>
+              <EmptyState
+                icon={TrendingUp}
+                title="暂无活动数据"
+                description="去学习/刷题积累记录吧"
+              />
             ) : (
               <div className="flex items-end gap-1 h-36">
                 {days.map((d, i) => {
@@ -452,7 +481,7 @@ export function ProfileView() {
                         className="w-full rounded-sm bg-gradient-to-t from-[var(--color-accent-primary)] to-[var(--color-accent-purple)] opacity-80 group-hover:opacity-100 transition-all"
                         style={{ height: `${h}%` }}
                       />
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 rounded bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] text-[10px] text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 rounded bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] text-[10px] text-[var(--color-text-primary)] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                         {d.date}：{d.count} 次
                       </div>
                     </div>
@@ -460,16 +489,15 @@ export function ProfileView() {
                 })}
               </div>
             )}
-          </div>
+          </Card>
 
           {/* 活动构成 */}
-          <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-2xl p-6 shadow-sm">
-            <h3 className="font-semibold text-white text-[15px] mb-5">活动构成</h3>
+          <Card padding="lg" className="shadow-sm">
+            <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px] mb-5">
+              活动构成
+            </h3>
             {typeEntries.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-center">
-                <Target size={28} className="text-[var(--color-text-muted)] opacity-50 mb-2" />
-                <p className="text-sm text-[var(--color-text-muted)]">暂无活动记录</p>
-              </div>
+              <EmptyState icon={Target} title="暂无活动记录" />
             ) : (
               <div className="space-y-3">
                 {typeEntries.slice(0, 6).map(([type, count]) => {
@@ -495,22 +523,22 @@ export function ProfileView() {
                 })}
               </div>
             )}
-          </div>
+          </Card>
         </div>
 
         {/* 学习周报 */}
         <WeeklyReportCard />
 
         {/* 成就 */}
-        <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-2xl p-6 shadow-sm">
+        <Card padding="lg" className="shadow-sm">
           <div className="flex items-center justify-between mb-5">
-            <h3 className="font-semibold text-white text-[15px] flex items-center gap-2">
-              <Trophy size={16} className="text-[#F59E0B]" />
+            <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px] flex items-center gap-2">
+              <Trophy size={16} className="text-[var(--color-accent-warning)]" />
               成就徽章
             </h3>
-            <span className="text-xs text-[var(--color-text-muted)]">
+            <Badge variant="neutral">
               已解锁 {unlockedCount}/{achievements.length}
-            </span>
+            </Badge>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {achievements.map((a) => {
@@ -519,9 +547,9 @@ export function ProfileView() {
                 <div
                   key={a.id}
                   className={cn(
-                    'relative rounded-xl border p-4 flex flex-col items-center text-center transition-all',
+                    'relative rounded-xl border p-4 flex flex-col items-center text-center transition-all duration-[var(--motion-duration-fast)]',
                     a.unlocked
-                      ? 'border-[var(--color-accent-purple)]/30 bg-[var(--color-accent-purple)]/5'
+                      ? 'border-[var(--color-accent-purple)]/30 bg-[var(--color-accent-purple)]/5 hover:-translate-y-0.5 hover:border-[var(--color-accent-purple)]/50 hover:shadow-[var(--shadow-card)]'
                       : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] opacity-60',
                   )}
                 >
@@ -542,7 +570,9 @@ export function ProfileView() {
                   <p
                     className={cn(
                       'text-xs font-semibold mb-0.5',
-                      a.unlocked ? 'text-white' : 'text-[var(--color-text-secondary)]',
+                      a.unlocked
+                        ? 'text-[var(--color-text-primary)]'
+                        : 'text-[var(--color-text-secondary)]',
                     )}
                   >
                     {a.label}
@@ -554,17 +584,18 @@ export function ProfileView() {
               )
             })}
           </div>
-        </div>
+        </Card>
 
         {/* 快捷入口 */}
         <div className="flex items-center justify-center">
-          <button
+          <Button
+            size="lg"
             onClick={() => setCurrentView('learn')}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[var(--color-accent-solid)] to-[var(--color-accent-secondary-solid)] hover:from-[var(--color-accent-solid-hover)] hover:to-[var(--color-accent-secondary-solid-hover)] text-[var(--color-on-accent)] text-sm font-medium transition-all shadow-md hover:shadow-[0_0_15px_rgba(139,92,246,0.4)]"
+            className="shadow-md hover:shadow-[0_10px_24px_color-mix(in_srgb,var(--color-accent-primary)_24%,transparent)]"
           >
             继续学习
             <ChevronRight size={16} />
-          </button>
+          </Button>
         </div>
       </div>
     </div>

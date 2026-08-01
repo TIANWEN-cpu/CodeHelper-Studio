@@ -111,4 +111,53 @@ describe('AI streaming IPC', () => {
     })
     await expect(pending).rejects.toThrow('已取消或超时')
   })
+
+  it('rejects a 4th concurrent ai-chat request while 3 are in flight, then recovers after release', async () => {
+    const hangFetch = (_target: unknown, options: { signal: AbortSignal }) =>
+      new Promise((_resolve, reject) => {
+        options.signal.addEventListener('abort', () => reject(new Error('aborted')), {
+          once: true,
+        })
+      })
+    fetchProvider.mockImplementation(hangFetch)
+    registerAIIPC()
+
+    const makeArgs = (requestId: string) => ({
+      requestId,
+      messages: [{ role: 'user', content: 'hello' }],
+      includeMemories: false,
+    })
+    const p1 = handlers['ai-chat']({ sender: {} }, makeArgs('req-concurrent-1'))
+    const p2 = handlers['ai-chat']({ sender: {} }, makeArgs('req-concurrent-2'))
+    const p3 = handlers['ai-chat']({ sender: {} }, makeArgs('req-concurrent-3'))
+    await Promise.resolve()
+
+    // 并发上限：第 4 个在途请求直接拒绝，且不会占用新的槽位。
+    await expect(handlers['ai-chat']({ sender: {} }, makeArgs('req-concurrent-4'))).rejects.toThrow(
+      '同时进行的 AI 请求过多',
+    )
+
+    // 取消在途请求后槽位释放，新的请求可以继续完成。
+    expect(handlers['ai-chat-cancel'](null, 'req-concurrent-1')).toEqual({ cancelled: true })
+    await expect(p1).rejects.toThrow('已取消或超时')
+    expect(handlers['ai-chat-cancel'](null, 'req-concurrent-2')).toEqual({ cancelled: true })
+    await expect(p2).rejects.toThrow('已取消或超时')
+    expect(handlers['ai-chat-cancel'](null, 'req-concurrent-3')).toEqual({ cancelled: true })
+    await expect(p3).rejects.toThrow('已取消或超时')
+
+    const payload = JSON.stringify({ choices: [{ delta: { content: 'after release' } }] })
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(`data:${payload}`))
+        controller.close()
+      },
+    })
+    fetchProvider.mockResolvedValueOnce(new Response(stream, { status: 200 }))
+    const result = await handlers['ai-chat']({ sender: {} }, makeArgs('req-concurrent-5'))
+    expect(result).toEqual({
+      success: true,
+      requestId: 'req-concurrent-5',
+      content: 'after release',
+    })
+  })
 })

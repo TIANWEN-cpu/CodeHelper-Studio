@@ -4,6 +4,33 @@
 
 ---
 
+## [2.4.2] - 2026-08-02
+
+v2.4.2 聚焦桌面端可靠性、数据安全和交互一致性，覆盖工作区恢复、AI 请求生命周期、代码运行器清理、IPC 防护和发布前验证。
+
+### 新增与改进
+
+- 工作区和草稿恢复覆盖语言切换、光标/滚动位置、多窗口同步、标签拓扑、异常退出以及 renderer-only crash 场景。
+- AI IPC 增加 middleware、并发上限、流式 chunk 合并、请求取消和会话切换隔离，网络抖动时保留已有会话列表。
+- 代码运行器和 Windows Job Host 使用有界退出等待；Windows 强制终止后及时释放运行容量，避免槽位永久占用。
+- 数据库记录实际 schema 指纹，schema 或迁移片段变化时先创建验证型迁移前备份。
+- 生产环境隔离测试 hook 和 renderer 路径信任；未知资源包分类继续 fail-closed。
+- 统一设计系统的 Button、Card、Dialog、EmptyState、Spinner、Tabs 等组件，替换原生 `window.confirm` 并改善浅色主题可读性。
+
+### 修复
+
+- 修复切换工作区语言可能替换当前代码的问题。
+- 修复并发 AI 请求在取消、切换会话或删除会话时污染新会话消息的问题。
+- 修复代码运行 utility / Job Host 清理等待无限挂起，以及 Windows 终止后并发计数不归还的问题。
+- 修复 Electron E2E teardown 卡死导致测试超时的问题，诊断采集和进程退出现在都有硬上限。
+
+### 工程与依赖
+
+- Electron 升级至 `41.10.3`，并声明 Node.js `^20.19.0 || ^22.13.0 || >=24`。
+- 完整 `npm audit --audit-level=high` 为 0；TypeScript、ESLint、Prettier、Vitest、Electron E2E 和生产构建通过。
+
+---
+
 ## [2.4.1] - 2026-07-19
 
 v2.4.1 聚焦真实知识库治理和长文阅读体验，并把清理计划、来源分类、链接状态、备份与删除原因固化为可验证的 SQLite 证据。
