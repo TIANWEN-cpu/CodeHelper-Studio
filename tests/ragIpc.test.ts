@@ -86,6 +86,7 @@ describe('registerRAGIPC', () => {
     Object.keys(handlers).forEach((k) => delete handlers[k])
     mockDB.prepare.mockReset()
     mockDB.exec.mockReset()
+    mockDB.transaction.mockClear()
     pdfParseMocks.construct.mockReset()
     pdfParseMocks.getText.mockReset()
     pdfParseMocks.destroy.mockReset()
@@ -163,7 +164,7 @@ describe('registerRAGIPC', () => {
         if (sql.includes('INSERT INTO knowledge_chunks')) {
           return { run: vi.fn(), get: vi.fn(), all: vi.fn() }
         }
-        return makeStmt(undefined)
+        return makeStmt([])
       })
 
       const { registerRAGIPC } = await import('../electron/ipc/rag')
@@ -192,7 +193,7 @@ describe('registerRAGIPC', () => {
         if (sql.includes('INSERT INTO knowledge_chunks')) {
           return { run: vi.fn(), get: vi.fn(), all: vi.fn() }
         }
-        return makeStmt(undefined)
+        return makeStmt([])
       })
 
       const { registerRAGIPC } = await import('../electron/ipc/rag')
@@ -221,7 +222,7 @@ describe('registerRAGIPC', () => {
         if (sql.includes('INSERT INTO knowledge_chunks')) {
           return { run: vi.fn(), get: vi.fn(), all: vi.fn() }
         }
-        return makeStmt(undefined)
+        return makeStmt([])
       })
 
       const { registerRAGIPC } = await import('../electron/ipc/rag')
@@ -242,7 +243,7 @@ describe('registerRAGIPC', () => {
       })
       ;(fs.statSync as ReturnType<typeof vi.fn>).mockReturnValue({ size: 20 * 1024 * 1024 }) // 20MB
 
-      mockDB.prepare.mockReturnValue(makeStmt(undefined))
+      mockDB.prepare.mockReturnValue(makeStmt([]))
       const { registerRAGIPC } = await import('../electron/ipc/rag')
       registerRAGIPC()
 
@@ -260,12 +261,89 @@ describe('registerRAGIPC', () => {
       ;(fs.readFileSync as ReturnType<typeof vi.fn>).mockReturnValue(Buffer.from('pdf-content'))
       pdfParseMocks.getText.mockRejectedValue(new Error('invalid PDF'))
 
-      mockDB.prepare.mockReturnValue(makeStmt(undefined))
+      mockDB.prepare.mockReturnValue(makeStmt([]))
       const { registerRAGIPC } = await import('../electron/ipc/rag')
       registerRAGIPC()
 
       await expect(handlers['knowledge-upload']()).rejects.toThrow('PDF 解析失败: invalid PDF')
       expect(pdfParseMocks.destroy).toHaveBeenCalledOnce()
+    })
+
+    it('skips files whose filename already exists in the knowledge base', async () => {
+      const { dialog } = await import('electron')
+      const fs = await import('fs')
+      ;(dialog.showOpenDialog as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canceled: false,
+        filePaths: ['/test/dup.txt', '/test/new.md'],
+      })
+      ;(fs.readFileSync as ReturnType<typeof vi.fn>).mockReturnValue('content')
+      ;(fs.statSync as ReturnType<typeof vi.fn>).mockReturnValue({ size: 50 })
+
+      mockDB.prepare.mockImplementation((sql: string) => {
+        if (sql.includes('SELECT filename FROM knowledge_docs')) {
+          return { all: vi.fn(() => [{ filename: 'dup.txt' }]) }
+        }
+        if (sql.includes('INSERT INTO knowledge_docs')) {
+          return { run: vi.fn(() => ({ lastInsertRowid: 4 })), get: vi.fn(), all: vi.fn() }
+        }
+        if (sql.includes('INSERT INTO knowledge_chunks')) {
+          return { run: vi.fn(), get: vi.fn(), all: vi.fn() }
+        }
+        return makeStmt(undefined)
+      })
+
+      const { registerRAGIPC } = await import('../electron/ipc/rag')
+      registerRAGIPC()
+
+      const result = await handlers['knowledge-upload']()
+      expect(result).toEqual(['new.md'])
+    })
+
+    it('rolls back the whole batch and names the failing file when one insert fails', async () => {
+      const { dialog } = await import('electron')
+      const fs = await import('fs')
+      ;(dialog.showOpenDialog as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canceled: false,
+        filePaths: ['/test/first.txt', '/test/second.txt'],
+      })
+      ;(fs.readFileSync as ReturnType<typeof vi.fn>).mockReturnValue('content')
+      ;(fs.statSync as ReturnType<typeof vi.fn>).mockReturnValue({ size: 50 })
+
+      let docRuns = 0
+      mockDB.prepare.mockImplementation((sql: string) => {
+        if (sql.includes('SELECT filename FROM knowledge_docs')) {
+          return { all: vi.fn(() => []) }
+        }
+        if (sql.includes('INSERT INTO knowledge_docs')) {
+          return {
+            run: vi.fn(() => {
+              docRuns += 1
+              return { lastInsertRowid: docRuns }
+            }),
+            get: vi.fn(),
+            all: vi.fn(),
+          }
+        }
+        if (sql.includes('INSERT INTO knowledge_chunks')) {
+          return {
+            run: vi.fn(() => {
+              if (docRuns === 2) throw new Error('chunk insert failed')
+            }),
+            get: vi.fn(),
+            all: vi.fn(),
+          }
+        }
+        return makeStmt(undefined)
+      })
+
+      const { registerRAGIPC } = await import('../electron/ipc/rag')
+      registerRAGIPC()
+
+      await expect(handlers['knowledge-upload']()).rejects.toThrow(
+        '上传文件 "second.txt" 失败: chunk insert failed',
+      )
+      // 整批只包进一个事务（all-or-nothing）。
+      expect(mockDB.transaction).toHaveBeenCalledTimes(1)
     })
   })
 
@@ -503,6 +581,17 @@ describe('registerRAGIPC', () => {
         chunkIndex: 2,
       })
       expect(context.retrieval.mode).toBe('hybrid')
+    })
+
+    it('does not fabricate a user profile in RAG context', async () => {
+      mockDB.prepare.mockReturnValue(makeStmt([]))
+      const { registerRAGIPC } = await import('../electron/ipc/rag')
+      registerRAGIPC()
+      await flushMicrotasks()
+
+      const context = await handlers['knowledge-rag-context'](null, 'anything')
+      // 没有真实的画像数据来源时，userProfile 必须为 null（而不是伪造的 zh-CN/beginner）。
+      expect(context.userProfile).toBeNull()
     })
   })
 })

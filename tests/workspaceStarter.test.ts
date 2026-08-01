@@ -47,6 +47,18 @@ describe('workspace starter initialization', () => {
     expect(workspaceSource).toContain('starterInitializationAttemptedRef.current = true')
   })
 
+  it('revalidates the starter target after the async problem load', () => {
+    const workspaceSource = readFileSync('src/views/WorkspaceView.tsx', 'utf8')
+
+    expect(workspaceSource).toContain('if (cancelled) return')
+    expect(workspaceSource).toContain(
+      'const freshTarget = findWorkspaceStarterTarget(currentState.tabs, currentVisibleId)',
+    )
+    expect(workspaceSource).toContain('if (!freshTarget) {')
+    expect(workspaceSource).toContain('starterInitializationAttemptedRef.current = false')
+    expect(workspaceSource).toContain('currentState.updateTab(freshTarget.id, {')
+  })
+
   it('never targets non-empty files, problems, or exercises', () => {
     const tabs = [
       { id: 'file', kind: 'file' as const, content: 'user code' },

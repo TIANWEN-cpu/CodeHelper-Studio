@@ -1,4 +1,5 @@
 import { ipcMain, BrowserWindow } from 'electron'
+import { withMiddleware, rateLimitMiddleware } from '../utils/middleware'
 import { getDB } from '../db/index'
 import { getRelevantMemories, markMemoriesUsed } from './chat'
 import { resolveAllowedProviderTarget } from '../utils/providerSecurity'
@@ -11,6 +12,29 @@ import {
 } from '../utils/httpErrors'
 import type { AIConfigForChat, ChatMessage } from '../types/db'
 import { decryptApiKey } from '../utils/apiKeyStorage'
+
+// ---------------------------------------------------------------------------
+// 并发上限：ai-chat 是长连接流式请求（最多 120s），多个请求同时占用
+// Provider 连接会打爆上游。渲染层已串行化发送，这里兜底：超过 3 个并发
+// 直接拒绝，避免排队导致更长的悬挂。
+// ---------------------------------------------------------------------------
+const MAX_CONCURRENT_AI_CHAT = 3
+let activeAiChatCount = 0
+
+function acquireAiChatSlot(): void {
+  if (activeAiChatCount >= MAX_CONCURRENT_AI_CHAT) {
+    throw new Error('同时进行的 AI 请求过多，请稍后再试')
+  }
+  activeAiChatCount += 1
+}
+
+function releaseAiChatSlot(): void {
+  activeAiChatCount = Math.max(0, activeAiChatCount - 1)
+}
+
+// 流式 chunk 批量下发间隔：把每行 SSE 一条 IPC 收敛为 ~20 条/秒，
+// 渲染端 markdown 重渲染与 scrollIntoView 随之降到可接受频率。
+const CHUNK_FLUSH_INTERVAL_MS = 50
 
 export function parseSseContentLine(line: string): string | null {
   const trimmed = line.trim()
@@ -33,194 +57,236 @@ export function registerAIIPC(): void {
 
   ipcMain.handle(
     'ai-chat',
-    async (
-      event,
-      args: {
-        messages: ChatMessage[]
-        configId?: number
-        requestId?: string
-        includeMemories?: boolean
-        sessionId?: string
-        currentUserMessageId?: number
-        ragContext?: RagContext
-        memoryCategories?: string[]
-      },
-    ) => {
-      if (firstCall) {
-        firstCall = false
-        console.log('[IPC] First call to "ai-chat"')
-      }
-      if (!args || typeof args !== 'object') throw new Error('参数无效')
-      if (!Array.isArray(args.messages) || args.messages.length === 0)
-        throw new Error('参数无效: messages')
-      if (args.messages.length > 200) throw new Error('消息数量超限')
-      for (const msg of args.messages) {
-        if (!msg || typeof msg !== 'object') throw new Error('参数无效: message')
-        if (!['user', 'assistant', 'system'].includes(msg.role))
-          throw new Error('参数无效: message role')
-        if (typeof msg.content !== 'string') throw new Error('参数无效: message content')
-        msg.content = msg.content.slice(0, 100000)
-      }
-      if (
-        args.configId !== undefined &&
-        (typeof args.configId !== 'number' || !Number.isFinite(args.configId) || args.configId < 1)
-      )
-        throw new Error('参数无效: configId')
-      if (args.requestId !== undefined) {
-        if (typeof args.requestId !== 'string') throw new Error('参数无效: requestId')
-        args.requestId = args.requestId.trim().slice(0, 200)
-      }
-      if (args.sessionId !== undefined) {
-        if (typeof args.sessionId !== 'string') throw new Error('参数无效: sessionId')
-        args.sessionId = args.sessionId.trim().slice(0, 200)
-      }
-      if (
-        args.currentUserMessageId !== undefined &&
-        (!Number.isSafeInteger(args.currentUserMessageId) || args.currentUserMessageId < 1)
-      ) {
-        throw new Error('参数无效: currentUserMessageId')
-      }
+    withMiddleware(
+      'ai-chat',
+      async (event, ...rest: unknown[]) => {
+        const args = rest[0] as {
+          messages: ChatMessage[]
+          configId?: number
+          requestId?: string
+          includeMemories?: boolean
+          sessionId?: string
+          currentUserMessageId?: number
+          ragContext?: RagContext
+          memoryCategories?: string[]
+        }
+        if (firstCall) {
+          firstCall = false
+          console.log('[IPC] First call to "ai-chat"')
+        }
+        if (!args || typeof args !== 'object') throw new Error('参数无效')
+        if (!Array.isArray(args.messages) || args.messages.length === 0)
+          throw new Error('参数无效: messages')
+        if (args.messages.length > 200) throw new Error('消息数量超限')
+        for (const msg of args.messages) {
+          if (!msg || typeof msg !== 'object') throw new Error('参数无效: message')
+          if (!['user', 'assistant', 'system'].includes(msg.role))
+            throw new Error('参数无效: message role')
+          if (typeof msg.content !== 'string') throw new Error('参数无效: message content')
+          msg.content = msg.content.slice(0, 100000)
+        }
+        if (
+          args.configId !== undefined &&
+          (typeof args.configId !== 'number' ||
+            !Number.isFinite(args.configId) ||
+            args.configId < 1)
+        )
+          throw new Error('参数无效: configId')
+        if (args.requestId !== undefined) {
+          if (typeof args.requestId !== 'string') throw new Error('参数无效: requestId')
+          args.requestId = args.requestId.trim().slice(0, 200)
+        }
+        if (args.sessionId !== undefined) {
+          if (typeof args.sessionId !== 'string') throw new Error('参数无效: sessionId')
+          args.sessionId = args.sessionId.trim().slice(0, 200)
+        }
+        if (
+          args.currentUserMessageId !== undefined &&
+          (!Number.isSafeInteger(args.currentUserMessageId) || args.currentUserMessageId < 1)
+        ) {
+          throw new Error('参数无效: currentUserMessageId')
+        }
 
-      const requestId = args.requestId ?? `req-${Date.now()}`
+        const requestId = args.requestId ?? `req-${Date.now()}`
 
-      // Cancel any previous request with the same requestId
-      const existingController = activeRequests.get(requestId)
-      if (existingController) {
-        existingController.abort()
-      }
+        // Cancel any previous request with the same requestId
+        const existingController = activeRequests.get(requestId)
+        if (existingController) {
+          existingController.abort()
+        }
 
-      const controller = new AbortController()
-      activeRequests.set(requestId, controller)
+        const controller = new AbortController()
+        activeRequests.set(requestId, controller)
 
-      // Auto-abort after 120s to prevent indefinite hangs
-      const requestTimeout = setTimeout(() => controller.abort(), 120000)
+        // Auto-abort after 120s to prevent indefinite hangs
+        const requestTimeout = setTimeout(() => controller.abort(), 120000)
 
-      try {
-        const db = getDB()
-        let config: AIConfigForChat | undefined
+        let slotAcquired = false
+        try {
+          acquireAiChatSlot()
+          slotAcquired = true
+          const db = getDB()
+          let config: AIConfigForChat | undefined
 
-        if (args.configId) {
-          config = db.prepare('SELECT * FROM ai_configs WHERE id = ?').get(args.configId) as
-            | AIConfigForChat
-            | undefined
-        } else {
-          config = db.prepare('SELECT * FROM ai_configs WHERE is_default = 1').get() as
-            | AIConfigForChat
-            | undefined
-          if (!config) {
-            config = db.prepare('SELECT * FROM ai_configs LIMIT 1').get() as
+          if (args.configId) {
+            config = db.prepare('SELECT * FROM ai_configs WHERE id = ?').get(args.configId) as
               | AIConfigForChat
               | undefined
-          }
-        }
-
-        if (!config) {
-          throw new Error('未配置AI模型，请先在设置中添加')
-        }
-
-        config = { ...config, api_key: decryptApiKey(config.api_key) }
-        if (!config.api_key) throw new Error('API key could not be decrypted')
-        const provider = await resolveAllowedProviderTarget(config.base_url)
-        const requestTarget = { ...provider, url: `${provider.url}/chat/completions` }
-        const win = BrowserWindow.fromWebContents(event.sender)
-        const withHistory = buildSessionMessages(
-          db,
-          args.sessionId,
-          args.messages,
-          args.currentUserMessageId,
-        )
-        const memoryCategories = Array.isArray(args.memoryCategories)
-          ? args.memoryCategories.filter((c): c is string => typeof c === 'string')
-          : undefined
-        const withMemories = injectMemories(
-          withHistory,
-          args.includeMemories ?? true,
-          memoryCategories,
-        )
-        const messages = injectRagContext(withMemories, args.ragContext)
-
-        let response: Response
-        try {
-          response = await fetchResolvedProvider(requestTarget, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${config.api_key}`,
-            },
-            body: JSON.stringify({
-              model: config.model,
-              messages,
-              stream: true,
-            }),
-            redirect: 'manual',
-            signal: controller.signal,
-          })
-        } catch (fetchError) {
-          const msg = fetchError instanceof Error ? fetchError.message : String(fetchError)
-          if (msg.includes('abort')) {
-            throw new Error('AI 请求已取消或超时')
-          }
-          console.warn('[ai] chat fetch failed:', msg)
-          throw new Error('网络连接失败，请检查网络或 Base URL')
-        }
-
-        // 出于 SSRF 防护，拒绝跟随上游重定向（可能指向内网/元数据地址）
-        if (isRedirect(response.status)) {
-          await discardResponseBody(response)
-          throw redirectBlockedError('chat')
-        }
-
-        if (!response.ok) {
-          await discardResponseBody(response)
-          console.warn(`[ai] upstream chat error ${response.status}`)
-          throw new Error(friendlyUpstreamError(response.status, 'chat'))
-        }
-
-        const reader = response.body?.getReader()
-        if (!reader) {
-          throw new Error('AI 响应为空')
-        }
-        const decoder = new TextDecoder()
-
-        let buffer = ''
-        let fullContent = ''
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n')
-          buffer = lines.pop() || ''
-
-          for (const line of lines) {
-            const content = parseSseContentLine(line)
-            if (content) {
-              fullContent += content
-              if (win) win.webContents.send('ai-chat-chunk', { requestId, chunk: content })
+          } else {
+            config = db.prepare('SELECT * FROM ai_configs WHERE is_default = 1').get() as
+              | AIConfigForChat
+              | undefined
+            if (!config) {
+              config = db.prepare('SELECT * FROM ai_configs LIMIT 1').get() as
+                | AIConfigForChat
+                | undefined
             }
           }
-        }
 
-        buffer += decoder.decode()
-        const finalContent = parseSseContentLine(buffer)
-        if (finalContent) {
-          fullContent += finalContent
-          if (win) win.webContents.send('ai-chat-chunk', { requestId, chunk: finalContent })
-        }
+          if (!config) {
+            throw new Error('未配置AI模型，请先在设置中添加')
+          }
 
-        if (win) {
-          win.webContents.send('ai-chat-done', { requestId, content: fullContent })
+          config = { ...config, api_key: decryptApiKey(config.api_key) }
+          if (!config.api_key) throw new Error('API key could not be decrypted')
+          const provider = await resolveAllowedProviderTarget(config.base_url)
+          const requestTarget = { ...provider, url: `${provider.url}/chat/completions` }
+          const win = BrowserWindow.fromWebContents(event.sender)
+          const withHistory = buildSessionMessages(
+            db,
+            args.sessionId,
+            args.messages,
+            args.currentUserMessageId,
+          )
+          const memoryCategories = Array.isArray(args.memoryCategories)
+            ? args.memoryCategories.filter((c): c is string => typeof c === 'string')
+            : undefined
+          const withMemories = injectMemories(
+            withHistory,
+            args.includeMemories ?? true,
+            memoryCategories,
+          )
+          const messages = injectRagContext(withMemories, args.ragContext)
+
+          let response: Response
+          try {
+            response = await fetchResolvedProvider(requestTarget, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${config.api_key}`,
+              },
+              body: JSON.stringify({
+                model: config.model,
+                messages,
+                stream: true,
+              }),
+              redirect: 'manual',
+              signal: controller.signal,
+            })
+          } catch (fetchError) {
+            const msg = fetchError instanceof Error ? fetchError.message : String(fetchError)
+            if (msg.includes('abort')) {
+              throw new Error('AI 请求已取消或超时')
+            }
+            console.warn('[ai] chat fetch failed:', msg)
+            throw new Error('网络连接失败，请检查网络或 Base URL')
+          }
+
+          // 出于 SSRF 防护，拒绝跟随上游重定向（可能指向内网/元数据地址）
+          if (isRedirect(response.status)) {
+            await discardResponseBody(response)
+            throw redirectBlockedError('chat')
+          }
+
+          if (!response.ok) {
+            await discardResponseBody(response)
+            console.warn(`[ai] upstream chat error ${response.status}`)
+            throw new Error(friendlyUpstreamError(response.status, 'chat'))
+          }
+
+          const reader = response.body?.getReader()
+          if (!reader) {
+            throw new Error('AI 响应为空')
+          }
+          const decoder = new TextDecoder()
+
+          // chunk 批量下发：缓冲累计增量，按 ~50ms 间隔 flush，避免每行 SSE 触发
+          // 一次 IPC 与渲染端全量 markdown 重渲染；结束/出错时兜底清空缓冲。
+          let buffer = ''
+          let fullContent = ''
+          let pendingChunk = ''
+          let chunkTimer: ReturnType<typeof setTimeout> | null = null
+          const flushChunk = () => {
+            if (!pendingChunk) return
+            const chunk = pendingChunk
+            pendingChunk = ''
+            if (win) win.webContents.send('ai-chat-chunk', { requestId, chunk })
+          }
+          const scheduleFlush = () => {
+            if (chunkTimer) return
+            chunkTimer = setTimeout(() => {
+              chunkTimer = null
+              flushChunk()
+            }, CHUNK_FLUSH_INTERVAL_MS)
+          }
+
+          try {
+            while (true) {
+              const { done, value } = await reader.read()
+              if (done) break
+
+              buffer += decoder.decode(value, { stream: true })
+              const lines = buffer.split('\n')
+              buffer = lines.pop() || ''
+
+              for (const line of lines) {
+                const content = parseSseContentLine(line)
+                if (content) {
+                  fullContent += content
+                  pendingChunk += content
+                  scheduleFlush()
+                }
+              }
+            }
+
+            buffer += decoder.decode()
+            const finalContent = parseSseContentLine(buffer)
+            if (finalContent) {
+              fullContent += finalContent
+              pendingChunk += finalContent
+            }
+
+            if (chunkTimer) {
+              clearTimeout(chunkTimer)
+              chunkTimer = null
+            }
+            flushChunk()
+
+            if (win) {
+              win.webContents.send('ai-chat-done', { requestId, content: fullContent })
+            }
+            return { success: true, requestId, content: fullContent }
+          } finally {
+            // 出错/取消路径：把已缓冲的部分内容也下发，渲染端可展示后再报错。
+            if (chunkTimer) {
+              clearTimeout(chunkTimer)
+              chunkTimer = null
+            }
+            flushChunk()
+          }
+        } finally {
+          if (slotAcquired) releaseAiChatSlot()
+          clearTimeout(requestTimeout)
+          // 仅当 map 中仍是本次的 controller 时才删除：避免被同 requestId 的后续请求
+          // 取代后，本请求的清理误删掉后续请求的 controller（否则会漏掉对后续请求的取消）。
+          if (activeRequests.get(requestId) === controller) {
+            activeRequests.delete(requestId)
+          }
         }
-        return { success: true, requestId, content: fullContent }
-      } finally {
-        clearTimeout(requestTimeout)
-        // 仅当 map 中仍是本次的 controller 时才删除：避免被同 requestId 的后续请求
-        // 取代后，本请求的清理误删掉后续请求的 controller（否则会漏掉对后续请求的取消）。
-        if (activeRequests.get(requestId) === controller) {
-          activeRequests.delete(requestId)
-        }
-      }
-    },
+      },
+      [rateLimitMiddleware({ maxCalls: 5, windowMs: 10_000 })],
+    ),
   )
 
   ipcMain.handle('ai-chat-cancel', (_event, requestId: string) => {
@@ -326,7 +392,7 @@ export type RagContext = {
     difficultyLevel?: string
     strongTopics?: string[]
     weakTopics?: string[]
-  }
+  } | null
 }
 
 const MAX_RAG_CHUNKS = 8
@@ -360,7 +426,7 @@ export function injectRagContext(
     }
 
     const profile = rag.userProfile
-    if (profile && typeof profile === 'object') {
+    if (profile !== null && profile !== undefined && typeof profile === 'object') {
       const bits: string[] = []
       if (profile.preferredLanguage) bits.push(`偏好语言：${profile.preferredLanguage}`)
       if (profile.difficultyLevel) bits.push(`水平：${profile.difficultyLevel}`)

@@ -1,5 +1,7 @@
 # 架构详解
 
+> 本文为补充视角；权威架构文档为 [docs/architecture.md](../architecture.md)。
+
 本文档详细描述 CodeHelper 的系统架构、进程模型、数据流和安全设计。
 
 ## 技术栈总览
@@ -9,7 +11,7 @@
 | 桌面框架   | Electron                             | 41     |
 | 前端框架   | React                                | 19     |
 | 类型系统   | TypeScript（strict 模式）            | 6      |
-| 构建工具   | Vite + electron-vite                 | 8 / 5  |
+| 构建工具   | Vite + electron-vite                 | 7 / 5  |
 | 状态管理   | Zustand                              | 5      |
 | 代码编辑器 | @uiw/react-codemirror (CodeMirror 6) | 6      |
 | 样式方案   | TailwindCSS                          | 4      |

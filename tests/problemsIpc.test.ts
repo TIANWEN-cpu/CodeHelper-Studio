@@ -190,6 +190,29 @@ describe('registerProblemsIPC', () => {
       await handlers['problems-list'](null, null)
       await handlers['problems-list'](null, undefined)
     })
+
+    it('selects only list fields (heavy bodies stay in problems-get)', async () => {
+      mockDB.prepare.mockImplementation((sql: string) => {
+        if (sql.includes('FROM problems'))
+          return makeStmt([{ id: 1, title: 'T', starter_code: '{}' }])
+        return makeStmt(undefined)
+      })
+
+      const result = await handlers['problems-list'](null)
+      expect(result).toEqual([{ id: 1, title: 'T', starter_code: '{}' }])
+
+      const listSql = mockDB.prepare.mock.calls
+        .map((c) => String(c[0]))
+        .find((sql) => sql.includes('FROM problems'))
+      expect(listSql).toBeDefined()
+      expect(listSql).not.toContain('p.*')
+      expect(listSql).not.toContain('description')
+      expect(listSql).not.toContain('test_cases')
+      expect(listSql).not.toContain('examples')
+      expect(listSql).not.toContain('languages')
+      expect(listSql).toContain('starter_code')
+      expect(listSql).toContain('LIMIT 3000')
+    })
   })
 
   describe('problems-get', () => {
@@ -612,6 +635,10 @@ describe('syncProblems (called on registerProblemsIPC)', () => {
 
     // Should not throw, error is caught
     await new Promise((r) => setTimeout(r, 50))
+    const wroteSeedHash = mockDB.prepare.mock.calls.some(([sql]) =>
+      String(sql).includes('INSERT OR REPLACE INTO settings'),
+    )
+    expect(wroteSeedHash).toBe(false)
   })
 
   it('skips non-json files in problem directory', async () => {
@@ -639,5 +666,161 @@ describe('syncProblems (called on registerProblemsIPC)', () => {
     await new Promise((r) => setTimeout(r, 50))
     // readdirSync should not be called
     expect(mockReaddirSync).not.toHaveBeenCalled()
+  })
+
+  it('skips sync when the stored seed hash matches the current seeds', async () => {
+    mockExistsSync.mockImplementation((p: string) => p.includes('problems'))
+    mockReaddirSync.mockReturnValue(['a.json'])
+    mockReadFileSync.mockReturnValue('[{"title":"A"}]')
+
+    const { registerProblemsIPC, computeSeedHash } = await import('../electron/ipc/problems')
+    const currentHash = computeSeedHash('/tmp/test-resources/problems')
+
+    const runFn = vi.fn()
+    mockDB.prepare.mockImplementation((sql: string) => {
+      if (sql.includes('SELECT value FROM settings')) return makeStmt({ value: currentHash })
+      return { get: vi.fn(), all: vi.fn(), run: runFn }
+    })
+
+    registerProblemsIPC()
+    await new Promise((r) => setTimeout(r, 50))
+
+    expect(mockReaddirSync).toHaveBeenCalled()
+    expect(runFn).not.toHaveBeenCalled()
+  })
+
+  it('forces re-sync when CODEHELPER_FORCE_SYNC=1 even if the stored hash matches', async () => {
+    mockExistsSync.mockImplementation((p: string) => p.includes('problems'))
+    mockReaddirSync.mockReturnValue(['a.json'])
+    mockReadFileSync.mockReturnValue('[{"title":"A"}]')
+
+    const { registerProblemsIPC, computeSeedHash } = await import('../electron/ipc/problems')
+    const currentHash = computeSeedHash('/tmp/test-resources/problems')
+
+    const runFn = vi.fn()
+    mockDB.prepare.mockImplementation((sql: string) => {
+      if (sql.includes('SELECT value FROM settings')) return makeStmt({ value: currentHash })
+      return { get: vi.fn(), all: vi.fn(), run: runFn }
+    })
+
+    process.env.CODEHELPER_FORCE_SYNC = '1'
+    try {
+      registerProblemsIPC()
+      await new Promise((r) => setTimeout(r, 50))
+      expect(runFn).toHaveBeenCalled()
+    } finally {
+      delete process.env.CODEHELPER_FORCE_SYNC
+    }
+  })
+
+  it('stores the new seed hash after a fresh sync', async () => {
+    mockExistsSync.mockImplementation((p: string) => p.includes('problems'))
+    mockReaddirSync.mockReturnValue(['a.json'])
+    mockReadFileSync.mockReturnValue('[{"title":"A"}]')
+
+    const runFn = vi.fn(() => ({ lastInsertRowid: 1 }))
+    mockDB.prepare.mockImplementation((sql: string) => {
+      if (sql.includes('SELECT value FROM settings')) return makeStmt(undefined)
+      if (sql.includes('SELECT id FROM problems WHERE title')) return makeStmt(undefined)
+      if (sql.includes('INSERT OR REPLACE INTO settings'))
+        return { get: vi.fn(), all: vi.fn(), run: runFn }
+      return { get: vi.fn(), all: vi.fn(), run: vi.fn(() => ({ lastInsertRowid: 1 })) }
+    })
+
+    const { registerProblemsIPC } = await import('../electron/ipc/problems')
+    registerProblemsIPC()
+    await new Promise((r) => setTimeout(r, 50))
+
+    const settingsInsert = runFn.mock.calls.map((c) => c[1] as string)
+    expect(settingsInsert.length).toBeGreaterThan(0)
+    expect(settingsInsert[0]).toHaveLength(64)
+  })
+})
+
+describe('shouldSyncProblems', () => {
+  it('syncs when no stored hash exists (first run)', async () => {
+    const { shouldSyncProblems } = await import('../electron/ipc/problems')
+    expect(shouldSyncProblems(null, 'abc', false)).toBe(true)
+    expect(shouldSyncProblems(undefined, 'abc', false)).toBe(true)
+  })
+
+  it('skips sync when the stored hash matches the current seeds', async () => {
+    const { shouldSyncProblems } = await import('../electron/ipc/problems')
+    expect(shouldSyncProblems('abc', 'abc', false)).toBe(false)
+  })
+
+  it('syncs when the seed content changed', async () => {
+    const { shouldSyncProblems } = await import('../electron/ipc/problems')
+    expect(shouldSyncProblems('old-hash', 'new-hash', false)).toBe(true)
+  })
+
+  it('forces sync even when hashes match', async () => {
+    const { shouldSyncProblems } = await import('../electron/ipc/problems')
+    expect(shouldSyncProblems('abc', 'abc', true)).toBe(true)
+  })
+})
+
+describe('registerMistakesIPC (mistakes-list shape)', () => {
+  beforeEach(() => {
+    Object.keys(handlers).forEach((k) => delete handlers[k])
+    mockDB.prepare.mockReset()
+    mockDB.exec.mockReset()
+    mockRunCodeSnippet.mockReset()
+    mockExistsSync.mockReset()
+    mockReaddirSync.mockReset()
+    mockReadFileSync.mockReset()
+    mockExistsSync.mockReturnValue(false)
+    mockDB.prepare.mockReturnValue(makeStmt([]))
+  })
+
+  it('projects only list fields without truncating the review history', async () => {
+    const { registerMistakesIPC } = await import('../electron/ipc/mistakes')
+    registerMistakesIPC()
+
+    const result = await handlers['mistakes-list']()
+    expect(result).toEqual([])
+
+    const listSql = mockDB.prepare.mock.calls
+      .map((c) => String(c[0]))
+      .find((sql) => sql.includes('FROM mistakes'))
+    expect(listSql).toBeDefined()
+    expect(listSql).not.toContain('m.*')
+    expect(listSql).not.toContain('last_wrong_code')
+    expect(listSql).not.toContain('correct_code')
+    expect(listSql).not.toContain('ai_analysis')
+    expect(listSql).not.toContain('description')
+    expect(listSql).not.toContain('LIMIT')
+  })
+
+  it('returns parsed list rows with joined problem fields', async () => {
+    const rows = [
+      {
+        id: 1,
+        problem_id: 2,
+        problem_title: 'Test',
+        difficulty: 'easy',
+        tags: '["array"]',
+        error_types: '["wrong_answer"]',
+        created_at: '2026-01-01 00:00:00',
+      },
+    ]
+    mockDB.prepare.mockImplementation((sql: string) => {
+      if (sql.includes('FROM mistakes')) return makeStmt(rows)
+      return makeStmt(undefined)
+    })
+    const { registerMistakesIPC } = await import('../electron/ipc/mistakes')
+    registerMistakesIPC()
+
+    const result = await handlers['mistakes-list']()
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: 1,
+        problem_id: 2,
+        problem_title: 'Test',
+        difficulty: 'easy',
+        tags: ['array'],
+        error_types: ['wrong_answer'],
+      }),
+    ])
   })
 })

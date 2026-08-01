@@ -76,6 +76,7 @@ const problemRows = [
     estimated_time: 20,
   },
 ]
+let totalChanges = 0
 
 const writes = {
   submissions: [] as unknown[][],
@@ -86,8 +87,14 @@ const writes = {
 
 const mockDB = {
   prepare: vi.fn((sql: string) => {
-    if (sql.includes('SELECT COUNT(*) AS count, MAX(id) AS maxId FROM problems')) {
-      return { get: vi.fn(() => ({ count: problemRows.length, maxId: 2 })) }
+    if (sql.includes('SELECT COUNT(*) AS count')) {
+      return {
+        get: vi.fn(() => ({
+          count: problemRows.length,
+          maxId: problemRows.reduce((max, row) => Math.max(max, row.id), 0),
+          totalChanges,
+        })),
+      }
     }
     if (sql.includes('FROM problems') && sql.includes('ORDER BY id ASC')) {
       return { all: vi.fn(() => problemRows) }
@@ -150,6 +157,7 @@ describe('registerExercisesIPC imported problems', () => {
     writes.mistakes.length = 0
     writes.reviews.length = 0
     writes.correctUpdates.length = 0
+    totalChanges = 0
     mockDB.prepare.mockClear()
     mockRunCodeSnippet.mockReset()
     mockGetExerciseDraft.mockReset()
@@ -354,5 +362,20 @@ describe('registerExercisesIPC imported problems', () => {
       1,
       expect.any(Number),
     ])
+  })
+
+  it('refreshes the exercise cache when an imported problem is updated in place', async () => {
+    const first = (await handlers['exercises-list'](null)) as Array<{ id: string; prompt: string }>
+    expect(first).toHaveLength(2)
+    expect(first[0].prompt).toContain('读取一个整数并输出。')
+
+    // 模拟 resource-pack-import 的原地 UPDATE：count/maxId 不变，但内容变了。
+    problemRows[0] = { ...problemRows[0], description: '更新后的题目描述' }
+    totalChanges += 1
+
+    const second = (await handlers['exercises-list'](null)) as Array<{ id: string; prompt: string }>
+    expect(second).toHaveLength(2)
+    expect(second[0].prompt).toContain('更新后的题目描述')
+    expect(second[0].prompt).not.toContain('读取一个整数并输出。')
   })
 })

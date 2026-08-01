@@ -48,6 +48,13 @@ test('Agent tools are whitelisted, audited, cancellable, and approval-gated', as
     const page = await application.firstWindow()
     await page.waitForLoadState('domcontentloaded')
     await expect(page.getByTestId('nav-home')).toBeVisible({ timeout: 30_000 })
+    await application.evaluate(() => {
+      const hook = (globalThis as Record<string, unknown>)['__codehelperAgentApprovalDialogForTest']
+      if (typeof hook !== 'function') {
+        throw new Error('Agent approval dialog test hook is unavailable')
+      }
+      ;(hook as (fn: () => Promise<boolean>) => void)(async () => true)
+    })
     await page.evaluate(
       async (rootPath) => window.api.invoke('resource-pack-import', { rootPath }),
       packRoot,

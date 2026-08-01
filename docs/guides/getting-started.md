@@ -6,13 +6,13 @@
 
 ## 环境要求
 
-| 依赖    | 最低版本 | 推荐版本 | 说明                        |
-| ------- | -------- | -------- | --------------------------- |
-| Node.js | 18.x     | 20.x LTS | JavaScript 运行时           |
-| npm     | 9.x      | 10.x     | 包管理器（随 Node.js 安装） |
-| Git     | 2.x      | 最新     | 版本控制                    |
-| Python  | 3.9+     | 3.11+    | 代码执行功能需要            |
-| GCC/G++ | 任意     | 最新     | C/C++ 代码执行需要（可选）  |
+| 依赖    | 最低版本            | 推荐版本   | 说明                        |
+| ------- | ------------------- | ---------- | --------------------------- |
+| Node.js | 20.19+ / 22.13+ LTS | 22.13+ LTS | JavaScript 运行时           |
+| npm     | 10.x                | 最新       | 包管理器（随 Node.js 安装） |
+| Git     | 2.x                 | 最新       | 版本控制                    |
+| Python  | 3.9+                | 3.11+      | 代码执行功能需要            |
+| GCC/G++ | 任意                | 最新       | C/C++ 代码执行需要（可选）  |
 
 ### 可选工具
 
@@ -24,8 +24,8 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/TIANWEN-cpu/CodeHelper.git
-cd CodeHelper
+git clone https://github.com/TIANWEN-cpu/CodeHelper-Studio.git
+cd CodeHelper-Studio
 ```
 
 ## 安装依赖

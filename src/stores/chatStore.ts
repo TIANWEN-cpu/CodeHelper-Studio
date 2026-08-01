@@ -76,7 +76,7 @@ let pendingSessionSwitchId: string | null = null
 const cancelledRequestIds = new Set<string>()
 
 function throwIfRequestCancelled(requestId: string): void {
-  if (!cancelledRequestIds.delete(requestId)) return
+  if (!cancelledRequestIds.has(requestId)) return
   throw new Error('AI 请求已取消')
 }
 
@@ -109,7 +109,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       set({ sessions: normalizeChatSessions(sessions), error: null, loading: false })
     } catch (error) {
       console.error('[ChatStore.loadSessions]', error)
-      set({ sessions: [], error: errorMessage(error), loading: false })
+      // 保留已有会话列表，避免一次网络抖动把侧栏清空；仅记录错误并复位 loading。
+      set({ error: errorMessage(error), loading: false })
     }
   },
   createSession: async (systemPrompt = '', title = '新对话') => {
@@ -120,6 +121,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     return id
   },
   switchSession: async (id) => {
+    // 切换会话前先中止在途流式请求，避免其 chunk/finish 污染新会话的消息列表。
+    if (get().streaming) await get().cancelCurrentRequest()
     const requestId = ++sessionSwitchRequestId
     pendingSessionSwitchId = id
     set({ loading: true })
@@ -143,6 +146,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
   },
   deleteSession: async (id) => {
+    if (get().streaming) await get().cancelCurrentRequest()
     if (pendingSessionSwitchId === id) {
       sessionSwitchRequestId += 1
       pendingSessionSwitchId = null
@@ -161,6 +165,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     await get().loadSessions()
   },
   sendMessage: async (content, options = {}) => {
+    // 流式护栏：上一轮仍在生成时先取消它，再开始新一轮，
+    // 避免并发发送把在途回复直接丢弃并留下永久空气泡。
+    if (get().streaming) {
+      await get().cancelCurrentRequest()
+    }
     const {
       sendOverride,
       includeMemories = true,
@@ -241,15 +250,34 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         currentUserMessageId,
       })
     } catch (error) {
+      const wasCancelled = cancelledRequestIds.has(requestId)
       cancelledRequestIds.delete(requestId)
+      // 取消的请求不是错误：移除本轮空的气泡（已有部分内容则保留），不弹错误横幅。
+      if (wasCancelled) {
+        set((state) => {
+          const messages = state.messages.filter(
+            (message) => message.id !== assistantMessage.id || Boolean(message.content),
+          )
+          if (state.currentRequestId !== requestId) return { messages }
+          return {
+            error: null,
+            streaming: false,
+            currentRequestId: null,
+            messages,
+          }
+        })
+        return
+      }
       const msg = errorMessage(error)
       reportError(error, 'chat.sendMessage', { showToast: true })
       set((state) => ({
         error: msg,
         streaming: false,
-        currentRequestId: null,
+        currentRequestId: state.currentRequestId === requestId ? null : state.currentRequestId,
         messages: state.messages.map((message, index) =>
-          index === state.messages.length - 1 && message.role === 'assistant'
+          index === state.messages.length - 1 &&
+          message.role === 'assistant' &&
+          message.id === assistantMessage.id
             ? { ...message, content: msg }
             : message,
         ),
@@ -270,7 +298,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     set((state) => ({
       streaming: false,
       currentRequestId: state.currentRequestId === requestId ? null : state.currentRequestId,
-      error: 'AI 请求已取消',
+      // 仅在确实中止了在途请求时提示“已取消”；取消失败/无在途请求时保留原错误状态。
+      ...(cancelled ? { error: 'AI 请求已取消' } : {}),
     }))
     return cancelled || cancelledRequestIds.has(requestId)
   },

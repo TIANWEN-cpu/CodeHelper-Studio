@@ -20,6 +20,7 @@ import {
   Dumbbell,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Badge, Button, ConfirmDialog, IconButton, Input, Select, Spinner } from '@/components/ui'
 import { motion, AnimatePresence } from 'motion/react'
 import { useWorkspaceData } from '@/hooks/useWorkspaceData'
 import { useAppStore } from '@/store'
@@ -66,6 +67,17 @@ const LANGUAGE_META: Record<string, { label: string; ext: string; cmd: string }>
 
 const STRONG_ISOLATION_LANGUAGES = new Set(['python', 'javascript', 'node', 'c', 'cpp', 'csharp'])
 
+interface WorkspaceConfirmOptions {
+  title: string
+  description: string
+  confirmText?: string
+  danger?: boolean
+}
+
+interface WorkspaceConfirmState extends WorkspaceConfirmOptions {
+  resolve: (confirmed: boolean) => void
+}
+
 function languageMeta(language: string): { label: string; ext: string; cmd: string } {
   return LANGUAGE_META[language] ?? { label: language, ext: 'txt', cmd: language }
 }
@@ -80,11 +92,11 @@ function EditorTabKindIcon({ kind, size = 14 }: { kind: EditorTabKind; size?: nu
   const label = editorTabKindLabel(kind)
   const icon =
     kind === 'problem' ? (
-      <FileQuestion size={size} className="text-[#F59E0B]" aria-hidden="true" />
+      <FileQuestion size={size} className="text-[var(--color-accent-warning)]" aria-hidden="true" />
     ) : kind === 'exercise' ? (
-      <Dumbbell size={size} className="text-[#34D399]" aria-hidden="true" />
+      <Dumbbell size={size} className="text-[var(--color-accent-success)]" aria-hidden="true" />
     ) : (
-      <FileCode2 size={size} className="text-[#38BDF8]" aria-hidden="true" />
+      <FileCode2 size={size} className="text-[var(--color-accent-primary)]" aria-hidden="true" />
     )
   return (
     <span title={`${label}标签`} aria-label={`${label}标签`} className="inline-flex shrink-0">
@@ -249,6 +261,21 @@ export function WorkspaceView({
   const [toolchainReport, setToolchainReport] = useState<ToolchainReport | null>(null)
   const [toolchainRefreshing, setToolchainRefreshing] = useState(false)
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('local-controlled')
+  const [confirmState, setConfirmState] = useState<WorkspaceConfirmState | null>(null)
+  const requestConfirm = useCallback(
+    (options: WorkspaceConfirmOptions) =>
+      new Promise<boolean>((resolve) => {
+        setConfirmState({ ...options, resolve })
+      }),
+    [],
+  )
+  const settleConfirm = useCallback(
+    (confirmed: boolean) => {
+      confirmState?.resolve(confirmed)
+      setConfirmState(null)
+    },
+    [confirmState],
+  )
   const confirmedLocalRunsRef = React.useRef(new Map<string, string>())
   const starterInitializationAttemptedRef = React.useRef(false)
   const problemId = activeTab?.problemId ?? ''
@@ -295,29 +322,45 @@ export function WorkspaceView({
     })
   }, [addTab, tabs])
 
-  const handleCloseWorkspaceTab = useCallback(async (tabId: string) => {
-    const state = useEditorStore.getState()
-    const tabPersistence = getEditorTabPersistenceState(tabId)
-    const warning = getEditorTabCloseWarning({
-      pending: tabPersistence.pending,
-      conflict: tabPersistence.conflict,
-      degraded: tabPersistence.degraded || state.databaseStatus === 'degraded',
-      persistenceError: state.persistenceError,
-      error: tabPersistence.error ?? state.databaseError,
-    })
-    if (warning && !window.confirm(warning)) return
-    const closed = await requestCloseEditorWorkspaceTab(tabId)
-    if (closed) return
-    const closeLocally = window.confirm(
-      'SQLite 持久化仍未成功，标签当前保持打开。确定后将仅在本地关闭，并保留在“最近关闭”中；数据库状态会继续标记为降级。',
-    )
-    if (!closeLocally) {
-      toast.error('标签保持打开；请先处理数据库冲突或同步失败')
-      return
-    }
-    await closeEditorWorkspaceTabLocally(tabId)
-    toast.info('标签已仅在本地关闭，可从“最近关闭”恢复')
-  }, [])
+  const handleCloseWorkspaceTab = useCallback(
+    async (tabId: string) => {
+      const state = useEditorStore.getState()
+      const tabPersistence = getEditorTabPersistenceState(tabId)
+      const warning = getEditorTabCloseWarning({
+        pending: tabPersistence.pending,
+        conflict: tabPersistence.conflict,
+        degraded: tabPersistence.degraded || state.databaseStatus === 'degraded',
+        persistenceError: state.persistenceError,
+        error: tabPersistence.error ?? state.databaseError,
+      })
+      if (
+        warning &&
+        !(await requestConfirm({
+          title: '关闭工作区标签',
+          description: warning,
+          confirmText: '关闭标签',
+          danger: true,
+        }))
+      )
+        return
+      const closed = await requestCloseEditorWorkspaceTab(tabId)
+      if (closed) return
+      const closeLocally = await requestConfirm({
+        title: '仅在本地关闭标签',
+        description:
+          'SQLite 持久化仍未成功，标签当前保持打开。确定后将仅在本地关闭，并保留在“最近关闭”中；数据库状态会继续标记为降级。',
+        confirmText: '仅本地关闭',
+        danger: true,
+      })
+      if (!closeLocally) {
+        toast.error('标签保持打开；请先处理数据库冲突或同步失败')
+        return
+      }
+      await closeEditorWorkspaceTabLocally(tabId)
+      toast.info('标签已仅在本地关闭，可从“最近关闭”恢复')
+    },
+    [requestConfirm],
+  )
 
   const handleCloseVisibleTab = useCallback(
     (tabId: string) => {
@@ -338,7 +381,12 @@ export function WorkspaceView({
       const filename = local?.filename ?? conflict.databaseTab?.filename ?? conflict.tabId
       if (
         resolution === 'use-database' &&
-        !window.confirm(`采用数据库版本会替换 ${filename} 的当前本地内容，继续吗？`)
+        !(await requestConfirm({
+          title: '采用数据库版本',
+          description: `采用数据库版本会替换 ${filename} 的当前本地内容，继续吗？`,
+          confirmText: '采用数据库',
+          danger: true,
+        }))
       ) {
         return
       }
@@ -350,7 +398,7 @@ export function WorkspaceView({
         setResolvingConflict(false)
       }
     },
-    [],
+    [requestConfirm],
   )
 
   const workspaceConflict =
@@ -451,42 +499,62 @@ export function WorkspaceView({
     }
   }, [])
 
-  const confirmUntrustedLocalExecution = useCallback((): boolean => {
+  const confirmUntrustedLocalExecution = useCallback(async (): Promise<boolean> => {
     // Imported and AI-written code can have incomplete provenance. Local-controlled
     // execution therefore requires acknowledgement for each code fingerprint.
     const fingerprint = `${language}\u0000${code}`
     if (confirmedLocalRunsRef.current.get(executionScopeId) === fingerprint) return true
-    const confirmed = window.confirm(
-      '此题目或练习代码将在本机受控运行环境执行。当前环境限制超时、输出和临时目录，但不是容器或 AppContainer，代码仍可能访问本机文件与网络。确认继续吗？',
-    )
+    const confirmed = await requestConfirm({
+      title: '确认本地受控运行',
+      description:
+        '此题目或练习代码将在本机受控运行环境执行。当前环境限制超时、输出和临时目录，但不是容器或 AppContainer，代码仍可能访问本机文件与网络。确认继续吗？',
+      confirmText: '确认运行',
+    })
     if (confirmed) confirmedLocalRunsRef.current.set(executionScopeId, fingerprint)
     return confirmed
-  }, [code, executionScopeId, language])
+  }, [code, executionScopeId, language, requestConfirm])
 
   // Workspace standalone mode still uses the SQLite problems table.
   // Practice embedded mode receives its exercise id/code from PracticeView and submits via exercises-evaluate.
+  // The target is captured before the async problem load and revalidated against the current store
+  // when the request resolves, so a tab switch during the load cannot misapply starter code.
   useEffect(() => {
     if (isExerciseMode || !workspacePersistenceReady) return
     if (starterInitializationAttemptedRef.current) return
+    const state = useEditorStore.getState()
+    const current = findWorkspaceStarterTarget(state.tabs, activeVisibleTabId)
+    if (!current) {
+      starterInitializationAttemptedRef.current = true
+      return
+    }
     starterInitializationAttemptedRef.current = true
     let cancelled = false
     void getProblems().then((list) => {
       if (cancelled) return
       if (list.length === 0) return
       const first = list[0]
-      const state = useEditorStore.getState()
-      const current = findWorkspaceStarterTarget(state.tabs, activeVisibleTabId)
-      if (!current) return
-      const starter = coerceStarterCode(first.starter_code, current.language)
-      state.updateTab(current.id, {
+      const currentState = useEditorStore.getState()
+      const currentVisibleId = currentState.tabs.some(
+        (tab) => !isPracticeTab(tab) && tab.id === currentState.activeTabId,
+      )
+        ? currentState.activeTabId
+        : (currentState.tabs.find((tab) => !isPracticeTab(tab))?.id ?? null)
+      const freshTarget = findWorkspaceStarterTarget(currentState.tabs, currentVisibleId)
+      if (!freshTarget) {
+        starterInitializationAttemptedRef.current = false
+        return
+      }
+      const starter = coerceStarterCode(first.starter_code, freshTarget.language)
+      currentState.updateTab(freshTarget.id, {
         kind: 'problem',
-        filename: `${safeFileBaseName(first.title || `problem_${first.id}`)}.${languageMeta(current.language).ext}`,
+        filename: `${safeFileBaseName(first.title || `problem_${first.id}`)}.${languageMeta(freshTarget.language).ext}`,
         problemId: first.id,
         ...(starter ? { content: starter } : {}),
       })
     })
     return () => {
       cancelled = true
+      starterInitializationAttemptedRef.current = false
     }
   }, [activeVisibleTabId, getProblems, isExerciseMode, workspacePersistenceReady])
 
@@ -501,7 +569,7 @@ export function WorkspaceView({
     } else if (executionMode === 'local-controlled' && languageToolchain?.status === 'degraded') {
       toast.info(languageToolchain.message)
     }
-    if (executionMode === 'local-controlled' && !confirmUntrustedLocalExecution()) return
+    if (executionMode === 'local-controlled' && !(await confirmUntrustedLocalExecution())) return
     await runCode(code, language, executionMode)
   }, [
     clearError,
@@ -518,7 +586,7 @@ export function WorkspaceView({
     if (isSubmitting) return
     setTerminalCollapsed(false)
     clearError()
-    if (!confirmUntrustedLocalExecution()) return
+    if (!(await confirmUntrustedLocalExecution())) return
     if (exerciseContext) {
       await exerciseContext.submitCode(exerciseContext.id, code, language)
       return
@@ -594,13 +662,9 @@ export function WorkspaceView({
               exit={{ width: 0, opacity: 0 }}
               className="border-r border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] flex flex-col flex-shrink-0 items-center py-4"
             >
-              <button
-                onClick={() => setExplorerCollapsed(false)}
-                className="p-2 text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-bg-hover)] rounded-lg transition-colors"
-                title="展开资源管理器"
-              >
+              <IconButton label="展开资源管理器" onClick={() => setExplorerCollapsed(false)}>
                 <PanelLeft size={16} />
-              </button>
+              </IconButton>
             </motion.div>
           ) : (
             <motion.div
@@ -614,13 +678,13 @@ export function WorkspaceView({
                 <div className="px-4 py-3 flex items-center justify-between text-xs font-semibold text-[var(--color-text-secondary)] tracking-wider">
                   <span>资源管理器</span>
                   <div className="flex gap-1">
-                    <button
+                    <IconButton
+                      label="收起资源管理器"
+                      size="sm"
                       onClick={() => setExplorerCollapsed(true)}
-                      className="hover:text-white text-[var(--color-text-muted)] transition-colors p-1"
-                      title="收起资源管理器"
                     >
                       <PanelLeftClose size={14} />
-                    </button>
+                    </IconButton>
                   </div>
                 </div>
                 <div className="flex-1 overflow-y-auto px-2 pb-4 space-y-0.5">
@@ -671,19 +735,19 @@ export function WorkspaceView({
       )}
 
       {/* Editor & Terminal Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#0F111A]">
+      <div className="flex-1 flex flex-col min-w-0 bg-[var(--color-bg-base)]">
         {/* Editor Tabs ... */}
-        <div className="flex items-center bg-[var(--color-bg-panel)] overflow-x-auto hide-scrollbar border-b border-[#2A2F45]">
+        <div className="flex items-center bg-[var(--color-bg-panel)] overflow-x-auto hide-scrollbar border-b border-[var(--color-border-subtle)]">
           {visibleTabs.map((tab) => {
             const selected = tab.id === activeVisibleTabId
             return (
               <div
                 key={tab.id}
                 className={cn(
-                  'group flex text-xs font-medium min-w-max rounded-t-md mx-1 border-r border-l border-[#2A2F45] px-3 transition-colors',
+                  'group flex text-xs font-medium min-w-max rounded-t-md mx-1 border-r border-l border-[var(--color-border-subtle)] px-3 transition-colors',
                   selected
-                    ? 'bg-[#0F111A] text-[#E5E7EB] border-t-2 border-[var(--color-accent-primary)]'
-                    : 'text-[var(--color-text-muted)] border-t-2 border-transparent hover:bg-[#171A26]',
+                    ? 'bg-[var(--color-bg-base)] text-[var(--color-text-primary)] border-t-2 border-[var(--color-accent-primary)]'
+                    : 'text-[var(--color-text-muted)] border-t-2 border-transparent hover:bg-[var(--color-bg-hover)]',
                   doubleLineTabs
                     ? 'flex-col items-start py-1.5 gap-0.5'
                     : 'items-center py-2 gap-2',
@@ -703,7 +767,7 @@ export function WorkspaceView({
                     title={`关闭 ${tab.filename}`}
                     aria-label={`关闭 ${tab.filename}`}
                     onClick={() => handleCloseVisibleTab(tab.id)}
-                    className="rounded p-0.5 opacity-60 hover:bg-white/10 hover:opacity-100"
+                    className="rounded p-0.5 opacity-60 hover:bg-[var(--color-bg-hover)] hover:opacity-100"
                   >
                     <X size={12} />
                   </button>
@@ -719,43 +783,41 @@ export function WorkspaceView({
 
           <div className="flex shrink-0 items-center">
             {visibleRecentlyClosedTabs.length > 0 && (
-              <button
-                type="button"
+              <IconButton
+                label="重新打开最近关闭的标签"
+                size="sm"
+                className="mx-1"
                 onClick={handleReopenVisibleTab}
-                title="重新打开最近关闭的标签"
-                aria-label="重新打开最近关闭的标签"
-                className="mx-1 rounded p-1.5 text-[var(--color-text-muted)] hover:bg-white/10 hover:text-white"
               >
                 <Undo2 size={14} />
-              </button>
+              </IconButton>
             )}
             {!isExerciseMode && (
-              <button
-                type="button"
-                onClick={createWorkspaceTab}
-                disabled={tabs.length >= MAX_EDITOR_TABS}
-                title={
+              <IconButton
+                label={
                   tabs.length >= MAX_EDITOR_TABS
                     ? `最多支持 ${MAX_EDITOR_TABS} 个标签`
                     : '新建工作区标签'
                 }
-                aria-label="新建工作区标签"
-                className="mx-1 rounded p-1.5 text-[var(--color-text-muted)] hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-30"
+                size="sm"
+                className="mx-1"
+                onClick={createWorkspaceTab}
+                disabled={tabs.length >= MAX_EDITOR_TABS}
               >
                 <Plus size={14} />
-              </button>
+              </IconButton>
             )}
           </div>
 
           <div className="ml-auto flex items-center px-3 gap-2">
-            <button
+            <IconButton
+              label="运行 (Ctrl Enter)"
+              size="sm"
               onClick={handleRun}
               disabled={isRunning || !code.trim() || languageUnavailable}
-              title="运行 (Ctrl Enter)"
-              className="text-[var(--color-text-muted)] hover:text-white p-1 disabled:opacity-40 disabled:pointer-events-none"
             >
-              <Play size={14} fill="currentColor" className="text-[#10B981]" />
-            </button>
+              <Play size={14} fill="currentColor" className="text-[var(--color-accent-success)]" />
+            </IconButton>
           </div>
         </div>
 
@@ -781,12 +843,14 @@ export function WorkspaceView({
           {terminalCollapsed ? (
             <div className="h-10 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] flex items-center px-4 justify-between shrink-0">
               <div className="flex items-center gap-4">
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setTerminalCollapsed(false)}
-                  className="text-xs text-[var(--color-text-muted)] hover:text-white transition-colors flex items-center gap-2"
+                  className="gap-2"
                 >
                   <ChevronDown className="rotate-180" size={14} /> 展开面板
-                </button>
+                </Button>
               </div>
             </div>
           ) : (
@@ -800,24 +864,26 @@ export function WorkspaceView({
               <div className="border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] flex flex-col shadow-lg h-[256px]">
                 <div className="flex items-center px-4 pt-2 gap-4 border-b border-[var(--color-border-subtle)] justify-between">
                   <div className="flex gap-4">
-                    <span className="text-xs text-white pb-2 border-b-2 border-[var(--color-accent-primary)] font-medium">
+                    <span className="text-xs text-[var(--color-text-primary)] pb-2 border-b-2 border-[var(--color-accent-primary)] font-medium">
                       运行输出
                     </span>
                   </div>
-                  <button
+                  <IconButton
+                    label="收起面板"
+                    size="sm"
+                    className="mb-2 ml-auto"
                     onClick={() => setTerminalCollapsed(true)}
-                    className="text-[var(--color-text-muted)] hover:text-white mb-2 ml-auto"
-                    title="收起面板"
                   >
                     <X size={14} />
-                  </button>
+                  </IconButton>
                 </div>
 
                 <div className="flex-1 flex overflow-hidden">
                   {/* Terminal Output */}
-                  <div className="flex-1 p-3 overflow-y-auto font-mono text-xs text-[#D1D5DB] space-y-1.5 bg-[#0B0E14] custom-scrollbar relative">
+                  <div className="flex-1 p-3 overflow-y-auto font-mono text-xs text-[var(--color-text-secondary)] space-y-1.5 bg-[var(--color-bg-base)] custom-scrollbar relative">
                     <div className="flex items-center gap-2">
-                      <span className="text-[#F59E0B]">&gt;</span> {languageMeta(language).cmd} src/
+                      <span className="text-[var(--color-accent-warning)]">&gt;</span>{' '}
+                      {languageMeta(language).cmd} src/
                       {fileName}
                     </div>
 
@@ -831,8 +897,8 @@ export function WorkspaceView({
                     )}
 
                     {isRunning ? (
-                      <div className="text-[var(--color-text-muted)] animate-pulse pt-2">
-                        Executing tests...
+                      <div className="flex items-center gap-2 pt-2 text-[var(--color-text-muted)]">
+                        <Spinner size="sm" label="运行中" /> Executing tests...
                       </div>
                     ) : error ? (
                       <motion.div
@@ -840,7 +906,7 @@ export function WorkspaceView({
                         animate={{ opacity: 1 }}
                         className="space-y-1.5 pt-1"
                       >
-                        <div className="text-[#EF4444]">Error: {error}</div>
+                        <div className="text-[var(--color-accent-danger)]">Error: {error}</div>
                       </motion.div>
                     ) : runResult ? (
                       <motion.div
@@ -854,18 +920,18 @@ export function WorkspaceView({
                           </pre>
                         )}
                         {runResult.stderr && (
-                          <pre className="text-[#EF4444] whitespace-pre-wrap">
+                          <pre className="text-[var(--color-accent-danger)] whitespace-pre-wrap">
                             {runResult.stderr}
                           </pre>
                         )}
                         <div className="my-2 border-t border-dashed border-[var(--color-border-subtle)] w-1/2"></div>
                         <div className="flex items-center gap-3">
                           {runResult.exitCode === 0 ? (
-                            <span className="text-[#10B981] flex items-center gap-1">
+                            <span className="text-[var(--color-accent-success)] flex items-center gap-1">
                               <Check size={12} /> 运行成功
                             </span>
                           ) : (
-                            <span className="text-[#EF4444] flex items-center gap-1">
+                            <span className="text-[var(--color-accent-danger)] flex items-center gap-1">
                               <X size={12} /> 退出码: {runResult.exitCode}
                             </span>
                           )}
@@ -896,9 +962,9 @@ export function WorkspaceView({
                             className={cn(
                               'whitespace-pre-wrap',
                               line.includes('✅') || line.includes('通过')
-                                ? 'text-[#10B981]'
+                                ? 'text-[var(--color-accent-success)]'
                                 : line.includes('❌') || line.includes('失败')
-                                  ? 'text-[#EF4444]'
+                                  ? 'text-[var(--color-accent-danger)]'
                                   : 'text-[var(--color-text-muted)]',
                             )}
                           >
@@ -913,11 +979,11 @@ export function WorkspaceView({
                         <div className="my-2 border-t border-dashed border-[var(--color-border-subtle)] w-1/2"></div>
                         <div className="flex items-center gap-3">
                           {exerciseSubmitResult.passed ? (
-                            <span className="text-[#10B981] flex items-center gap-1">
+                            <span className="text-[var(--color-accent-success)] flex items-center gap-1">
                               <Check size={12} /> 练习通过
                             </span>
                           ) : (
-                            <span className="text-[#EF4444] flex items-center gap-1">
+                            <span className="text-[var(--color-accent-danger)] flex items-center gap-1">
                               <X size={12} /> 仍需修改
                             </span>
                           )}
@@ -943,7 +1009,7 @@ export function WorkspaceView({
                               用例 {i + 1}: {d.case}
                             </div>
                             {d.passed ? (
-                              <div className="text-[#10B981] flex items-center gap-1">
+                              <div className="text-[var(--color-accent-success)] flex items-center gap-1">
                                 <Check size={12} /> 通过
                               </div>
                             ) : (
@@ -954,7 +1020,7 @@ export function WorkspaceView({
                                 <div className="text-[var(--color-text-muted)]">
                                   实际: {d.actual}
                                 </div>
-                                <div className="text-[#EF4444] flex items-center gap-1">
+                                <div className="text-[var(--color-accent-danger)] flex items-center gap-1">
                                   <X size={12} /> 未通过
                                 </div>
                               </>
@@ -964,11 +1030,11 @@ export function WorkspaceView({
                         <div className="my-2 border-t border-dashed border-[var(--color-border-subtle)] w-1/2"></div>
                         <div className="flex items-center gap-3">
                           {workspaceSubmitResult.passed ? (
-                            <span className="text-[#10B981] flex items-center gap-1">
+                            <span className="text-[var(--color-accent-success)] flex items-center gap-1">
                               <Check size={12} /> 全部通过
                             </span>
                           ) : (
-                            <span className="text-[#EF4444] flex items-center gap-1">
+                            <span className="text-[var(--color-accent-danger)] flex items-center gap-1">
                               <X size={12} /> 未全部通过
                             </span>
                           )}
@@ -985,8 +1051,8 @@ export function WorkspaceView({
                       !exerciseSubmitResult &&
                       !workspaceSubmitResult && (
                         <div className="mt-2 flex items-center gap-2">
-                          <span className="text-[#F59E0B]">&gt;</span>{' '}
-                          <span className="w-1.5 h-3 bg-white block animate-pulse"></span>
+                          <span className="text-[var(--color-accent-warning)]">&gt;</span>{' '}
+                          <span className="w-1.5 h-3 bg-[var(--color-text-primary)] block animate-pulse"></span>
                         </div>
                       )}
                   </div>
@@ -997,30 +1063,24 @@ export function WorkspaceView({
                       <label className="text-xs text-[var(--color-text-muted)] mb-1.5 block">
                         运行配置
                       </label>
-                      <select
+                      <Select
                         data-testid="editor-language-select"
                         aria-label="编辑器语言"
                         value={language}
                         onChange={(e) => setLanguage(e.target.value)}
-                        className="w-full bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-white px-3 py-1.5 outline-none focus:border-[var(--color-accent-primary)]"
                       >
                         {Object.entries(LANGUAGE_META).map(([value, meta]) => (
                           <option key={value} value={value}>
                             {meta.label}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     </div>
                     <div>
                       <label className="text-xs text-[var(--color-text-muted)] mb-1.5 block">
                         运行环境
                       </label>
-                      <input
-                        type="text"
-                        value={`src/${fileName}`}
-                        readOnly
-                        className="w-full bg-[var(--color-bg-base)] border border-[var(--color-border-subtle)] rounded-lg text-sm text-[var(--color-text-secondary)] px-3 py-1.5 outline-none"
-                      />
+                      <Input type="text" value={`src/${fileName}`} readOnly />
                     </div>
                     <div>
                       <label className="text-xs text-[var(--color-text-muted)] mb-1.5 block">
@@ -1067,30 +1127,25 @@ export function WorkspaceView({
                       </div>
                     </div>
                     <div className="mt-auto space-y-2">
-                      <button
+                      <Button
+                        className="w-full"
                         onClick={handleRun}
-                        disabled={isRunning || !code.trim() || languageUnavailable}
-                        className="w-full bg-[var(--color-accent-solid)] hover:bg-[var(--color-accent-solid-hover)] active:scale-95 text-[var(--color-on-accent)] py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-70 disabled:pointer-events-none"
+                        disabled={!code.trim() || languageUnavailable}
+                        loading={isRunning}
                       >
-                        {isRunning ? (
-                          <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        ) : (
-                          <Play size={14} fill="currentColor" />
-                        )}
+                        {!isRunning && <Play size={14} fill="currentColor" />}
                         {isRunning ? '运行中...' : '运行 (Ctrl Enter)'}
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        className="w-full"
                         onClick={handleSubmit}
-                        disabled={isSubmitting || !code.trim() || (!isExerciseMode && !problemId)}
-                        className="w-full bg-[var(--color-bg-base)] hover:bg-[#262B3D] active:scale-95 border border-[var(--color-border-subtle)] text-white py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:pointer-events-none"
+                        disabled={!code.trim() || (!isExerciseMode && !problemId)}
+                        loading={isSubmitting}
                       >
-                        {isSubmitting ? (
-                          <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        ) : (
-                          <Save size={14} />
-                        )}
+                        {!isSubmitting && <Save size={14} />}
                         {isSubmitting ? '提交中...' : isExerciseMode ? '提交练习' : '提交测试'}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -1103,42 +1158,48 @@ export function WorkspaceView({
           <div
             role="alertdialog"
             aria-label={`解决 ${workspaceConflictFilename} 的数据库冲突`}
-            className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-amber-400/40 bg-[#2A2112] px-3 py-2 text-xs text-amber-50"
+            className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-[var(--color-accent-warning)]/40 bg-[color-mix(in_srgb,var(--color-accent-warning)_12%,var(--color-bg-card))] px-3 py-2 text-xs text-[color-mix(in_srgb,var(--color-accent-warning)_82%,var(--color-text-primary))]"
           >
             <div className="min-w-0">
               <div className="font-semibold">
                 {workspaceConflictFilename} 存在数据库冲突
-                {workspaceConflict.count > 1 ? `（共 ${workspaceConflict.count} 个待处理）` : ''}
+                {workspaceConflict.count > 1 ? (
+                  <Badge variant="warning" className="ml-1.5 align-middle">
+                    共 {workspaceConflict.count} 个待处理
+                  </Badge>
+                ) : (
+                  ''
+                )}
               </div>
-              <div className="text-[11px] text-amber-100/80">
+              <div className="text-[11px] text-[color-mix(in_srgb,var(--color-accent-warning)_62%,var(--color-text-secondary))]">
                 采用数据库会替换当前标签；保留本地会写入新版本；另存副本会同时保留两份。
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="sm"
                 disabled={resolvingConflict}
                 onClick={() => void handleWorkspaceConflict('use-database')}
-                className="inline-flex items-center gap-1 rounded border border-amber-200/30 px-2 py-1 hover:bg-white/10 disabled:opacity-50"
               >
                 <Download size={12} /> 采用数据库
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
                 disabled={resolvingConflict}
                 onClick={() => void handleWorkspaceConflict('keep-local')}
-                className="inline-flex items-center gap-1 rounded border border-amber-200/30 px-2 py-1 hover:bg-white/10 disabled:opacity-50"
               >
                 <Upload size={12} /> 保留本地
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
                 disabled={resolvingConflict}
                 onClick={() => void handleWorkspaceConflict('save-copy')}
-                className="inline-flex items-center gap-1 rounded border border-amber-200/30 px-2 py-1 hover:bg-white/10 disabled:opacity-50"
               >
                 <CopyPlus size={12} /> 另存副本
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -1149,7 +1210,7 @@ export function WorkspaceView({
             <div
               role="status"
               data-testid="practice-draft-restored"
-              className="shrink-0 border-t border-emerald-400/35 bg-emerald-950/70 px-3 py-1.5 text-xs text-emerald-100"
+              className="shrink-0 border-t border-[var(--color-accent-success)]/35 bg-[color-mix(in_srgb,var(--color-accent-success)_12%,var(--color-bg-card))] px-3 py-1.5 text-xs text-[color-mix(in_srgb,var(--color-accent-success)_82%,var(--color-text-primary))]"
             >
               {exerciseContext.draftRestoreMessage}
             </div>
@@ -1159,7 +1220,7 @@ export function WorkspaceView({
           <div
             role="status"
             data-testid="practice-draft-degraded"
-            className="shrink-0 border-t border-amber-400/40 bg-[#2A2112] px-3 py-1.5 text-xs text-amber-100"
+            className="shrink-0 border-t border-[var(--color-accent-warning)]/40 bg-[color-mix(in_srgb,var(--color-accent-warning)_12%,var(--color-bg-card))] px-3 py-1.5 text-xs text-[color-mix(in_srgb,var(--color-accent-warning)_82%,var(--color-text-primary))]"
           >
             {exerciseContext.draftDegradedMessage}
           </div>
@@ -1172,8 +1233,8 @@ export function WorkspaceView({
               className={cn(
                 'shrink-0 border-t px-3 py-1.5 text-xs',
                 editorRestoreStatus === 'degraded'
-                  ? 'border-amber-400/40 bg-[#2A2112] text-amber-100'
-                  : 'border-emerald-400/35 bg-emerald-950/70 text-emerald-100',
+                  ? 'border-[var(--color-accent-warning)]/40 bg-[color-mix(in_srgb,var(--color-accent-warning)_12%,var(--color-bg-card))] text-[color-mix(in_srgb,var(--color-accent-warning)_82%,var(--color-text-primary))]'
+                  : 'border-[var(--color-accent-success)]/35 bg-[color-mix(in_srgb,var(--color-accent-success)_12%,var(--color-bg-card))] text-[color-mix(in_srgb,var(--color-accent-success)_82%,var(--color-text-primary))]',
               )}
             >
               {editorRestoreMessage ??
@@ -1187,7 +1248,7 @@ export function WorkspaceView({
         <div className="h-6 bg-[var(--color-accent-solid)] flex items-center justify-between px-3 text-[11px] text-[var(--color-on-accent)] font-medium tracking-wide z-10 shrink-0">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1">
-              <X size={12} className="text-white" />{' '}
+              <X size={12} className="text-[var(--color-on-accent)]" />{' '}
               {exerciseSubmitResult
                 ? exerciseSubmitResult.passed
                   ? 0
@@ -1197,7 +1258,7 @@ export function WorkspaceView({
                   : error
                     ? 1
                     : 0}{' '}
-              <Check size={12} className="text-white" />{' '}
+              <Check size={12} className="text-[var(--color-on-accent)]" />{' '}
               {exerciseSubmitResult
                 ? exerciseSubmitResult.passed
                   ? 1
@@ -1218,7 +1279,7 @@ export function WorkspaceView({
                 disabled={toolchainRefreshing}
                 title="重新探测本地工具链"
                 aria-label="重新探测本地工具链"
-                className="rounded p-0.5 hover:bg-white/15 disabled:opacity-50"
+                className="rounded p-0.5 hover:bg-[var(--color-on-accent)]/15 disabled:opacity-50"
               >
                 <RefreshCw size={10} className={toolchainRefreshing ? 'animate-spin' : undefined} />
               </button>
@@ -1235,7 +1296,7 @@ export function WorkspaceView({
                   onClick={exerciseContext.reloadPersistedDraft}
                   title="重新加载已保存草稿"
                   aria-label="重新加载已保存草稿"
-                  className="rounded p-1 text-[var(--color-text-muted)] hover:bg-white/10 hover:text-white"
+                  className="rounded p-1 text-[var(--color-on-accent)]/70 hover:bg-[var(--color-on-accent)]/15 hover:text-[var(--color-on-accent)]"
                 >
                   <RefreshCw size={12} />
                 </button>
@@ -1244,7 +1305,7 @@ export function WorkspaceView({
                   onClick={exerciseContext.keepLocalDraft}
                   title="保留本地草稿并覆盖已保存版本"
                   aria-label="保留本地草稿并覆盖已保存版本"
-                  className="rounded p-1 text-[var(--color-text-muted)] hover:bg-white/10 hover:text-white"
+                  className="rounded p-1 text-[var(--color-on-accent)]/70 hover:bg-[var(--color-on-accent)]/15 hover:text-[var(--color-on-accent)]"
                 >
                   <Upload size={12} />
                 </button>
@@ -1316,6 +1377,16 @@ export function WorkspaceView({
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmState !== null}
+        title={confirmState?.title ?? ''}
+        description={confirmState?.description}
+        confirmText={confirmState?.confirmText}
+        danger={confirmState?.danger ?? false}
+        onConfirm={() => settleConfirm(true)}
+        onCancel={() => settleConfirm(false)}
+      />
     </div>
   )
 }

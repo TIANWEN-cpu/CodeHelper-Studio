@@ -19,6 +19,7 @@ import {
   Activity,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Button, Card, Input, Switch, Tabs } from '@/components/ui'
 import { useSettingsData } from '../hooks/useSettingsData'
 import { useAppStore } from '../store'
 import { CodexPetSprite } from '../components/CodexPetSprite'
@@ -154,39 +155,6 @@ const GLASS_STYLES: Array<{ id: GlassStyle; label: string; desc: string }> = [
 ]
 
 const GLASS_BLUR_MARKS = [6, 12, 18, 24, 32]
-
-// ---- Helper: Toggle Switch ----
-
-function ToggleSwitch({
-  active,
-  onToggle,
-  ariaLabel,
-}: {
-  active: boolean
-  onToggle: () => void
-  ariaLabel?: string
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={active}
-      aria-label={ariaLabel}
-      onClick={onToggle}
-      className={cn(
-        'w-10 h-6 rounded-full relative flex items-center shrink-0 transition-colors',
-        active ? 'bg-[var(--color-accent-secondary-solid)]' : 'bg-[#3A405A]',
-      )}
-    >
-      <div
-        className={cn(
-          'w-4 h-4 bg-white rounded-full absolute transition-all',
-          active ? 'right-1' : 'left-1',
-        )}
-      />
-    </button>
-  )
-}
 
 type DataActionStatus =
   | { kind: 'idle'; message: '' }
@@ -892,11 +860,13 @@ export function SettingsView() {
 
   // ---- Render ----
   return (
-    <div className="settings-view h-full flex flex-col bg-[var(--color-bg-base)] overflow-y-auto">
+    <div className="settings-view h-full flex flex-col overflow-y-auto">
       <div className="max-w-[1000px] w-full mx-auto p-6 lg:p-8 space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight mb-2">设置</h1>
+          <h1 className="mb-2 text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">
+            设置
+          </h1>
           <p className="text-sm text-[var(--color-text-muted)]">自定义你的学习与编程环境</p>
         </div>
 
@@ -923,7 +893,7 @@ export function SettingsView() {
         {activeTab === 'account' && (
           <div className="space-y-6 pb-4">
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-              <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
+              <Card padding="none" className="p-5 shadow-sm">
                 <div className="mb-5 flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-accent-purple)]/10 text-[var(--color-accent-purple)]">
                     <UserRound size={19} />
@@ -945,9 +915,9 @@ export function SettingsView() {
                     className={cn(
                       'mb-4 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs',
                       profileActionStatus.kind === 'error'
-                        ? 'border-red-500/40 bg-red-500/10 text-red-200'
+                        ? 'border-[var(--color-accent-danger)]/40 bg-[var(--color-accent-danger)]/10 text-[var(--color-accent-danger)]'
                         : profileActionStatus.kind === 'success'
-                          ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                          ? 'border-[var(--color-accent-success)]/40 bg-[var(--color-accent-success)]/10 text-[var(--color-accent-success)]'
                           : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] text-[var(--color-text-secondary)]',
                     )}
                   >
@@ -965,12 +935,11 @@ export function SettingsView() {
                     <span className="mb-2 block text-sm font-medium text-[var(--color-text-primary)]">
                       显示名称
                     </span>
-                    <input
+                    <Input
                       value={profileName}
                       onChange={(event) => setProfileName(event.target.value.slice(0, 40))}
                       placeholder="同学"
                       maxLength={40}
-                      className="w-full rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none transition-colors placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent-purple)]"
                       data-profile-name-input
                     />
                   </label>
@@ -988,17 +957,16 @@ export function SettingsView() {
                       </div>
 
                       <div className="space-y-3">
-                        <input
+                        <Input
                           value={profileAvatar}
                           onChange={(event) =>
                             setProfileAvatar(event.target.value.slice(0, MAX_PROFILE_AVATAR_LENGTH))
                           }
                           placeholder="输入一个字符、emoji，或粘贴图片 URL"
-                          className="w-full rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none transition-colors placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent-purple)]"
                           data-profile-avatar-input
                         />
                         <div className="flex flex-wrap gap-2">
-                          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--color-border-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]">
+                          <label className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-card)] px-3 text-xs font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-hover)]">
                             <ImagePlus size={14} />
                             选择图片
                             <input
@@ -1008,13 +976,14 @@ export function SettingsView() {
                               className="sr-only"
                             />
                           </label>
-                          <button
+                          <Button
                             type="button"
+                            variant="secondary"
+                            size="sm"
                             onClick={() => setProfileAvatar('')}
-                            className="rounded-lg border border-[var(--color-border-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
                           >
                             清除头像
-                          </button>
+                          </Button>
                         </div>
                         <p className="text-[11px] leading-relaxed text-[var(--color-text-muted)]">
                           图片会在本地压缩后保存；如果图片过大，可以改用字符头像。
@@ -1023,29 +992,25 @@ export function SettingsView() {
                     </div>
                   </div>
 
-                  <button
+                  <Button
                     type="button"
                     onClick={handleSaveProfile}
-                    disabled={profileActionStatus.kind === 'loading'}
+                    loading={profileActionStatus.kind === 'loading'}
                     className={cn(
-                      'inline-flex items-center gap-2 rounded-lg bg-[var(--color-accent-secondary-solid)] px-4 py-2 text-sm font-medium text-[var(--color-on-accent)] shadow-sm transition-all hover:bg-[var(--color-accent-secondary-solid-hover)] disabled:cursor-not-allowed disabled:opacity-60',
+                      'bg-[var(--color-accent-secondary-solid)] hover:bg-[var(--color-accent-secondary-solid-hover)]',
                       profileActionStatus.kind === 'success' &&
-                        'scale-[1.02] ring-2 ring-emerald-400/35',
+                        'scale-[1.02] ring-2 ring-[var(--color-accent-success)]/35',
                     )}
                     data-profile-save-button
                   >
-                    {profileActionStatus.kind === 'loading' ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <Check size={16} />
-                    )}
+                    {profileActionStatus.kind !== 'loading' && <Check size={16} />}
                     保存账户资料
-                  </button>
+                  </Button>
                 </div>
-              </div>
+              </Card>
 
               <div className="space-y-6">
-                <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
+                <Card padding="none" className="p-5 shadow-sm">
                   <p className="mb-4 text-sm font-semibold text-[var(--color-text-primary)]">
                     个人页预览
                   </p>
@@ -1060,11 +1025,14 @@ export function SettingsView() {
                       账户资料会同步到个人主页
                     </p>
                   </div>
-                </div>
+                </Card>
 
-                <div className="bg-[var(--color-bg-card)] border border-red-500/25 rounded-xl p-5 shadow-sm">
+                <Card
+                  padding="none"
+                  className="border-[var(--color-accent-danger)]/25 p-5 shadow-sm"
+                >
                   <div className="mb-3 flex items-start gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-500/10 text-red-300">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-accent-danger)]/10 text-[var(--color-accent-danger)]">
                       <AlertTriangle size={17} />
                     </div>
                     <div>
@@ -1087,10 +1055,10 @@ export function SettingsView() {
                       className={cn(
                         'mb-3 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs',
                         clearLearningStatus.kind === 'error'
-                          ? 'border-red-500/40 bg-red-500/10 text-red-200'
+                          ? 'border-[var(--color-accent-danger)]/40 bg-[var(--color-accent-danger)]/10 text-[var(--color-accent-danger)]'
                           : clearLearningStatus.kind === 'success'
-                            ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
-                            : 'border-amber-500/40 bg-amber-500/10 text-amber-200',
+                            ? 'border-[var(--color-accent-success)]/40 bg-[var(--color-accent-success)]/10 text-[var(--color-accent-success)]'
+                            : 'border-[var(--color-accent-warning)]/40 bg-[var(--color-accent-warning)]/10 text-[var(--color-accent-warning)]',
                       )}
                     >
                       {clearLearningStatus.kind === 'success' ? (
@@ -1103,35 +1071,31 @@ export function SettingsView() {
                   )}
 
                   <div className="flex flex-wrap gap-2">
-                    <button
+                    <Button
                       type="button"
+                      variant="danger"
                       onClick={handleClearLearningRecords}
-                      disabled={clearLearningStatus.kind === 'loading'}
-                      className={cn(
-                        'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-                        clearLearningConfirm
-                          ? 'bg-red-600 hover:bg-red-500'
-                          : 'bg-red-500/80 hover:bg-red-500',
-                      )}
+                      loading={clearLearningStatus.kind === 'loading'}
                       data-clear-learning-records-button
                     >
                       <Trash2 size={15} />
                       {clearLearningConfirm ? '确认清空学习记录' : '一键清空学习记录'}
-                    </button>
+                    </Button>
                     {clearLearningConfirm && (
-                      <button
+                      <Button
                         type="button"
+                        variant="secondary"
+                        size="sm"
                         onClick={() => {
                           setClearLearningConfirm(false)
                           setClearLearningStatus({ kind: 'idle', message: '' })
                         }}
-                        className="rounded-lg border border-[var(--color-border-subtle)] px-3 py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
                       >
                         取消
-                      </button>
+                      </Button>
                     )}
                   </div>
-                </div>
+                </Card>
               </div>
             </div>
           </div>
@@ -1139,7 +1103,7 @@ export function SettingsView() {
 
         {activeTab === 'appearance' && (
           <div className="space-y-6 pb-4">
-            <div className="overflow-hidden rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)] shadow-sm">
+            <Card padding="none" className="overflow-hidden shadow-sm">
               <div className="relative p-5 lg:p-6">
                 <div className="pointer-events-none absolute inset-0 opacity-70 [background:radial-gradient(circle_at_12%_10%,rgba(139,92,246,0.18),transparent_34%),radial-gradient(circle_at_86%_12%,rgba(34,211,238,0.12),transparent_30%)]" />
                 <div className="relative flex flex-col gap-5">
@@ -1151,7 +1115,9 @@ export function SettingsView() {
                           主题设置
                         </span>
                       </div>
-                      <h3 className="mt-2 text-lg font-bold text-white">视觉体验中心</h3>
+                      <h3 className="mt-2 text-lg font-bold text-[var(--color-text-primary)]">
+                        视觉体验中心
+                      </h3>
                       <p className="mt-1 text-sm text-[var(--color-text-muted)]">
                         统一控制主题套装、背景氛围、动效强度和 AI 桌宠。
                       </p>
@@ -1165,7 +1131,9 @@ export function SettingsView() {
                   <div>
                     <div className="mb-3 flex items-center gap-2">
                       <Palette size={15} className="text-[var(--color-accent-purple)]" />
-                      <p className="text-sm font-semibold text-white">主题套装</p>
+                      <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                        主题套装
+                      </p>
                     </div>
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
                       {VISUAL_THEMES.map((item) => (
@@ -1200,7 +1168,9 @@ export function SettingsView() {
                             ))}
                           </div>
                           <div className="flex items-center justify-between gap-3">
-                            <p className="text-sm font-semibold text-white">{item.label}</p>
+                            <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                              {item.label}
+                            </p>
                             {visualTheme === item.id && (
                               <Check size={15} className="text-[var(--color-accent-purple)]" />
                             )}
@@ -1217,7 +1187,9 @@ export function SettingsView() {
                     <div className="rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)]/70 p-4">
                       <div className="mb-3 flex items-center gap-2">
                         <Wallpaper size={15} className="text-[var(--color-accent-purple)]" />
-                        <p className="text-sm font-semibold text-white">背景氛围</p>
+                        <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                          背景氛围
+                        </p>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         {BACKGROUND_STYLES.map((item) => (
@@ -1245,27 +1217,21 @@ export function SettingsView() {
                     <div className="rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)]/70 p-4">
                       <div className="mb-3 flex items-center gap-2">
                         <Gauge size={15} className="text-[var(--color-accent-purple)]" />
-                        <p className="text-sm font-semibold text-white">动画强度</p>
+                        <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                          动画强度
+                        </p>
                       </div>
-                      <div className="flex rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] p-1">
-                        {ANIMATION_LEVELS.map((item) => (
-                          <button
-                            type="button"
-                            key={item.id}
-                            data-animation-level-option={item.id}
-                            onClick={() => setAnimationLevel(item.id)}
-                            className={cn(
-                              'flex-1 rounded-md px-2 py-2 text-xs font-medium transition-colors',
-                              animationLevel === item.id
-                                ? 'bg-[var(--color-accent-secondary-solid)] text-[var(--color-on-accent)] shadow-sm'
-                                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]',
-                            )}
-                            title={item.desc}
-                          >
-                            {item.label}
-                          </button>
-                        ))}
-                      </div>
+                      <Tabs
+                        items={ANIMATION_LEVELS.map((item) => ({
+                          value: item.id,
+                          label: item.label,
+                          title: item.desc,
+                        }))}
+                        value={animationLevel}
+                        onChange={(value) => setAnimationLevel(value as AnimationLevel)}
+                        itemDataAttribute="animation-level-option"
+                        ariaLabel="动画强度"
+                      />
                       <p className="mt-2 text-[11px] text-[var(--color-text-muted)]">
                         “减少动态效果”开启时会覆盖为最低动效。
                       </p>
@@ -1276,17 +1242,15 @@ export function SettingsView() {
                         <div>
                           <div className="flex items-center gap-2">
                             <Sparkles size={15} className="text-[var(--color-accent-purple)]" />
-                            <p className="text-sm font-semibold text-white">AI 桌宠</p>
+                            <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                              AI 桌宠
+                            </p>
                           </div>
                           <p className="mt-1 text-xs leading-relaxed text-[var(--color-text-muted)]">
                             默认使用流萤，兼容 pet.json + spritesheet.webp 的通用桌宠格式。
                           </p>
                         </div>
-                        <ToggleSwitch
-                          active={aiPetEnabled}
-                          onToggle={() => setAIPetEnabled(!aiPetEnabled)}
-                          ariaLabel="AI 桌宠"
-                        />
+                        <Switch checked={aiPetEnabled} onChange={setAIPetEnabled} label="AI 桌宠" />
                       </div>
 
                       <div className="mt-4 flex items-center gap-4 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]/70 px-3 py-3">
@@ -1373,49 +1337,52 @@ export function SettingsView() {
                       </div>
 
                       <div className="mt-3 flex gap-2">
-                        <input
+                        <Input
                           value={petSlug}
                           onChange={(event) => setPetSlug(event.target.value)}
-                          className="min-w-0 flex-1 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 py-2 text-xs text-white outline-none focus:border-[var(--color-accent-purple)]"
+                          className="min-w-0 flex-1 bg-[var(--color-bg-base)] text-xs"
                           placeholder="firefly"
                           aria-label="桌宠 slug"
                         />
-                        <button
+                        <Button
                           type="button"
+                          size="sm"
                           onClick={handleInstallPetSlug}
-                          disabled={petActionStatus.kind === 'loading'}
-                          className="rounded-lg bg-[var(--color-accent-secondary-solid)] px-3 py-2 text-xs font-semibold text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-secondary-solid-hover)] disabled:opacity-60"
+                          loading={petActionStatus.kind === 'loading'}
+                          className="bg-[var(--color-accent-secondary-solid)] hover:bg-[var(--color-accent-secondary-solid-hover)]"
                         >
                           安装
-                        </button>
+                        </Button>
                       </div>
 
                       <div className="mt-2 grid grid-cols-2 gap-2">
-                        <button
+                        <Button
                           type="button"
+                          variant="secondary"
+                          size="sm"
                           onClick={() => handleImportPet('file')}
                           disabled={petActionStatus.kind === 'loading'}
-                          className="rounded-lg border border-[var(--color-border-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)] disabled:opacity-60"
                         >
                           导入包
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
+                          variant="secondary"
+                          size="sm"
                           onClick={() => handleImportPet('directory')}
                           disabled={petActionStatus.kind === 'loading'}
-                          className="rounded-lg border border-[var(--color-border-subtle)] px-3 py-2 text-xs text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)] disabled:opacity-60"
                         >
                           选文件夹
-                        </button>
+                        </Button>
                       </div>
                       {petActionStatus.kind !== 'idle' && (
                         <p
                           className={cn(
                             'mt-2 text-[11px]',
                             petActionStatus.kind === 'error'
-                              ? 'text-red-300'
+                              ? 'text-[var(--color-accent-danger)]'
                               : petActionStatus.kind === 'success'
-                                ? 'text-emerald-300'
+                                ? 'text-[var(--color-accent-success)]'
                                 : 'text-[var(--color-text-muted)]',
                           )}
                         >
@@ -1426,13 +1393,15 @@ export function SettingsView() {
                   </div>
                 </div>
               </div>
-            </div>
+            </Card>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Column 1 */}
               <div className="space-y-6">
-                <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
-                  <h3 className="font-semibold text-white text-[15px] mb-4">主题模式</h3>
+                <Card padding="none" className="p-5 shadow-sm">
+                  <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px] mb-4">
+                    主题模式
+                  </h3>
                   <p className="text-xs text-[var(--color-text-muted)] mb-4">
                     选择应用的整体主题风格
                   </p>
@@ -1453,7 +1422,9 @@ export function SettingsView() {
                         <div className="w-full h-8 bg-[#2A2F45] rounded-sm mt-auto"></div>
                       </div>
                       <div className="p-3 bg-[var(--color-bg-panel)]">
-                        <p className="text-sm font-medium text-white mb-0.5">深色模式</p>
+                        <p className="text-sm font-medium text-[var(--color-text-primary)] mb-0.5">
+                          深色模式
+                        </p>
                         <p className="text-[10px] text-[var(--color-text-muted)]">护眼舒适</p>
                       </div>
                       {theme === 'dark' && (
@@ -1478,7 +1449,9 @@ export function SettingsView() {
                         <div className="w-full h-8 bg-white rounded-sm mt-auto border border-gray-200"></div>
                       </div>
                       <div className="p-3 bg-[var(--color-bg-panel)]">
-                        <p className="text-sm font-medium text-white mb-0.5">浅色模式</p>
+                        <p className="text-sm font-medium text-[var(--color-text-primary)] mb-0.5">
+                          浅色模式
+                        </p>
                         <p className="text-[10px] text-[var(--color-text-muted)]">清爽明亮</p>
                       </div>
                       {theme === 'light' && (
@@ -1491,22 +1464,28 @@ export function SettingsView() {
 
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-white">跟随系统</p>
+                      <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                        跟随系统
+                      </p>
                       <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
                         自动跟随系统的深色/浅色模式
                       </p>
                     </div>
-                    <ToggleSwitch active={followSystem} onToggle={handleFollowSystem} />
+                    <Switch checked={followSystem} onChange={handleFollowSystem} label="跟随系统" />
                   </div>
-                </div>
+                </Card>
 
-                <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
-                  <h3 className="font-semibold text-white text-[15px] mb-1">语言与区域</h3>
+                <Card padding="none" className="p-5 shadow-sm">
+                  <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px] mb-1">
+                    语言与区域
+                  </h3>
                   <p className="text-xs text-[var(--color-text-muted)] mb-4">
                     界面语言为中文；可调整日期显示格式与每周起始日
                   </p>
 
-                  <p className="text-sm font-medium text-white mb-2">区域格式</p>
+                  <p className="text-sm font-medium text-[var(--color-text-primary)] mb-2">
+                    区域格式
+                  </p>
                   <div className="flex flex-col gap-2 mb-5">
                     {REGION_OPTIONS.map((opt) => (
                       <button
@@ -1527,38 +1506,30 @@ export function SettingsView() {
                     ))}
                   </div>
 
-                  <p className="text-sm font-medium text-white mb-2">每周起始日</p>
-                  <div className="flex bg-[var(--color-bg-panel)] rounded-lg p-1 border border-[var(--color-border-subtle)]">
-                    {(
-                      [
-                        ['mon', '周一'],
-                        ['sun', '周日'],
-                      ] as const
-                    ).map(([val, label]) => (
-                      <button
-                        key={val}
-                        onClick={() => setWeekStart(val)}
-                        className={cn(
-                          'flex-1 py-1.5 text-xs font-medium rounded-md transition-colors',
-                          weekStart === val
-                            ? 'bg-[var(--color-accent-secondary-solid)] text-[var(--color-on-accent)] shadow-sm'
-                            : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]',
-                        )}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+                  <p className="text-sm font-medium text-[var(--color-text-primary)] mb-2">
+                    每周起始日
+                  </p>
+                  <Tabs
+                    items={[
+                      { value: 'mon', label: '周一' },
+                      { value: 'sun', label: '周日' },
+                    ]}
+                    value={weekStart}
+                    onChange={(value) => setWeekStart(value as 'mon' | 'sun')}
+                    ariaLabel="每周起始日"
+                  />
                   <p className="text-[11px] text-[var(--color-text-muted)] mt-2">
                     影响首页学习热力图的星期排列
                   </p>
-                </div>
+                </Card>
               </div>
 
               {/* Column 2 */}
               <div className="space-y-6">
-                <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
-                  <h3 className="font-semibold text-white text-[15px] mb-4">主题色</h3>
+                <Card padding="none" className="p-5 shadow-sm">
+                  <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px] mb-4">
+                    主题色
+                  </h3>
                   <p className="text-xs text-[var(--color-text-muted)] mb-4">
                     选择你喜欢的主题色彩
                   </p>
@@ -1571,12 +1542,14 @@ export function SettingsView() {
                         className={cn(
                           'w-8 h-8 rounded-full flex items-center justify-center transition-all',
                           themeColor === color
-                            ? 'ring-2 ring-white ring-offset-2 ring-offset-[var(--color-bg-card)]'
+                            ? 'ring-2 ring-[var(--color-text-primary)] ring-offset-2 ring-offset-[var(--color-bg-card)]'
                             : 'hover:scale-110',
                         )}
                         style={{ backgroundColor: color }}
                       >
-                        {themeColor === color && <Check size={14} className="text-white" />}
+                        {themeColor === color && (
+                          <Check size={14} className="text-[var(--color-on-accent)]" />
+                        )}
                       </button>
                     ))}
                     <label
@@ -1593,29 +1566,24 @@ export function SettingsView() {
                     </label>
                   </div>
 
-                  <h3 className="font-semibold text-white text-[15px] mb-4">界面缩放</h3>
+                  <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px] mb-4">
+                    界面缩放
+                  </h3>
                   <p className="text-xs text-[var(--color-text-muted)] mb-4">
                     调整界面整体缩放比例
                   </p>
-                  <div className="flex bg-[var(--color-bg-panel)] rounded-lg p-1 mb-6 border border-[var(--color-border-subtle)]">
-                    {scaleOptions.map((scale) => (
-                      <button
-                        key={scale}
-                        onClick={() => handleScale(scale)}
-                        className={cn(
-                          'flex-1 py-1.5 text-xs font-medium rounded-md transition-colors',
-                          uiScale === scale
-                            ? 'bg-[var(--color-accent-secondary-solid)] text-[var(--color-on-accent)] shadow-sm'
-                            : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]',
-                        )}
-                      >
-                        {scale}
-                      </button>
-                    ))}
-                  </div>
+                  <Tabs
+                    items={scaleOptions.map((scale) => ({ value: scale, label: scale }))}
+                    value={uiScale}
+                    onChange={handleScale}
+                    className="mb-6"
+                    ariaLabel="界面缩放"
+                  />
 
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-semibold text-white text-[15px]">字体大小</h3>
+                    <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px]">
+                      字体大小
+                    </h3>
                     <span className="text-xs text-[var(--color-text-muted)]">{fontSize}px</span>
                   </div>
                   <p className="text-xs text-[var(--color-text-muted)] mb-4">设置界面字体大小</p>
@@ -1629,16 +1597,18 @@ export function SettingsView() {
                       onChange={(e) => handleFontSize(parseInt(e.target.value, 10))}
                       className="flex-1 h-1.5 rounded-full appearance-none cursor-pointer"
                       style={{
-                        background: `linear-gradient(to right, var(--color-accent-purple) 0%, var(--color-accent-purple) ${((fontSize - 12) / 12) * 100}%, #2A2F45 ${((fontSize - 12) / 12) * 100}%, #2A2F45 100%)`,
+                        background: `linear-gradient(to right, var(--color-accent-purple) 0%, var(--color-accent-purple) ${((fontSize - 12) / 12) * 100}%, var(--color-border-subtle) ${((fontSize - 12) / 12) * 100}%, var(--color-border-subtle) 100%)`,
                         accentColor: 'var(--color-accent-purple)',
                       }}
                     />
                     <span className="text-base text-[var(--color-text-muted)]">A</span>
                   </div>
-                </div>
+                </Card>
 
-                <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
-                  <h3 className="font-semibold text-white text-[15px] mb-1">代码主题</h3>
+                <Card padding="none" className="p-5 shadow-sm">
+                  <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px] mb-1">
+                    代码主题
+                  </h3>
                   <p className="text-xs text-[var(--color-text-muted)] mb-4">
                     工作区编辑器的语法高亮配色
                   </p>
@@ -1676,22 +1646,25 @@ export function SettingsView() {
                       readOnly
                     />
                   </div>
-                </div>
+                </Card>
               </div>
 
               {/* Column 3 */}
               <div className="space-y-6">
-                <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
+                <Card padding="none" className="p-5 shadow-sm">
                   <div className="mb-4 flex items-start justify-between gap-4">
                     <div>
-                      <h3 className="font-semibold text-white text-[15px]">玻璃质感</h3>
+                      <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px]">
+                        玻璃质感
+                      </h3>
                       <p className="mt-1 text-xs leading-relaxed text-[var(--color-text-muted)]">
                         覆盖整个前端的半透明玻璃层，可选择 iOS 式层次感或经典毛玻璃。
                       </p>
                     </div>
-                    <ToggleSwitch
-                      active={glassEffect}
-                      onToggle={() => handleToggle('glass_effect', glassEffect, setGlassEffect)}
+                    <Switch
+                      checked={glassEffect}
+                      onChange={() => handleToggle('glass_effect', glassEffect, setGlassEffect)}
+                      label="玻璃质感"
                     />
                   </div>
 
@@ -1723,9 +1696,11 @@ export function SettingsView() {
 
                     <div>
                       <div className="mb-2 flex items-center justify-between">
-                        <p className="text-sm font-medium text-white">模糊程度</p>
+                        <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                          模糊程度
+                        </p>
                         <label className="flex items-center gap-1 text-xs text-[var(--color-text-secondary)]">
-                          <input
+                          <Input
                             type="number"
                             min={6}
                             max={32}
@@ -1733,7 +1708,7 @@ export function SettingsView() {
                             value={glassBlur}
                             disabled={!glassEffect}
                             onChange={(event) => handleGlassBlur(Number(event.target.value))}
-                            className="h-7 w-16 rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] px-2 text-right text-xs text-[var(--color-text-primary)] outline-none transition-colors focus:border-[var(--color-accent-purple)] disabled:cursor-not-allowed"
+                            className="h-7 w-16 px-2 text-right text-xs"
                             aria-label="玻璃模糊程度"
                           />
                           px
@@ -1757,33 +1732,40 @@ export function SettingsView() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </Card>
 
-                <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
-                  <h3 className="font-semibold text-white text-[15px] mb-4">其他外观设置</h3>
+                <Card padding="none" className="p-5 shadow-sm">
+                  <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px] mb-4">
+                    其他外观设置
+                  </h3>
 
                   <div className="space-y-4">
                     {effectSettings.map((setting) => (
                       <div key={setting.key} className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-white">{setting.title}</p>
+                          <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                            {setting.title}
+                          </p>
                           {setting.desc && (
                             <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
                               {setting.desc}
                             </p>
                           )}
                         </div>
-                        <ToggleSwitch
-                          active={setting.value}
-                          onToggle={() => handleToggle(setting.key, setting.value, setting.setter)}
+                        <Switch
+                          checked={setting.value}
+                          onChange={() => handleToggle(setting.key, setting.value, setting.setter)}
+                          label={setting.title}
                         />
                       </div>
                     ))}
                   </div>
-                </div>
+                </Card>
 
-                <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
-                  <h3 className="font-semibold text-white text-[15px] mb-1">布局设置</h3>
+                <Card padding="none" className="p-5 shadow-sm">
+                  <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px] mb-1">
+                    布局设置
+                  </h3>
                   <p className="text-xs text-[var(--color-text-muted)] mb-4">
                     控制启动时的界面布局；侧边栏折叠键与工作区面板会与此同步
                   </p>
@@ -1791,16 +1773,22 @@ export function SettingsView() {
                     {layoutSettings.map((setting) => (
                       <div key={setting.title} className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-white">{setting.title}</p>
+                          <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                            {setting.title}
+                          </p>
                           <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
                             {setting.desc}
                           </p>
                         </div>
-                        <ToggleSwitch active={setting.active} onToggle={setting.onToggle} />
+                        <Switch
+                          checked={setting.active}
+                          onChange={setting.onToggle}
+                          label={setting.title}
+                        />
                       </div>
                     ))}
                   </div>
-                </div>
+                </Card>
               </div>
             </div>
           </div>
@@ -1824,60 +1812,68 @@ export function SettingsView() {
 
         {activeTab === 'about' && (
           <div className="space-y-6 pb-4">
-            <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-xl p-5 shadow-sm">
-              <h3 className="font-semibold text-white text-[15px] mb-4">关于</h3>
+            <Card padding="none" className="p-5 shadow-sm">
+              <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px] mb-4">
+                关于
+              </h3>
 
               {platformInfo && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between py-2 border-b border-[var(--color-border-subtle)]">
                     <span className="text-sm text-[var(--color-text-muted)]">应用版本</span>
-                    <span className="text-sm text-white font-mono">{platformInfo.appVersion}</span>
+                    <span className="text-sm font-mono text-[var(--color-text-primary)]">
+                      {platformInfo.appVersion}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between py-2 border-b border-[var(--color-border-subtle)]">
                     <span className="text-sm text-[var(--color-text-muted)]">Electron</span>
-                    <span className="text-sm text-white font-mono">
+                    <span className="text-sm font-mono text-[var(--color-text-primary)]">
                       {platformInfo.electronVersion}
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-2 border-b border-[var(--color-border-subtle)]">
                     <span className="text-sm text-[var(--color-text-muted)]">Chrome</span>
-                    <span className="text-sm text-white font-mono">
+                    <span className="text-sm font-mono text-[var(--color-text-primary)]">
                       {platformInfo.chromeVersion}
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-2 border-b border-[var(--color-border-subtle)]">
                     <span className="text-sm text-[var(--color-text-muted)]">Node.js</span>
-                    <span className="text-sm text-white font-mono">{platformInfo.nodeVersion}</span>
+                    <span className="text-sm font-mono text-[var(--color-text-primary)]">
+                      {platformInfo.nodeVersion}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between py-2 border-b border-[var(--color-border-subtle)]">
                     <span className="text-sm text-[var(--color-text-muted)]">系统平台</span>
-                    <span className="text-sm text-white font-mono">
+                    <span className="text-sm font-mono text-[var(--color-text-primary)]">
                       {platformInfo.platform} ({platformInfo.arch})
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-2">
                     <span className="text-sm text-[var(--color-text-muted)]">系统版本</span>
-                    <span className="text-sm text-white font-mono">{platformInfo.osVersion}</span>
+                    <span className="text-sm font-mono text-[var(--color-text-primary)]">
+                      {platformInfo.osVersion}
+                    </span>
                   </div>
                 </div>
               )}
 
               {!loaded && <p className="text-sm text-[var(--color-text-muted)]">加载中...</p>}
-            </div>
+            </Card>
           </div>
         )}
       </div>
 
       {/* Footer Actions */}
       <div className="max-w-[1000px] w-full mx-auto px-6 pb-8 lg:px-8">
-        <div className="flex items-center justify-between rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-card)]/80 p-4 shadow-sm backdrop-blur-md">
-          <button
-            onClick={handleResetDefaults}
-            className="flex items-center gap-2 px-4 py-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
-          >
+        <Card
+          padding="none"
+          className="flex items-center justify-between bg-[var(--color-bg-card)]/80 p-4 shadow-sm backdrop-blur-md"
+        >
+          <Button type="button" variant="ghost" onClick={handleResetDefaults}>
             <RotateCcw size={16} />
             重置为默认设置
-          </button>
+          </Button>
           <div className="flex items-center gap-3">
             {settingsSaveStatus.kind !== 'idle' && (
               <div
@@ -1886,9 +1882,9 @@ export function SettingsView() {
                 className={cn(
                   'hidden items-center gap-1.5 text-xs sm:inline-flex',
                   settingsSaveStatus.kind === 'error'
-                    ? 'text-red-200'
+                    ? 'text-[var(--color-accent-danger)]'
                     : settingsSaveStatus.kind === 'success'
-                      ? 'text-emerald-200'
+                      ? 'text-[var(--color-accent-success)]'
                       : 'text-[var(--color-text-secondary)]',
                 )}
               >
@@ -1902,23 +1898,21 @@ export function SettingsView() {
                 <span>{settingsSaveStatus.message}</span>
               </div>
             )}
-            <button
+            <Button
+              type="button"
               onClick={handleSave}
-              disabled={settingsSaveStatus.kind === 'loading'}
+              loading={settingsSaveStatus.kind === 'loading'}
               className={cn(
-                'bg-[var(--color-accent-secondary-solid)] hover:bg-[var(--color-accent-secondary-solid-hover)] text-[var(--color-on-accent)] px-6 py-2 rounded-lg text-sm font-medium transition-all shadow-sm flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-70',
-                settingsSaveStatus.kind === 'success' && 'scale-[1.03] ring-2 ring-emerald-400/35',
+                'bg-[var(--color-accent-secondary-solid)] px-6 hover:bg-[var(--color-accent-secondary-solid-hover)]',
+                settingsSaveStatus.kind === 'success' &&
+                  'scale-[1.03] ring-2 ring-[var(--color-accent-success)]/35',
               )}
             >
-              {settingsSaveStatus.kind === 'loading' ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Check size={16} />
-              )}
+              {settingsSaveStatus.kind !== 'loading' && <Check size={16} />}
               保存设置
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   )

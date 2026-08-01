@@ -1,5 +1,7 @@
 # 数据库 Schema 参考
 
+> 本文档为精简子集参考；唯一权威为 [docs/api/database-schema.md](../api/database-schema.md)，实际列、约束与迁移以 `electron/db/schema.sql` 为准。
+
 CodeHelper 使用 SQLite（通过 `better-sqlite3`）作为本地数据库。数据库文件位于用户数据目录；除业务表外，知识库还使用 metadata、链接审计、维护运行和维护动作表完成治理闭环。
 
 ## 数据库位置

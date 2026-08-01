@@ -9,12 +9,12 @@
 **排查步骤**：
 
 ```bash
-# 1. 重新安装依赖
+# 1. 重新安装依赖（npm 会自动运行 postinstall 编译 native 模块）
 rm -rf node_modules package-lock.json
 npm install
 
-# 2. 运行 postinstall（编译 native 模块）
-npm run postinstall
+# 2. 若 native 模块仍未编译成功，可手动强制重编译（npm 生命周期已自动执行过，无需重复）
+npm run native:electron -- --force
 
 # 3. 重新启动
 npm run dev

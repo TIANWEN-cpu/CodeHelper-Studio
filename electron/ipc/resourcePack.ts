@@ -1,4 +1,4 @@
-import { dialog, ipcMain } from 'electron'
+import { app, dialog, ipcMain } from 'electron'
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs'
 import { basename, extname, join, relative } from 'path'
 import { getDB } from '../db/index'
@@ -10,6 +10,8 @@ import {
 import { splitIntoChunks } from '../utils/textUtils'
 import { trackPerformance } from '../utils/perfMonitor'
 import { type ProblemSeed, inferSourceFromFile, normalizeProblemSeed } from '../utils/problemMeta'
+import { PACKAGED_SMOKE_ENV } from '../utils/packagedSmoke'
+import { E2E_USER_DATA_ENV } from '../utils/testUserData'
 
 const MAX_KNOWLEDGE_FILE_SIZE = 10 * 1024 * 1024
 
@@ -456,7 +458,11 @@ export function registerResourcePackIPC(): void {
     trackPerformance(
       'resource-pack-import',
       async (_event, args?: ResourcePackImportArgs): Promise<ResourcePackImportResult | null> => {
-        let rootPath = typeof args?.rootPath === 'string' ? args.rootPath.trim() : ''
+        const rendererRootPathTrusted =
+          process.env[PACKAGED_SMOKE_ENV] === '1' ||
+          (!app.isPackaged && Boolean(process.env[E2E_USER_DATA_ENV]))
+        let rootPath =
+          rendererRootPathTrusted && typeof args?.rootPath === 'string' ? args.rootPath.trim() : ''
 
         if (!rootPath) {
           const result = await dialog.showOpenDialog({

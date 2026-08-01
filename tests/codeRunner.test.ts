@@ -1018,7 +1018,7 @@ describe('codeRunner', () => {
       expect(proc.kill).toHaveBeenCalled()
     })
 
-    it('kill failure keeps requests and concurrency slots pending until processes exit', async () => {
+    it('settles with the kill-failure message without reusing an unconfirmed slot', async () => {
       vi.useFakeTimers()
       const procs = Array.from({ length: 5 }, (_, index) =>
         Object.assign(new EventEmitter(), {
@@ -1036,32 +1036,80 @@ describe('codeRunner', () => {
       })
 
       const promises = procs.map(() => runCodeSnippet('while(true){}', 'python'))
-      const settled = vi.fn()
-      void Promise.all(promises).then(settled)
+      // Advance past DEFAULT_TIMEOUT (10s) + TERMINATION_GRACE_MS (2s): the
+      // grace timer must settle the run even though the fake processes never
+      // emit exit/close (kill failure: D-state / antivirus-instrumented).
       await vi.advanceTimersByTimeAsync(12_001)
 
-      expect(settled).not.toHaveBeenCalled()
+      const results = await Promise.all(promises)
+      expect(results).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            exitCode: 1,
+            timedOut: true,
+            stderr: expect.stringContaining('终止命令失败，已停止等待'),
+          }),
+        ]),
+      )
 
+      // The caller settles, but a process without exit confirmation must keep
+      // consuming capacity so repeated timeouts cannot exceed the hard cap.
+      vi.mocked(spawn).mockReturnValue(mockChildProcess(0, 'next') as any)
       await expect(runCodeSnippet('print("blocked")', 'python')).resolves.toMatchObject({
         exitCode: 1,
         stderr: expect.stringContaining('并发'),
       })
       expect(spawn).toHaveBeenCalledTimes(5)
 
-      for (const proc of procs) proc.emit('close', null)
-      await Promise.resolve()
-      const results = await Promise.all(promises)
-      expect(results).toEqual(
-        expect.arrayContaining([expect.objectContaining({ exitCode: 1, timedOut: true })]),
-      )
-
       vi.useRealTimers()
-      vi.mocked(spawn).mockReturnValue(mockChildProcess(0, 'next') as any)
-      await expect(runCodeSnippet('print("next")', 'python')).resolves.toMatchObject({
-        exitCode: 0,
-        stdout: 'next',
-      })
+      for (const proc of procs) proc.emit('close', null)
     })
+
+    it.runIf(process.platform === 'win32')(
+      'reuses capacity after taskkill reports authoritative tree termination',
+      async () => {
+        vi.useFakeTimers()
+        const procs = Array.from({ length: 5 }, (_, index) =>
+          Object.assign(new EventEmitter(), {
+            stdin: new PassThrough(),
+            stdout: new PassThrough(),
+            stderr: new PassThrough(),
+            pid: 55_321 + index,
+            kill: vi.fn(() => true),
+          }),
+        )
+        let spawnIndex = 0
+        vi.mocked(spawn).mockImplementation(() => procs[spawnIndex++] as any)
+        // killProcessTree reports success (taskkill succeeds) but the fake
+        // process never emits exit/close, modelling a child that ignores
+        // termination without a hard-kill failure.
+        vi.mocked(execFileSync).mockReturnValue('C:\\resolved\\taskkill.exe\n')
+
+        const pending = procs.map(() => runCodeSnippet('while(true){}', 'python'))
+        await vi.advanceTimersByTimeAsync(12_001)
+
+        const results = await Promise.all(pending)
+        expect(results).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              exitCode: 1,
+              timedOut: true,
+              stderr: expect.stringContaining('未收到进程退出确认，已停止等待'),
+            }),
+          ]),
+        )
+
+        vi.mocked(spawn).mockReturnValue(mockChildProcess(0, 'next') as any)
+        await expect(runCodeSnippet('print("next")', 'python')).resolves.toMatchObject({
+          exitCode: 0,
+          stdout: 'next',
+        })
+        expect(spawn).toHaveBeenCalledTimes(6)
+
+        vi.useRealTimers()
+        for (const proc of procs) proc.emit('close', null)
+      },
+    )
   })
 
   // ─────────────────────────────────────────────

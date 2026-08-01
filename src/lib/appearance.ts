@@ -58,7 +58,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   uiScale: '100%',
   fontSize: 14,
   reduceMotion: false,
-  glassEffect: true,
+  glassEffect: false,
   glassStyle: 'layered',
   glassBlur: 18,
   highContrast: false,
@@ -233,6 +233,34 @@ export function applyAll(a: Appearance): void {
   applyAnimationLevel(a.animationLevel)
   applyAIPetEnabled(a.aiPetEnabled)
   applyAIPetSize(a.aiPetSize)
+  persistAppearanceHint(a)
+}
+
+const APPEARANCE_HINT_KEY = 'ch-appearance-hint'
+
+/**
+ * 把首帧所需的外观属性缓存到 localStorage，appearance-bootstrap.js 据此在
+ * React 挂载、SQLite 设置读回之前预设 data-* 属性，避免浅色用户首帧闪深色。
+ * 纯增量优化：缓存缺失或不可用时行为与之前完全一致。
+ */
+function persistAppearanceHint(a: Appearance): void {
+  try {
+    if (typeof localStorage === 'undefined') return
+    localStorage.setItem(
+      APPEARANCE_HINT_KEY,
+      JSON.stringify({
+        'data-theme': resolveTheme(a.theme, a.followSystem),
+        'data-visual-theme': a.visualTheme,
+        'data-background-style': a.backgroundStyle,
+        'data-animation-level': a.animationLevel,
+        'data-glass': a.glassEffect ? 'on' : 'off',
+        'data-reduce-motion': a.reduceMotion ? 'true' : 'false',
+        'data-contrast': a.highContrast ? 'high' : 'normal',
+      }),
+    )
+  } catch {
+    /* localStorage 不可用时静默跳过，仅损失首帧优化 */
+  }
 }
 
 function parseVisualTheme(value: string | null): VisualTheme {

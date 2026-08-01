@@ -197,6 +197,7 @@ describe('Integration: chat flow', () => {
         messages: [{ id: 'm1', role: 'user', content: 'hi', timestamp: 1 }],
       })
 
+      mockInvoke.mockResolvedValueOnce({ cancelled: true }) // ai-chat-cancel (switchSession cancels in-flight first)
       mockInvoke.mockResolvedValueOnce(HISTORY_B)
       await useChatStore.getState().switchSession('session-b')
 

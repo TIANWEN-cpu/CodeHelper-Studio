@@ -16,6 +16,7 @@ import {
   parseKnowledgeTagsJson,
   titleFromKnowledgeFilename,
 } from '../db/knowledgeMetadataRepository'
+import type { KnowledgeDocMetadataValues } from '../db/knowledgeMetadataRepository'
 import type { KnowledgeSearchResult } from '../../src/shared/knowledgeRetrievalContract'
 
 type KnowledgeDocListRow = {
@@ -260,13 +261,35 @@ export function registerRAGIPC(): void {
 
       const db = await getDBWithTimeout()
       const uploaded: string[] = []
+      const skipped: string[] = []
+
+      // 与 resource-pack-import 一致：按 filename 去重，已存在的文档直接跳过。
+      const existing = new Set(
+        (
+          db.prepare('SELECT filename FROM knowledge_docs').all() as Array<{
+            filename?: string | null
+          }>
+        )
+          .map((row) => row.filename)
+          .filter((name): name is string => typeof name === 'string'),
+      )
+
+      const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+
+      type PreparedUpload = {
+        filename: string
+        ext: string
+        content: string
+        chunks: string[]
+        metadata: KnowledgeDocMetadataValues
+      }
+      const prepared: PreparedUpload[] = []
 
       for (const filePath of result.filePaths) {
         const filename = basename(filePath)
         const ext = extname(filePath).toLowerCase()
         let content = ''
 
-        const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
         let stat
         try {
           stat = statSync(filePath)
@@ -320,31 +343,41 @@ export function registerRAGIPC(): void {
             visibility: 'local',
           },
         })
+        prepared.push({ filename, ext, content, chunks, metadata })
+      }
 
-        // 单文件的 doc + chunks 写入包进事务：避免中途失败留下
-        // chunk_count 与实际 chunk 数不一致的“半截文档”。
-        const insertDoc = db.transaction(
-          (docFilename: string, docExt: string, docContent: string) => {
-            const docResult = db
-              .prepare(
-                'INSERT INTO knowledge_docs (filename, file_type, content, chunk_count) VALUES (?,?,?,?)',
-              )
-              .run(docFilename, docExt, docContent, chunks.length)
-
+      // 整批写入包进一个事务：任一文件失败即整体回滚（all-or-nothing），
+      // 避免失败时留下 1..N-1 的“半截批次”；单文件的 doc + chunks 也在同一事务内，
+      // 保证 chunk_count 与实际 chunk 数一致。
+      const insertMany = db.transaction((docs: PreparedUpload[]) => {
+        const insertDoc = db.prepare(
+          'INSERT INTO knowledge_docs (filename, file_type, content, chunk_count) VALUES (?,?,?,?)',
+        )
+        const insertChunk = db.prepare(
+          'INSERT INTO knowledge_chunks (doc_id, content, chunk_index) VALUES (?,?,?)',
+        )
+        for (const doc of docs) {
+          if (existing.has(doc.filename)) {
+            skipped.push(doc.filename)
+            continue
+          }
+          try {
+            const docResult = insertDoc.run(doc.filename, doc.ext, doc.content, doc.chunks.length)
             const docId = Number(docResult.lastInsertRowid)
-            insertKnowledgeDocMetadata(db, docId, metadata)
-            const insertChunk = db.prepare(
-              'INSERT INTO knowledge_chunks (doc_id, content, chunk_index) VALUES (?,?,?)',
-            )
-            chunks.forEach((chunk, i) => {
+            insertKnowledgeDocMetadata(db, docId, doc.metadata)
+            doc.chunks.forEach((chunk, i) => {
               insertChunk.run(docId, chunk, i)
             })
-          },
-        )
-        insertDoc(filename, ext, content)
-
-        uploaded.push(filename)
-      }
+            existing.add(doc.filename)
+            uploaded.push(doc.filename)
+          } catch (error) {
+            throw new Error(
+              `上传文件 "${doc.filename}" 失败: ${error instanceof Error ? error.message : String(error)}`,
+            )
+          }
+        }
+      })
+      insertMany(prepared)
 
       return uploaded
     }),
@@ -518,12 +551,8 @@ export function registerRAGIPC(): void {
             score: chunk.score,
           })) ?? [],
         retrieval: response?.retrieval ?? getKnowledgeRetrievalStatus(db),
-        userProfile: {
-          preferredLanguage: 'zh-CN',
-          difficultyLevel: 'beginner',
-          strongTopics: [],
-          weakTopics: [],
-        },
+        // 没有真实的用户画像数据来源：不伪造用户属性，调用方遇到 null 时跳过画像注入。
+        userProfile: null,
       }
     }),
   )

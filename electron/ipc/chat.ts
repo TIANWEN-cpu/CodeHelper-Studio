@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron'
+import { withMiddleware, rateLimitMiddleware } from '../utils/middleware'
 import { getDB } from '../db/index'
 import {
   BUILTIN_PRESETS,
@@ -32,6 +33,22 @@ interface MemoryInput {
   pinned?: number | boolean
   enabled?: number | boolean
   confidence?: number
+}
+
+// mem0 式 LLM 抽取同样持有 Provider 连接（最长 30s）：限频 + 并发上限，防止
+// 多个窗口/连续发送同时打爆上游。
+const MAX_CONCURRENT_MEMORY_EXTRACT = 2
+let activeMemoryExtractCount = 0
+
+function acquireMemoryExtractSlot(): void {
+  if (activeMemoryExtractCount >= MAX_CONCURRENT_MEMORY_EXTRACT) {
+    throw new Error('同时进行的记忆抽取过多，请稍后再试')
+  }
+  activeMemoryExtractCount += 1
+}
+
+function releaseMemoryExtractSlot(): void {
+  activeMemoryExtractCount = Math.max(0, activeMemoryExtractCount - 1)
 }
 
 export function registerChatIPC(): void {
@@ -149,7 +166,7 @@ export function registerChatIPC(): void {
       const db = getDB()
       return db.transaction(() => {
         const session = db.prepare('SELECT 1 FROM chat_sessions WHERE id = ?').get(msg.session_id)
-        if (!session) throw new Error('浼氳瘽涓嶅瓨鍦?')
+        if (!session) throw new Error('会话不存在')
         const inserted = db
           .prepare('INSERT INTO chat_history (session_id, role, content, model) VALUES (?,?,?,?)')
           .run(msg.session_id, msg.role, msg.content, msg.model || null)
@@ -370,28 +387,39 @@ export function registerChatIPC(): void {
   // mem0 式 LLM 抽取：调用已配置的 Provider，从消息中智能抽取长期记忆（含去重合并）。
   ipcMain.handle(
     'chat-memory-extract',
-    async (
-      _e,
-      args: { content: string; configId?: number; sessionId?: string },
-    ): Promise<MemoryRow[]> => {
-      if (!args || typeof args !== 'object') throw new Error('参数无效')
-      if (typeof args.content !== 'string' || !args.content.trim())
-        throw new Error('参数无效: content')
-      const content = args.content.trim().slice(0, 10000)
-      let sessionId: string | undefined
-      if (args.sessionId !== undefined) {
-        if (typeof args.sessionId !== 'string') throw new Error('参数无效: sessionId')
-        sessionId = args.sessionId.trim().slice(0, 200)
-      }
-      if (
-        args.configId !== undefined &&
-        (typeof args.configId !== 'number' || !Number.isFinite(args.configId) || args.configId < 1)
-      )
-        throw new Error('参数无效: configId')
+    withMiddleware(
+      'chat-memory-extract',
+      async (_e, ...rest: unknown[]): Promise<MemoryRow[]> => {
+        const args = rest[0] as { content: string; configId?: number; sessionId?: string }
+        if (!args || typeof args !== 'object') throw new Error('参数无效')
+        if (typeof args.content !== 'string' || !args.content.trim())
+          throw new Error('参数无效: content')
+        const content = args.content.trim().slice(0, 10000)
+        let sessionId: string | undefined
+        if (args.sessionId !== undefined) {
+          if (typeof args.sessionId !== 'string') throw new Error('参数无效: sessionId')
+          sessionId = args.sessionId.trim().slice(0, 200)
+        }
+        if (
+          args.configId !== undefined &&
+          (typeof args.configId !== 'number' ||
+            !Number.isFinite(args.configId) ||
+            args.configId < 1)
+        )
+          throw new Error('参数无效: configId')
 
-      const candidates = await extractMemoriesViaLLM(content, args.configId)
-      return persistMemoryCandidates(candidates, 'chat-llm', sessionId, 0.9)
-    },
+        let slotAcquired = false
+        try {
+          acquireMemoryExtractSlot()
+          slotAcquired = true
+          const candidates = await extractMemoriesViaLLM(content, args.configId)
+          return persistMemoryCandidates(candidates, 'chat-llm', sessionId, 0.9)
+        } finally {
+          if (slotAcquired) releaseMemoryExtractSlot()
+        }
+      },
+      [rateLimitMiddleware({ maxCalls: 5, windowMs: 10_000 })],
+    ),
   )
 }
 

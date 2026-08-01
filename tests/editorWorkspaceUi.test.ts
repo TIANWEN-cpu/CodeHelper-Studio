@@ -25,6 +25,18 @@ describe('editor workspace capability UI', () => {
     expect(source).toContain('仅在本地关闭')
   })
 
+  it('uses design-system confirmation dialogs in destructive views', () => {
+    for (const path of [
+      'src/views/ReviewView.tsx',
+      'src/views/settings/AIModelSettings.tsx',
+      'src/views/settings/MemorySettings.tsx',
+    ]) {
+      const viewSource = readFileSync(path, 'utf8')
+      expect(viewSource).not.toContain('window.confirm')
+      expect(viewSource).toContain('ConfirmDialog')
+    }
+  })
+
   it('shows restoration progress and corrupted-data degradation instead of saved', () => {
     const workspaceStatusStart = source.indexOf(
       ": !editorHydrated || editorDatabaseStatus === 'idle'",
@@ -104,7 +116,7 @@ describe('editor workspace capability UI', () => {
 
   it('gates starter code on an empty document', () => {
     expect(source).toContain('findWorkspaceStarterTarget(state.tabs, activeVisibleTabId)')
-    expect(source).toContain('if (!current) return')
+    expect(source).toContain('if (!current) {')
     expect(source).toContain('if (starterInitializationAttemptedRef.current) return')
     expect(source).toContain('starterInitializationAttemptedRef.current = true')
   })
@@ -115,8 +127,11 @@ describe('editor workspace capability UI', () => {
     expect(source).toContain('requires acknowledgement')
     expect(source).toContain('不是容器或 AppContainer')
     expect(source).toContain(
-      "executionMode === 'local-controlled' && !confirmUntrustedLocalExecution()",
+      "executionMode === 'local-controlled' && !(await confirmUntrustedLocalExecution())",
     )
+    // All confirmations go through the design-system ConfirmDialog, never window.confirm.
+    expect(source).not.toContain('window.confirm')
+    expect(source).toContain('ConfirmDialog')
   })
 
   it('uses Docker capability instead of host toolchains for strong isolation', () => {

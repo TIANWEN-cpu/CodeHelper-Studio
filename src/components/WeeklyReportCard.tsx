@@ -1,15 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'motion/react'
-import {
-  ChevronLeft,
-  ChevronRight,
-  CalendarRange,
-  Loader2,
-  Target,
-  Play,
-  Bot,
-  BookOpen,
-} from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarRange, Target, Play, Bot, BookOpen } from 'lucide-react'
+import { Badge, Card, EmptyState, IconButton, Spinner } from '@/components/ui'
 import { getWeeklyReport, type WeeklyReport } from '@/services/analyticsService'
 
 const WEEKDAY_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
@@ -32,10 +24,15 @@ const STAT_TILES: Array<{
   icon: typeof Target
   color: string
 }> = [
-  { key: 'problemsSolved', label: '解题', icon: Target, color: '#10B981' },
-  { key: 'codeRuns', label: '运行代码', icon: Play, color: '#6366F1' },
-  { key: 'aiChatsSent', label: 'AI 提问', icon: Bot, color: '#8B5CF6' },
-  { key: 'lessonsCompleted', label: '完成课程', icon: BookOpen, color: '#F59E0B' },
+  { key: 'problemsSolved', label: '解题', icon: Target, color: 'var(--color-accent-success)' },
+  { key: 'codeRuns', label: '运行代码', icon: Play, color: 'var(--color-accent-primary)' },
+  { key: 'aiChatsSent', label: 'AI 提问', icon: Bot, color: 'var(--color-accent-purple)' },
+  {
+    key: 'lessonsCompleted',
+    label: '完成课程',
+    icon: BookOpen,
+    color: 'var(--color-accent-warning)',
+  },
 ]
 
 /**
@@ -73,9 +70,9 @@ export function WeeklyReportCard() {
     report && report.avgSessionDuration > 0 ? Math.round(report.avgSessionDuration / 60000) : 0
 
   return (
-    <div className="bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] rounded-2xl p-6 shadow-sm">
+    <Card padding="lg" className="shadow-sm">
       <div className="flex items-center justify-between mb-5">
-        <h3 className="font-semibold text-white text-[15px] flex items-center gap-2">
+        <h3 className="font-semibold text-[var(--color-text-primary)] text-[15px] flex items-center gap-2">
           <CalendarRange size={16} className="text-[var(--color-accent-purple)]" />
           学习周报
         </h3>
@@ -83,34 +80,26 @@ export function WeeklyReportCard() {
           <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
             {report ? formatRange(report.weekStart, report.weekEnd) : '—'}
           </span>
-          <button
-            type="button"
-            onClick={() => setOffset((o) => o - 1)}
-            className="rounded-md p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] hover:text-white transition-colors"
-            aria-label="上一周"
-          >
-            <ChevronLeft size={15} />
-          </button>
-          <button
-            type="button"
+          <IconButton label="上一周" size="sm" onClick={() => setOffset((o) => o - 1)}>
+            <ChevronLeft />
+          </IconButton>
+          <IconButton
+            label="下一周"
+            size="sm"
             onClick={() => setOffset((o) => Math.min(0, o + 1))}
             disabled={offset >= 0}
-            className="rounded-md p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            aria-label="下一周"
           >
-            <ChevronRight size={15} />
-          </button>
+            <ChevronRight />
+          </IconButton>
         </div>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-10">
-          <Loader2 size={20} className="animate-spin text-[var(--color-accent-purple)]" />
+          <Spinner className="text-[var(--color-accent-purple)]" label="加载周报" />
         </div>
       ) : !report || report.totalEvents === 0 ? (
-        <p className="py-10 text-center text-sm text-[var(--color-text-muted)]">
-          这一周还没有学习记录。
-        </p>
+        <EmptyState icon={CalendarRange} title="这一周还没有学习记录" />
       ) : (
         <>
           {/* 统计磁贴 */}
@@ -123,7 +112,7 @@ export function WeeklyReportCard() {
                   className="rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] p-3"
                 >
                   <Icon size={15} style={{ color: tile.color }} />
-                  <p className="mt-2 text-xl font-semibold text-white tabular-nums">
+                  <p className="mt-2 text-xl font-semibold text-[var(--color-text-primary)] tabular-nums">
                     {report[tile.key]}
                   </p>
                   <p className="text-[11px] text-[var(--color-text-muted)]">{tile.label}</p>
@@ -159,12 +148,13 @@ export function WeeklyReportCard() {
           {(report.topLanguages.length > 0 || avgMinutes > 0) && (
             <div className="mt-5 flex flex-wrap items-center gap-2">
               {report.topLanguages.slice(0, 5).map((l) => (
-                <span
+                <Badge
                   key={l.language}
-                  className="rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] px-2 py-1 text-[11px] text-[var(--color-text-secondary)]"
+                  variant="neutral"
+                  className="border border-[var(--color-border-subtle)]"
                 >
                   {l.language} · {l.count}
-                </span>
+                </Badge>
               ))}
               {avgMinutes > 0 && (
                 <span className="ml-auto text-[11px] text-[var(--color-text-muted)]">
@@ -175,6 +165,6 @@ export function WeeklyReportCard() {
           )}
         </>
       )}
-    </div>
+    </Card>
   )
 }

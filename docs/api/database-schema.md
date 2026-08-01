@@ -25,6 +25,15 @@ CodeHelper 使用 better-sqlite3 作为嵌入式数据库，存储所有本地�
   - [memories — 长期记忆表](#memories--长期记忆表)
   - [editor_workspaces — 编辑器工作区表](#editor_workspaces--编辑器工作区表)
   - [editor_tabs — 编辑器标签表](#editor_tabs--编辑器标签表)
+  - [analytics_events — 统计事件表](#analytics_events--统计事件表)
+  - [lesson_progress — 课程进度表](#lesson_progress--课程进度表)
+  - [lesson_notes — 课程笔记表](#lesson_notes--课程笔记表)
+  - [achievements — 成就定义表](#achievements--成就定义表)
+  - [achievement_progress — 成就进度表](#achievement_progress--成就进度表)
+  - [review_schedule — 复习计划表](#review_schedule--复习计划表)
+  - [exercise_drafts — 练习草稿表](#exercise_drafts--练习草稿表)
+  - [exercise_timers — 练习计时表](#exercise_timers--练习计时表)
+  - [schema_migrations — Schema 迁移记录表](#schema_migrations--schema-迁移记录表)
 - [关系图](#关系图)
 - [索引](#索引)
 - [常用查询](#常用查询)
@@ -48,26 +57,26 @@ CodeHelper 使用 better-sqlite3 作为嵌入式数据库，存储所有本地�
 
 存储所有编程题目信息。
 
-| 列名             | 类型     | 约束                      | 默认值              | 说明                                                                       |
-| ---------------- | -------- | ------------------------- | ------------------- | -------------------------------------------------------------------------- |
-| `id`             | INTEGER  | PRIMARY KEY AUTOINCREMENT | —                   | 题目 ID                                                                    |
-| `title`          | TEXT     | NOT NULL                  | —                   | 题目标题                                                                   |
-| `description`    | TEXT     | NOT NULL                  | —                   | 题目描述（支持 Markdown）                                                  |
-| `difficulty`     | TEXT     | CHECK(IN)                 | —                   | 难度：`easy` / `medium` / `hard`                                           |
-| `tags`           | TEXT     | —                         | `'[]'`              | 标签（JSON 数组）                                                          |
-| `languages`      | TEXT     | —                         | `'["python"]'`      | 支持的语言（JSON 数组）                                                    |
-| `examples`       | TEXT     | —                         | `'[]'`              | 示例输入输出（JSON 数组）                                                  |
-| `test_cases`     | TEXT     | —                         | `'[]'`              | 测试用例（JSON 数组）                                                      |
-| `starter_code`   | TEXT     | —                         | `'{}'`              | 初始代码模板（JSON 对象，键为语言）                                        |
-| `source`         | TEXT     | —                         | `'custom'`          | 题目来源（如 `leetcode`、`builtin`）                                       |
-| `tracks`         | TEXT     | —                         | `'[]'`              | 所属学习路径（JSON 数组）                                                  |
-| `platform`       | TEXT     | —                         | `'internal'`        | 来源平台（如 `pat`、`nowcoder`）                                           |
-| `mode`           | TEXT     | —                         | `'oj'`              | 题目模式：`oj` / `simulation` / `data-task` / `case-study` / `report-task` |
-| `exam_style`     | TEXT     | —                         | `'acm'`             | 考试风格：`acm` / `oa` / `modeling` / `hdl`                                |
-| `year`           | INTEGER  | —                         | `NULL`              | 年份                                                                       |
-| `official_url`   | TEXT     | —                         | `NULL`              | 官方链接                                                                   |
-| `estimated_time` | INTEGER  | —                         | `NULL`              | 预计用时（分钟）                                                           |
-| `created_at`     | DATETIME | —                         | `CURRENT_TIMESTAMP` | 创建时间                                                                   |
+| 列名             | 类型     | 约束                      | 默认值              | 说明                                                                                           |
+| ---------------- | -------- | ------------------------- | ------------------- | ---------------------------------------------------------------------------------------------- |
+| `id`             | INTEGER  | PRIMARY KEY AUTOINCREMENT | —                   | 题目 ID                                                                                        |
+| `title`          | TEXT     | NOT NULL                  | —                   | 题目标题                                                                                       |
+| `description`    | TEXT     | NOT NULL                  | —                   | 题目描述（支持 Markdown）                                                                      |
+| `difficulty`     | TEXT     | CHECK(IN)                 | —                   | 难度：`easy` / `medium` / `hard`                                                               |
+| `tags`           | TEXT     | —                         | `'[]'`              | 标签（JSON 数组）                                                                              |
+| `languages`      | TEXT     | —                         | `'["python"]'`      | 支持的语言（JSON 数组）                                                                        |
+| `examples`       | TEXT     | —                         | `'[]'`              | 示例输入输出（JSON 数组）                                                                      |
+| `test_cases`     | TEXT     | —                         | `'[]'`              | 测试用例（JSON 数组）                                                                          |
+| `starter_code`   | TEXT     | —                         | `'{}'`              | 初始代码模板（JSON 对象，键为语言）                                                            |
+| `source`         | TEXT     | —                         | `'custom'`          | 题目来源（如 `leetcode`、`builtin`）                                                           |
+| `tracks`         | TEXT     | —                         | `'[]'`              | 所属学习路径（JSON 数组）                                                                      |
+| `platform`       | TEXT     | —                         | `'internal'`        | 来源平台（如 `pat`、`nowcoder`）                                                               |
+| `mode`           | TEXT     | —                         | `'oj'`              | 题目模式：`oj`（默认）/ `simulation` / `data-task` / `case-study` / `report-task` / `practice` |
+| `exam_style`     | TEXT     | —                         | `'acm'`             | 考试风格：`acm`（默认）/ `oa` / `modeling` / `hdl`                                             |
+| `year`           | INTEGER  | —                         | `NULL`              | 年份                                                                                           |
+| `official_url`   | TEXT     | —                         | `NULL`              | 官方链接                                                                                       |
+| `estimated_time` | INTEGER  | —                         | `NULL`              | 预计用时（分钟）                                                                               |
+| `created_at`     | DATETIME | —                         | `CURRENT_TIMESTAMP` | 创建时间                                                                                       |
 
 **JSON 字段格式：**
 
@@ -420,6 +429,135 @@ AI 对话的跨会话长期记忆存储。
 
 ---
 
+### analytics_events — 统计事件表
+
+记录本地学习行为事件，仅本地存储，不对外上报。
+
+| 列名         | 类型     | 约束                      | 默认值              | 说明                  |
+| ------------ | -------- | ------------------------- | ------------------- | --------------------- |
+| `id`         | INTEGER  | PRIMARY KEY AUTOINCREMENT | —                   | 事件 ID               |
+| `event_type` | TEXT     | NOT NULL                  | —                   | 事件类型              |
+| `event_data` | TEXT     | —                         | `'{}'`              | 事件数据（JSON 对象） |
+| `timestamp`  | DATETIME | —                         | `CURRENT_TIMESTAMP` | 事件时间              |
+
+---
+
+### lesson_progress — 课程进度表
+
+记录每节课程的学习状态，`lesson_id` 为唯一键。
+
+| 列名           | 类型    | 约束                                               | 默认值          | 说明              |
+| -------------- | ------- | -------------------------------------------------- | --------------- | ----------------- |
+| `lesson_id`    | TEXT    | PRIMARY KEY                                        | —               | 课程 ID           |
+| `track_id`     | TEXT    | NOT NULL                                           | —               | 所属轨道 ID       |
+| `module_id`    | TEXT    | —                                                  | `NULL`          | 模块 ID           |
+| `status`       | TEXT    | CHECK：`not_started` / `in_progress` / `completed` | `'not_started'` | 学习状态          |
+| `completed`    | INTEGER | —                                                  | `0`             | 是否已完成（0/1） |
+| `last_opened`  | TEXT    | —                                                  | `NULL`          | 最近打开时间      |
+| `completed_at` | TEXT    | —                                                  | `NULL`          | 完成时间          |
+
+---
+
+### lesson_notes — 课程笔记表
+
+每节课程最多一条笔记，支持标签与代码片段。
+
+| 列名            | 类型 | 约束        | 默认值 | 说明                  |
+| --------------- | ---- | ----------- | ------ | --------------------- |
+| `lesson_id`     | TEXT | PRIMARY KEY | —      | 课程 ID               |
+| `content`       | TEXT | —           | `''`   | 笔记内容              |
+| `tags`          | TEXT | —           | `'[]'` | 笔记标签（JSON 数组） |
+| `code_snippets` | TEXT | —           | `'[]'` | 代码片段（JSON 数组） |
+| `updated_at`    | TEXT | —           | `NULL` | 更新时间              |
+
+---
+
+### achievements — 成就定义表
+
+内置成就的定义，`id` 为稳定标识。
+
+| 列名          | 类型    | 约束        | 默认值 | 说明     |
+| ------------- | ------- | ----------- | ------ | -------- |
+| `id`          | TEXT    | PRIMARY KEY | —      | 成就 ID  |
+| `title`       | TEXT    | NOT NULL    | —      | 成就标题 |
+| `description` | TEXT    | —           | `NULL` | 成就描述 |
+| `icon`        | TEXT    | —           | `NULL` | 图标     |
+| `category`    | TEXT    | —           | `NULL` | 分类     |
+| `threshold`   | INTEGER | —           | `1`    | 解锁阈值 |
+
+---
+
+### achievement_progress — 成就进度表
+
+记录每个成就的解锁进度，`achievement_id` 外键关联 `achievements`。
+
+| 列名             | 类型    | 约束                                     | 默认值 | 说明              |
+| ---------------- | ------- | ---------------------------------------- | ------ | ----------------- |
+| `achievement_id` | TEXT    | PRIMARY KEY, REFERENCES achievements(id) | —      | 成就 ID           |
+| `current_value`  | INTEGER | —                                        | `0`    | 当前进度值        |
+| `unlocked`       | INTEGER | —                                        | `0`    | 是否已解锁（0/1） |
+| `unlocked_at`    | TEXT    | —                                        | `NULL` | 解锁时间          |
+
+---
+
+### review_schedule — 复习计划表
+
+间隔复习（SM-2 算法）的调度记录，`exercise_id` 为唯一键。
+
+| 列名            | 类型    | 约束        | 默认值 | 说明           |
+| --------------- | ------- | ----------- | ------ | -------------- |
+| `exercise_id`   | TEXT    | PRIMARY KEY | —      | 练习 ID        |
+| `interval_days` | REAL    | —           | `1`    | 复习间隔（天） |
+| `ease_factor`   | REAL    | —           | `2.5`  | 易度因子       |
+| `repetitions`   | INTEGER | —           | `0`    | 连续答对次数   |
+| `next_review`   | TEXT    | —           | `NULL` | 下次复习时间   |
+| `last_reviewed` | TEXT    | —           | `NULL` | 上次复习时间   |
+
+---
+
+### exercise_drafts — 练习草稿表
+
+练习代码的自动保存草稿，使用 `revision` 做乐观并发控制；删除时写入 `deleted = 1` 墓碑。
+
+| 列名          | 类型    | 约束        | 默认值 | 说明                   |
+| ------------- | ------- | ----------- | ------ | ---------------------- |
+| `exercise_id` | TEXT    | PRIMARY KEY | —      | 练习 ID                |
+| `title`       | TEXT    | —           | `NULL` | 草稿标题               |
+| `code`        | TEXT    | NOT NULL    | `''`   | 草稿代码               |
+| `language`    | TEXT    | —           | `NULL` | 编程语言               |
+| `revision`    | INTEGER | NOT NULL    | `1`    | 修订号（CAS）          |
+| `updated_at`  | TEXT    | —           | `NULL` | 更新时间               |
+| `deleted`     | INTEGER | NOT NULL    | `0`    | 是否已删除（0/1 墓碑） |
+
+---
+
+### exercise_timers — 练习计时表
+
+记录每次练习的耗时与难度，用于统计。
+
+| 列名           | 类型    | 约束                      | 默认值            | 说明       |
+| -------------- | ------- | ------------------------- | ----------------- | ---------- |
+| `id`           | INTEGER | PRIMARY KEY AUTOINCREMENT | —                 | 记录 ID    |
+| `exercise_id`  | TEXT    | NOT NULL                  | —                 | 练习 ID    |
+| `duration_sec` | REAL    | —                         | `NULL`            | 耗时（秒） |
+| `difficulty`   | TEXT    | —                         | `NULL`            | 难度       |
+| `recorded_at`  | TEXT    | —                         | `datetime('now')` | 记录时间   |
+
+---
+
+### schema_migrations — Schema 迁移记录表
+
+按组件记录当前 schema 版本与校验哈希，由主进程迁移逻辑维护。
+
+| 列名          | 类型    | 约束             | 默认值   | 说明                                           |
+| ------------- | ------- | ---------------- | -------- | ---------------------------------------------- |
+| `component`   | TEXT    | PRIMARY KEY      | —        | 组件名（如 `application`、`editor-workspace`） |
+| `version`     | INTEGER | NOT NULL, `>= 0` | —        | 当前 schema 版本                               |
+| `schema_hash` | TEXT    | —                | `NULL`   | schema 校验哈希                                |
+| `updated_at`  | TEXT    | NOT NULL         | 当前时间 | 更新时间                                       |
+
+---
+
 ## 关系图
 
 ```
@@ -448,6 +586,15 @@ ai_configs         —— 独立配置表
 prompt_presets     —— 独立预设表
 memories           —— 独立记忆表
 editor_workspaces (1) ── (N) editor_tabs（ON DELETE CASCADE）
+
+achievements (1) ── (1) achievement_progress（PRIMARY KEY 关联）
+lesson_progress    —— 独立表（课程进度）
+lesson_notes       —— 独立表（课程笔记）
+review_schedule    —— 独立表（SM-2 复习计划）
+exercise_drafts    —— 独立表（练习草稿）
+exercise_timers    —— 独立表（练习计时）
+analytics_events   —— 独立表（本地统计）
+schema_migrations  —— 独立表（组件迁移版本）
 ```
 
 ---
@@ -479,6 +626,12 @@ editor_workspaces (1) ── (N) editor_tabs（ON DELETE CASCADE）
 | `idx_memories_content_lower`             | memories                      | `lower(content)`                        | 记忆去重（大小写不敏感匹配） |
 | `idx_editor_tabs_open_position`          | editor_tabs                   | `workspace_id, status, tab_position`    | 恢复打开标签顺序             |
 | `idx_editor_tabs_closed_at`              | editor_tabs                   | `workspace_id, status, closed_at`       | 恢复最近关闭标签             |
+| `idx_analytics_events_type`              | analytics_events              | `event_type, timestamp`                 | 按类型统计事件               |
+| `idx_analytics_events_timestamp`         | analytics_events              | `timestamp`                             | 按时间范围查询事件           |
+| `idx_lesson_progress_track`              | lesson_progress               | `track_id, completed`                   | 轨道进度查询                 |
+| `idx_review_schedule_next`               | review_schedule               | `next_review`                           | 到期复习查询                 |
+| `idx_achievement_progress_unlocked`      | achievement_progress          | `unlocked`                              | 已解锁成就查询               |
+| `idx_exercise_timers_exercise`           | exercise_timers               | `exercise_id`                           | 按练习查询计时记录           |
 
 ---
 

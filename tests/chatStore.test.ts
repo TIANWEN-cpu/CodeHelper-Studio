@@ -559,8 +559,53 @@ describe('chatStore', () => {
       await sendPending
 
       expect(mockInvoke).not.toHaveBeenCalledWith('ai-chat', expect.anything())
-      expect(useChatStore.getState().error).toBe('AI 请求已取消')
+      // 取消未实际到达在途请求（cancelled: false）时不再显示"已取消"错误，
+      // 只应静默结束本轮：无气泡、无错误横幅、退出流式态。
+      expect(useChatStore.getState().error).toBe(null)
       expect(useChatStore.getState().streaming).toBe(false)
+    })
+
+    it('does not let an older cancelled request clear a newer stream', async () => {
+      seedSession()
+      let resolveFirstSave!: (value: number) => void
+      const firstSave = new Promise<number>((resolve) => {
+        resolveFirstSave = resolve
+      })
+      let saveCalls = 0
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'chat-message-save') {
+          saveCalls += 1
+          return saveCalls === 1 ? firstSave : Promise.resolve(43)
+        }
+        if (channel === 'ai-chat-cancel') return Promise.resolve({ cancelled: false })
+        if (channel === 'ai-chat') {
+          return Promise.resolve({ success: true, requestId: 'second', content: '' })
+        }
+        return Promise.resolve(undefined)
+      })
+
+      const firstSend = useChatStore.getState().sendMessage('first', {
+        captureMemory: false,
+        includeKnowledge: false,
+        includeMemories: false,
+      })
+      await useChatStore.getState().cancelCurrentRequest()
+      await useChatStore.getState().sendMessage('second', {
+        captureMemory: false,
+        includeKnowledge: false,
+        includeMemories: false,
+      })
+      const newerRequestId = useChatStore.getState().currentRequestId
+      expect(newerRequestId).toBeTruthy()
+      expect(useChatStore.getState().streaming).toBe(true)
+
+      resolveFirstSave(42)
+      await firstSend
+
+      const state = useChatStore.getState()
+      expect(state.currentRequestId).toBe(newerRequestId)
+      expect(state.streaming).toBe(true)
+      expect(state.messages.filter((message) => message.role === 'assistant')).toHaveLength(1)
     })
 
     it('does not abort the turn when memory capture throws', async () => {

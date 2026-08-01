@@ -39,6 +39,18 @@ import {
 } from '@/utils/knowledgeLinks'
 import { consumePendingDeepLink, subscribeDeepLink } from '@/lib/deepLink'
 import { recordRecent } from '@/lib/recentItems'
+import {
+  Badge,
+  Button,
+  Card,
+  ConfirmDialog,
+  EmptyState,
+  IconButton,
+  Input,
+  Select,
+  Skeleton,
+  Spinner,
+} from '@/components/ui'
 import type { KnowledgeDoc, KnowledgeLinkAuditRecord } from '@/services/knowledgeService'
 import type {
   KnowledgeRetrievalChannel,
@@ -454,7 +466,9 @@ export function KnowledgeView() {
   const [readingProgress, setReadingProgress] = useState(0)
   const [linkNotice, setLinkNotice] = useState<KnowledgeLinkNotice | null>(null)
   const [mobileTocOpen, setMobileTocOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<KnowledgeDisplayItem | null>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const readerRef = useRef<HTMLDivElement | null>(null)
   const readerScrollRef = useRef<HTMLDivElement | null>(null)
   const scrollFrame = useRef<number | null>(null)
   const headingOffsetsRef = useRef<Array<{ id: string; top: number }>>([])
@@ -662,7 +676,7 @@ export function KnowledgeView() {
     }
   }
 
-  const handleBackToList = () => {
+  const handleBackToList = useCallback(() => {
     setSelectedItem(null)
     setAIContext(null)
     setPendingHeadingId(null)
@@ -670,12 +684,40 @@ export function KnowledgeView() {
     setReadingProgress(0)
     setLinkNotice(null)
     setMobileTocOpen(false)
+  }, [setAIContext])
+
+  // 阅读器打开时：焦点移入覆盖层、Escape 关闭、关闭后还原焦点
+  useEffect(() => {
+    if (!selectedItem) return
+    const previouslyFocused = document.activeElement as HTMLElement | null
+    const reader = readerRef.current
+    const firstFocusable = reader?.querySelector<HTMLElement>(
+      'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    )
+    ;(firstFocusable ?? reader)?.focus()
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.stopPropagation()
+      handleBackToList()
+    }
+    document.addEventListener('keydown', onKeyDown, true)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true)
+      previouslyFocused?.focus?.()
+    }
+    // 仅在阅读器开/关时执行，文档切换不重置焦点
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Boolean(selectedItem), handleBackToList])
+
+  const handleDelete = (item: KnowledgeDisplayItem) => {
+    setDeleteTarget(item)
   }
 
-  const handleDelete = async (item: KnowledgeDisplayItem) => {
-    if (!confirm(`确定要删除知识文档「${item.title}」吗？`)) return
-    await deleteDocument(item.id)
-    if (selectedItem?.id === item.id) setSelectedItem(null)
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return
+    await deleteDocument(deleteTarget.id)
+    if (selectedItem?.id === deleteTarget.id) setSelectedItem(null)
+    setDeleteTarget(null)
   }
 
   const resolveOutlineId = useCallback(
@@ -908,10 +950,12 @@ export function KnowledgeView() {
   }, [activeTitle, detailContent, selectedItem, setAIContext])
 
   return (
-    <div className="h-full flex flex-col bg-[var(--color-bg-base)] overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden">
       <div className="w-full max-w-[1480px] mx-auto p-5 flex flex-col h-full gap-4">
         <div className="flex-shrink-0">
-          <h1 className="text-2xl font-bold text-white tracking-tight mb-2">知识库</h1>
+          <h1 className="mb-2 text-2xl font-bold tracking-tight text-[var(--color-text-primary)]">
+            知识库
+          </h1>
           <p className="text-sm text-[var(--color-text-muted)]">
             {selectedItem
               ? '正在阅读本地 Markdown 文档，可随时让 AI 总结、出复习卡或围绕本文继续提问。'
@@ -920,88 +964,92 @@ export function KnowledgeView() {
         </div>
 
         {!selectedItem && (
-          <div className="grid grid-cols-4 gap-3 flex-shrink-0">
-            <div className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] px-4 py-3">
+          <div className="grid flex-shrink-0 grid-cols-4 gap-3">
+            <Card padding="none" className="px-4 py-3">
               <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
-                <FileText size={14} className="text-[#60A5FA]" />
+                <FileText size={14} className="text-[var(--color-accent-primary)]" />
                 文档
               </div>
-              <div className="mt-1 text-2xl font-bold text-white font-mono">{documents.length}</div>
-            </div>
-            <div className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] px-4 py-3">
+              <div className="mt-1 font-mono text-2xl font-bold text-[var(--color-text-primary)]">
+                {documents.length}
+              </div>
+            </Card>
+            <Card padding="none" className="px-4 py-3">
               <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
-                <Layers3 size={14} className="text-[#10B981]" />
+                <Layers3 size={14} className="text-[var(--color-accent-success)]" />
                 片段
               </div>
-              <div className="mt-1 text-2xl font-bold text-white font-mono">{totalChunks}</div>
-            </div>
-            <div className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] px-4 py-3">
+              <div className="mt-1 font-mono text-2xl font-bold text-[var(--color-text-primary)]">
+                {totalChunks}
+              </div>
+            </Card>
+            <Card padding="none" className="px-4 py-3">
               <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
-                <BookOpen size={14} className="text-[#A78BFA]" />
+                <BookOpen size={14} className="text-[var(--color-accent-purple)]" />
                 主题
               </div>
-              <div className="mt-1 text-2xl font-bold text-white font-mono">
+              <div className="mt-1 font-mono text-2xl font-bold text-[var(--color-text-primary)]">
                 {topicGroups.length}
               </div>
-            </div>
-            <div className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] px-4 py-3">
+            </Card>
+            <Card padding="none" className="px-4 py-3">
               <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
-                <Database size={14} className="text-[#F59E0B]" />
+                <Database size={14} className="text-[var(--color-accent-warning)]" />
                 来源
               </div>
-              <div className="mt-1 text-2xl font-bold text-white font-mono">
+              <div className="mt-1 font-mono text-2xl font-bold text-[var(--color-text-primary)]">
                 {repoGroups.length}
               </div>
-            </div>
+            </Card>
           </div>
         )}
 
         {!selectedItem && (
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <div className="relative flex-1 max-w-xl">
+          <div className="flex flex-shrink-0 items-center gap-3">
+            <div className="relative max-w-xl flex-1">
               <Search
                 size={16}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]"
+                className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-[var(--color-text-muted)]"
               />
-              <input
+              <Input
                 type="text"
                 placeholder="搜索标题、正文片段、来源仓库..."
                 value={query}
                 onChange={handleSearchChange}
-                className="w-full bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent-purple)]"
+                className="pl-9"
+                aria-label="搜索知识库"
               />
             </div>
-            <select
-              value={query.trim() ? 'relevance' : sortMode}
-              onChange={(e) => setSortMode(e.target.value as SortMode)}
-              disabled={Boolean(query.trim())}
-              className="px-3 py-2 text-sm text-[var(--color-text-secondary)] bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-lg outline-none focus:border-[var(--color-accent-primary)]"
-            >
-              <option value="relevance">相关度排序</option>
-              <option value="recent">最近导入</option>
-              <option value="name">标题排序</option>
-              <option value="chunks">片段数量</option>
-            </select>
-            <button
+            <div className="w-36 shrink-0">
+              <Select
+                value={query.trim() ? 'relevance' : sortMode}
+                onChange={(e) => setSortMode(e.target.value as SortMode)}
+                disabled={Boolean(query.trim())}
+                aria-label="排序方式"
+              >
+                <option value="relevance">相关度排序</option>
+                <option value="recent">最近导入</option>
+                <option value="name">标题排序</option>
+                <option value="chunks">片段数量</option>
+              </Select>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => void importPack()}
               disabled={importingResourcePack}
-              className="border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] hover:bg-[var(--color-bg-hover)] text-[var(--color-text-secondary)] hover:text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1 disabled:opacity-50"
               title="选择 import-ready 或 import-batches 批次目录导入"
             >
               <PackageOpen size={14} /> {importingResourcePack ? '导入中...' : '导入资源包'}
-            </button>
-            <button
-              onClick={() => void upload()}
-              disabled={uploading}
-              className="bg-[var(--color-accent-secondary-solid)] hover:bg-[var(--color-accent-secondary-solid-hover)] text-[var(--color-on-accent)] px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1 disabled:opacity-50"
-            >
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => void upload()} disabled={uploading}>
               <Upload size={14} /> {uploading ? '上传中...' : '上传文档'}
-            </button>
+            </Button>
           </div>
         )}
 
         {error && (
-          <div className="px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-lg text-xs text-red-400">
+          <div className="rounded-lg border border-[var(--color-accent-danger)]/30 bg-[var(--color-accent-danger)]/10 px-3 py-2 text-xs text-[var(--color-accent-danger)]">
             {error}
           </div>
         )}
@@ -1012,9 +1060,9 @@ export function KnowledgeView() {
             className={cn(
               'flex items-center gap-2 border-y border-[var(--color-border-subtle)] px-1 py-2 text-xs',
               retrievalStatus && !retrievalStatus.available
-                ? 'text-red-400'
+                ? 'text-[var(--color-accent-danger)]'
                 : retrievalStatus?.degraded
-                  ? 'text-amber-300'
+                  ? 'text-[var(--color-accent-warning)]'
                   : 'text-[var(--color-text-secondary)]',
             )}
           >
@@ -1035,7 +1083,7 @@ export function KnowledgeView() {
           </div>
         )}
         {lastResourcePackImport && (
-          <div className="px-3 py-2 bg-[#10B981]/10 border border-[#10B981]/30 rounded-lg text-xs text-[#10B981]">
+          <div className="rounded-lg border border-[var(--color-accent-success)]/30 bg-[var(--color-accent-success)]/10 px-3 py-2 text-xs text-[var(--color-accent-success)]">
             资源包导入完成：知识文档 {lastResourcePackImport.knowledge.imported} 新增 /{' '}
             {lastResourcePackImport.knowledge.skipped} 跳过，知识片段{' '}
             {lastResourcePackImport.knowledge.chunks}；题目{' '}
@@ -1054,15 +1102,13 @@ export function KnowledgeView() {
                 exit={{ width: 0, opacity: 0 }}
                 className="flex-shrink-0 flex flex-col min-h-0 bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl overflow-hidden"
               >
-                <div className="p-4 border-b border-[var(--color-border-subtle)] flex items-center justify-between">
-                  <span className="font-semibold text-white text-sm">分类导航</span>
-                  <button
-                    onClick={() => setSidebarCollapsed(true)}
-                    className="text-[var(--color-text-muted)] hover:text-white transition-colors"
-                    title="收起分类栏"
-                  >
-                    <PanelLeftClose size={16} />
-                  </button>
+                <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] p-4">
+                  <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+                    分类导航
+                  </span>
+                  <IconButton label="收起分类栏" onClick={() => setSidebarCollapsed(true)}>
+                    <PanelLeftClose />
+                  </IconButton>
                 </div>
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-4">
@@ -1072,7 +1118,7 @@ export function KnowledgeView() {
                       'w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors',
                       activeFilter.kind === 'all'
                         ? 'bg-[var(--color-accent-purple)]/14 text-[var(--color-accent-purple)]'
-                        : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-white',
+                        : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]',
                     )}
                   >
                     <span className="flex items-center gap-2">
@@ -1096,7 +1142,7 @@ export function KnowledgeView() {
                             'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors text-left',
                             activeFilter.kind === 'topic' && activeFilter.value === key
                               ? 'bg-[var(--color-accent-purple)]/14 text-[var(--color-accent-purple)]'
-                              : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-white',
+                              : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]',
                           )}
                         >
                           <span className="truncate">{group.label}</span>
@@ -1122,7 +1168,7 @@ export function KnowledgeView() {
                             'w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left',
                             activeFilter.kind === 'repo' && activeFilter.value === key
                               ? 'bg-[var(--color-accent-purple)]/14 text-[var(--color-accent-purple)]'
-                              : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-white',
+                              : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]',
                           )}
                         >
                           <span className="truncate">{group.label}</span>
@@ -1148,7 +1194,7 @@ export function KnowledgeView() {
                             'rounded-md border px-2 py-1 text-xs transition-colors',
                             activeFilter.kind === 'type' && activeFilter.value === name
                               ? 'border-[var(--color-accent-purple)] text-[var(--color-accent-purple)] bg-[var(--color-accent-purple)]/10'
-                              : 'border-[var(--color-border-subtle)] text-[var(--color-text-muted)] hover:text-white',
+                              : 'border-[var(--color-border-subtle)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]',
                           )}
                         >
                           {name} {count}
@@ -1162,61 +1208,63 @@ export function KnowledgeView() {
           </AnimatePresence>
 
           {sidebarCollapsed && (
-            <div className="w-12 flex-shrink-0 flex flex-col items-center pt-4 bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl">
-              <button
+            <div className="flex w-12 flex-shrink-0 flex-col items-center rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] pt-4">
+              <IconButton
+                label="展开分类栏"
+                variant="outline"
                 onClick={() => setSidebarCollapsed(false)}
-                className="p-2 rounded-lg bg-[var(--color-bg-hover)] text-white hover:bg-white/10 transition-colors"
-                title="展开分类栏"
               >
-                <PanelLeft size={16} />
-              </button>
+                <PanelLeft />
+              </IconButton>
             </div>
           )}
 
           <div className="flex-1 flex flex-col min-h-0 bg-[var(--color-bg-panel)] border border-[var(--color-border-subtle)] rounded-xl overflow-hidden">
-            <div className="p-4 border-b border-[var(--color-border-subtle)] flex items-center justify-between gap-3">
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--color-border-subtle)] p-4">
               <div className="min-w-0">
-                <span className="font-medium text-white text-sm">
+                <span className="text-sm font-medium text-[var(--color-text-primary)]">
                   {query.trim() ? '搜索结果' : activeFilterLabel} ({displayItems.length})
                 </span>
-                <p className="text-[11px] text-[var(--color-text-muted)] mt-1 truncate">
+                <p className="mt-1 truncate text-[11px] text-[var(--color-text-muted)]">
                   当前只渲染第 {safePage} 页的 {visibleItems.length} 条，避免大批量资料滚动卡顿。
                 </p>
               </div>
               <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
-                <button
+                <IconButton
+                  label="上一页"
+                  variant="outline"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={safePage <= 1}
-                  className="rounded-md border border-[var(--color-border-subtle)] p-1.5 disabled:opacity-40 hover:text-white"
-                  title="上一页"
                 >
-                  <ChevronLeft size={15} />
-                </button>
+                  <ChevronLeft />
+                </IconButton>
                 <span className="font-mono">
                   {safePage}/{totalPages}
                 </span>
-                <button
+                <IconButton
+                  label="下一页"
+                  variant="outline"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={safePage >= totalPages}
-                  className="rounded-md border border-[var(--color-border-subtle)] p-1.5 disabled:opacity-40 hover:text-white"
-                  title="下一页"
                 >
-                  <ChevronRight size={15} />
-                </button>
+                  <ChevronRight />
+                </IconButton>
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar p-3">
               {loading && displayItems.length === 0 && (
-                <div className="flex items-center justify-center h-32 text-sm text-[var(--color-text-muted)]">
+                <div className="flex h-32 items-center justify-center gap-2 text-sm text-[var(--color-text-muted)]">
+                  <Spinner size="sm" label="加载知识库" />
                   加载中...
                 </div>
               )}
               {!loading && displayItems.length === 0 && (
-                <div className="flex flex-col items-center justify-center h-48 text-sm text-[var(--color-text-muted)]">
-                  <FileText size={34} className="mb-2 opacity-40" />
-                  {query.trim() ? '没有找到匹配资料' : '暂无资料'}
-                </div>
+                <EmptyState
+                  icon={FileText}
+                  title={query.trim() ? '没有找到匹配资料' : '暂无资料'}
+                  className="h-48 py-0"
+                />
               )}
 
               <div className="space-y-2">
@@ -1232,24 +1280,25 @@ export function KnowledgeView() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <h3 className="truncate text-sm font-semibold text-white group-hover:text-[var(--color-accent-purple)]">
+                          <h3 className="truncate text-sm font-semibold text-[var(--color-text-primary)] group-hover:text-[var(--color-accent-purple)]">
                             {item.title}
                           </h3>
-                          <span className="shrink-0 rounded border border-[#10B981]/25 bg-[#10B981]/10 px-1.5 py-0.5 text-[10px] text-[#10B981]">
+                          <Badge variant="success" className="shrink-0 px-1.5 py-0.5 text-[10px]">
                             {item.fileType}
-                          </span>
+                          </Badge>
                           {formatScore(item.score) && (
                             <span className="shrink-0 text-[10px] text-[var(--color-text-muted)]">
                               {formatScore(item.score)}
                             </span>
                           )}
                           {item.retrievalChannels?.map((channel) => (
-                            <span
+                            <Badge
                               key={channel}
-                              className="shrink-0 rounded border border-[var(--color-border-subtle)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-secondary)]"
+                              variant="neutral"
+                              className="shrink-0 border border-[var(--color-border-subtle)] bg-transparent px-1.5 py-0.5 text-[10px]"
                             >
                               {retrievalChannelLabel(channel)}
-                            </span>
+                            </Badge>
                           ))}
                         </div>
                         <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[var(--color-text-muted)]">
@@ -1262,12 +1311,12 @@ export function KnowledgeView() {
                           </p>
                         )}
                         <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <span className="rounded bg-[var(--color-bg-panel)] px-2 py-0.5 text-[11px] text-[var(--color-text-secondary)]">
+                          <Badge variant="neutral" className="text-[11px] font-normal">
                             {item.topic}
-                          </span>
-                          <span className="rounded bg-[var(--color-bg-panel)] px-2 py-0.5 text-[11px] text-[var(--color-text-secondary)]">
+                          </Badge>
+                          <Badge variant="neutral" className="text-[11px] font-normal">
                             {item.repo}
-                          </span>
+                          </Badge>
                           <span className="text-[11px] text-[var(--color-text-muted)]">
                             {item.source === 'search'
                               ? `${item.sourcePath || item.filename} · 片段 #${(item.chunkIndex ?? 0) + 1}`
@@ -1280,6 +1329,7 @@ export function KnowledgeView() {
                         <span
                           role="button"
                           tabIndex={0}
+                          aria-label="删除文档"
                           onClick={(e) => {
                             e.stopPropagation()
                             void handleDelete(item)
@@ -1290,7 +1340,7 @@ export function KnowledgeView() {
                             e.stopPropagation()
                             void handleDelete(item)
                           }}
-                          className="ml-1 cursor-pointer p-1 text-[var(--color-text-muted)] hover:text-red-400"
+                          className="ml-1 cursor-pointer p-1 text-[var(--color-text-muted)] hover:text-[var(--color-accent-danger)]"
                           title="删除文档"
                         >
                           <Trash2 size={14} />
@@ -1307,7 +1357,12 @@ export function KnowledgeView() {
       {selectedItem &&
         createPortal(
           <motion.div
-            className="knowledge-reader-overlay fixed inset-0 z-[120] flex flex-col"
+            ref={readerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`知识文档阅读器：${activeTitle || selectedItem.title}`}
+            tabIndex={-1}
+            className="knowledge-reader-overlay fixed inset-0 z-[120] flex flex-col outline-none"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -1570,8 +1625,12 @@ export function KnowledgeView() {
                   )}
 
                   {loadingDocument && !detailContent ? (
-                    <div className="py-20 text-center text-sm text-[var(--color-text-muted)]">
-                      正在读取文档正文...
+                    <div className="space-y-4 py-8" aria-busy="true">
+                      <Skeleton className="h-6 w-2/5" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-3/4" />
+                      <span className="sr-only">正在读取文档正文...</span>
                     </div>
                   ) : documentError ? (
                     <div className="knowledge-reader-error rounded-md p-6 text-center" role="alert">
@@ -1610,6 +1669,15 @@ export function KnowledgeView() {
           </motion.div>,
           document.body,
         )}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="删除知识文档"
+        description={deleteTarget ? `确定要删除知识文档「${deleteTarget.title}」吗？` : undefined}
+        confirmText="删除"
+        danger
+        onConfirm={() => void handleConfirmDelete()}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }

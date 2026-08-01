@@ -237,7 +237,7 @@ SQLite 数据库文件位置：
 
 ### Q: 如何报告 Bug？
 
-在 [GitHub Issues](https://github.com/TIANWEN-cpu/CodeHelper/issues) 中使用 Bug 报告模板提交，包含：
+在 [GitHub Issues](https://github.com/TIANWEN-cpu/CodeHelper-Studio/issues) 中使用 Bug 报告模板提交，包含：
 
 - 问题描述
 - 复现步骤
@@ -246,7 +246,7 @@ SQLite 数据库文件位置：
 
 ### Q: 如何请求新功能？
 
-在 [GitHub Issues](https://github.com/TIANWEN-cpu/CodeHelper/issues) 中使用功能请求模板提交，包含：
+在 [GitHub Issues](https://github.com/TIANWEN-cpu/CodeHelper-Studio/issues) 中使用功能请求模板提交，包含：
 
 - 功能描述
 - 使用场景
@@ -254,7 +254,7 @@ SQLite 数据库文件位置：
 
 ### Q: 项目的许可证是什么？
 
-CodeHelper 基于 [MIT License](https://github.com/TIANWEN-cpu/CodeHelper/blob/main/LICENSE) 开源。
+CodeHelper 基于 [MIT License](https://github.com/TIANWEN-cpu/CodeHelper-Studio/blob/master/LICENSE) 开源。
 
 ---
 

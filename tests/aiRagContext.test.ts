@@ -73,6 +73,19 @@ describe('injectRagContext', () => {
     expect(injectRagContext(baseMessages, rag)).toBe(baseMessages)
   })
 
+  it('userProfile 为 null（无真实画像数据）时完全不注入画像片段', () => {
+    const rag: RagContext = {
+      knowledgeChunks: ['快速排序是分治算法'],
+      userProfile: null,
+    }
+    const result = injectRagContext(baseMessages, rag)
+    expect(result.length).toBe(2)
+    expect(result[0].content).toContain('快速排序是分治算法')
+    expect(result[0].content).not.toContain('用户画像')
+    expect(result[0].content).not.toContain('zh-CN')
+    expect(result[0].content).not.toContain('beginner')
+  })
+
   it('限制片段数量上限（最多 8 条）', () => {
     const chunks = Array.from({ length: 20 }, (_, i) => `片段编号${i}`)
     const result = injectRagContext(baseMessages, { knowledgeChunks: chunks })

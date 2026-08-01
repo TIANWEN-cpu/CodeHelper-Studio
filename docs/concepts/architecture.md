@@ -1,5 +1,7 @@
 # 系统架构
 
+> 本文为补充视角；权威架构文档为 [docs/architecture.md](../architecture.md)。
+
 本文档深入介绍 CodeHelper 的整体架构设计、技术栈选型、目录结构和模块职责。
 
 ## 架构总览

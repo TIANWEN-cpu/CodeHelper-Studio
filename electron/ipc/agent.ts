@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { BrowserWindow, dialog, ipcMain } from 'electron'
 import { getDB } from '../db/index'
 import {
   appendAgentAuditEvent,
@@ -29,6 +29,34 @@ import { createHash } from 'crypto'
 const MAX_AGENT_GOAL_CHARS = 4_000
 const APPROVAL_TTL_MS = 10 * 60_000
 const activeExecutions = new Map<string, AbortController>()
+
+interface AgentApprovalDialogOptions {
+  toolName: string
+  inputSummary: Record<string, unknown>
+}
+
+type AgentApprovalDialogFn = (options: AgentApprovalDialogOptions) => Promise<boolean>
+
+function defaultApprovalDialog(options: AgentApprovalDialogOptions): Promise<boolean> {
+  const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+  return dialog
+    .showMessageBox(win, {
+      type: 'warning',
+      buttons: ['批准执行', '拒绝'],
+      defaultId: 1,
+      cancelId: 1,
+      title: 'Agent 工具执行确认',
+      message: '是否允许 Agent 执行此工具？',
+      detail: `${options.toolName}\n${JSON.stringify(options.inputSummary)}`,
+    })
+    .then((result) => result.response === 0)
+}
+
+let approvalDialog: AgentApprovalDialogFn = defaultApprovalDialog
+
+export function __setApprovalDialogForTest(fn: AgentApprovalDialogFn | null): void {
+  approvalDialog = fn ?? defaultApprovalDialog
+}
 
 function validateId(value: unknown, label: string): string {
   if (typeof value !== 'string' || !value.trim()) throw new Error(`参数无效: ${label}`)
@@ -202,6 +230,26 @@ export function registerAgentIPC(): void {
         senderId: event.sender.id,
       })
       return updateAgentRunStatus(database, run.id, 'failed', 'Agent 审批已过期')
+    }
+    if (call.approvalRequired) {
+      const definitions = await getAgentToolDefinitions(database)
+      const toolName = definitions.find((tool) => tool.id === call.toolId)?.label ?? call.toolId
+      const dialogApproved = await approvalDialog({
+        toolName,
+        inputSummary: call.inputSummary,
+      })
+      if (!dialogApproved) {
+        const note = 'User rejected the Agent tool request.'
+        const rejected = decideAgentApproval(database, call.id, 'rejected', note)
+        if (!rejected) throw new Error('Agent 审批已被其他请求处理')
+        activeExecutions.get(run.id)?.abort()
+        updateAgentToolCall(database, call.id, 'rejected', { error: note })
+        appendAgentAuditEvent(database, run.id, call.id, 'approval.rejected', {
+          senderId: event.sender.id,
+          note,
+        })
+        return updateAgentRunStatus(database, run.id, 'cancelled', note)
+      }
     }
     const decided = decideAgentApproval(
       database,

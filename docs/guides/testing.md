@@ -8,26 +8,19 @@
 
 ```
 tests/
-├── electron/               # 主进程测试
-│   ├── ipc/                # IPC 处理器测试
-│   │   ├── ai.test.ts
-│   │   ├── chat.test.ts
-│   │   ├── database.test.ts
-│   │   ├── mistakes.test.ts
-│   │   ├── problems.test.ts
-│   │   ├── rag.test.ts
-│   │   └── runner.test.ts
-│   └── db/                 # 数据库层测试
-│       └── index.test.ts
-├── src/                    # 渲染进程测试
-│   ├── stores/             # Store 测试
-│   │   ├── problemStore.test.ts
-│   │   ├── editorStore.test.ts
-│   │   ├── chatStore.test.ts
-│   │   └── settingsStore.test.ts
-│   ├── hooks/              # Hook 测试
-│   └── utils/              # 工具函数测试
-└── integration/            # 集成测试
+├── *.test.ts               # 主进程与渲染进程测试（扁平结构，按被测模块命名）
+│   ├── chatIpc.test.ts
+│   ├── problemsIpc.test.ts
+│   ├── dbIndex.test.ts
+│   ├── problemStore.test.ts
+│   ├── editorStore.test.ts
+│   └── settingsStore.test.ts
+├── integration/            # 集成测试（如 dockerIsolation.integration.test.ts）
+├── e2e/                    # Electron E2E（Playwright，*.spec.ts）
+├── property/               # 属性测试（*.property.test.ts）
+├── benchmark/              # 基准测试（vitest bench，*.bench.ts）
+├── ui/                     # UI 组件测试
+└── fixtures/               # 测试夹具与评测数据
     ├── problemFlow.test.ts
     ├── chatFlow.test.ts
     ├── editorFlow.test.ts
@@ -323,16 +316,16 @@ vi.mock('../../src/api/ipc', () => ({
 
 ## 覆盖率
 
-运行 `npm run test:coverage` 生成覆盖率报告。目标覆盖率：
+运行 `npm run test:coverage` 生成覆盖率报告。覆盖率门槛：
 
-| 指标       | 目标 |
-| ---------- | ---- |
-| 语句覆盖率 | 80%+ |
-| 分支覆盖率 | 75%+ |
-| 函数覆盖率 | 80%+ |
-| 行覆盖率   | 80%+ |
+| 指标       | CI 强制门槛 | 最近一次发布实测 |
+| ---------- | ----------- | ---------------- |
+| 语句覆盖率 | 57%         | 73.06%           |
+| 分支覆盖率 | 57%         | 68.38%           |
+| 函数覆盖率 | 57%         | 79.17%           |
+| 行覆盖率   | 57%         | 75.48%           |
 
-覆盖率报告输出到 `coverage/` 目录，包含 HTML 格式的可视化报告。
+门槛由 `vitest.config.ts` 的 coverage.thresholds 强制执行（57/57/57/57），提交时不应低于当前实测水平。覆盖率报告输出到 `coverage/` 目录，包含 HTML 格式的可视化报告。
 
 ## 最佳实践
 

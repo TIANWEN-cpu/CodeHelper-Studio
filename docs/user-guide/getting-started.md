@@ -4,25 +4,24 @@
 
 ## 环境要求
 
-| 工具     | 最低版本 | 推荐版本 | 说明                    |
-| -------- | -------- | -------- | ----------------------- |
-| Node.js  | 18       | 20 LTS   | 运行时环境              |
-| npm      | 9        | 最新     | 随 Node.js 安装         |
-| 操作系统 | -        | -        | Windows / macOS / Linux |
+| 工具     | 最低版本            | 推荐版本   | 说明                    |
+| -------- | ------------------- | ---------- | ----------------------- |
+| Node.js  | 20.19+ / 22.13+ LTS | 22.13+ LTS | 运行时环境              |
+| npm      | 10                  | 最新       | 随 Node.js 安装         |
+| 操作系统 | -                   | -          | Windows / macOS / Linux |
 
 ### 代码运行器可选依赖
 
 代码运行器功能需要系统中安装对应的编译器或运行时。未安装的语言不影响其他功能使用。
 
-| 语言    | 依赖             | 安装说明                                                                      |
-| ------- | ---------------- | ----------------------------------------------------------------------------- |
-| Python  | `python` >= 3.8  | [python.org](https://www.python.org/downloads/) 或系统包管理器                |
-| C       | `gcc`            | Windows: MinGW-w64; macOS: `xcode-select --install`; Linux: `build-essential` |
-| C++     | `g++`            | 同上                                                                          |
-| C#      | `dotnet` >= 6    | [dotnet.microsoft.com](https://dotnet.microsoft.com/download)                 |
-| Java    | `javac` / `java` | [Adoptium](https://adoptium.net/)                                             |
-| Node.js | `node`           | 已随 Node.js 安装                                                             |
-| SQL     | 无需额外依赖     | 内置内存数据库执行                                                            |
+| 语言    | 依赖            | 安装说明                                                                      |
+| ------- | --------------- | ----------------------------------------------------------------------------- |
+| Python  | `python` >= 3.8 | [python.org](https://www.python.org/downloads/) 或系统包管理器                |
+| C       | `gcc`           | Windows: MinGW-w64; macOS: `xcode-select --install`; Linux: `build-essential` |
+| C++     | `g++`           | 同上                                                                          |
+| C#      | `dotnet` >= 6   | [dotnet.microsoft.com](https://dotnet.microsoft.com/download)                 |
+| Node.js | `node`          | 已随 Node.js 安装                                                             |
+| SQL     | 无需额外依赖    | 内置内存数据库执行                                                            |
 
 ## 安装
 
@@ -30,8 +29,8 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/TIANWEN-cpu/CodeHelper.git
-cd CodeHelper
+git clone https://github.com/TIANWEN-cpu/CodeHelper-Studio.git
+cd CodeHelper-Studio
 
 # 安装依赖
 npm install
@@ -48,7 +47,7 @@ npm run dev
 
 ### 方式二：使用安装包
 
-1. 从 [GitHub Releases](https://github.com/TIANWEN-cpu/CodeHelper/releases) 下载最新安装包
+1. 从 [GitHub Releases](https://github.com/TIANWEN-cpu/CodeHelper-Studio/releases) 下载最新安装包
 2. Windows 用户下载 `CodeHelper Setup x.x.x.exe`，双击安装
 3. 也可使用免安装版 `win-unpacked/CodeHelper.exe` 直接运行
 

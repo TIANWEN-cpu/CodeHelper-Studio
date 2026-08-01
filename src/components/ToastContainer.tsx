@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useToastStore, type ToastType } from '@/stores/toastStore'
 
 const ICONS: Record<ToastType, typeof Info> = {
@@ -9,9 +10,9 @@ const ICONS: Record<ToastType, typeof Info> = {
 }
 
 const COLORS: Record<ToastType, string> = {
-  success: '#10B981',
-  error: '#EF4444',
-  info: '#6366F1',
+  success: 'text-[var(--color-accent-success)]',
+  error: 'text-[var(--color-accent-danger)]',
+  info: 'text-[var(--color-accent-purple)]',
 }
 
 /**
@@ -36,9 +37,9 @@ export function ToastContainer() {
               exit={{ opacity: 0, x: 24, scale: 0.96 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
               role="status"
-              className="pointer-events-auto flex items-start gap-3 min-w-[260px] max-w-[360px] rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] px-4 py-3 shadow-lg"
+              className="pointer-events-auto flex items-start gap-3 min-w-[260px] max-w-[360px] rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-panel)] px-4 py-3 shadow-[var(--shadow-popover)]"
             >
-              <Icon size={18} style={{ color: COLORS[t.type] }} className="mt-0.5 shrink-0" />
+              <Icon size={18} className={cn('mt-0.5 shrink-0', COLORS[t.type])} />
               <p className="flex-1 text-sm text-[var(--color-text-primary)] leading-snug break-words">
                 {t.message}
               </p>
@@ -46,7 +47,7 @@ export function ToastContainer() {
                 type="button"
                 onClick={() => dismiss(t.id)}
                 aria-label="关闭通知"
-                className="shrink-0 rounded-md p-0.5 text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-bg-hover)] transition-colors"
+                className="shrink-0 rounded-md p-0.5 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
               >
                 <X size={14} />
               </button>

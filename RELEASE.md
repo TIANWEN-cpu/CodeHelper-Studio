@@ -1,52 +1,36 @@
-# CodeHelper v2.4.1 Release Notes
+# CodeHelper v2.4.2 Release Notes
 
-发布日期：2026-07-19
+发布日期：2026-08-02
 
 ## 概览
 
-v2.4.1 是一次知识库数据质量与阅读体验更新。它清理真实语料中的重复、空页、模板和占位内容，持久化规范分类、来源与链接状态，并用验证型备份、事务写入和维护动作快照保证全过程可审计。
+v2.4.2 是一次面向桌面端可靠性和数据安全的维护版本。重点覆盖工作区恢复、AI 请求生命周期、代码运行器退出清理、IPC 防护和界面交互一致性。所有关键路径都经过单元测试、真实 Electron E2E 和生产构建验证。
 
-## Windows 发布说明
+## 主要更新
 
-本版本的 Windows Installer 与 Portable 资产按当前项目策略有意保持未签名。Windows 可能显示
-“未知发布者”或触发 SmartScreen；用户应仅从本仓库 Release 下载，并使用随附的
-`SHA256SUMS.txt` 校验文件。发布工作流会验证所有相关 EXE 的 Authenticode 状态严格为
-`NotSigned`，同时保留完整安装、运行、重启、卸载、资源、Fuses、哈希和 Immutable Release 门禁。
+- 工作区和草稿恢复覆盖语言切换、光标/滚动位置、多窗口同步、标签拓扑、异常退出以及 renderer-only crash 场景。
+- AI IPC 增加并发上限、流式 chunk 合并、取消竞态保护和会话切换隔离；网络抖动时不会清空已有会话列表。
+- 代码运行 utility、Windows Job Host 和 Electron E2E teardown 均使用有界退出等待；Windows 强制终止后及时释放运行容量。
+- 数据库记录实际 schema 指纹，schema 或迁移片段发生变化时先创建验证型迁移前备份。
+- 生产环境隔离测试 hook 和 renderer 路径信任；未知资源包分类继续 fail-closed。
+- 删除确认统一改用设计系统对话框，并补齐加载态、恢复提示、浅色主题可读性和通用 UI 组件。
 
-## 亮点
+## 修复
 
-- **真实语料治理**：删除经过复核的同源重复、空页、模板、占位、极短分类 stub 和无入链 sidebar，清理后保留 2141 篇文档与 10618 个 chunks。
-- **持久化 metadata**：7 类规范分类、展示标题、来源仓库、源文件、commit、标签、可见性和正文 SHA-256 进入 SQLite。
-- **链接审计**：38,470 条相对链接、本地语料、外链与异常状态统一记录并展示；404、临时错误、受限和畸形地址不会混为一类。
-- **长文阅读**：新增目录、标题定位、阅读进度、来源信息、全文 AI 上下文和加载失败重试。
-- **隐私保护**：不可信 Markdown 不再自动加载第三方图片，外链通过受控 IPC 打开。
-- **维护安全**：Windows CLI 严格执行只读审计、dry-run、验证备份、单事务 apply 和只读 verify。
+- 修复切换工作区语言可能替换当前代码的问题。
+- 修复并发 AI 请求在取消、切换会话或删除会话时污染新会话消息的问题。
+- 修复 utility / Job Host 清理等待无限挂起和 Windows 终止后并发槽位不归还的问题。
+- 修复 Electron E2E teardown 卡死导致测试超时的问题；诊断采集和进程退出现在都有硬上限。
 
-## 安全与依赖
+## 验证结果
 
-- 人工删除规则绑定文档 ID、文件名、正文哈希和来源信息，防止数据库重建后 ID 复用造成误删。
-- 备份 manifest 绑定源数据库身份和计划 SHA，并验证完整文件哈希与 SQLite `quick_check`。
-- apply 前后核对核心数据、metadata、链接、FTS、维护运行和每条动作快照；任一失败都会回滚。
-- Markdown 图片默认转为显式链接，避免阅读文档时向任意第三方发送请求。
-- 完整 `npm audit` 为 0。
+- Vitest：149 个测试文件通过，2573 个测试通过，15 个跳过。
+- Electron E2E：25/25 通过。
+- `npm run lint`、`npm run format:check`、`npm run typecheck`、`npm run build`：全部通过。
+- `npm audit --audit-level=high`：0 vulnerabilities。
 
-## 开发与发布
+## Windows 下载说明
 
-- 应用 schema 提升至 2，迁移前自动备份；全量 metadata 回填只在 v1 到 v2 时执行。
-- 资源包优先使用受控 `manifest.id` 分类，未知知识分类 fail closed。
-- 版本脚本同步更新 package 与 lockfile 版本。
-- Windows 发布继续使用既有未签名资产、哈希、安装、重启、卸载和 Immutable Release 门禁。
+正式 Windows Release 由 GitHub Actions 从发布 tag 重新构建并验证。Installer 和 Portable 包继续采用明确的未签名模式，Windows 可能显示“未知发布者”或 SmartScreen 提示。请只从本仓库 Release 下载，并使用随附的 `SHA256SUMS.txt` 校验文件完整性。
 
-## 验证
-
-- Vitest：2589 通过，2 条专用用例跳过；覆盖率为 Statements 73.06%、Branches 68.38%、Functions 79.17%、Lines 75.48%。
-- Python SQLite 维护测试：18/18。
-- 知识库 Electron E2E：3/3；真实清理后数据库的隔离副本完成应用 schema 1 到 2 启动迁移，metadata、链接和维护动作指纹保持不变。
-- Windows 全量 Electron E2E：25/25；Docker isolation：28/28；知识检索：36/36；Agent：23/23。
-- Electron drafts、workspace、database recovery、SQL utility、runner utility 和 Job Host 原生 harness 全部通过。
-- TypeScript、ESLint、Prettier、生产构建和生产/完整依赖审计通过。
-- Windows package smoke、正式 release workflow 和发布后资产验证由 `v2.4.1` 发布门禁继续执行。
-
-## 升级说明
-
-数据库迁移会在写入前创建验证型快照。升级前应退出旧版本，并把整个 Electron `userData` 目录复制到外部位置。便携 JSON 只覆盖部分逻辑数据，不能替代完整数据库或 `userData` 备份。
+完整变更见 [CHANGELOG.md](https://github.com/TIANWEN-cpu/CodeHelper-Studio/blob/master/CHANGELOG.md)，开发和发布流程见 [README.md](https://github.com/TIANWEN-cpu/CodeHelper-Studio#readme)。

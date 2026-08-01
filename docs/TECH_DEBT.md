@@ -34,7 +34,7 @@
 
 **所有「现行/面向用户」文档的 Monaco 编辑器引用已修正为 CodeMirror**：architecture、quickstart、glossary、docs/README、developer-guide/architecture、concepts/architecture、comparison、user-guide/editor-guide、accessibility、api/utilities、api/state-management、faq、features-showcase、onboarding/_、troubleshooting_、reference/components、performance-budgets、developer-guide/debugging、user-guide/getting-started、user-guide/settings 等。
 
-**有意保留 Monaco 的「历史/审计」文档**（按其撰写时的事实记录，改动会篡改历史）：`adr/*`、`changelog-extended.md`、`release-notes-v1.1.0.md`、`MATURITY_SCORECARD.md`、`PRODUCT_AUDIT.md`、`QUALITY_AUDIT.md`、`STRATEGIC_ASSESSMENT.md`、`improvement-plan.md`、`maturity-plan.md`、`dependency-audit.md`、`security-audit.md`、`project-info/*`、`superpowers/*`、`search-index.md`。
+**有意保留 Monaco 的「历史/审计」文档**（按其撰写时的事实记录，改动会篡改历史）：`adr/*`、`release-notes-v1.1.0.md`、`MATURITY_SCORECARD.md`、`PRODUCT_AUDIT.md`、`QUALITY_AUDIT.md`、`STRATEGIC_ASSESSMENT.md`、`improvement-plan.md`、`maturity-plan.md`、`dependency-audit.md`、`security-audit.md`、`search-index.md`。
 
 **保留**：`platform-notes.md` 中的 "Monaco" 指 macOS 字体（非编辑器），正确，保留。
 

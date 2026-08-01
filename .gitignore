@@ -58,3 +58,7 @@ output/
 # Local knowledge-maintenance audit artifacts
 codehelper-knowledge-*.json
 
+# Stray artifacts
+typescript
+/scripts/screenshot-views.js
+

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Trash2, Check, Loader2, Star, Pencil, X, RefreshCw, Server } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ConfirmDialog } from '@/components/ui'
 import { useSettingsData } from '../../hooks/useSettingsData'
 import type { AIConfig } from '../../services/settingsService'
 
@@ -32,6 +33,7 @@ export function AIModelSettings() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<AIConfig | null>(null)
 
   useEffect(() => {
     loadAIConfigs().catch(() => {})
@@ -214,9 +216,14 @@ export function AIModelSettings() {
     }
   }
 
-  const handleDelete = async (cfg: AIConfig) => {
-    if (cfg.id == null) return
-    if (!window.confirm(`确定删除模型配置「${cfg.name}」？`)) return
+  const handleDelete = (cfg: AIConfig) => {
+    if (cfg.id != null) setPendingDelete(cfg)
+  }
+
+  const confirmDelete = async () => {
+    const cfg = pendingDelete
+    if (cfg?.id == null) return
+    setPendingDelete(null)
     setError(null)
     try {
       await deleteAIConfig(cfg.id)
@@ -515,6 +522,15 @@ export function AIModelSettings() {
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="删除模型配置"
+        description={pendingDelete ? `确定删除模型配置「${pendingDelete.name}」？` : undefined}
+        confirmText="删除"
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </>
   )
 }

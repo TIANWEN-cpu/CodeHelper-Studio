@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Trash2, Star, Loader2, Sparkles, Plus, Pin, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ConfirmDialog } from '@/components/ui'
 import {
   listMemories,
   saveMemory,
@@ -51,6 +52,7 @@ export function MemorySettings() {
   const [newCategory, setNewCategory] = useState<MemoryCategory>('fact')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<number[] | null>(null)
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -105,12 +107,10 @@ export function MemorySettings() {
     })
   }
 
-  const runBatch = async (action: BatchAction) => {
-    if (selected.size === 0) return
-    if (action === 'delete' && !window.confirm(`确定删除选中的 ${selected.size} 条记忆？`)) return
+  const executeBatch = async (action: BatchAction, ids: number[]) => {
     setBusy(true)
     try {
-      await batchMemories([...selected], action)
+      await batchMemories(ids, action)
       setSelected(new Set())
       await reload()
     } catch (e) {
@@ -118,6 +118,16 @@ export function MemorySettings() {
     } finally {
       setBusy(false)
     }
+  }
+
+  const runBatch = async (action: BatchAction) => {
+    if (selected.size === 0) return
+    const ids = [...selected]
+    if (action === 'delete') {
+      setPendingDeleteIds(ids)
+      return
+    }
+    await executeBatch(action, ids)
   }
 
   const addMemory = async () => {
@@ -418,6 +428,21 @@ export function MemorySettings() {
           </ul>
         )}
       </div>
+      <ConfirmDialog
+        open={pendingDeleteIds !== null}
+        title="删除记忆"
+        description={
+          pendingDeleteIds ? `确定删除选中的 ${pendingDeleteIds.length} 条记忆？` : undefined
+        }
+        confirmText="删除"
+        danger
+        onConfirm={async () => {
+          const ids = pendingDeleteIds
+          setPendingDeleteIds(null)
+          if (ids) await executeBatch('delete', ids)
+        }}
+        onCancel={() => setPendingDeleteIds(null)}
+      />
     </div>
   )
 }

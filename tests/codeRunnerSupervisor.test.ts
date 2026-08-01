@@ -331,7 +331,7 @@ describe('code runner utility supervisor', () => {
         await vi.advanceTimersByTimeAsync(5_999)
         expect(host.kill).not.toHaveBeenCalled()
 
-        await vi.advanceTimersByTimeAsync(1)
+        await vi.advanceTimersByTimeAsync(2_001)
         expect(host.kill).toHaveBeenCalledWith('SIGKILL')
         await expect(running).resolves.toMatchObject({
           exitCode: 1,
@@ -344,7 +344,7 @@ describe('code runner utility supervisor', () => {
   )
 
   it.skipIf(process.platform !== 'win32')(
-    'keeps a result pending after forced shutdown until both exits are confirmed',
+    'bounds successful cleanup when utility and job-host exit events never arrive',
     async () => {
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
       try {
@@ -364,21 +364,13 @@ describe('code runner utility supervisor', () => {
         await nextTurn()
         expect(child.postMessage).toHaveBeenCalledWith(request)
 
-        await vi.advanceTimersByTimeAsync(2_000)
+        await vi.advanceTimersByTimeAsync(7_999)
         expect(child.kill).toHaveBeenCalled()
         expect(host.kill).toHaveBeenCalledWith('SIGKILL')
         expect(settled).not.toHaveBeenCalled()
 
-        child.emit('exit', 1)
-        await nextTurn()
-        expect(settled).not.toHaveBeenCalled()
-
-        host.emit('close', 1)
-        await expect(running).resolves.toMatchObject({
-          stdout: '',
-          exitCode: 1,
-          stderr: expect.stringContaining('作业对象控制器异常退出'),
-        })
+        await vi.advanceTimersByTimeAsync(1)
+        await expect(running).resolves.toMatchObject({ stdout: 'ok\n', exitCode: 0 })
       } finally {
         vi.useRealTimers()
       }
@@ -418,6 +410,45 @@ describe('code runner utility supervisor', () => {
         exitCode: 1,
         stderr: expect.stringContaining('runner failed'),
       })
+    },
+  )
+  it.skipIf(process.platform !== 'win32')(
+    'bounded shutdown: a utility that never exits cannot hang a failed run',
+    async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      try {
+        const events: string[] = []
+        const host = mockHost(events)
+        const child = mockUtility(events, {
+          host,
+          respondAfterPost: false,
+          exitOnKill: false,
+        })
+        // A PID outside the real PID space so force-kill is a no-op ESRCH.
+        child.pid = 2_147_480_999
+        mocks.utilityFork.mockReturnValue(child as any)
+        mocks.spawn.mockReturnValue(host as any)
+
+        const running = runCodeInUtility(request)
+        await nextTurn()
+        expect(child.postMessage).toHaveBeenCalledWith(request)
+
+        // The utility errors without responding, forcing the shutdown path,
+        // and it never emits 'exit' — shutdown must still settle within the
+        // bounded grace instead of awaiting utilityExited forever.
+        child.emit('error', 'launch-failed')
+        await nextTurn()
+        expect(host.kill).toHaveBeenCalledWith('SIGKILL')
+        expect(child.kill).toHaveBeenCalled()
+
+        await vi.advanceTimersByTimeAsync(2_100)
+        await expect(running).resolves.toMatchObject({
+          exitCode: 1,
+          stderr: expect.stringContaining('launch-failed'),
+        })
+      } finally {
+        vi.useRealTimers()
+      }
     },
   )
 })

@@ -16,22 +16,21 @@ import {
   CircleUser,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Badge, IconButton, Skeleton } from '@/components/ui'
 import { useAppStore } from '@/store'
 import * as homeService from '@/services/homeService'
 import type { HomeOverview } from '@/services/homeService'
 import type { ViewType } from '@/types'
 
 export function Sidebar() {
-  const {
-    currentView,
-    setCurrentView,
-    showAITutor,
-    toggleAITutor,
-    theme,
-    toggleTheme,
-    sidebarCollapsed: collapsed,
-    toggleSidebar,
-  } = useAppStore()
+  const currentView = useAppStore((state) => state.currentView)
+  const setCurrentView = useAppStore((state) => state.setCurrentView)
+  const showAITutor = useAppStore((state) => state.showAITutor)
+  const toggleAITutor = useAppStore((state) => state.toggleAITutor)
+  const theme = useAppStore((state) => state.theme)
+  const toggleTheme = useAppStore((state) => state.toggleTheme)
+  const collapsed = useAppStore((state) => state.sidebarCollapsed)
+  const toggleSidebar = useAppStore((state) => state.toggleSidebar)
   const [overview, setOverview] = useState<HomeOverview | null>(null)
   const [viewportCompact, setViewportCompact] = useState(
     () => typeof window !== 'undefined' && window.innerWidth <= 720,
@@ -128,12 +127,12 @@ export function Sidebar() {
       {/* Logo Area */}
       <div
         className={cn(
-          'h-16 flex items-center mb-2 transition-all duration-300',
+          'h-14 flex items-center mb-2 transition-all duration-300',
           compact ? 'justify-center px-0' : 'px-5',
         )}
       >
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[var(--color-accent-solid)] to-[var(--color-accent-secondary-solid)] flex items-center justify-center text-[var(--color-on-accent)] shrink-0 shadow-sm">
+          <div className="w-8 h-8 rounded-lg bg-[var(--color-accent-primary)] flex items-center justify-center on-accent-bright shrink-0">
             <Code size={18} strokeWidth={2.5} />
           </div>
           {!compact && (
@@ -143,7 +142,7 @@ export function Sidebar() {
               exit={{ opacity: 0, width: 0 }}
               className="overflow-hidden whitespace-nowrap"
             >
-              <h1 className="font-bold text-[15px] tracking-wide text-white leading-tight">
+              <h1 className="font-bold text-[15px] tracking-wide text-[var(--color-text-primary)] leading-tight">
                 CodeHelper
               </h1>
               <p className="text-[10px] text-[var(--color-text-muted)] font-medium">
@@ -171,10 +170,10 @@ export function Sidebar() {
               data-testid={`nav-${item.id}`}
               onClick={() => setCurrentView(item.id)}
               className={cn(
-                'w-full flex items-center rounded-lg text-sm font-medium transition-colors group relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg-panel)]',
-                compact ? 'justify-center py-3' : 'gap-3 px-3 py-2.5',
+                'w-full flex items-center rounded-lg text-sm font-medium transition-colors group relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg-panel)]',
+                compact ? 'justify-center py-2.5' : 'gap-3 px-3 py-2',
                 showActiveIndicator
-                  ? 'bg-[var(--color-bg-active)] text-[var(--color-text-primary)] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-accent-primary)_18%,transparent)]'
+                  ? 'bg-[var(--color-accent-primary)]/10 text-[var(--color-text-primary)] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-accent-primary)_25%,transparent)]'
                   : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]',
               )}
               title={`${item.label} (Alt+${shortcutDigit})`}
@@ -201,13 +200,13 @@ export function Sidebar() {
               {showActiveIndicator && !compact && (
                 <motion.div
                   layoutId="activeNavIndicator"
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-[var(--color-accent-primary)]"
+                  className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-[var(--color-accent-primary)]"
                   transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 />
               )}
 
               {showActiveIndicator && compact && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 rounded-r-md bg-[var(--color-accent-primary)]"></div>
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-1/2 bg-[var(--color-accent-primary)]"></div>
               )}
             </button>
           )
@@ -232,25 +231,27 @@ export function Sidebar() {
                 setCurrentView('profile')
               }
             }}
-            className="flex items-center gap-3 mb-4 cursor-pointer hover:bg-[var(--color-bg-hover)] p-2 rounded-lg -mx-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-primary)]"
+            className="flex items-center gap-3 mb-4 cursor-pointer hover:bg-[var(--color-bg-hover)] p-2 rounded-lg -mx-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)]"
           >
             <div className="relative shrink-0">
-              <div className="w-10 h-10 rounded-full bg-[#2A2F45] overflow-hidden flex items-center justify-center">
-                <CircleUser size={24} className="text-[#9CA3AF]" />
+              <div className="w-10 h-10 rounded-full bg-[var(--color-bg-active)] overflow-hidden flex items-center justify-center">
+                <CircleUser size={24} className="text-[var(--color-text-muted)]" />
               </div>
-              <div className="absolute -bottom-1 -right-1 bg-[#10B981] w-3.5 h-3.5 rounded-full border-2 border-[var(--color-bg-panel)]"></div>
+              <div className="absolute -bottom-1 -right-1 bg-[var(--color-accent-success)] w-3.5 h-3.5 rounded-full border-2 border-[var(--color-bg-panel)]"></div>
             </div>
             <div className="flex-1 min-w-0 overflow-hidden">
               <div className="flex items-center justify-between">
                 {overview ? (
-                  <p className="text-sm font-medium text-white truncate">{overview.greetingName}</p>
+                  <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">
+                    {overview.greetingName}
+                  </p>
                 ) : (
-                  <div className="h-4 w-20 rounded bg-[var(--color-bg-base)] animate-pulse" />
+                  <Skeleton className="h-4 w-20" />
                 )}
                 {levelTitle && (
-                  <span className="text-[10px] font-bold bg-[var(--color-accent-purple)]/20 text-[var(--color-accent-purple)] px-1.5 py-0.5 rounded">
+                  <Badge variant="purple" className="px-1.5 py-0.5 text-[10px] font-bold">
                     {levelTitle}
-                  </span>
+                  </Badge>
                 )}
               </div>
               <div className="flex items-center justify-between mt-0.5">
@@ -263,12 +264,12 @@ export function Sidebar() {
                   </>
                 ) : (
                   <>
-                    <div className="h-3 w-10 rounded bg-[var(--color-bg-base)] animate-pulse" />
-                    <div className="h-2.5 w-14 rounded bg-[var(--color-bg-base)] animate-pulse" />
+                    <Skeleton className="h-3 w-10" />
+                    <Skeleton className="h-2.5 w-14" />
                   </>
                 )}
               </div>
-              <div className="w-full h-1 bg-[var(--color-bg-base)] rounded-full mt-1.5 overflow-hidden">
+              <div className="w-full h-1 bg-[var(--color-bg-base)] rounded-[2px] mt-1.5 overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-[var(--color-accent-primary)] to-[var(--color-accent-purple)] transition-[width] duration-500"
                   style={{ width: `${xpPercent}%` }}
@@ -290,50 +291,41 @@ export function Sidebar() {
             className="flex items-center justify-center mb-6 mt-2 relative cursor-pointer group focus-visible:outline-none"
           >
             <div className="relative">
-              <div className="w-8 h-8 rounded-full bg-[#2A2F45] overflow-hidden flex items-center justify-center group-hover:ring-2 ring-[var(--color-accent-primary)]/50 transition-all">
-                <CircleUser size={18} className="text-[#9CA3AF]" />
+              <div className="w-8 h-8 rounded-full bg-[var(--color-bg-active)] overflow-hidden flex items-center justify-center group-hover:ring-2 ring-[var(--color-accent-primary)]/50 transition-all">
+                <CircleUser size={18} className="text-[var(--color-text-muted)]" />
               </div>
-              <div className="absolute -bottom-0.5 -right-0.5 bg-[#10B981] w-2.5 h-2.5 rounded-full border border-[var(--color-bg-panel)]"></div>
+              <div className="absolute -bottom-0.5 -right-0.5 bg-[var(--color-accent-success)] w-2.5 h-2.5 rounded-full border border-[var(--color-bg-panel)]"></div>
             </div>
           </div>
         )}
 
         <div
           className={cn(
-            'flex text-[var(--color-text-muted)]',
-            compact ? 'flex-col items-center gap-4' : 'items-center justify-between',
+            'flex',
+            compact ? 'flex-col items-center gap-2' : 'items-center justify-between',
           )}
         >
-          <button
+          <IconButton
+            label={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
             onClick={toggleTheme}
-            className="p-1.5 hover:text-white hover:bg-[var(--color-bg-hover)] rounded-md transition-colors"
-            title={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
           >
-            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
-          <button
-            onClick={toggleSidebar}
-            className={cn(
-              'p-1.5 hover:text-white hover:bg-[var(--color-bg-hover)] rounded-md transition-colors',
-              viewportCompact && 'cursor-default opacity-45',
-            )}
-            disabled={viewportCompact}
-            title={
+            {theme === 'dark' ? <Sun /> : <Moon />}
+          </IconButton>
+          <IconButton
+            label={
               viewportCompact ? '窄屏下自动收起侧边栏' : collapsed ? '展开侧边栏' : '收起侧边栏'
             }
+            onClick={toggleSidebar}
+            disabled={viewportCompact}
+            className={cn(viewportCompact && 'cursor-default opacity-45')}
           >
             <LayoutPanelLeft
-              size={16}
               className={compact ? 'rotate-180 transition-transform' : 'transition-transform'}
             />
-          </button>
-          <button
-            onClick={() => setCurrentView('settings')}
-            className="p-1.5 hover:text-white hover:bg-[var(--color-bg-hover)] rounded-md transition-colors"
-            title="设置"
-          >
-            <Settings size={16} />
-          </button>
+          </IconButton>
+          <IconButton label="设置" onClick={() => setCurrentView('settings')}>
+            <Settings />
+          </IconButton>
         </div>
         <button
           type="button"
@@ -341,7 +333,7 @@ export function Sidebar() {
           onClick={toggleAITutor}
           aria-pressed={showAITutor}
           className={cn(
-            'group relative isolate mt-3 overflow-hidden rounded-lg border border-[var(--color-accent-solid)] bg-[var(--color-accent-solid)] text-[var(--color-on-accent)] shadow-md transition-all hover:bg-[var(--color-accent-solid-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg-panel)]',
+            'group relative isolate mt-3 overflow-hidden rounded-lg bg-[var(--color-accent-primary)] on-accent-bright transition-colors hover:bg-[var(--color-accent-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg-panel)]',
             compact
               ? 'flex h-10 w-10 items-center justify-center'
               : 'flex w-full items-center justify-center gap-2 px-3 py-2.5 text-sm font-semibold',

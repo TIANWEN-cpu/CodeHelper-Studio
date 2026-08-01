@@ -10,8 +10,8 @@ import {
 } from '../utils/knowledgeRetrieval'
 
 const KNOWLEDGE_RETRIEVAL_COMPONENT = 'knowledge-retrieval'
-const KEYWORD_SCHEMA_VERSION = 1
-const TRIGRAM_SCHEMA_VERSION = 2
+export const KEYWORD_SCHEMA_VERSION = 1
+export const TRIGRAM_SCHEMA_VERSION = 2
 const CHANNEL_CANDIDATE_LIMIT = 80
 const LIKE_TERM_LIMIT = 12
 
