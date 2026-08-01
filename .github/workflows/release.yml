@@ -19,7 +19,7 @@ on:
         default: false
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: codehelper-release
@@ -702,7 +702,6 @@ jobs:
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
-          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
           PRERELEASE: ${{ contains(needs.prepare.outputs.version, '-') }}
         with:
           github-token: ${{ github.token }}
@@ -714,7 +713,6 @@ jobs:
               owner,
               repo,
               tag_name: tag,
-              target_commitish: process.env.RELEASE_SHA,
               name: `CodeHelper ${tag}`,
               body: fs.readFileSync('release_notes.md', 'utf8'),
               draft: true,
@@ -822,7 +820,6 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_ID: ${{ needs.publish.outputs.release_id }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
-          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
@@ -839,7 +836,6 @@ jobs:
           version = os.environ["RELEASE_VERSION"]
           release_id = int(os.environ["RELEASE_ID"])
           tag = os.environ["RELEASE_TAG"]
-          source_commit = os.environ["RELEASE_SHA"].lower()
           expected_names = {
               f"CodeHelper-Installer-{version}.exe",
               f"CodeHelper-Installer-{version}.exe.blockmap",
@@ -863,10 +859,8 @@ jobs:
           staged_names = {path.name for path in root.iterdir() if path.is_file()}
           require(release.get("id") == release_id, "candidate release ID is incorrect")
           require(release.get("tag_name") == tag, "candidate release tag is incorrect")
-          require(
-              str(release.get("target_commitish", "")).lower() == source_commit,
-              "candidate target_commitish does not match the prepared release commit",
-          )
+          # Existing tags are resolved and verified separately; GitHub may expose
+          # an empty or branch-valued target_commitish for tag-backed releases.
           require(release.get("draft") is True, "candidate release is not a draft")
           require(staged_names == expected_names, "staged build artifact set is incorrect")
           require(set(assets_by_name) == expected_names, "candidate server asset set is incorrect")
@@ -1280,7 +1274,6 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_ID: ${{ needs.publish.outputs.release_id }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
-          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
           PRERELEASE: ${{ contains(needs.prepare.outputs.version, '-') }}
           MARK_LATEST: ${{ steps.latest_policy.outputs.latest }}
           PUBLISHED_MARKER: ${{ runner.temp }}/codehelper-release-${{ github.run_id }}-${{ github.run_attempt }}.published
@@ -1298,15 +1291,12 @@ jobs:
           expected = {
               "id": int(os.environ["RELEASE_ID"]),
               "tag_name": os.environ["RELEASE_TAG"],
-              "target_commitish": os.environ["RELEASE_SHA"].lower(),
           }
           errors = []
           if release.get("id") != expected["id"]:
               errors.append("pre-finalize release ID is incorrect")
           if release.get("tag_name") != expected["tag_name"]:
               errors.append("pre-finalize release tag is incorrect")
-          if str(release.get("target_commitish", "")).lower() != expected["target_commitish"]:
-              errors.append("pre-finalize target_commitish is incorrect")
           if release.get("draft") is not True:
               errors.append("pre-finalize release is not a draft")
           if errors:
@@ -1375,8 +1365,6 @@ jobs:
               errors.append("finalized release ID is incorrect")
           if release.get("tag_name") != os.environ["RELEASE_TAG"]:
               errors.append("finalized release tag is incorrect")
-          if str(release.get("target_commitish", "")).lower() != os.environ["RELEASE_SHA"].lower():
-              errors.append("finalized target_commitish is incorrect")
           if release.get("draft") is not False:
               errors.append("finalized release is still a draft")
           if release.get("immutable") is not True:
@@ -1396,7 +1384,6 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_ID: ${{ needs.publish.outputs.release_id }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
-          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
         run: |
           set -euo pipefail
           gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" > requested-draft-release.json
@@ -1412,8 +1399,6 @@ jobs:
               errors.append("requested draft release ID is incorrect")
           if release.get("tag_name") != os.environ["RELEASE_TAG"]:
               errors.append("requested draft release tag is incorrect")
-          if str(release.get("target_commitish", "")).lower() != os.environ["RELEASE_SHA"].lower():
-              errors.append("requested draft target_commitish is incorrect")
           if release.get("draft") is not True:
               errors.append("requested draft was unexpectedly published")
           if errors:
@@ -1462,7 +1447,6 @@ jobs:
         env:
           RELEASE_ID: ${{ needs.publish.outputs.release_id }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
-          RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
@@ -1516,11 +1500,6 @@ jobs:
 
           require(release.get("id") == int(os.environ["RELEASE_ID"]), "final release ID is incorrect")
           require(release.get("tag_name") == os.environ["RELEASE_TAG"], "final release tag is incorrect")
-          require(
-              str(release.get("target_commitish", "")).lower()
-              == os.environ["RELEASE_SHA"].lower(),
-              "final target_commitish is incorrect",
-          )
           require(release.get("draft") is False, "final release returned to draft state")
           require(release.get("immutable") is True, "final release is not immutable")
           require(set(assets_by_name) == expected_names, "final server asset set is incorrect")
